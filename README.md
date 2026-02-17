@@ -12,6 +12,14 @@ npm install
 npm run dev
 ```
 
+`VITE_FUNCTIONS_BASE_URL`는 반드시 Functions 서버 URL이어야 합니다.
+예시:
+- 로컬 에뮬레이터: `http://127.0.0.1:5001/<firebase-project-id>/asia-northeast3`
+- 배포 환경: `https://<region>-<project-id>.cloudfunctions.net`
+
+Cloudflare Pages를 사용하면 프로젝트 설정의 Environment Variables에
+`VITE_FUNCTIONS_BASE_URL`를 추가한 뒤 재배포해야 합니다.
+
 ## 2) Functions 실행
 
 ```bash

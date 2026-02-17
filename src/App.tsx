@@ -14,16 +14,27 @@ type Proposal = {
   }
 }
 
-const BASE_URL = import.meta.env.VITE_FUNCTIONS_BASE_URL
+const BASE_URL = (import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '')
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}/${path}`, {
+  if (!BASE_URL) {
+    throw new Error('`VITE_FUNCTIONS_BASE_URL`가 설정되지 않았습니다.')
+  }
+
+  const url = `${BASE_URL}/${path}`
+  const response = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
 
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`)
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    const bodyPreview = (await response.text()).slice(0, 80).replace(/\s+/g, ' ')
+    throw new Error(`API가 JSON이 아닌 응답을 반환했습니다 (${url}) - content-type: ${contentType || 'unknown'}, body: ${bodyPreview}`)
   }
 
   return response.json() as Promise<T>
@@ -56,6 +67,9 @@ function App() {
   }
 
   useEffect(() => {
+    if (!BASE_URL) {
+      return
+    }
     void loadProposals()
   }, [])
 
