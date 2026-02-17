@@ -1,42 +1,91 @@
-#root {
-  max-width: 1280px;
+.page {
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  max-width: 1200px;
+  padding: 32px 20px 48px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.header h1 {
+  margin: 0;
+  font-size: 32px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+.header p {
+  margin: 8px 0 0;
+  color: #3f4a53;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+button {
+  background: #153e5c;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 10px 14px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button.danger {
+  background: #9e2a2b;
+}
+
+.tableWrap {
+  background: #fff;
+  border: 1px solid #d6dee6;
+  border-radius: 12px;
+  overflow: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 980px;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e5ebf0;
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  background: #f4f8fb;
+  font-size: 13px;
+}
+
+input[type='text'],
+input[type='date'],
+td input:not([type='checkbox']) {
+  border: 1px solid #c7d3de;
+  border-radius: 6px;
+  font-size: 14px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.error {
+  color: #9e2a2b;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .header h1 {
+    font-size: 26px;
   }
-  to {
-    transform: rotate(360deg);
+
+  .toolbar {
+    flex-wrap: wrap;
   }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
 }

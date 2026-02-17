@@ -1,0 +1,24 @@
+{
+  "name": "notion-design-sync-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "cors": "^2.8.5",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.17.57",
+    "typescript": "^5.9.3"
+  }
+}
