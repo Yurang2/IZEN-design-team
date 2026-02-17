@@ -34,9 +34,23 @@
   margin: 0 0 10px;
 }
 
+.configRow {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr auto;
+  margin-bottom: 10px;
+}
+
 .configActions {
   display: flex;
   gap: 8px;
+  margin-top: 10px;
+}
+
+.hint {
+  color: #153e5c;
+  font-size: 12px;
+  font-weight: 600;
   margin-top: 10px;
 }
 
@@ -107,5 +121,9 @@ td input:not([type='checkbox']) {
 
   .toolbar {
     flex-wrap: wrap;
+  }
+
+  .configRow {
+    grid-template-columns: 1fr;
   }
 }

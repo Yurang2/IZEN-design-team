@@ -36,6 +36,13 @@ const runtimeBaseUrl =
 const buildTimeBaseUrl = import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined
 const BASE_URL = (runtimeBaseUrl ?? queryBaseUrl ?? localBaseUrl ?? buildTimeBaseUrl)?.trim().replace(/\/+$/, '')
 
+function normalizeApiBaseUrl(value: string): string {
+  return value
+    .trim()
+    .replace(/\/(listPendingProposals|updateProposal|deleteProposal|approveProposals)\/?$/, '')
+    .replace(/\/+$/, '')
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!BASE_URL) {
     throw new Error(
@@ -69,6 +76,10 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [apiBaseInput, setApiBaseInput] = useState(BASE_URL ?? '')
+  const [projectIdInput, setProjectIdInput] = useState('izen-design-team')
+  const [regionInput, setRegionInput] = useState('asia-northeast3')
+  const [connectionHint, setConnectionHint] = useState<string | null>(null)
+  const [testingConnection, setTestingConnection] = useState(false)
 
   const selectedCount = useMemo(
     () => proposals.filter((proposal) => selected[proposal.id]).length,
@@ -157,7 +168,7 @@ function App() {
   }
 
   const saveApiBase = () => {
-    const normalized = apiBaseInput.trim().replace(/\/+$/, '')
+    const normalized = normalizeApiBaseUrl(apiBaseInput)
     if (!normalized) {
       window.localStorage.removeItem('FUNCTIONS_BASE_URL')
       window.location.reload()
@@ -171,6 +182,48 @@ function App() {
   const clearApiBase = () => {
     window.localStorage.removeItem('FUNCTIONS_BASE_URL')
     window.location.reload()
+  }
+
+  const fillByProjectId = () => {
+    const projectId = projectIdInput.trim()
+    const region = regionInput.trim() || 'asia-northeast3'
+    if (!projectId) {
+      setConnectionHint('프로젝트 ID를 먼저 입력하세요.')
+      return
+    }
+
+    setApiBaseInput(`https://${region}-${projectId}.cloudfunctions.net`)
+    setConnectionHint(null)
+  }
+
+  const testConnection = async () => {
+    const base = normalizeApiBaseUrl(apiBaseInput)
+    if (!base) {
+      setConnectionHint('먼저 API URL을 입력하세요.')
+      return
+    }
+
+    setTestingConnection(true)
+    setConnectionHint(null)
+    try {
+      const response = await fetch(`${base}/listPendingProposals`)
+      const contentType = response.headers.get('content-type') ?? ''
+
+      if (!response.ok) {
+        setConnectionHint(`연결 실패: HTTP ${response.status}`)
+        return
+      }
+      if (!contentType.includes('application/json')) {
+        setConnectionHint(`연결 실패: JSON 아님 (${contentType || 'unknown'})`)
+        return
+      }
+
+      setConnectionHint('연결 성공: 이 URL을 저장해도 됩니다.')
+    } catch {
+      setConnectionHint('연결 실패: URL 또는 CORS/배포 상태를 확인하세요.')
+    } finally {
+      setTestingConnection(false)
+    }
   }
 
   return (
@@ -191,6 +244,21 @@ function App() {
 
       <section className="configPanel">
         <p>Functions API Base URL</p>
+        <div className="configRow">
+          <input
+            type="text"
+            placeholder="firebase project id"
+            value={projectIdInput}
+            onChange={(event) => setProjectIdInput(event.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="region (asia-northeast3)"
+            value={regionInput}
+            onChange={(event) => setRegionInput(event.target.value)}
+          />
+          <button onClick={fillByProjectId}>URL 자동생성</button>
+        </div>
         <input
           type="text"
           placeholder="https://<region>-<project-id>.cloudfunctions.net"
@@ -198,11 +266,15 @@ function App() {
           onChange={(event) => setApiBaseInput(event.target.value)}
         />
         <div className="configActions">
+          <button onClick={() => void testConnection()} disabled={testingConnection}>
+            {testingConnection ? '연결 테스트 중...' : '연결 테스트'}
+          </button>
           <button onClick={saveApiBase}>저장 후 다시연결</button>
           <button className="danger" onClick={clearApiBase}>
             설정 초기화
           </button>
         </div>
+        {connectionHint && <p className="hint">{connectionHint}</p>}
       </section>
 
       {!BASE_URL && <p className="error">먼저 위에 Functions API Base URL을 입력하고 저장하세요.</p>}
