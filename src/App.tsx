@@ -14,11 +14,33 @@ type Proposal = {
   }
 }
 
-const BASE_URL = (import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '')
+declare global {
+  interface Window {
+    __APP_CONFIG__?: {
+      FUNCTIONS_BASE_URL?: string
+    }
+  }
+}
+
+const queryBaseUrl =
+  typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('apiBase') ?? undefined : undefined
+
+if (typeof window !== 'undefined' && queryBaseUrl) {
+  window.localStorage.setItem('FUNCTIONS_BASE_URL', queryBaseUrl)
+}
+
+const localBaseUrl =
+  typeof window !== 'undefined' ? window.localStorage.getItem('FUNCTIONS_BASE_URL') ?? undefined : undefined
+const runtimeBaseUrl =
+  typeof window !== 'undefined' ? window.__APP_CONFIG__?.FUNCTIONS_BASE_URL : undefined
+const buildTimeBaseUrl = import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined
+const BASE_URL = (runtimeBaseUrl ?? queryBaseUrl ?? localBaseUrl ?? buildTimeBaseUrl)?.trim().replace(/\/+$/, '')
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!BASE_URL) {
-    throw new Error('`VITE_FUNCTIONS_BASE_URL`가 설정되지 않았습니다.')
+    throw new Error(
+      '`VITE_FUNCTIONS_BASE_URL` 또는 `/app-config.js`의 `FUNCTIONS_BASE_URL`가 설정되지 않았습니다. (?apiBase=https://...)',
+    )
   }
 
   const url = `${BASE_URL}/${path}`
@@ -46,6 +68,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [apiBaseInput, setApiBaseInput] = useState(BASE_URL ?? '')
 
   const selectedCount = useMemo(
     () => proposals.filter((proposal) => selected[proposal.id]).length,
@@ -133,6 +156,23 @@ function App() {
     setSelected((prev) => ({ ...prev, [proposalId]: checked }))
   }
 
+  const saveApiBase = () => {
+    const normalized = apiBaseInput.trim().replace(/\/+$/, '')
+    if (!normalized) {
+      window.localStorage.removeItem('FUNCTIONS_BASE_URL')
+      window.location.reload()
+      return
+    }
+
+    window.localStorage.setItem('FUNCTIONS_BASE_URL', normalized)
+    window.location.reload()
+  }
+
+  const clearApiBase = () => {
+    window.localStorage.removeItem('FUNCTIONS_BASE_URL')
+    window.location.reload()
+  }
+
   return (
     <main className="page">
       <header className="header">
@@ -141,16 +181,35 @@ function App() {
       </header>
 
       <section className="toolbar">
-        <button onClick={() => void loadProposals()} disabled={loading || submitting}>
+        <button onClick={() => void loadProposals()} disabled={!BASE_URL || loading || submitting}>
           새로고침
         </button>
-        <button onClick={() => void approveSelected()} disabled={submitting || selectedCount === 0}>
+        <button onClick={() => void approveSelected()} disabled={!BASE_URL || submitting || selectedCount === 0}>
           선택 승인 ({selectedCount})
         </button>
       </section>
 
-      {!BASE_URL && <p className="error">`VITE_FUNCTIONS_BASE_URL` 환경변수가 필요합니다.</p>}
+      <section className="configPanel">
+        <p>Functions API Base URL</p>
+        <input
+          type="text"
+          placeholder="https://<region>-<project-id>.cloudfunctions.net"
+          value={apiBaseInput}
+          onChange={(event) => setApiBaseInput(event.target.value)}
+        />
+        <div className="configActions">
+          <button onClick={saveApiBase}>저장 후 다시연결</button>
+          <button className="danger" onClick={clearApiBase}>
+            설정 초기화
+          </button>
+        </div>
+      </section>
+
+      {!BASE_URL && <p className="error">먼저 위에 Functions API Base URL을 입력하고 저장하세요.</p>}
       {error && <p className="error">오류: {error}</p>}
+      {error?.includes('JSON이 아닌 응답') && (
+        <p className="error">입력한 URL이 API가 아니라 웹페이지 주소일 가능성이 큽니다. `...cloudfunctions.net` 주소를 넣어주세요.</p>
+      )}
       {loading && <p>로딩 중...</p>}
 
       <section className="tableWrap">

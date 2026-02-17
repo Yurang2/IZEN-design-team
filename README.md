@@ -20,6 +20,10 @@ npm run dev
 Cloudflare Pages를 사용하면 프로젝트 설정의 Environment Variables에
 `VITE_FUNCTIONS_BASE_URL`를 추가한 뒤 재배포해야 합니다.
 
+또는 배포된 웹 화면 상단의 `Functions API Base URL` 입력칸에
+`https://<region>-<project-id>.cloudfunctions.net`를 입력하고
+`저장 후 다시연결`을 눌러 런타임에 설정할 수 있습니다.
+
 ## 2) Functions 실행
 
 ```bash

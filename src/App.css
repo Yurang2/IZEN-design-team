@@ -20,6 +20,26 @@
   margin: 24px 0;
 }
 
+.configPanel {
+  background: #fff;
+  border: 1px solid #d6dee6;
+  border-radius: 12px;
+  margin: 0 0 16px;
+  padding: 14px;
+}
+
+.configPanel p {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.configActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 button {
   background: #153e5c;
   border: 0;
