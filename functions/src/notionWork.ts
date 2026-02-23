@@ -281,6 +281,10 @@ function parseDbTitle(db: any): string {
   return (db?.title ?? []).map((item: any) => item?.plain_text ?? '').join('').trim()
 }
 
+function normalizeNotionId(value: string | undefined | null): string {
+  return (value ?? '').replace(/-/g, '').toLowerCase()
+}
+
 function fieldToApi(field: FieldSchema): ApiSchemaField {
   return {
     key: field.key,
@@ -496,7 +500,11 @@ export class NotionWorkService {
 
   private buildTaskSchema(properties: Record<string, any>): TaskSchema {
     const relationFallback = (entries: Array<[string, any]>) =>
-      entries.find(([, prop]) => prop?.type === 'relation' && prop?.relation?.database_id === config.projectDbId)
+      entries.find(
+        ([name, prop]) =>
+          prop?.type === 'relation' &&
+          (name.includes('귀속') || normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(config.projectDbId)),
+      )
 
     const projectSelectFallback = (entries: Array<[string, any]>) => {
       const byName = entries.find(([name, prop]) => name.includes('프로젝트') && ['select', 'multi_select', 'rich_text'].includes(prop?.type))
@@ -614,7 +622,9 @@ export class NotionWorkService {
     const relationProjectId = first(relationIds)
     const selectProjectName = extractTextLike(props, schema.fields.projectSelect, '')
 
-    const projectNameFromRelation = relationProjectId ? projectNameMap[relationProjectId] ?? relationProjectId : undefined
+    const projectNameFromRelation = relationProjectId
+      ? projectNameMap[normalizeNotionId(relationProjectId)] ?? projectNameMap[relationProjectId] ?? relationProjectId
+      : undefined
     const projectName = projectNameFromRelation || selectProjectName || '[UNKNOWN]'
 
     const projectSource: 'relation' | 'select' | 'unknown' = projectNameFromRelation
@@ -715,6 +725,7 @@ export class NotionWorkService {
     for (const project of projects.projects) {
       if (project.source === 'project_db') {
         projectNameMap[project.id] = project.name
+        projectNameMap[normalizeNotionId(project.id)] = project.name
       }
     }
 
@@ -809,6 +820,7 @@ export class NotionWorkService {
     for (const project of projects.projects) {
       if (project.source === 'project_db') {
         projectNameMap[project.id] = project.name
+        projectNameMap[normalizeNotionId(project.id)] = project.name
       }
     }
 

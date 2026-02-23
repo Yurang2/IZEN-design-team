@@ -280,6 +280,7 @@ function App() {
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
+  const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -478,8 +479,11 @@ function App() {
     const keyword = assignmentSearch.trim().toLowerCase()
     return tasks
       .filter((task) => {
+        if (assignmentProjectFilter && task.projectName !== assignmentProjectFilter) {
+          return false
+        }
         if (!keyword) return true
-        return `${task.projectName} ${task.taskName} ${task.workType}`.toLowerCase().includes(keyword)
+        return `${task.projectName} ${task.taskName} ${task.workType} ${task.assignee.join(' ')}`.toLowerCase().includes(keyword)
       })
       .sort((a, b) => {
         const sameWorkTypeA = a.workType === assignmentTarget.workCategory ? 0 : 1
@@ -488,7 +492,12 @@ function App() {
         return `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')
       })
       .slice(0, 120)
-  }, [assignmentSearch, assignmentTarget, tasks])
+  }, [assignmentProjectFilter, assignmentSearch, assignmentTarget, tasks])
+
+  const assignmentProjectOptions = useMemo(
+    () => Array.from(new Set(tasks.map((task) => task.projectName).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
+    [tasks],
+  )
 
   const statusOptions = useMemo(() => {
     const fromSchema = schema?.fields.status?.options ?? []
@@ -569,6 +578,7 @@ function App() {
       workCategory: item.workCategory,
     })
     setAssignmentSearch('')
+    setAssignmentProjectFilter('')
   }
 
   const onSelectAssignmentTask = (taskId: string) => {
@@ -1005,7 +1015,9 @@ function App() {
                           {isAssigned ? '할당됨' : '미할당'}
                         </span>
                       </td>
-                      <td className="assignmentCell">{assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName}` : '-'}</td>
+                      <td className="assignmentCell">
+                        {assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName} (${joinOrDash(assignedTask.assignee)})` : '-'}
+                      </td>
                       <td>
                         <button type="button" className="secondary mini" onClick={() => onOpenAssignmentPicker(item)}>
                           {isAssigned ? '변경' : '할당'}
@@ -1119,6 +1131,18 @@ function App() {
               />
             </label>
 
+            <label>
+              프로젝트별 보기
+              <select value={assignmentProjectFilter} onChange={(event) => setAssignmentProjectFilter(event.target.value)}>
+                <option value="">전체 프로젝트</option>
+                {assignmentProjectOptions.map((projectName) => (
+                  <option key={projectName} value={projectName}>
+                    {projectName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <div className="assignmentModalActions">
               <button type="button" className="secondary" onClick={() => onSelectAssignmentTask('')}>
                 미할당 처리
@@ -1138,6 +1162,7 @@ function App() {
                     <span>
                       [{task.projectName}] · {task.workType || '-'} · {task.status}
                     </span>
+                    <span>담당자: {joinOrDash(task.assignee)}</span>
                   </button>
                 )
               })}
