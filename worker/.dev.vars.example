@@ -1,4 +1,5 @@
 NOTION_TOKEN=secret_xxx
 NOTION_TASK_DB_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 NOTION_PROJECT_DB_ID=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+NOTION_CHECKLIST_DB_ID=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
 API_CACHE_TTL_SECONDS=60

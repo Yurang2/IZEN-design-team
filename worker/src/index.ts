@@ -8,9 +8,11 @@ const CHECKLIST_ASSIGNMENT_CACHE_URL = 'https://cache.internal/checklist-assignm
 const DEFAULT_CACHE_TTL_MS = 60_000
 const KR_HOLIDAY_JSON_URL = 'https://holidays.hyunbin.page/basic.json'
 const KR_HOLIDAY_CACHE_MS = 12 * 60 * 60 * 1000
+const DEFAULT_LOG_LIMIT = 100
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
+let checklistDbInitInFlight: Promise<void> | null = null
 
 function requiredEnv(env: Env): string | null {
   if (!env.NOTION_TOKEN) return 'NOTION_TOKEN'
@@ -112,8 +114,11 @@ async function getKoreanHolidaySet(): Promise<Set<string>> {
 function pickChecklistOffset(
   item: Record<string, any>,
   operationMode: 'self' | 'dealer' | undefined,
-  fulfillmentMode: 'domestic' | 'overseas' | undefined,
+  fulfillmentMode: 'domestic' | 'overseas' | 'dealer' | undefined,
 ): number | undefined {
+  if (fulfillmentMode === 'dealer' && typeof item.dealerOffsetBusinessDays === 'number') {
+    return item.dealerOffsetBusinessDays
+  }
   if (fulfillmentMode === 'overseas' && typeof item.overseasOffsetBusinessDays === 'number') {
     return item.overseasOffsetBusinessDays
   }
@@ -135,16 +140,13 @@ function pickChecklistOffset(
 function pickChecklistBaseDate(
   item: Record<string, any>,
   eventDate: string | undefined,
-  eventEndDate: string | undefined,
   shippingDate: string | undefined,
 ): Date | null {
   const basis = item.dueBasis ?? 'event_start'
   if (basis === 'shipping') {
     return parseIsoDate(shippingDate) ?? parseIsoDate(eventDate)
   }
-  if (basis === 'event_end') {
-    return parseIsoDate(eventEndDate) ?? parseIsoDate(eventDate)
-  }
+  if (basis === 'event_end') return parseIsoDate(eventDate)
   return parseIsoDate(eventDate)
 }
 
@@ -311,7 +313,7 @@ async function writeSnapshotToCache(snapshot: TaskSnapshot, cacheTtlMs: number):
   await caches.default.put(cacheRequest(), response)
 }
 
-async function loadChecklistAssignments(): Promise<Record<string, string>> {
+async function loadChecklistAssignmentsFromCache(): Promise<Record<string, string>> {
   const cached = await caches.default.match(checklistAssignmentCacheRequest())
   if (!cached) return {}
 
@@ -326,7 +328,7 @@ async function loadChecklistAssignments(): Promise<Record<string, string>> {
   }
 }
 
-async function writeChecklistAssignments(assignments: Record<string, string>): Promise<void> {
+async function writeChecklistAssignmentsToCache(assignments: Record<string, string>): Promise<void> {
   const response = new Response(
     JSON.stringify({
       savedAt: Date.now(),
@@ -341,6 +343,238 @@ async function writeChecklistAssignments(assignments: Record<string, string>): P
   )
 
   await caches.default.put(checklistAssignmentCacheRequest(), response)
+}
+
+function parseLogLimit(value: string | undefined): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return DEFAULT_LOG_LIMIT
+  return Math.max(1, Math.min(200, Math.floor(parsed)))
+}
+
+function hasChecklistDb(env: Env): boolean {
+  return Boolean(env.CHECKLIST_DB)
+}
+
+async function ensureChecklistDbTables(env: Env): Promise<void> {
+  const db = env.CHECKLIST_DB
+  if (!db) return
+  if (checklistDbInitInFlight) {
+    await checklistDbInitInFlight
+    return
+  }
+
+  checklistDbInitInFlight = (async () => {
+    await db
+      .prepare(
+      `CREATE TABLE IF NOT EXISTS checklist_assignments (
+        assignment_key TEXT PRIMARY KEY,
+        event_category TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        task_id TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        updated_by TEXT,
+        updated_ip TEXT,
+        updated_user_agent TEXT
+      )`,
+    )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+      `CREATE TABLE IF NOT EXISTS checklist_assignment_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        assignment_key TEXT NOT NULL,
+        event_category TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        previous_task_id TEXT,
+        next_task_id TEXT,
+        action TEXT NOT NULL,
+        actor TEXT,
+        ip TEXT,
+        user_agent TEXT,
+        created_at INTEGER NOT NULL
+      )`,
+    )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+      `CREATE INDEX IF NOT EXISTS idx_checklist_assignment_logs_key_created_at
+       ON checklist_assignment_logs(assignment_key, created_at DESC)`,
+    )
+      .bind()
+      .run()
+  })()
+
+  try {
+    await checklistDbInitInFlight
+  } catch (error) {
+    checklistDbInitInFlight = null
+    throw error
+  }
+}
+
+async function loadChecklistAssignmentsFromD1(env: Env): Promise<Record<string, string>> {
+  if (!env.CHECKLIST_DB) return {}
+  await ensureChecklistDbTables(env)
+  const result = await env.CHECKLIST_DB.prepare(`SELECT assignment_key, task_id FROM checklist_assignments`).bind().all<{
+    assignment_key?: unknown
+    task_id?: unknown
+  }>()
+
+  const rows = Array.isArray(result.results) ? result.results : []
+  const assignments: Record<string, string> = {}
+  for (const row of rows) {
+    const key = asString(typeof row.assignment_key === 'string' ? row.assignment_key : undefined)
+    const taskId = asString(typeof row.task_id === 'string' ? row.task_id : undefined)
+    if (!key || !taskId) continue
+    assignments[key] = taskId
+  }
+  return assignments
+}
+
+async function loadChecklistAssignments(env: Env): Promise<{ assignments: Record<string, string>; mode: 'd1' | 'cache' }> {
+  if (hasChecklistDb(env)) {
+    return {
+      assignments: await loadChecklistAssignmentsFromD1(env),
+      mode: 'd1',
+    }
+  }
+  return {
+    assignments: await loadChecklistAssignmentsFromCache(),
+    mode: 'cache',
+  }
+}
+
+function toActorLabel(request: Request, explicitActor?: string): string {
+  const actor = asString(explicitActor)
+  if (actor) return actor.slice(0, 120)
+
+  const accessEmail = asString(request.headers.get('CF-Access-Authenticated-User-Email'))
+  if (accessEmail) return accessEmail.slice(0, 120)
+
+  const userName = asString(request.headers.get('X-User-Name'))
+  if (userName) return userName.slice(0, 120)
+
+  return 'unknown'
+}
+
+function toIp(request: Request): string {
+  return (asString(request.headers.get('CF-Connecting-IP')) ?? '-').slice(0, 64)
+}
+
+function toUserAgent(request: Request): string {
+  return (asString(request.headers.get('User-Agent')) ?? '-').slice(0, 300)
+}
+
+async function writeChecklistAssignmentToD1(
+  env: Env,
+  request: Request,
+  params: {
+    key: string
+    eventCategory: string
+    itemId: string
+    taskId?: string
+    previousTaskId?: string
+    actor?: string
+  },
+): Promise<void> {
+  if (!env.CHECKLIST_DB) return
+  await ensureChecklistDbTables(env)
+
+  const now = Date.now()
+  const actor = toActorLabel(request, params.actor)
+  const ip = toIp(request)
+  const userAgent = toUserAgent(request)
+  const action = params.taskId ? (params.previousTaskId ? 'reassign' : 'assign') : 'unassign'
+
+  if (params.taskId) {
+    await env.CHECKLIST_DB.prepare(
+      `INSERT INTO checklist_assignments
+       (assignment_key, event_category, item_id, task_id, updated_at, updated_by, updated_ip, updated_user_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(assignment_key) DO UPDATE SET
+         event_category = excluded.event_category,
+         item_id = excluded.item_id,
+         task_id = excluded.task_id,
+         updated_at = excluded.updated_at,
+         updated_by = excluded.updated_by,
+         updated_ip = excluded.updated_ip,
+         updated_user_agent = excluded.updated_user_agent`,
+    )
+      .bind(params.key, params.eventCategory, params.itemId, params.taskId, now, actor, ip, userAgent)
+      .run()
+  } else {
+    await env.CHECKLIST_DB.prepare(`DELETE FROM checklist_assignments WHERE assignment_key = ?`).bind(params.key).run()
+  }
+
+  await env.CHECKLIST_DB.prepare(
+    `INSERT INTO checklist_assignment_logs
+     (assignment_key, event_category, item_id, previous_task_id, next_task_id, action, actor, ip, user_agent, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(params.key, params.eventCategory, params.itemId, params.previousTaskId ?? null, params.taskId ?? null, action, actor, ip, userAgent, now)
+    .run()
+}
+
+async function listChecklistAssignmentLogs(
+  env: Env,
+  limit: number,
+): Promise<
+  Array<{
+    id: number
+    key: string
+    eventCategory: string
+    itemId: string
+    previousTaskId: string | null
+    taskId: string | null
+    action: string
+    actor: string | null
+    ip: string | null
+    userAgent: string | null
+    createdAt: number
+  }>
+> {
+  if (!env.CHECKLIST_DB) return []
+  await ensureChecklistDbTables(env)
+
+  const result = await env.CHECKLIST_DB.prepare(
+    `SELECT id, assignment_key, event_category, item_id, previous_task_id, next_task_id, action, actor, ip, user_agent, created_at
+     FROM checklist_assignment_logs
+     ORDER BY id DESC
+     LIMIT ?`,
+  )
+    .bind(limit)
+    .all<{
+      id?: unknown
+      assignment_key?: unknown
+      event_category?: unknown
+      item_id?: unknown
+      previous_task_id?: unknown
+      next_task_id?: unknown
+      action?: unknown
+      actor?: unknown
+      ip?: unknown
+      user_agent?: unknown
+      created_at?: unknown
+    }>()
+
+  const rows = Array.isArray(result.results) ? result.results : []
+  return rows.map((row) => ({
+    id: typeof row.id === 'number' ? row.id : Number(row.id ?? 0),
+    key: typeof row.assignment_key === 'string' ? row.assignment_key : '',
+    eventCategory: typeof row.event_category === 'string' ? row.event_category : '',
+    itemId: typeof row.item_id === 'string' ? row.item_id : '',
+    previousTaskId: typeof row.previous_task_id === 'string' ? row.previous_task_id : null,
+    taskId: typeof row.next_task_id === 'string' ? row.next_task_id : null,
+    action: typeof row.action === 'string' ? row.action : '',
+    actor: typeof row.actor === 'string' ? row.actor : null,
+    ip: typeof row.ip === 'string' ? row.ip : null,
+    userAgent: typeof row.user_agent === 'string' ? row.user_agent : null,
+    createdAt: typeof row.created_at === 'number' ? row.created_at : Number(row.created_at ?? 0),
+  }))
 }
 
 function checklistAssignmentKey(eventCategory: string | undefined, itemId: string): string {
@@ -499,15 +733,19 @@ export default {
       if (request.method === 'GET' && path === '/checklists') {
         const eventName = asString(url.searchParams.get('eventName')) ?? ''
         const eventCategory = asString(url.searchParams.get('eventCategory')) ?? ''
-        const keyword = asString(url.searchParams.get('q')) ?? ''
         const eventDate = asString(url.searchParams.get('eventDate'))
-        const eventEndDate = asString(url.searchParams.get('eventEndDate'))
         const shippingDate = asString(url.searchParams.get('shippingDate'))
         const operationModeRaw = asString(url.searchParams.get('operationMode'))
         const fulfillmentModeRaw = asString(url.searchParams.get('fulfillmentMode'))
         const operationMode = operationModeRaw === 'dealer' ? 'dealer' : operationModeRaw === 'self' ? 'self' : undefined
         const fulfillmentMode =
-          fulfillmentModeRaw === 'overseas' ? 'overseas' : fulfillmentModeRaw === 'domestic' ? 'domestic' : undefined
+          fulfillmentModeRaw === 'overseas'
+            ? 'overseas'
+            : fulfillmentModeRaw === 'domestic'
+              ? 'domestic'
+              : fulfillmentModeRaw === 'dealer'
+                ? 'dealer'
+                : undefined
 
         const allItems = await service.listChecklists()
         const holidaySet = await getKoreanHolidaySet()
@@ -517,14 +755,12 @@ export default {
 
         const items = allItems
           .filter((item) => {
-          const byCategory = eventCategory ? item.eventCategories.includes(eventCategory) : true
-          if (!byCategory) return false
-          if (!keyword) return true
-          const source = `${item.productName} ${item.workCategory} ${item.finalDueText} ${item.eventCategories.join(' ')}`
-          return containsText(source, keyword)
-        })
+            const byCategory = eventCategory ? item.eventCategories.includes(eventCategory) : true
+            if (!byCategory) return false
+            return true
+          })
           .map((item) => {
-            const baseDate = pickChecklistBaseDate(item, eventDate, eventEndDate, shippingDate)
+            const baseDate = pickChecklistBaseDate(item, eventDate, undefined, shippingDate)
             const offsetDays = pickChecklistOffset(item, operationMode, fulfillmentMode)
             if (!baseDate || typeof offsetDays !== 'number') return item
             return {
@@ -538,9 +774,7 @@ export default {
             ok: true,
             eventName,
             eventCategory,
-            keyword,
             eventDate: eventDate ?? '',
-            eventEndDate: eventEndDate ?? '',
             shippingDate: shippingDate ?? '',
             operationMode: operationMode ?? '',
             fulfillmentMode: fulfillmentMode ?? '',
@@ -554,11 +788,25 @@ export default {
       }
 
       if (request.method === 'GET' && path === '/checklist-assignments') {
-        const assignments = await loadChecklistAssignments()
+        const loaded = await loadChecklistAssignments(env)
         return ok(
           {
             ok: true,
-            assignments,
+            assignments: loaded.assignments,
+            storageMode: loaded.mode,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && path === '/checklist-assignment-logs') {
+        const limit = parseLogLimit(asString(url.searchParams.get('limit')))
+        const logs = await listChecklistAssignmentLogs(env, limit)
+        return ok(
+          {
+            ok: true,
+            storageMode: hasChecklistDb(env) ? 'd1' : 'cache',
+            logs,
           },
           origin,
         )
@@ -579,12 +827,26 @@ export default {
           return json({ ok: false, error: 'itemId_required' }, 400, origin)
         }
 
-        const assignments = await loadChecklistAssignments()
+        const loaded = await loadChecklistAssignments(env)
+        const assignments = loaded.assignments
         const key = checklistAssignmentKey(eventCategory, itemId)
+        const previousTaskId = assignments[key]
         if (taskId) assignments[key] = taskId
         else delete assignments[key]
 
-        ctx.waitUntil(writeChecklistAssignments(assignments))
+        if (loaded.mode === 'd1') {
+          const actor = asString(payload.actor)
+          await writeChecklistAssignmentToD1(env, request, {
+            key,
+            eventCategory: eventCategory ?? '',
+            itemId,
+            taskId,
+            previousTaskId,
+            actor,
+          })
+        } else {
+          ctx.waitUntil(writeChecklistAssignmentsToCache(assignments))
+        }
 
         return ok(
           {
@@ -592,6 +854,7 @@ export default {
             key,
             taskId: assignments[key] ?? null,
             assignments,
+            storageMode: loaded.mode,
           },
           origin,
         )
@@ -678,8 +941,9 @@ export default {
             ok: true,
             supported: [
               'GET /api/projects',
-              'GET /api/checklists?eventName=...&eventCategory=...&q=...',
+              'GET /api/checklists?eventName=...&eventCategory=...',
               'GET /api/checklist-assignments',
+              'GET /api/checklist-assignment-logs?limit=100',
               'POST /api/checklist-assignments',
               'GET /api/tasks?projectId=...&status=...&q=...&cursor=...&pageSize=...',
               'GET /api/tasks/:id',

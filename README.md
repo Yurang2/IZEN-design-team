@@ -11,6 +11,7 @@ Browser (React/Vite)
   -> GET/PATCH/POST /api/*
 Cloudflare Worker
   -> 60초 스냅샷 캐시(Cache API, 서버 공용 키)
+  -> 체크리스트 할당 영구저장/감사로그(D1, 선택)
   -> Notion API (Task DB, Project DB)
 Notion Databases (원장)
 ```
@@ -178,6 +179,24 @@ GET /api/projects
 }
 ```
 
+### 6) GET `/api/checklists?eventName=...&eventCategory=...&operationMode=...&fulfillmentMode=...`
+
+- 설명: 행사 체크리스트 조회 + 영업일 역산(주말/한국 공휴일 제외)
+- `operationMode`: `self | dealer`
+- `fulfillmentMode`: `domestic | overseas | dealer`
+
+### 7) GET `/api/checklist-assignments`
+
+- 설명: 체크리스트 할당 상태 조회
+
+### 8) POST `/api/checklist-assignments`
+
+- 설명: 체크리스트 항목을 업무(Task ID)에 할당/해제
+
+### 9) GET `/api/checklist-assignment-logs?limit=100`
+
+- 설명: 체크리스트 할당 변경 로그 조회 (D1 연결 시)
+
 ## 캐시/폴링 설계
 
 - Workers Cache API 사용
@@ -214,6 +233,17 @@ npx wrangler secret put NOTION_PROJECT_DB_ID
 # worker/wrangler.toml [vars] 또는 Cloudflare dashboard vars
 API_CACHE_TTL_SECONDS=60
 ```
+
+D1(권장, 체크리스트 할당 영구저장/로그):
+```toml
+[[d1_databases]]
+binding = "CHECKLIST_DB"
+database_name = "izen-design-checklist"
+database_id = "<Cloudflare D1 database id>"
+```
+
+- D1을 연결하면 `checklist_assignments`, `checklist_assignment_logs` 테이블은 Worker가 자동 생성합니다.
+- D1 미연결 시 체크리스트 할당은 Cache API(임시 저장)로 동작합니다.
 
 ## 로컬 실행
 

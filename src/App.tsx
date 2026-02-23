@@ -54,6 +54,7 @@ type ProjectRecord = {
   eventDate?: string
   iconEmoji?: string
   iconUrl?: string
+  coverUrl?: string
   source: 'project_db' | 'task_select'
 }
 
@@ -97,7 +98,6 @@ type ChecklistPreviewResponse = {
   ok: boolean
   eventName: string
   eventCategory: string
-  keyword: string
   availableCategories: string[]
   count: number
   items: ChecklistPreviewItem[]
@@ -107,6 +107,7 @@ type ChecklistPreviewResponse = {
 type ChecklistAssignmentsResponse = {
   ok: boolean
   assignments: Record<string, string>
+  storageMode?: 'd1' | 'cache'
 }
 
 type Filters = {
@@ -118,11 +119,9 @@ type Filters = {
 type ChecklistPreviewFilters = {
   eventName: string
   eventCategory: string
-  keyword: string
-  eventEndDate: string
   shippingDate: string
   operationMode: '' | 'self' | 'dealer'
-  fulfillmentMode: '' | 'domestic' | 'overseas'
+  fulfillmentMode: '' | 'domestic' | 'overseas' | 'dealer'
 }
 
 type ChecklistAssignmentTarget = {
@@ -218,6 +217,11 @@ function splitByComma(value: string): string[] {
 function toProjectLabel(project: ProjectRecord): string {
   if (project.iconEmoji) return `${project.iconEmoji} ${project.name}`
   return project.name
+}
+
+function toProjectThumbUrl(project: ProjectRecord | undefined): string | undefined {
+  if (!project) return undefined
+  return project.coverUrl || project.iconUrl
 }
 
 function parseIsoDate(value: string): Date | null {
@@ -368,8 +372,6 @@ function App() {
   const [checklistFilters, setChecklistFilters] = useState<ChecklistPreviewFilters>({
     eventName: '',
     eventCategory: '',
-    keyword: '',
-    eventEndDate: '',
     shippingDate: '',
     operationMode: '',
     fulfillmentMode: '',
@@ -379,6 +381,7 @@ function App() {
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState<string | null>(null)
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
+  const [assignmentStorageMode, setAssignmentStorageMode] = useState<'d1' | 'cache'>('cache')
   const [assignmentByChecklist, setAssignmentByChecklist] = useState<Record<string, string>>({})
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
@@ -499,9 +502,7 @@ function App() {
       const selectedProject = projects.find((project) => project.source === 'project_db' && project.name === input.eventName)
       if (input.eventName.trim()) params.set('eventName', input.eventName.trim())
       if (input.eventCategory.trim()) params.set('eventCategory', input.eventCategory.trim())
-      if (input.keyword.trim()) params.set('q', input.keyword.trim())
       if (selectedProject?.eventDate) params.set('eventDate', selectedProject.eventDate)
-      if (input.eventEndDate.trim()) params.set('eventEndDate', input.eventEndDate.trim())
       if (input.shippingDate.trim()) params.set('shippingDate', input.shippingDate.trim())
       if (input.operationMode) params.set('operationMode', input.operationMode)
       if (input.fulfillmentMode) params.set('fulfillmentMode', input.fulfillmentMode)
@@ -521,6 +522,7 @@ function App() {
     try {
       const response = await api<ChecklistAssignmentsResponse>('/checklist-assignments')
       setAssignmentByChecklist(response.assignments ?? {})
+      if (response.storageMode) setAssignmentStorageMode(response.storageMode)
     } catch {
       // Server assignment store is optional; keep local cache fallback.
     }
@@ -603,14 +605,6 @@ function App() {
     () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
     [checklistFilters.eventName, projectDbOptions],
   )
-
-  useEffect(() => {
-    if (!selectedChecklistProject?.eventDate) return
-    setChecklistFilters((prev) => {
-      if (prev.eventEndDate) return prev
-      return { ...prev, eventEndDate: selectedChecklistProject.eventDate ?? '' }
-    })
-  }, [selectedChecklistProject?.eventDate])
 
   const projectByName = useMemo(() => {
     const map = new Map<string, ProjectRecord>()
@@ -711,8 +705,6 @@ function App() {
     const next: ChecklistPreviewFilters = {
       eventName: '',
       eventCategory: '',
-      keyword: '',
-      eventEndDate: '',
       shippingDate: '',
       operationMode: '',
       fulfillmentMode: '',
@@ -750,6 +742,7 @@ function App() {
         }),
       })
       setAssignmentByChecklist(response.assignments ?? next)
+      if (response.storageMode) setAssignmentStorageMode(response.storageMode)
     } catch (error: any) {
       setAssignmentByChecklist(previous)
       setAssignmentSyncError(error?.message ?? '체크리스트 할당 저장에 실패했습니다.')
@@ -1159,17 +1152,7 @@ function App() {
           </label>
 
           <label>
-            키워드
-            <input name="keyword" value={checklistFilters.keyword} onChange={onChecklistInput} placeholder="선택사항 (추가 검색)" />
-          </label>
-
-          <label>
-            행사 종료일(선택)
-            <input type="date" name="eventEndDate" value={checklistFilters.eventEndDate} onChange={onChecklistInput} />
-          </label>
-
-          <label>
-            배송일(해외배송 시)
+            배송일(해외 출고 기준)
             <input type="date" name="shippingDate" value={checklistFilters.shippingDate} onChange={onChecklistInput} />
           </label>
 
@@ -1177,17 +1160,18 @@ function App() {
             운영 방식
             <select name="operationMode" value={checklistFilters.operationMode} onChange={onChecklistInput}>
               <option value="">전체</option>
-              <option value="self">자체 행사/전시</option>
-              <option value="dealer">딜러 행사/전시</option>
+              <option value="self">자체</option>
+              <option value="dealer">딜러</option>
             </select>
           </label>
 
           <label>
             배송 방식
             <select name="fulfillmentMode" value={checklistFilters.fulfillmentMode} onChange={onChecklistInput}>
-              <option value="">기본</option>
+              <option value="">전체</option>
               <option value="domestic">국내</option>
               <option value="overseas">해외</option>
+              <option value="dealer">딜러</option>
             </select>
           </label>
 
@@ -1203,6 +1187,15 @@ function App() {
         <p className="muted small">
           행사명은 프로젝트 DB에서 선택합니다. 영업일 역산은 주말/한국 공휴일을 제외해 계산하며, 오프셋은 DB에 숫자로 관리합니다.
         </p>
+        <p className="muted small">할당 저장소: {assignmentStorageMode === 'd1' ? 'D1(영구저장 + 로그)' : 'Cache(임시저장)'}</p>
+        {selectedChecklistProject ? (
+          <p className="muted small projectPreviewLine">
+            {toProjectThumbUrl(selectedChecklistProject) ? (
+              <img className="projectPreviewImage" src={toProjectThumbUrl(selectedChecklistProject)} alt="" />
+            ) : null}
+            선택 행사: {selectedChecklistProject.name}
+          </p>
+        ) : null}
         {selectedChecklistProject?.eventDate ? (
           <p className="muted small">
             기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)} ({selectedChecklistProject.eventDate})
@@ -1298,6 +1291,7 @@ function App() {
                 {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
               </button>
               <h2 className="projectTitle">
+                {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
                 {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
                 {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
                 <span>{group.projectName}</span>

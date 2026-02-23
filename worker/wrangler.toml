@@ -9,3 +9,9 @@ enabled = true
 # Optional: local/dev TTL override (seconds)
 [vars]
 API_CACHE_TTL_SECONDS = "60"
+
+# Enable persistent checklist assignment storage + audit logs with D1.
+# [[d1_databases]]
+# binding = "CHECKLIST_DB"
+# database_name = "izen-design-checklist"
+# database_id = "YOUR_D1_DATABASE_ID"

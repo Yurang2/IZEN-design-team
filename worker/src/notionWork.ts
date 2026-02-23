@@ -55,6 +55,49 @@ function normalizeFieldName(value: string): string {
   return value.replace(/\s+/g, '').toLowerCase()
 }
 
+function isLikelyImageUrl(value: string): boolean {
+  return /(\.png|\.jpg|\.jpeg|\.gif|\.webp|\.svg)(\?|$)/i.test(value)
+}
+
+function extractFileUrl(file: any): string | undefined {
+  if (!file || typeof file !== 'object') return undefined
+  if (file.type === 'external') return normalizeText(file.external?.url) || undefined
+  if (file.type === 'file') return normalizeText(file.file?.url) || undefined
+  return undefined
+}
+
+function extractImageFromFilesProperty(prop: any): string | undefined {
+  if (!prop || typeof prop !== 'object' || prop.type !== 'files') return undefined
+  const files = Array.isArray(prop.files) ? prop.files : []
+  for (const file of files) {
+    const url = extractFileUrl(file)
+    if (!url) continue
+    if (isLikelyImageUrl(url)) return url
+  }
+  for (const file of files) {
+    const url = extractFileUrl(file)
+    if (url) return url
+  }
+  return undefined
+}
+
+function pickProjectCoverFromProperties(props: AnyMap): string | undefined {
+  const preferredKeywords = ['대표', '썸네일', '이미지', '사진', 'photo', 'image', 'cover', 'thumbnail']
+  const entries = Object.entries(props)
+  for (const [name, prop] of entries) {
+    const normalizedName = normalizeFieldName(name)
+    if (!preferredKeywords.some((keyword) => normalizedName.includes(normalizeFieldName(keyword)))) continue
+    const found = extractImageFromFilesProperty(prop)
+    if (found) return found
+  }
+
+  for (const [, prop] of entries) {
+    const found = extractImageFromFilesProperty(prop)
+    if (found) return found
+  }
+  return undefined
+}
+
 function pickPropertyByNames(props: AnyMap, names: string[]): any | undefined {
   for (const name of names) {
     if (props[name]) return props[name]
@@ -592,6 +635,7 @@ export class NotionWorkService {
             : parseDbTitle(page) || '(이름 없음 프로젝트)'
         const eventDate = eventDateProp?.type === 'date' ? eventDateProp.date?.start ?? undefined : undefined
         const icon = page.icon
+        const cover = page.cover
         const iconEmoji = icon?.type === 'emoji' ? icon.emoji ?? undefined : undefined
         const iconUrl =
           icon?.type === 'external'
@@ -599,6 +643,12 @@ export class NotionWorkService {
             : icon?.type === 'file'
               ? icon.file?.url ?? undefined
               : undefined
+        const coverUrl =
+          cover?.type === 'external'
+            ? cover.external?.url ?? undefined
+            : cover?.type === 'file'
+              ? cover.file?.url ?? undefined
+              : pickProjectCoverFromProperties(props)
 
         return {
           id: page.id,
@@ -608,6 +658,7 @@ export class NotionWorkService {
           eventDate,
           iconEmoji,
           iconUrl,
+          coverUrl,
           source: 'project_db' as const,
         }
       })

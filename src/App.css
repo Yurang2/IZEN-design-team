@@ -280,6 +280,13 @@ textarea {
   gap: 6px;
 }
 
+.projectCoverImage {
+  border-radius: 4px;
+  height: 18px;
+  object-fit: cover;
+  width: 28px;
+}
+
 .projectIconEmoji {
   font-size: 18px;
   line-height: 1;
@@ -290,6 +297,19 @@ textarea {
   height: 18px;
   object-fit: cover;
   width: 18px;
+}
+
+.projectPreviewLine {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.projectPreviewImage {
+  border-radius: 6px;
+  height: 22px;
+  object-fit: cover;
+  width: 34px;
 }
 
 .projectHeader span {
