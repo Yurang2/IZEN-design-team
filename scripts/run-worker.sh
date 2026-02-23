@@ -2,8 +2,10 @@
 set -euo pipefail
 
 MODE="${1:-deploy}"
-BASE_CONFIG="worker/wrangler.toml"
-TMP_CONFIG="$(mktemp /tmp/wrangler.worker.XXXXXX.toml)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+BASE_CONFIG="$ROOT_DIR/worker/wrangler.toml"
+TMP_CONFIG="$ROOT_DIR/worker/.wrangler.generated.$$.toml"
 
 cleanup() {
   rm -f "$TMP_CONFIG"
