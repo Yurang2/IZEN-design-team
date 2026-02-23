@@ -6,8 +6,11 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const SNAPSHOT_CACHE_URL = 'https://cache.internal/notion-task-snapshot-v1'
 const CHECKLIST_ASSIGNMENT_CACHE_URL = 'https://cache.internal/checklist-assignment-v1'
 const DEFAULT_CACHE_TTL_MS = 60_000
+const KR_HOLIDAY_JSON_URL = 'https://holidays.hyunbin.page/basic.json'
+const KR_HOLIDAY_CACHE_MS = 12 * 60 * 60 * 1000
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
+let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
 
 function requiredEnv(env: Env): string | null {
   if (!env.NOTION_TOKEN) return 'NOTION_TOKEN'
@@ -35,6 +38,114 @@ function parsePageSize(value: unknown): number {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return 50
   return Math.max(1, Math.min(100, Math.floor(parsed)))
+}
+
+function parseIsoDate(value: string | undefined): Date | null {
+  if (!value || !ISO_DATE_RE.test(value)) return null
+  const [y, m, d] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function dateToIso(date: Date): string {
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function addDays(date: Date, days: number): Date {
+  const copied = new Date(date.getTime())
+  copied.setUTCDate(copied.getUTCDate() + days)
+  return copied
+}
+
+function isWeekend(date: Date): boolean {
+  const day = date.getUTCDay()
+  return day === 0 || day === 6
+}
+
+function isBusinessDay(date: Date, holidaySet: Set<string>): boolean {
+  return !isWeekend(date) && !holidaySet.has(dateToIso(date))
+}
+
+function shiftBusinessDays(baseDate: Date, offsetBusinessDays: number, holidaySet: Set<string>): Date {
+  if (offsetBusinessDays === 0) return new Date(baseDate.getTime())
+
+  const direction = offsetBusinessDays > 0 ? 1 : -1
+  let remaining = Math.abs(offsetBusinessDays)
+  let current = new Date(baseDate.getTime())
+
+  while (remaining > 0) {
+    current = addDays(current, direction)
+    if (isBusinessDay(current, holidaySet)) {
+      remaining -= 1
+    }
+  }
+  return current
+}
+
+async function getKoreanHolidaySet(): Promise<Set<string>> {
+  if (holidayCache && holidayCache.expiresAt > Date.now()) {
+    return holidayCache.dates
+  }
+
+  try {
+    const response = await fetch(KR_HOLIDAY_JSON_URL, { method: 'GET' })
+    if (!response.ok) throw new Error(`holiday_http_${response.status}`)
+    const data = (await response.json()) as Record<string, unknown>
+    const dates = new Set<string>()
+    for (const key of Object.keys(data ?? {})) {
+      if (ISO_DATE_RE.test(key)) dates.add(key)
+    }
+
+    holidayCache = {
+      expiresAt: Date.now() + KR_HOLIDAY_CACHE_MS,
+      dates,
+    }
+    return dates
+  } catch {
+    return new Set<string>()
+  }
+}
+
+function pickChecklistOffset(
+  item: Record<string, any>,
+  operationMode: 'self' | 'dealer' | undefined,
+  fulfillmentMode: 'domestic' | 'overseas' | undefined,
+): number | undefined {
+  if (fulfillmentMode === 'overseas' && typeof item.overseasOffsetBusinessDays === 'number') {
+    return item.overseasOffsetBusinessDays
+  }
+  if (fulfillmentMode === 'domestic' && typeof item.domesticOffsetBusinessDays === 'number') {
+    return item.domesticOffsetBusinessDays
+  }
+  if (operationMode === 'dealer' && typeof item.dealerOffsetBusinessDays === 'number') {
+    return item.dealerOffsetBusinessDays
+  }
+  if (typeof item.defaultOffsetBusinessDays === 'number') {
+    return item.defaultOffsetBusinessDays
+  }
+  if (typeof item.totalLeadDays === 'number') {
+    return -item.totalLeadDays
+  }
+  return undefined
+}
+
+function pickChecklistBaseDate(
+  item: Record<string, any>,
+  eventDate: string | undefined,
+  eventEndDate: string | undefined,
+  shippingDate: string | undefined,
+): Date | null {
+  const basis = item.dueBasis ?? 'event_start'
+  if (basis === 'shipping') {
+    return parseIsoDate(shippingDate) ?? parseIsoDate(eventDate)
+  }
+  if (basis === 'event_end') {
+    return parseIsoDate(eventEndDate) ?? parseIsoDate(eventDate)
+  }
+  return parseIsoDate(eventDate)
 }
 
 function normalizeNotionId(value: string | undefined | null): string {
@@ -389,19 +500,38 @@ export default {
         const eventName = asString(url.searchParams.get('eventName')) ?? ''
         const eventCategory = asString(url.searchParams.get('eventCategory')) ?? ''
         const keyword = asString(url.searchParams.get('q')) ?? ''
+        const eventDate = asString(url.searchParams.get('eventDate'))
+        const eventEndDate = asString(url.searchParams.get('eventEndDate'))
+        const shippingDate = asString(url.searchParams.get('shippingDate'))
+        const operationModeRaw = asString(url.searchParams.get('operationMode'))
+        const fulfillmentModeRaw = asString(url.searchParams.get('fulfillmentMode'))
+        const operationMode = operationModeRaw === 'dealer' ? 'dealer' : operationModeRaw === 'self' ? 'self' : undefined
+        const fulfillmentMode =
+          fulfillmentModeRaw === 'overseas' ? 'overseas' : fulfillmentModeRaw === 'domestic' ? 'domestic' : undefined
 
         const allItems = await service.listChecklists()
+        const holidaySet = await getKoreanHolidaySet()
         const availableCategories = unique(allItems.flatMap((item) => item.eventCategories)).sort((a, b) =>
           a.localeCompare(b, 'ko'),
         )
 
-        const items = allItems.filter((item) => {
+        const items = allItems
+          .filter((item) => {
           const byCategory = eventCategory ? item.eventCategories.includes(eventCategory) : true
           if (!byCategory) return false
           if (!keyword) return true
           const source = `${item.productName} ${item.workCategory} ${item.finalDueText} ${item.eventCategories.join(' ')}`
           return containsText(source, keyword)
         })
+          .map((item) => {
+            const baseDate = pickChecklistBaseDate(item, eventDate, eventEndDate, shippingDate)
+            const offsetDays = pickChecklistOffset(item, operationMode, fulfillmentMode)
+            if (!baseDate || typeof offsetDays !== 'number') return item
+            return {
+              ...item,
+              computedDueDate: dateToIso(shiftBusinessDays(baseDate, offsetDays, holidaySet)),
+            }
+          })
 
         return ok(
           {
@@ -409,6 +539,11 @@ export default {
             eventName,
             eventCategory,
             keyword,
+            eventDate: eventDate ?? '',
+            eventEndDate: eventEndDate ?? '',
+            shippingDate: shippingDate ?? '',
+            operationMode: operationMode ?? '',
+            fulfillmentMode: fulfillmentMode ?? '',
             availableCategories,
             count: items.length,
             items,

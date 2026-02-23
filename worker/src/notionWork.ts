@@ -92,6 +92,24 @@ function extractNumberFromProperty(prop: any): number | undefined {
   return undefined
 }
 
+function extractTextFromProperty(prop: any): string | undefined {
+  if (!prop || typeof prop !== 'object') return undefined
+  if (prop.type === 'rich_text') return normalizeText(joinRichText(prop.rich_text ?? [])) || undefined
+  if (prop.type === 'select') return normalizeText(prop.select?.name) || undefined
+  if (prop.type === 'title') return normalizeText(joinRichText(prop.title ?? [])) || undefined
+  if (prop.type === 'formula' && prop.formula?.type === 'string') return normalizeText(prop.formula.string) || undefined
+  return undefined
+}
+
+function parseDueBasis(value: string | undefined): 'event_start' | 'event_end' | 'shipping' | undefined {
+  const normalized = normalizeText(value).replace(/\s+/g, '').toLowerCase()
+  if (!normalized) return undefined
+  if (['행사시작일', '시작일', 'eventstart', 'event_start', 'start'].includes(normalized)) return 'event_start'
+  if (['행사종료일', '종료일', 'eventend', 'event_end', 'end'].includes(normalized)) return 'event_end'
+  if (['배송일', '배송', 'shipping', 'ship'].includes(normalized)) return 'shipping'
+  return undefined
+}
+
 function extractCategoryValues(props: AnyMap, name: string): string[] {
   const prop = props[name]
   if (!prop) return []
@@ -615,6 +633,11 @@ export class NotionWorkService {
       const productionLeadProp = pickPropertyByNames(props, ['실물 제작 소요 기간', '실물 제작 소요 기간(일)', '실물제작소요기간'])
       const bufferProp = pickPropertyByNames(props, ['버퍼', '버퍼(일)', '버퍼 기간', '버퍼기간'])
       const totalLeadProp = pickPropertyByNames(props, ['총 소요 기간', '총 소요 기간(일)', '총소요기간'])
+      const dueBasisProp = pickPropertyByNames(props, ['최종 완료 기준', '완료 기준', '마감 기준'])
+      const defaultOffsetProp = pickPropertyByNames(props, ['기본 오프셋(영업일)', '기본 오프셋', '오프셋(영업일)', '마감 오프셋(영업일)'])
+      const dealerOffsetProp = pickPropertyByNames(props, ['딜러 오프셋(영업일)', '딜러 오프셋'])
+      const domesticOffsetProp = pickPropertyByNames(props, ['국내 오프셋(영업일)', '국내 오프셋'])
+      const overseasOffsetProp = pickPropertyByNames(props, ['해외 오프셋(영업일)', '해외 배송 오프셋(영업일)', '해외 오프셋'])
 
       const workCategory =
         workCategoryProp?.type === 'rich_text'
@@ -634,6 +657,11 @@ export class NotionWorkService {
       const productionLeadDays = extractNumberFromProperty(productionLeadProp)
       const bufferDays = extractNumberFromProperty(bufferProp)
       const totalLeadFromProp = extractNumberFromProperty(totalLeadProp)
+      const dueBasis = parseDueBasis(extractTextFromProperty(dueBasisProp))
+      const defaultOffsetBusinessDays = extractNumberFromProperty(defaultOffsetProp)
+      const dealerOffsetBusinessDays = extractNumberFromProperty(dealerOffsetProp)
+      const domesticOffsetBusinessDays = extractNumberFromProperty(domesticOffsetProp)
+      const overseasOffsetBusinessDays = extractNumberFromProperty(overseasOffsetProp)
       const totalLeadDays =
         totalLeadFromProp ??
         (designLeadDays !== undefined || productionLeadDays !== undefined || bufferDays !== undefined
@@ -650,6 +678,11 @@ export class NotionWorkService {
         productionLeadDays,
         bufferDays,
         totalLeadDays,
+        dueBasis,
+        defaultOffsetBusinessDays,
+        dealerOffsetBusinessDays,
+        domesticOffsetBusinessDays,
+        overseasOffsetBusinessDays,
       }
     })
   }

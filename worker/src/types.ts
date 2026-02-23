@@ -101,6 +101,12 @@ export type ChecklistPreviewItem = {
   productionLeadDays?: number
   bufferDays?: number
   totalLeadDays?: number
+  dueBasis?: 'event_start' | 'event_end' | 'shipping'
+  defaultOffsetBusinessDays?: number
+  dealerOffsetBusinessDays?: number
+  domesticOffsetBusinessDays?: number
+  overseasOffsetBusinessDays?: number
+  computedDueDate?: string
 }
 
 export type CreateTaskInput = {

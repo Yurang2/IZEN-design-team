@@ -90,6 +90,7 @@ type ChecklistPreviewItem = {
   productionLeadDays?: number
   bufferDays?: number
   totalLeadDays?: number
+  computedDueDate?: string
 }
 
 type ChecklistPreviewResponse = {
@@ -118,6 +119,10 @@ type ChecklistPreviewFilters = {
   eventName: string
   eventCategory: string
   keyword: string
+  eventEndDate: string
+  shippingDate: string
+  operationMode: '' | 'self' | 'dealer'
+  fulfillmentMode: '' | 'domestic' | 'overseas'
 }
 
 type ChecklistAssignmentTarget = {
@@ -364,6 +369,10 @@ function App() {
     eventName: '',
     eventCategory: '',
     keyword: '',
+    eventEndDate: '',
+    shippingDate: '',
+    operationMode: '',
+    fulfillmentMode: '',
   })
   const [checklistItems, setChecklistItems] = useState<ChecklistPreviewItem[]>([])
   const [checklistCategories, setChecklistCategories] = useState<string[]>([])
@@ -487,9 +496,15 @@ function App() {
 
     try {
       const params = new URLSearchParams()
+      const selectedProject = projects.find((project) => project.source === 'project_db' && project.name === input.eventName)
       if (input.eventName.trim()) params.set('eventName', input.eventName.trim())
       if (input.eventCategory.trim()) params.set('eventCategory', input.eventCategory.trim())
       if (input.keyword.trim()) params.set('q', input.keyword.trim())
+      if (selectedProject?.eventDate) params.set('eventDate', selectedProject.eventDate)
+      if (input.eventEndDate.trim()) params.set('eventEndDate', input.eventEndDate.trim())
+      if (input.shippingDate.trim()) params.set('shippingDate', input.shippingDate.trim())
+      if (input.operationMode) params.set('operationMode', input.operationMode)
+      if (input.fulfillmentMode) params.set('fulfillmentMode', input.fulfillmentMode)
 
       const path = params.size > 0 ? `/checklists?${params.toString()}` : '/checklists'
       const response = await api<ChecklistPreviewResponse>(path)
@@ -500,7 +515,7 @@ function App() {
     } finally {
       setChecklistLoading(false)
     }
-  }, [])
+  }, [projects])
 
   const fetchChecklistAssignments = useCallback(async () => {
     try {
@@ -588,6 +603,14 @@ function App() {
     () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
     [checklistFilters.eventName, projectDbOptions],
   )
+
+  useEffect(() => {
+    if (!selectedChecklistProject?.eventDate) return
+    setChecklistFilters((prev) => {
+      if (prev.eventEndDate) return prev
+      return { ...prev, eventEndDate: selectedChecklistProject.eventDate ?? '' }
+    })
+  }, [selectedChecklistProject?.eventDate])
 
   const projectByName = useMemo(() => {
     const map = new Map<string, ProjectRecord>()
@@ -685,7 +708,15 @@ function App() {
   }
 
   const onChecklistReset = async () => {
-    const next = { eventName: '', eventCategory: '', keyword: '' }
+    const next: ChecklistPreviewFilters = {
+      eventName: '',
+      eventCategory: '',
+      keyword: '',
+      eventEndDate: '',
+      shippingDate: '',
+      operationMode: '',
+      fulfillmentMode: '',
+    }
     setChecklistFilters(next)
     await fetchChecklistPreview(next)
   }
@@ -1132,6 +1163,34 @@ function App() {
             <input name="keyword" value={checklistFilters.keyword} onChange={onChecklistInput} placeholder="선택사항 (추가 검색)" />
           </label>
 
+          <label>
+            행사 종료일(선택)
+            <input type="date" name="eventEndDate" value={checklistFilters.eventEndDate} onChange={onChecklistInput} />
+          </label>
+
+          <label>
+            배송일(해외배송 시)
+            <input type="date" name="shippingDate" value={checklistFilters.shippingDate} onChange={onChecklistInput} />
+          </label>
+
+          <label>
+            운영 방식
+            <select name="operationMode" value={checklistFilters.operationMode} onChange={onChecklistInput}>
+              <option value="">전체</option>
+              <option value="self">자체 행사/전시</option>
+              <option value="dealer">딜러 행사/전시</option>
+            </select>
+          </label>
+
+          <label>
+            배송 방식
+            <select name="fulfillmentMode" value={checklistFilters.fulfillmentMode} onChange={onChecklistInput}>
+              <option value="">기본</option>
+              <option value="domestic">국내</option>
+              <option value="overseas">해외</option>
+            </select>
+          </label>
+
           <div className="checklistPreviewActions">
             <button type="submit" disabled={checklistLoading}>
               {checklistLoading ? '조회 중...' : '체크리스트 보기'}
@@ -1141,7 +1200,9 @@ function App() {
             </button>
           </div>
         </form>
-        <p className="muted small">행사명은 프로젝트 DB에서 선택합니다. 필터 핵심은 행사구분입니다.</p>
+        <p className="muted small">
+          행사명은 프로젝트 DB에서 선택합니다. 영업일 역산은 주말/한국 공휴일을 제외해 계산하며, 오프셋은 DB에 숫자로 관리합니다.
+        </p>
         {selectedChecklistProject?.eventDate ? (
           <p className="muted small">
             기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)} ({selectedChecklistProject.eventDate})
@@ -1176,7 +1237,7 @@ function App() {
                   const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
                   const isAssigned = Boolean(assignedTaskId)
                   const totalLeadDays = getChecklistTotalLeadDays(item)
-                  const computedDueDate = computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
+                  const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
                   return (
                     <tr key={item.id}>
                       <td>{item.productName || '-'}</td>
