@@ -45,6 +45,10 @@ function containsText(source: string, keyword?: string): boolean {
   return source.toLowerCase().includes(keyword.toLowerCase())
 }
 
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
 function parseStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined
   return value
@@ -339,6 +343,39 @@ export default {
         )
       }
 
+      if (request.method === 'GET' && path === '/checklists') {
+        const eventName = asString(url.searchParams.get('eventName')) ?? ''
+        const eventCategory = asString(url.searchParams.get('eventCategory')) ?? ''
+        const keyword = asString(url.searchParams.get('q')) ?? ''
+
+        const allItems = await service.listChecklists()
+        const availableCategories = unique(allItems.flatMap((item) => item.eventCategories)).sort((a, b) =>
+          a.localeCompare(b, 'ko'),
+        )
+
+        const items = allItems.filter((item) => {
+          const byCategory = eventCategory ? item.eventCategories.includes(eventCategory) : true
+          if (!byCategory) return false
+          if (!keyword) return true
+          const source = `${item.productName} ${item.workCategory} ${item.finalDueText} ${item.eventCategories.join(' ')}`
+          return containsText(source, keyword)
+        })
+
+        return ok(
+          {
+            ok: true,
+            eventName,
+            eventCategory,
+            keyword,
+            availableCategories,
+            count: items.length,
+            items,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
       const taskMatch = path.match(/^\/tasks\/([^/]+)$/)
       if (request.method === 'GET' && taskMatch) {
         const id = decodeURIComponent(taskMatch[1])
@@ -420,6 +457,7 @@ export default {
             ok: true,
             supported: [
               'GET /api/projects',
+              'GET /api/checklists?eventName=...&eventCategory=...&q=...',
               'GET /api/tasks?projectId=...&status=...&q=...&cursor=...&pageSize=...',
               'GET /api/tasks/:id',
               'POST /api/tasks',

@@ -2,6 +2,7 @@ import { NotionApi } from './notionApi'
 import type {
   ApiSchemaField,
   ApiSchemaSummary,
+  ChecklistPreviewItem,
   CreateTaskInput,
   Env,
   FieldSchema,
@@ -48,6 +49,25 @@ function parseCsvText(value: string): string[] {
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
+}
+
+function extractCategoryValues(props: AnyMap, name: string): string[] {
+  const prop = props[name]
+  if (!prop) return []
+
+  if (prop.type === 'multi_select') {
+    return (prop.multi_select ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean)
+  }
+
+  if (prop.type === 'select') {
+    return prop.select?.name ? [normalizeText(prop.select.name)] : []
+  }
+
+  if (prop.type === 'rich_text') {
+    return parseCsvText(joinRichText(prop.rich_text ?? []))
+  }
+
+  return []
 }
 
 function pickOptions(property: any): string[] {
@@ -523,6 +543,46 @@ export class NotionWorkService {
         }
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  }
+
+  async listChecklists(): Promise<ChecklistPreviewItem[]> {
+    if (!this.env.NOTION_CHECKLIST_DB_ID) return []
+
+    const checklistPages = await this.queryAll(this.env.NOTION_CHECKLIST_DB_ID)
+
+    return checklistPages.map((page) => {
+      const props = (page.properties ?? {}) as AnyMap
+      const productTitle = props['제작물']
+      const productName =
+        productTitle?.type === 'title'
+          ? joinRichText(productTitle.title ?? []) || '제작물'
+          : parseDbTitle(page) || '제작물'
+
+      const workCategoryProp = props['작업 분류']
+      const finalDueProp = props['최종 완료 시점']
+
+      const workCategory =
+        workCategoryProp?.type === 'rich_text'
+          ? joinRichText(workCategoryProp.rich_text ?? [])
+          : workCategoryProp?.type === 'select'
+            ? workCategoryProp.select?.name ?? ''
+            : ''
+
+      const finalDueText =
+        finalDueProp?.type === 'rich_text'
+          ? joinRichText(finalDueProp.rich_text ?? [])
+          : finalDueProp?.type === 'select'
+            ? finalDueProp.select?.name ?? ''
+            : ''
+
+      return {
+        id: page.id,
+        productName,
+        workCategory,
+        finalDueText,
+        eventCategories: extractCategoryValues(props, '행사 분류'),
+      }
+    })
   }
 
   private mapTaskPage(page: any, schema: TaskSchema, projectNameMap: Record<string, string>): TaskRecord {

@@ -2,6 +2,7 @@ export interface Env {
   NOTION_TOKEN: string
   NOTION_TASK_DB_ID: string
   NOTION_PROJECT_DB_ID: string
+  NOTION_CHECKLIST_DB_ID?: string
   API_CACHE_TTL_SECONDS?: string
 }
 
@@ -86,6 +87,14 @@ export type TaskSnapshot = {
   tasks: TaskRecord[]
   schema: TaskSchema
   updatedAt: number
+}
+
+export type ChecklistPreviewItem = {
+  id: string
+  productName: string
+  workCategory: string
+  finalDueText: string
+  eventCategories: string[]
 }
 
 export type CreateTaskInput = {
