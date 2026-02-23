@@ -167,6 +167,7 @@ type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist'
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
 type ChecklistSort = 'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'lead_asc' | 'lead_desc'
+type TaskLayoutMode = 'list' | 'board'
 
 type ChecklistPreviewFilters = {
   eventName: string
@@ -439,6 +440,7 @@ function App() {
   const [menuCollapsed, setMenuCollapsed] = useState(false)
   const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
   const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
+  const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>('list')
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
@@ -771,6 +773,19 @@ function App() {
     }
 
     return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
+  }, [sortedFilteredTasks])
+
+  const tasksByStatus = useMemo(() => {
+    const map = new Map<string, TaskRecord[]>()
+    for (const task of sortedFilteredTasks) {
+      const key = task.status || '미분류'
+      const current = map.get(key)
+      if (current) current.push(task)
+      else map.set(key, [task])
+    }
+    return Array.from(map.entries())
+      .map(([status, items]) => ({ status, items }))
+      .sort((a, b) => a.status.localeCompare(b.status, 'ko'))
   }, [sortedFilteredTasks])
 
   const projectDbOptions = useMemo(
@@ -1312,110 +1327,129 @@ function App() {
   }
 
   return (
-    <div className="page">
-      <header className="header">
-        <h1>디자인팀 업무 도우미</h1>
-      </header>
-
-      <section className="toolbar toolbarWrap">
-        {activeView === 'tasks' ? (
-          <button type="button" onClick={() => setCreateOpen(true)}>
-            <span className="iconLabel">
-              <span className="uiIcon">＋</span>
-              <span>새 업무</span>
-            </span>
-          </button>
-        ) : null}
-        <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
-          <span className="iconLabel">
-            <span className="uiIcon">↻</span>
-            <span>새로고침</span>
-          </span>
-        </button>
-        <button type="button" className="secondary" onClick={() => void runApiConnectionTest()} disabled={apiCheckState === 'checking'}>
-          <span className="iconLabel">
-            <span className="uiIcon">◌</span>
-            <span>{apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}</span>
-          </span>
-        </button>
-        <button type="button" className="secondary" onClick={() => void onManualExport()} disabled={exporting}>
-          <span className="iconLabel">
-            <span className="uiIcon">⭳</span>
-            <span>{exporting ? '내보내는 중...' : '수동 Export'}</span>
-          </span>
-        </button>
-        <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
-        <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
-      </section>
-
-      {apiCheckMessage ? <p className={apiCheckState === 'error' ? 'error' : 'muted'}>{apiCheckMessage}</p> : null}
-      {exportMessage ? <p className={exportMessage.includes('실패') ? 'error' : 'muted'}>{exportMessage}</p> : null}
-
-      <section className="viewMenu">
-        <div className="viewMenuHeader">
-          <strong>메뉴</strong>
-          <button type="button" className="secondary" onClick={() => setMenuCollapsed((prev) => !prev)}>
-            <span className="iconLabel">
-              <span className="uiIcon">{menuCollapsed ? '▸' : '▾'}</span>
-              <span>{menuCollapsed ? '메뉴 펼치기' : '메뉴 접기'}</span>
-            </span>
-          </button>
-        </div>
-        {menuCollapsed ? null : (
-          <div className="viewTabs">
-            <button
-              type="button"
-              className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
-              onClick={() => setActiveView('projects')}
-            >
+    <div className="page mondayShell">
+      <aside className="mondaySidebar">
+        <header className="sidebarBrand">
+          <h1>디자인팀 업무 도우미</h1>
+          <p>Monday Layout + Asana Flow</p>
+        </header>
+        <section className="viewMenu">
+          <div className="viewMenuHeader">
+            <strong>Workspace</strong>
+            <button type="button" className="secondary" onClick={() => setMenuCollapsed((prev) => !prev)}>
               <span className="iconLabel">
-                <span className="uiIcon">▦</span>
-                <span>프로젝트</span>
+                <span className="uiIcon">{menuCollapsed ? '▸' : '▾'}</span>
+                <span>{menuCollapsed ? '메뉴 펼치기' : '메뉴 접기'}</span>
               </span>
             </button>
-            <button
-              type="button"
-              className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
-              onClick={() => setActiveView('tasks')}
-            >
-              <span className="iconLabel">
-                <span className="uiIcon">☰</span>
-                <span>업무</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
-              onClick={() => setActiveView('schedule')}
-            >
-              <span className="iconLabel">
-                <span className="uiIcon">◷</span>
-                <span>일정</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
-              onClick={() => setActiveView('checklist')}
-            >
-              <span className="iconLabel">
-                <span className="uiIcon">☑</span>
-                <span>행사 체크리스트</span>
-              </span>
-            </button>
-            {selectedViewDbUrl ? (
-              <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
-                <span className="iconLabel">
-                  <span className="uiIcon">↗</span>
-                  <span>현재 탭 노션 DB 열기</span>
-                </span>
-              </a>
-            ) : (
-              <span className="muted small dbJump">현재 탭 DB 링크 없음</span>
-            )}
           </div>
-        )}
-      </section>
+          {menuCollapsed ? null : (
+            <div className="viewTabs">
+              <button
+                type="button"
+                className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('projects')}
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">▦</span>
+                  <span>프로젝트</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('tasks')}
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">☰</span>
+                  <span>업무</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('schedule')}
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">◷</span>
+                  <span>일정</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('checklist')}
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">☑</span>
+                  <span>행사 체크리스트</span>
+                </span>
+              </button>
+              {selectedViewDbUrl ? (
+                <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
+                  <span className="iconLabel">
+                    <span className="uiIcon">↗</span>
+                    <span>현재 탭 노션 DB 열기</span>
+                  </span>
+                </a>
+              ) : (
+                <span className="muted small dbJump">현재 탭 DB 링크 없음</span>
+              )}
+            </div>
+          )}
+        </section>
+        <section className="sidebarMeta">
+          <p className="muted small">Projects {projects.length}</p>
+          <p className="muted small">Tasks {tasks.length}</p>
+          <p className="muted small">Sync {lastSyncedAt || '-'}</p>
+        </section>
+      </aside>
+      <main className="mondayMain">
+        <header className="header">
+          <h1>
+            {activeView === 'projects'
+              ? '프로젝트'
+              : activeView === 'tasks'
+                ? '업무'
+                : activeView === 'schedule'
+                  ? '일정'
+                  : '행사 체크리스트'}
+          </h1>
+        </header>
+
+        <section className="toolbar toolbarWrap">
+          {activeView === 'tasks' ? (
+            <button type="button" onClick={() => setCreateOpen(true)}>
+              <span className="iconLabel">
+                <span className="uiIcon">＋</span>
+                <span>새 업무</span>
+              </span>
+            </button>
+          ) : null}
+          <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
+            <span className="iconLabel">
+              <span className="uiIcon">↻</span>
+              <span>새로고침</span>
+            </span>
+          </button>
+          <button type="button" className="secondary" onClick={() => void runApiConnectionTest()} disabled={apiCheckState === 'checking'}>
+            <span className="iconLabel">
+              <span className="uiIcon">◌</span>
+              <span>{apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}</span>
+            </span>
+          </button>
+          <button type="button" className="secondary" onClick={() => void onManualExport()} disabled={exporting}>
+            <span className="iconLabel">
+              <span className="uiIcon">⭳</span>
+              <span>{exporting ? '내보내는 중...' : '수동 Export'}</span>
+            </span>
+          </button>
+          <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
+          <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
+        </section>
+
+        {apiCheckMessage ? <p className={apiCheckState === 'error' ? 'error' : 'muted'}>{apiCheckMessage}</p> : null}
+        {exportMessage ? <p className={exportMessage.includes('실패') ? 'error' : 'muted'}>{exportMessage}</p> : null}
 
       {activeView === 'tasks' ? (
         <section className="filters">
@@ -1769,76 +1803,130 @@ function App() {
       {activeView === 'tasks' ? <>{listError ? <p className="error">{listError}</p> : null}</> : null}
 
       {activeView === 'tasks' ? (
-        <section className="projectGroups">
-          {groupedTasks.map((group) => {
-            const groupProject = projectByName.get(group.projectName)
-            return (
-            <article className="projectSection" key={group.projectName}>
-              <header className="projectHeader">
-                <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
-                  {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
-                </button>
-                <h2 className="projectTitle">
-                  {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
-                  {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
-                  {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
-                  <span>{group.projectName}</span>
-                </h2>
-                <span>{group.tasks.length}건</span>
-              </header>
-
-              {openTaskGroups[group.projectName] === false ? null : (
-                <div className="tableWrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>요청주체</th>
-                        <th>업무구분</th>
-                        <th>업무</th>
-                        <th>상태</th>
-                        <th>담당자</th>
-                        <th>시작일</th>
-                        <th>마감일</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.tasks.map((task) => (
-                        <tr key={task.id}>
-                          <td>{joinOrDash(task.requester)}</td>
-                          <td>{task.workType || '-'}</td>
-                          <td>
-                            <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
-                              {task.taskName}
-                            </button>
-                          </td>
-                          <td>
-                            <select
-                              value={task.status}
-                              disabled={Boolean(statusUpdatingIds[task.id])}
-                              onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
-                            >
-                              {unique([...statusOptions, task.status]).map((status) => (
-                                <option key={status} value={status}>
-                                  {status}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td>{joinOrDash(task.assignee)}</td>
-                          <td>{task.startDate || '-'}</td>
-                          <td>{task.dueDate || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </article>
-            )
-          })}
-
-          {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
+        <section className="taskViewMode">
+          <button
+            type="button"
+            className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
+            onClick={() => setTaskLayout('list')}
+          >
+            <span className="iconLabel">
+              <span className="uiIcon">☰</span>
+              <span>List</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className={taskLayout === 'board' ? 'viewTab active' : 'viewTab'}
+            onClick={() => setTaskLayout('board')}
+          >
+            <span className="iconLabel">
+              <span className="uiIcon">▥</span>
+              <span>Board</span>
+            </span>
+          </button>
         </section>
+      ) : null}
+
+      {activeView === 'tasks' ? (
+        taskLayout === 'list' ? (
+          <section className="projectGroups">
+            {groupedTasks.map((group) => {
+              const groupProject = projectByName.get(group.projectName)
+              return (
+              <article className="projectSection" key={group.projectName}>
+                <header className="projectHeader">
+                  <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
+                    {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
+                  </button>
+                  <h2 className="projectTitle">
+                    {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
+                    {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
+                    {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
+                    <span>{group.projectName}</span>
+                  </h2>
+                  <span>{group.tasks.length}건</span>
+                </header>
+
+                {openTaskGroups[group.projectName] === false ? null : (
+                  <div className="tableWrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>요청주체</th>
+                          <th>업무구분</th>
+                          <th>업무</th>
+                          <th>상태</th>
+                          <th>담당자</th>
+                          <th>시작일</th>
+                          <th>마감일</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.tasks.map((task) => (
+                          <tr key={task.id}>
+                            <td>{joinOrDash(task.requester)}</td>
+                            <td>{task.workType || '-'}</td>
+                            <td>
+                              <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
+                                {task.taskName}
+                              </button>
+                            </td>
+                            <td>
+                              <select
+                                value={task.status}
+                                disabled={Boolean(statusUpdatingIds[task.id])}
+                                onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
+                              >
+                                {unique([...statusOptions, task.status]).map((status) => (
+                                  <option key={status} value={status}>
+                                    {status}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>{joinOrDash(task.assignee)}</td>
+                            <td>{task.startDate || '-'}</td>
+                            <td>{task.dueDate || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </article>
+              )
+            })}
+
+            {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
+          </section>
+        ) : (
+          <section className="taskBoard">
+            {tasksByStatus.map((column) => (
+              <article key={column.status} className="boardColumn">
+                <header className="boardColumnHeader">
+                  <strong>{column.status}</strong>
+                  <span>{column.items.length}</span>
+                </header>
+                <div className="boardCards">
+                  {column.items.map((task) => (
+                    <button
+                      type="button"
+                      key={task.id}
+                      className="boardCard"
+                      onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}
+                    >
+                      <span className="boardCardTitle">{task.taskName}</span>
+                      <span className="boardCardMeta">{task.projectName}</span>
+                      <span className="boardCardMeta">담당: {joinOrDash(task.assignee)}</span>
+                      <span className="boardCardMeta">마감: {task.dueDate || '-'}</span>
+                    </button>
+                  ))}
+                </div>
+              </article>
+            ))}
+            {!loadingList && tasksByStatus.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
+          </section>
+        )
       ) : null}
 
       {assignmentTarget ? (
@@ -1979,6 +2067,7 @@ function App() {
           <option key={option} value={option} />
         ))}
       </datalist>
+    </main>
     </div>
   )
 }
