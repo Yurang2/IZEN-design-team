@@ -144,6 +144,7 @@ type DetailForm = {
 declare global {
   interface Window {
     __APP_CONFIG__?: {
+      API_BASE_URL?: string
       FUNCTIONS_BASE_URL?: string
     }
   }
@@ -159,11 +160,11 @@ function toNonEmpty(value: string | null | undefined): string | undefined {
   return trimmed ? trimmed : undefined
 }
 
-function normalizeFunctionsBaseUrl(value: string): string {
+function normalizeApiBase(value: string): string {
   const trimmed = value.trim().replace(/\/+$/, '')
-  if (trimmed.endsWith('/api')) {
-    return trimmed
-  }
+  if (!trimmed) return '/api'
+  if (trimmed === '/api' || trimmed.endsWith('/api')) return trimmed
+  if (trimmed.startsWith('/')) return `${trimmed}/api`
   return `${trimmed}/api`
 }
 
@@ -201,48 +202,79 @@ function toChecklistAssignmentKey(eventCategory: string, itemId: string): string
   return `${categoryKey}::${itemId}`
 }
 
-const queryBaseUrl =
-  typeof window !== 'undefined' ? toNonEmpty(new URLSearchParams(window.location.search).get('apiBase')) : undefined
+function getApiBaseFromRuntime(): string {
+  const buildTimeBaseUrl =
+    toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+    toNonEmpty(import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined) ??
+    '/api'
 
-if (typeof window !== 'undefined' && queryBaseUrl) {
-  window.localStorage.setItem('FUNCTIONS_BASE_URL', queryBaseUrl)
-}
-
-const runtimeBaseUrl = typeof window !== 'undefined' ? toNonEmpty(window.__APP_CONFIG__?.FUNCTIONS_BASE_URL) : undefined
-const localBaseUrl =
-  typeof window !== 'undefined' ? toNonEmpty(window.localStorage.getItem('FUNCTIONS_BASE_URL')) : undefined
-const buildTimeBaseUrl = toNonEmpty(import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined)
-const RAW_FUNCTIONS_BASE_URL = runtimeBaseUrl ?? queryBaseUrl ?? localBaseUrl ?? buildTimeBaseUrl
-const API_BASE_URL = RAW_FUNCTIONS_BASE_URL ? normalizeFunctionsBaseUrl(RAW_FUNCTIONS_BASE_URL) : undefined
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE_URL) {
-    throw new Error('`VITE_FUNCTIONS_BASE_URL` 또는 `window.__APP_CONFIG__.FUNCTIONS_BASE_URL` 설정이 필요합니다.')
+  if (typeof window === 'undefined') {
+    return normalizeApiBase(buildTimeBaseUrl)
   }
 
+  const queryValue = toNonEmpty(new URLSearchParams(window.location.search).get('apiBase'))
+  if (queryValue) {
+    const normalized = normalizeApiBase(queryValue)
+    window.localStorage.setItem('API_BASE_URL', normalized)
+    window.localStorage.setItem('FUNCTIONS_BASE_URL', normalized)
+    return normalized
+  }
+
+  const runtimeBaseUrl =
+    toNonEmpty(window.__APP_CONFIG__?.API_BASE_URL) ?? toNonEmpty(window.__APP_CONFIG__?.FUNCTIONS_BASE_URL)
+  if (runtimeBaseUrl) return normalizeApiBase(runtimeBaseUrl)
+
+  const stored =
+    toNonEmpty(window.localStorage.getItem('API_BASE_URL')) ??
+    toNonEmpty(window.localStorage.getItem('FUNCTIONS_BASE_URL'))
+  if (stored) return normalizeApiBase(stored)
+
+  return normalizeApiBase(buildTimeBaseUrl)
+}
+
+const API_BASE_URL = getApiBaseFromRuntime()
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const headers = new Headers(init?.headers ?? undefined)
+  const method = (init?.method ?? 'GET').toUpperCase()
+  if (!headers.has('Content-Type') && init?.body != null && method !== 'GET' && method !== 'HEAD') {
+    headers.set('Content-Type', 'application/json')
+  }
+
   const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
     ...init,
+    headers,
   })
+  const contentType = (response.headers.get('Content-Type') || '').toLowerCase()
+  const raw = await response.text()
+  const trimmed = raw.trim()
+  const looksHtml = trimmed.toLowerCase().startsWith('<!doctype') || trimmed.toLowerCase().startsWith('<html')
 
   if (!response.ok) {
     let message = `HTTP ${response.status}`
     try {
-      const body = (await response.json()) as { error?: string; message?: string }
+      const body = JSON.parse(raw) as { error?: string; message?: string }
       if (body.message) message = `${message}: ${body.message}`
       else if (body.error) message = `${message}: ${body.error}`
     } catch {
-      const text = (await response.text()).trim()
-      if (text) message = `${message}: ${text.slice(0, 120)}`
+      if (looksHtml) {
+        message = `${message}: API가 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API를 가리키는지 확인하세요.`
+      } else if (trimmed) {
+        message = `${message}: ${trimmed.slice(0, 120)}`
+      }
     }
     throw new Error(message)
   }
 
-  return response.json() as Promise<T>
+  if (!contentType.includes('application/json')) {
+    if (looksHtml) {
+      throw new Error(`API가 JSON 대신 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API 주소인지 확인하세요.`)
+    }
+    throw new Error(`API 응답 타입이 JSON이 아닙니다: ${contentType || 'unknown'}`)
+  }
+
+  return JSON.parse(raw) as T
 }
 
 function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
