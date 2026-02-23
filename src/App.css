@@ -607,6 +607,26 @@ button.secondary:hover,
   padding: 10px;
 }
 
+.boardColumn.boardColumn-todo {
+  background: linear-gradient(180deg, #fbfcfe 0%, #f5f7fb 100%);
+  border-color: #d7dee9;
+}
+
+.boardColumn.boardColumn-progress {
+  background: linear-gradient(180deg, #f5f9ff 0%, #eff5ff 100%);
+  border-color: #cfe0ff;
+}
+
+.boardColumn.boardColumn-done {
+  background: linear-gradient(180deg, #f5fff8 0%, #ecfbf2 100%);
+  border-color: #cbeed9;
+}
+
+.boardColumn.boardColumn-other {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: #dde5ef;
+}
+
 .boardColumnHeader {
   align-items: center;
   color: var(--text-main);
@@ -650,16 +670,56 @@ button.boardCard:hover {
   border-color: #bfd4ff;
 }
 
+.statusPill {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 2px;
+  padding: 4px 8px;
+}
+
+.statusPill.tone-gray {
+  background: #eef2f7;
+  border-color: #d7dfe9;
+  color: #475569;
+}
+
+.statusPill.tone-red {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.statusPill.tone-blue {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.statusPill.tone-green {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
 .boardCardTitle {
   color: var(--text-main);
   font-size: 13px;
   font-weight: 700;
   line-height: 1.35;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .boardCardMeta {
   color: var(--text-sub);
   font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timelineWipBadge {

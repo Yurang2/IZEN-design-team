@@ -211,6 +211,7 @@ type DetailForm = {
 
 type ApiCheckState = 'idle' | 'checking' | 'ok' | 'error'
 type QuickSearchScope = 'project' | 'task'
+type BoardGroupKey = 'todo' | 'progress' | 'done' | 'other'
 
 declare global {
   interface Window {
@@ -377,6 +378,26 @@ function toTopViewPath(view: TopView): string {
   if (view === 'tasks') return 'Tasks'
   if (view === 'schedule') return 'Schedule'
   return 'Event Checklist'
+}
+
+function normalizeStatus(status: string | undefined): string {
+  return (status ?? '').replace(/\s+/g, '')
+}
+
+function toBoardGroup(status: string | undefined): BoardGroupKey {
+  const normalized = normalizeStatus(status)
+  if (normalized === '시작전' || normalized === '보류') return 'todo'
+  if (normalized === '진행중' || normalized === '검토중' || normalized === '수정중') return 'progress'
+  if (normalized === '완료' || normalized === '보관') return 'done'
+  return 'other'
+}
+
+function toStatusTone(status: string | undefined): 'gray' | 'red' | 'blue' | 'green' {
+  const normalized = normalizeStatus(status)
+  if (normalized === '보류') return 'red'
+  if (normalized === '진행중' || normalized === '검토중' || normalized === '수정중') return 'blue'
+  if (normalized === '완료' || normalized === '보관') return 'green'
+  return 'gray'
 }
 
 function toNonEmpty(value: string | null | undefined): string | undefined {
@@ -933,17 +954,21 @@ function App() {
     return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
   }, [sortedFilteredTasks])
 
-  const tasksByStatus = useMemo(() => {
-    const map = new Map<string, TaskRecord[]>()
+  const boardColumns = useMemo(() => {
+    const baseColumns: Array<{ key: BoardGroupKey; label: string; items: TaskRecord[] }> = [
+      { key: 'todo', label: '할 일', items: [] },
+      { key: 'progress', label: '진행 중', items: [] },
+      { key: 'done', label: '완료', items: [] },
+      { key: 'other', label: '기타', items: [] },
+    ]
+
+    const byKey = new Map(baseColumns.map((column) => [column.key, column]))
     for (const task of sortedFilteredTasks) {
-      const key = task.status || '미분류'
-      const current = map.get(key)
-      if (current) current.push(task)
-      else map.set(key, [task])
+      const group = toBoardGroup(task.status)
+      byKey.get(group)?.items.push(task)
     }
-    return Array.from(map.entries())
-      .map(([status, items]) => ({ status, items }))
-      .sort((a, b) => a.status.localeCompare(b.status, 'ko'))
+
+    return baseColumns.filter((column) => column.key !== 'other' || column.items.length > 0)
   }, [sortedFilteredTasks])
 
   const projectDbOptions = useMemo(
@@ -2262,10 +2287,10 @@ function App() {
           </section>
         ) : (
           <section className="taskBoard">
-            {tasksByStatus.map((column) => (
-              <article key={column.status} className="boardColumn">
+            {boardColumns.map((column) => (
+              <article key={column.key} className={`boardColumn boardColumn-${column.key}`}>
                 <header className="boardColumnHeader">
-                  <strong>{column.status}</strong>
+                  <strong>{column.label}</strong>
                   <span>{column.items.length}</span>
                 </header>
                 <div className="boardCards">
@@ -2276,6 +2301,7 @@ function App() {
                       className="boardCard"
                       onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}
                     >
+                      <span className={`statusPill tone-${toStatusTone(task.status)}`}>{task.status || '미분류'}</span>
                       <span className="boardCardTitle">{task.taskName}</span>
                       <span className="boardCardMeta">{task.projectName}</span>
                       <span className="boardCardMeta">담당: {joinOrDash(task.assignee)}</span>
@@ -2285,7 +2311,7 @@ function App() {
                 </div>
               </article>
             ))}
-            {!loadingList && tasksByStatus.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
+            {!loadingList && boardColumns.every((column) => column.items.length === 0) ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
           </section>
         )
       ) : null}
