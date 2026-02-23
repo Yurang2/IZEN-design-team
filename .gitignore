@@ -11,8 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
-functions/lib
-functions/.env
+.wrangler
+worker/.dev.vars
 
 # Editor directories and files
 .vscode/*

@@ -1,135 +1,27 @@
-import { Client } from '@notionhq/client'
-import { config } from './config'
+import { NotionApi } from './notionApi'
+import type {
+  ApiSchemaField,
+  ApiSchemaSummary,
+  CreateTaskInput,
+  Env,
+  FieldSchema,
+  FieldStatus,
+  ProjectRecord,
+  TaskRecord,
+  TaskSchema,
+  TaskSnapshot,
+  UpdateTaskInput,
+} from './types'
 
 type AnyMap = Record<string, any>
 
-type FieldStatus = 'exact' | 'fallback' | 'missing' | 'mismatch'
-
-type FieldSchema = {
-  key: string
-  expectedName: string
-  expectedTypes: string[]
-  actualName: string
-  actualType: string
-  status: FieldStatus
-  optional?: boolean
-  options: string[]
-}
-
-type TaskSchema = {
-  fields: {
-    projectRelation: FieldSchema
-    projectSelect: FieldSchema
-    taskName: FieldSchema
-    workType: FieldSchema
-    status: FieldSchema
-    assignee: FieldSchema
-    startDate: FieldSchema
-    dueDate: FieldSchema
-    detail: FieldSchema
-    requester: FieldSchema
-    priority: FieldSchema
-    urgent: FieldSchema
-    issue: FieldSchema
-  }
-}
-
-type ProjectRecord = {
-  id: string
-  key: string
-  bindingValue: string
-  name: string
-  eventDate?: string
-  source: 'project_db' | 'task_select'
-}
-
-type TaskRecord = {
-  id: string
-  url: string
-  projectKey: string
-  projectName: string
-  projectSource: 'relation' | 'unknown'
-  requester: string[]
-  workType: string
-  taskName: string
-  status: string
-  assignee: string[]
-  startDate?: string
-  dueDate?: string
-  detail: string
-  priority?: string
-  urgent?: boolean
-  issue?: string
-}
-
-type ListTasksResult = {
-  tasks: TaskRecord[]
-  nextCursor?: string
-  hasMore: boolean
+type SchemaCache = {
   schema: TaskSchema
+  updatedAt: number
 }
 
-export type ApiSchemaField = {
-  key: string
-  expectedName: string
-  expectedTypes: string[]
-  actualName: string
-  actualType: string
-  status: FieldStatus
-  optional?: boolean
-  options: string[]
-}
-
-export type ApiSchemaSummary = {
-  fields: Record<string, ApiSchemaField>
-  unknownFields: ApiSchemaField[]
-  projectBindingMode: 'relation' | 'select' | 'unknown'
-}
-
-type ListProjectsResult = {
-  projects: ProjectRecord[]
-  schema: TaskSchema
-}
-
-type TaskQuery = {
-  projectId?: string
-  status?: string
-  q?: string
-  cursor?: string
-  pageSize: number
-}
-
-type CreateTaskInput = {
-  taskName: string
-  projectId?: string
-  projectName?: string
-  workType?: string
-  status?: string
-  assignee?: string[]
-  requester?: string[]
-  startDate?: string
-  dueDate?: string
-  detail?: string
-  priority?: string
-  urgent?: boolean
-  issue?: string
-}
-
-type UpdateTaskInput = {
-  projectId?: string | null
-  projectName?: string | null
-  taskName?: string | null
-  workType?: string | null
-  status?: string | null
-  assignee?: string[] | null
-  requester?: string[] | null
-  startDate?: string | null
-  dueDate?: string | null
-  detail?: string | null
-  priority?: string | null
-  urgent?: boolean | null
-  issue?: string | null
-}
+const SCHEMA_TTL_MS = 5 * 60 * 1000
+let schemaCache: SchemaCache | undefined
 
 function unique(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
@@ -409,6 +301,10 @@ function createFallbackField(
   }
 }
 
+function findFirstByTypes(entries: Array<[string, any]>, types: string[]): [string, any] | undefined {
+  return entries.find(([, prop]) => types.includes(prop?.type))
+}
+
 function pickField(
   key: string,
   properties: Record<string, any>,
@@ -453,35 +349,22 @@ function pickField(
   return createFallbackField(key, expectedName, expectedTypes, optional)
 }
 
-function findFirstByTypes(entries: Array<[string, any]>, types: string[]): [string, any] | undefined {
-  return entries.find(([, prop]) => types.includes(prop?.type))
-}
-
 function hasOwn(obj: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key)
 }
 
 export class NotionWorkService {
-  private client = new Client({ auth: config.notionToken })
-
-  private schemaCache?: {
-    task: TaskSchema
-    updatedAt: number
-  }
-
-  private readonly schemaTtlMs = 5 * 60 * 1000
-
-  private readonly pageSizeMin = 1
-
-  private readonly pageSizeMax = 100
+  constructor(
+    private readonly api: NotionApi,
+    private readonly env: Env,
+  ) {}
 
   private async queryAll(databaseId: string): Promise<any[]> {
     const pages: any[] = []
     let cursor: string | undefined
 
     while (true) {
-      const result: any = await this.client.databases.query({
-        database_id: databaseId,
+      const result: any = await this.api.queryDatabase(databaseId, {
         start_cursor: cursor,
         page_size: 100,
       })
@@ -501,7 +384,7 @@ export class NotionWorkService {
   private buildTaskSchema(properties: Record<string, any>): TaskSchema {
     const relationFallback = (entries: Array<[string, any]>) => {
       const byTargetDb = entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(config.projectDbId),
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
       )
       if (byTargetDb) return byTargetDb
 
@@ -582,18 +465,18 @@ export class NotionWorkService {
     }
   }
 
-  private async getTaskSchema(force = false): Promise<TaskSchema> {
+  async getTaskSchema(force = false): Promise<TaskSchema> {
     const now = Date.now()
-    if (!force && this.schemaCache && now - this.schemaCache.updatedAt < this.schemaTtlMs) {
-      return this.schemaCache.task
+    if (!force && schemaCache && now - schemaCache.updatedAt < SCHEMA_TTL_MS) {
+      return schemaCache.schema
     }
 
-    const taskDb: any = await this.client.databases.retrieve({ database_id: config.taskDbId })
+    const taskDb: any = await this.api.retrieveDatabase(this.env.NOTION_TASK_DB_ID)
     const properties = (taskDb.properties ?? {}) as Record<string, any>
     const schema = this.buildTaskSchema(properties)
 
-    this.schemaCache = {
-      task: schema,
+    schemaCache = {
+      schema,
       updatedAt: now,
     }
 
@@ -607,13 +490,39 @@ export class NotionWorkService {
 
     const unknownFields = Object.values(fields).filter((field) => field.status === 'missing' || field.status === 'mismatch')
 
-    const projectBindingMode: 'relation' | 'select' | 'unknown' = isKnownField(schema.fields.projectRelation) ? 'relation' : 'unknown'
+    const projectBindingMode: 'relation' | 'unknown' = isKnownField(schema.fields.projectRelation) ? 'relation' : 'unknown'
 
     return {
       fields,
       unknownFields,
       projectBindingMode,
     }
+  }
+
+  async listProjects(): Promise<ProjectRecord[]> {
+    const projectPages = await this.queryAll(this.env.NOTION_PROJECT_DB_ID)
+
+    return projectPages
+      .map((page) => {
+        const props = (page.properties ?? {}) as AnyMap
+        const titleProp = props['프로젝트명']
+        const eventDateProp = props['행사 진행일']
+        const name =
+          titleProp?.type === 'title'
+            ? joinRichText(titleProp.title ?? []) || '(이름 없음 프로젝트)'
+            : parseDbTitle(page) || '(이름 없음 프로젝트)'
+        const eventDate = eventDateProp?.type === 'date' ? eventDateProp.date?.start ?? undefined : undefined
+
+        return {
+          id: page.id,
+          key: page.id,
+          bindingValue: page.id,
+          name,
+          eventDate,
+          source: 'project_db' as const,
+        }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
   }
 
   private mapTaskPage(page: any, schema: TaskSchema, projectNameMap: Record<string, string>): TaskRecord {
@@ -660,134 +569,42 @@ export class NotionWorkService {
     }
   }
 
-  async listProjects(): Promise<ListProjectsResult> {
-    const [schema, projectPages] = await Promise.all([this.getTaskSchema(), this.queryAll(config.projectDbId)])
+  async fetchSnapshot(): Promise<TaskSnapshot> {
+    const [schema, projects, taskPages] = await Promise.all([
+      this.getTaskSchema(),
+      this.listProjects(),
+      this.queryAll(this.env.NOTION_TASK_DB_ID),
+    ])
 
-    const projectsFromDb: ProjectRecord[] = projectPages.map((page) => {
-      const props = (page.properties ?? {}) as AnyMap
-      const titleProp = props['프로젝트명']
-      const eventDateProp = props['행사 진행일']
-      const name =
-        titleProp?.type === 'title'
-          ? joinRichText(titleProp.title ?? []) || '(이름 없음 프로젝트)'
-          : parseDbTitle(page) || '(이름 없음 프로젝트)'
-      const eventDate = eventDateProp?.type === 'date' ? eventDateProp.date?.start ?? undefined : undefined
-
-      return {
-        id: page.id,
-        key: page.id,
-        bindingValue: page.id,
-        name,
-        eventDate,
-        source: 'project_db',
-      }
-    })
-
-    return {
-      projects: projectsFromDb.sort((a, b) => a.name.localeCompare(b.name, 'ko')),
-      schema,
-    }
-  }
-
-  async listTasks(query: TaskQuery): Promise<ListTasksResult> {
-    const schema = await this.getTaskSchema()
-    const projects = await this.listProjects()
     const projectNameMap: Record<string, string> = {}
-
-    for (const project of projects.projects) {
-      if (project.source === 'project_db') {
-        projectNameMap[project.id] = project.name
-        projectNameMap[normalizeNotionId(project.id)] = project.name
-      }
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
     }
 
-    const filters: any[] = []
-
-    if (query.projectId) {
-      if (isKnownField(schema.fields.projectRelation) && schema.fields.projectRelation.actualType === 'relation') {
-        filters.push({
-          property: schema.fields.projectRelation.actualName,
-          relation: { contains: query.projectId },
-        })
-      }
-    }
-
-    if (query.status && isKnownField(schema.fields.status)) {
-      if (schema.fields.status.actualType === 'status') {
-        filters.push({
-          property: schema.fields.status.actualName,
-          status: { equals: query.status },
-        })
-      } else if (schema.fields.status.actualType === 'select') {
-        filters.push({
-          property: schema.fields.status.actualName,
-          select: { equals: query.status },
-        })
-      } else if (schema.fields.status.actualType === 'rich_text') {
-        filters.push({
-          property: schema.fields.status.actualName,
-          rich_text: { contains: query.status },
-        })
-      }
-    }
-
-    if (query.q) {
-      const qFilters: any[] = []
-      if (isKnownField(schema.fields.taskName)) {
-        if (schema.fields.taskName.actualType === 'title') {
-          qFilters.push({ property: schema.fields.taskName.actualName, title: { contains: query.q } })
-        } else if (schema.fields.taskName.actualType === 'rich_text') {
-          qFilters.push({ property: schema.fields.taskName.actualName, rich_text: { contains: query.q } })
-        }
-      }
-
-      if (isKnownField(schema.fields.detail)) {
-        if (schema.fields.detail.actualType === 'rich_text') {
-          qFilters.push({ property: schema.fields.detail.actualName, rich_text: { contains: query.q } })
-        } else if (schema.fields.detail.actualType === 'title') {
-          qFilters.push({ property: schema.fields.detail.actualName, title: { contains: query.q } })
-        }
-      }
-
-      if (qFilters.length > 0) {
-        filters.push({ or: qFilters })
-      }
-    }
-
-    const filter = filters.length === 0 ? undefined : filters.length === 1 ? filters[0] : { and: filters }
-
-    const pageSize = Math.max(this.pageSizeMin, Math.min(this.pageSizeMax, query.pageSize))
-
-    const result: any = await this.client.databases.query({
-      database_id: config.taskDbId,
-      start_cursor: query.cursor,
-      page_size: pageSize,
-      filter,
-    })
-
-    const tasks = (result.results ?? []).map((page: any) => this.mapTaskPage(page, schema, projectNameMap))
+    const tasks = taskPages.map((page) => this.mapTaskPage(page, schema, projectNameMap))
 
     return {
+      projects,
       tasks,
-      nextCursor: result.next_cursor ?? undefined,
-      hasMore: Boolean(result.has_more),
       schema,
+      updatedAt: Date.now(),
     }
   }
 
   async getTask(id: string): Promise<{ task: TaskRecord; schema: TaskSchema }> {
-    const schema = await this.getTaskSchema()
-    const projects = await this.listProjects()
-    const projectNameMap: Record<string, string> = {}
+    const [schema, projects, page] = await Promise.all([
+      this.getTaskSchema(),
+      this.listProjects(),
+      this.api.retrievePage(id),
+    ])
 
-    for (const project of projects.projects) {
-      if (project.source === 'project_db') {
-        projectNameMap[project.id] = project.name
-        projectNameMap[normalizeNotionId(project.id)] = project.name
-      }
+    const projectNameMap: Record<string, string> = {}
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
     }
 
-    const page: any = await this.client.pages.retrieve({ page_id: id })
     return {
       task: this.mapTaskPage(page, schema, projectNameMap),
       schema,
@@ -833,8 +650,8 @@ export class NotionWorkService {
     applyCheckbox(properties, schema.fields.urgent, input.urgent)
     applyRichText(properties, schema.fields.issue, input.issue)
 
-    const created: any = await this.client.pages.create({
-      parent: { database_id: config.taskDbId },
+    const created: any = await this.api.createPage({
+      parent: { database_id: this.env.NOTION_TASK_DB_ID },
       properties,
     })
 
@@ -906,7 +723,7 @@ export class NotionWorkService {
       applyRichText(properties, schema.fields.issue, patch.issue)
     }
 
-    await this.client.pages.update({ page_id: id, properties })
+    await this.api.updatePage(id, { properties })
     return this.getTask(id)
   }
 }

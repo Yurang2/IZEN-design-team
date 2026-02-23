@@ -1,0 +1,11 @@
+name = "izen-design-api"
+main = "worker/src/index.ts"
+compatibility_date = "2026-02-23"
+workers_dev = true
+
+[observability]
+enabled = true
+
+# Optional: local/dev TTL override (seconds)
+[vars]
+API_CACHE_TTL_SECONDS = "60"

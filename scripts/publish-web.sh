@@ -24,8 +24,4 @@ if [[ -f "$ROOT_DIR/public/_headers" ]]; then
   cp -f "$ROOT_DIR/public/_headers" "$ROOT_DIR/_headers"
 fi
 
-if [[ -f "$ROOT_DIR/public/app-config.js" ]]; then
-  cp -f "$ROOT_DIR/public/app-config.js" "$ROOT_DIR/app-config.js"
-fi
-
 echo "Web static bundle published to repository root"
