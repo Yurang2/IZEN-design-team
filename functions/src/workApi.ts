@@ -3,9 +3,11 @@ import * as logger from 'firebase-functions/logger'
 import cors from 'cors'
 import { config } from './config'
 import { NotionWorkService } from './notionWork'
+import { NotionService } from './notion'
 
 const corsHandler = cors({ origin: true, credentials: true })
 const service = new NotionWorkService()
+const notion = new NotionService()
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const CACHE_TTL_MS = Math.max(10_000, Math.min(30_000, Number(process.env.TASK_API_CACHE_MS ?? 15_000)))
@@ -66,6 +68,11 @@ function asString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return trimmed || undefined
+}
+
+function containsText(source: string, keyword?: string): boolean {
+  if (!keyword) return true
+  return source.toLowerCase().includes(keyword.toLowerCase())
 }
 
 function parseStringArray(value: unknown): string[] | undefined {
@@ -248,6 +255,49 @@ async function handleApi(req: any, res: any): Promise<void> {
     return
   }
 
+  if (req.method === 'GET' && path === '/checklists') {
+    const eventName = asString(req.query?.eventName)
+    const eventCategory = asString(req.query?.eventCategory)
+    const q = asString(req.query?.q)
+    const keyword = q
+
+    const cacheKey = `checklists:${JSON.stringify({ eventName, eventCategory, keyword })}`
+    const cached = getCached<any>(cacheKey)
+    if (cached) {
+      res.json(cached)
+      return
+    }
+
+    const allItems = await notion.fetchChecklist()
+    const availableCategories = Array.from(
+      new Set(allItems.flatMap((item) => item.eventCategories).filter(Boolean)),
+    ).sort((a, b) => a.localeCompare(b, 'ko'))
+
+    const items = allItems.filter((item) => {
+      const byCategory = eventCategory ? item.eventCategories.includes(eventCategory) : true
+      if (!byCategory) return false
+
+      if (!keyword) return true
+      const source = `${item.productName} ${item.workCategory} ${item.finalDueText} ${item.eventCategories.join(' ')}`
+      return containsText(source, keyword)
+    })
+
+    const response = {
+      ok: true,
+      eventName: eventName ?? '',
+      eventCategory: eventCategory ?? '',
+      keyword: keyword ?? '',
+      availableCategories,
+      count: items.length,
+      items,
+      cacheTtlMs: CACHE_TTL_MS,
+    }
+
+    setCached(cacheKey, response)
+    res.json(response)
+    return
+  }
+
   const taskMatch = path.match(/^\/tasks\/([^/]+)$/)
   if (req.method === 'GET' && taskMatch) {
     const id = decodeURIComponent(taskMatch[1])
@@ -320,6 +370,7 @@ async function handleApi(req: any, res: any): Promise<void> {
     path,
     supported: [
       'GET /api/projects',
+      'GET /api/checklists?eventName=...&eventCategory=...&q=...',
       'GET /api/tasks?projectId=...&status=...&q=...&cursor=...&pageSize=...',
       'GET /api/tasks/:id',
       'POST /api/tasks',

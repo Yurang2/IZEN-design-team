@@ -78,10 +78,41 @@ type ProjectsResponse = {
   cacheTtlMs: number
 }
 
+type ChecklistPreviewItem = {
+  id: string
+  productName: string
+  workCategory: string
+  finalDueText: string
+  eventCategories: string[]
+}
+
+type ChecklistPreviewResponse = {
+  ok: boolean
+  eventName: string
+  eventCategory: string
+  keyword: string
+  availableCategories: string[]
+  count: number
+  items: ChecklistPreviewItem[]
+  cacheTtlMs: number
+}
+
 type Filters = {
   projectId: string
   status: string
   q: string
+}
+
+type ChecklistPreviewFilters = {
+  eventName: string
+  eventCategory: string
+  keyword: string
+}
+
+type ChecklistAssignmentTarget = {
+  itemId: string
+  productName: string
+  workCategory: string
 }
 
 type CreateForm = {
@@ -119,6 +150,9 @@ declare global {
 }
 
 const POLLING_MS = 60_000
+const TASK_PAGE_SIZE = 100
+const MAX_TASK_PAGES = 30
+const CHECKLIST_ASSIGNMENT_STORAGE_KEY = 'checklist-assignment-v1'
 
 function toNonEmpty(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim()
@@ -160,6 +194,11 @@ function splitByComma(value: string): string[] {
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
+}
+
+function toChecklistAssignmentKey(eventCategory: string, itemId: string): string {
+  const categoryKey = eventCategory.trim() || 'ALL'
+  return `${categoryKey}::${itemId}`
 }
 
 const queryBaseUrl =
@@ -228,6 +267,19 @@ function App() {
   const [listError, setListError] = useState<string | null>(null)
   const [lastSyncedAt, setLastSyncedAt] = useState<string>('')
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<Record<string, boolean>>({})
+  const [checklistFilters, setChecklistFilters] = useState<ChecklistPreviewFilters>({
+    eventName: '',
+    eventCategory: '',
+    keyword: '',
+  })
+  const [checklistItems, setChecklistItems] = useState<ChecklistPreviewItem[]>([])
+  const [checklistCategories, setChecklistCategories] = useState<string[]>([])
+  const [checklistLoading, setChecklistLoading] = useState(false)
+  const [checklistError, setChecklistError] = useState<string | null>(null)
+  const [assignmentByChecklist, setAssignmentByChecklist] = useState<Record<string, string>>({})
+  const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
+  const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
+  const [assignmentSearch, setAssignmentSearch] = useState('')
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -273,16 +325,40 @@ function App() {
     setListError(null)
 
     try {
-      const params = new URLSearchParams()
-      if (filters.projectId) params.set('projectId', filters.projectId)
-      if (filters.status) params.set('status', filters.status)
-      if (filters.q) params.set('q', filters.q)
+      const allTasks: TaskRecord[] = []
+      let cursor: string | undefined
+      let page = 0
+      let lastSchema: ApiSchemaSummary | null = null
+      let hasMore = false
 
-      const path = params.size > 0 ? `/tasks?${params.toString()}` : '/tasks'
-      const response = await api<ListTasksResponse>(path)
-      setTasks(response.tasks)
-      setSchema(response.schema)
+      do {
+        const params = new URLSearchParams()
+        if (filters.projectId) params.set('projectId', filters.projectId)
+        if (filters.status) params.set('status', filters.status)
+        if (filters.q) params.set('q', filters.q)
+        params.set('pageSize', String(TASK_PAGE_SIZE))
+        if (cursor) params.set('cursor', cursor)
+
+        const path = `/tasks?${params.toString()}`
+        const response = await api<ListTasksResponse>(path)
+        allTasks.push(...response.tasks)
+        lastSchema = response.schema
+        hasMore = response.hasMore
+        cursor = response.nextCursor
+        page += 1
+      } while (hasMore && cursor && page < MAX_TASK_PAGES)
+
+      const dedupedTasks = Array.from(new Map(allTasks.map((task) => [task.id, task])).values())
+
+      setTasks(dedupedTasks)
+      if (lastSchema) {
+        setSchema(lastSchema)
+      }
       setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+
+      if (hasMore && page >= MAX_TASK_PAGES) {
+        setListError('업무가 매우 많아 일부만 표시될 수 있습니다. 필터를 좁혀 주세요.')
+      }
     } catch (error: any) {
       setListError(error?.message ?? '업무 목록을 불러오지 못했습니다.')
     } finally {
@@ -299,11 +375,59 @@ function App() {
 
     void fetchTasks()
     const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return
+      }
       void fetchTasks()
     }, POLLING_MS)
 
     return () => window.clearInterval(timer)
   }, [fetchTasks, route.kind])
+
+  const fetchChecklistPreview = useCallback(async (input: ChecklistPreviewFilters) => {
+    setChecklistLoading(true)
+    setChecklistError(null)
+
+    try {
+      const params = new URLSearchParams()
+      if (input.eventName.trim()) params.set('eventName', input.eventName.trim())
+      if (input.eventCategory.trim()) params.set('eventCategory', input.eventCategory.trim())
+      if (input.keyword.trim()) params.set('q', input.keyword.trim())
+
+      const path = params.size > 0 ? `/checklists?${params.toString()}` : '/checklists'
+      const response = await api<ChecklistPreviewResponse>(path)
+      setChecklistItems(response.items)
+      setChecklistCategories(response.availableCategories)
+    } catch (error: any) {
+      setChecklistError(error?.message ?? '체크리스트 미리보기를 불러오지 못했습니다.')
+    } finally {
+      setChecklistLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (route.kind !== 'list') return
+    void fetchChecklistPreview(checklistFilters)
+  }, [fetchChecklistPreview, route.kind])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(CHECKLIST_ASSIGNMENT_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as Record<string, string>
+      if (parsed && typeof parsed === 'object') {
+        setAssignmentByChecklist(parsed)
+      }
+    } catch {
+      // ignore broken local cache
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(CHECKLIST_ASSIGNMENT_STORAGE_KEY, JSON.stringify(assignmentByChecklist))
+  }, [assignmentByChecklist])
 
   const refreshListAndProjects = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTasks()])
@@ -325,6 +449,47 @@ function App() {
     return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
   }, [tasks])
 
+  const projectDbOptions = useMemo(
+    () =>
+      projects
+        .filter((project) => project.source === 'project_db')
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    [projects],
+  )
+
+  const taskById = useMemo(() => Object.fromEntries(tasks.map((task) => [task.id, task])) as Record<string, TaskRecord>, [tasks])
+
+  useEffect(() => {
+    setOpenTaskGroups((prev) => {
+      const next: Record<string, boolean> = { ...prev }
+      for (const group of groupedTasks) {
+        if (next[group.projectName] === undefined) {
+          // Collapse by default to reduce initial render cost on large datasets.
+          next[group.projectName] = false
+        }
+      }
+      return next
+    })
+  }, [groupedTasks])
+
+  const assignmentCandidates = useMemo(() => {
+    if (!assignmentTarget) return []
+
+    const keyword = assignmentSearch.trim().toLowerCase()
+    return tasks
+      .filter((task) => {
+        if (!keyword) return true
+        return `${task.projectName} ${task.taskName} ${task.workType}`.toLowerCase().includes(keyword)
+      })
+      .sort((a, b) => {
+        const sameWorkTypeA = a.workType === assignmentTarget.workCategory ? 0 : 1
+        const sameWorkTypeB = b.workType === assignmentTarget.workCategory ? 0 : 1
+        if (sameWorkTypeA !== sameWorkTypeB) return sameWorkTypeA - sameWorkTypeB
+        return `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')
+      })
+      .slice(0, 120)
+  }, [assignmentSearch, assignmentTarget, tasks])
+
   const statusOptions = useMemo(() => {
     const fromSchema = schema?.fields.status?.options ?? []
     const fromTasks = tasks.map((task) => task.status).filter(Boolean)
@@ -338,6 +503,9 @@ function App() {
   }, [schema, tasks])
 
   const unknownMessages = schemaUnknownMessage(schema)
+  const assignmentTargetCurrentTaskId = assignmentTarget
+    ? assignmentByChecklist[toChecklistAssignmentKey(checklistFilters.eventCategory, assignmentTarget.itemId)] ?? ''
+    : ''
 
   const onChangeFilter = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
@@ -353,6 +521,61 @@ function App() {
       ...prev,
       [name]: value,
     }))
+  }
+
+  const onChecklistInput = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = event.target
+    setChecklistFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const onChecklistSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    await fetchChecklistPreview(checklistFilters)
+  }
+
+  const onChecklistReset = async () => {
+    const next = { eventName: '', eventCategory: '', keyword: '' }
+    setChecklistFilters(next)
+    await fetchChecklistPreview(next)
+  }
+
+  const onToggleTaskGroup = (projectName: string) => {
+    setOpenTaskGroups((prev) => ({
+      ...prev,
+      [projectName]: !prev[projectName],
+    }))
+  }
+
+  const setChecklistAssignment = (itemId: string, taskId: string) => {
+    const key = toChecklistAssignmentKey(checklistFilters.eventCategory, itemId)
+    setAssignmentByChecklist((prev) => {
+      const next = { ...prev }
+      if (!taskId) {
+        delete next[key]
+      } else {
+        next[key] = taskId
+      }
+      return next
+    })
+  }
+
+  const onOpenAssignmentPicker = (item: ChecklistPreviewItem) => {
+    setAssignmentTarget({
+      itemId: item.id,
+      productName: item.productName,
+      workCategory: item.workCategory,
+    })
+    setAssignmentSearch('')
+  }
+
+  const onSelectAssignmentTask = (taskId: string) => {
+    if (!assignmentTarget) return
+    setChecklistAssignment(assignmentTarget.itemId, taskId)
+    setAssignmentTarget(null)
+    setAssignmentSearch('')
   }
 
   const onQuickStatusChange = async (taskId: string, nextStatus: string) => {
@@ -703,6 +926,105 @@ function App() {
         </label>
       </section>
 
+      <section className="checklistPreview">
+        <div className="checklistPreviewHeader">
+          <h2>행사별 디자인 제작물 체크리스트 미리보기</h2>
+          <p>행사구분으로 항목을 고르고, 결과는 Row 테이블로 보여줍니다. 노션 DB에는 저장하지 않습니다.</p>
+        </div>
+
+        <form className="checklistPreviewFilters" onSubmit={onChecklistSubmit}>
+          <label>
+            행사명
+            <select name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
+              <option value="">프로젝트 선택 안 함</option>
+              {projectDbOptions.map((project) => (
+                <option key={project.id} value={project.name}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            행사구분
+            <select name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
+              <option value="">전체</option>
+              {checklistCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            키워드
+            <input name="keyword" value={checklistFilters.keyword} onChange={onChecklistInput} placeholder="선택사항 (추가 검색)" />
+          </label>
+
+          <div className="checklistPreviewActions">
+            <button type="submit" disabled={checklistLoading}>
+              {checklistLoading ? '조회 중...' : '체크리스트 보기'}
+            </button>
+            <button type="button" className="secondary" onClick={() => void onChecklistReset()} disabled={checklistLoading}>
+              초기화
+            </button>
+          </div>
+        </form>
+        <p className="muted small">행사명은 프로젝트 DB에서 선택합니다. 필터 핵심은 행사구분입니다.</p>
+
+        {checklistError ? <p className="error">{checklistError}</p> : null}
+        {!checklistError ? <p className="muted">조회 결과: {checklistItems.length}건</p> : null}
+
+        {checklistItems.length > 0 ? (
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>제작물</th>
+                  <th>작업분류</th>
+                  <th>최종 완료 시점</th>
+                  <th>작업할당여부</th>
+                  <th>할당 업무</th>
+                  <th>액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checklistItems.map((item) => {
+                  const assignmentKey = toChecklistAssignmentKey(checklistFilters.eventCategory, item.id)
+                  const assignedTaskId = assignmentByChecklist[assignmentKey] ?? ''
+                  const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
+                  const isAssigned = Boolean(assignedTaskId)
+                  return (
+                    <tr key={item.id}>
+                      <td>{item.productName || '-'}</td>
+                      <td>{item.workCategory || '-'}</td>
+                      <td>{item.finalDueText || '-'}</td>
+                      <td>
+                        <span className={isAssigned ? 'assignmentBadge assigned' : 'assignmentBadge unassigned'}>
+                          {isAssigned ? '할당됨' : '미할당'}
+                        </span>
+                      </td>
+                      <td className="assignmentCell">{assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName}` : '-'}</td>
+                      <td>
+                        <button type="button" className="secondary mini" onClick={() => onOpenAssignmentPicker(item)}>
+                          {isAssigned ? '변경' : '할당'}
+                        </button>
+                        {isAssigned ? (
+                          <button type="button" className="secondary mini" onClick={() => setChecklistAssignment(item.id, '')}>
+                            해제
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
+
       {unknownMessages.length > 0 ? (
         <section className="warningBox">
           <strong>스키마 경고 ([UNKNOWN] fallback)</strong>
@@ -721,59 +1043,108 @@ function App() {
         {groupedTasks.map((group) => (
           <article className="projectSection" key={group.projectName}>
             <header className="projectHeader">
+              <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
+                {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
+              </button>
               <h2>{group.projectName}</h2>
               <span>{group.tasks.length}건</span>
             </header>
 
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>요청주체</th>
-                    <th>업무구분</th>
-                    <th>업무</th>
-                    <th>상태</th>
-                    <th>담당자</th>
-                    <th>시작일</th>
-                    <th>마감일</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.tasks.map((task) => (
-                    <tr key={task.id}>
-                      <td>{joinOrDash(task.requester)}</td>
-                      <td>{task.workType || '-'}</td>
-                      <td>
-                        <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
-                          {task.taskName}
-                        </button>
-                      </td>
-                      <td>
-                        <select
-                          value={task.status}
-                          disabled={Boolean(statusUpdatingIds[task.id])}
-                          onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
-                        >
-                          {unique([...statusOptions, task.status]).map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>{joinOrDash(task.assignee)}</td>
-                      <td>{task.startDate || '-'}</td>
-                      <td>{task.dueDate || '-'}</td>
+            {openTaskGroups[group.projectName] === false ? null : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>요청주체</th>
+                      <th>업무구분</th>
+                      <th>업무</th>
+                      <th>상태</th>
+                      <th>담당자</th>
+                      <th>시작일</th>
+                      <th>마감일</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {group.tasks.map((task) => (
+                      <tr key={task.id}>
+                        <td>{joinOrDash(task.requester)}</td>
+                        <td>{task.workType || '-'}</td>
+                        <td>
+                          <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
+                            {task.taskName}
+                          </button>
+                        </td>
+                        <td>
+                          <select
+                            value={task.status}
+                            disabled={Boolean(statusUpdatingIds[task.id])}
+                            onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
+                          >
+                            {unique([...statusOptions, task.status]).map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>{joinOrDash(task.assignee)}</td>
+                        <td>{task.startDate || '-'}</td>
+                        <td>{task.dueDate || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </article>
         ))}
 
         {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
       </section>
+
+      {assignmentTarget ? (
+        <div className="modalBackdrop" role="presentation" onClick={() => setAssignmentTarget(null)}>
+          <div className="modal assignmentModal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <h3>할당 업무 선택</h3>
+            <p className="muted small">
+              대상 제작물: <strong>{assignmentTarget.productName || '-'}</strong> / 작업분류: {assignmentTarget.workCategory || '-'}
+            </p>
+
+            <label>
+              업무 검색
+              <input
+                value={assignmentSearch}
+                onChange={(event) => setAssignmentSearch(event.target.value)}
+                placeholder="프로젝트명, 업무명, 업무구분으로 검색"
+              />
+            </label>
+
+            <div className="assignmentModalActions">
+              <button type="button" className="secondary" onClick={() => onSelectAssignmentTask('')}>
+                미할당 처리
+              </button>
+              <button type="button" className="secondary" onClick={() => setAssignmentTarget(null)}>
+                닫기
+              </button>
+            </div>
+
+            <div className="assignmentList">
+              {assignmentCandidates.length === 0 ? <p className="muted">검색 결과가 없습니다.</p> : null}
+              {assignmentCandidates.map((task) => {
+                const selected = assignmentTargetCurrentTaskId === task.id
+                return (
+                  <button key={task.id} type="button" className={selected ? 'assignmentItem selected' : 'assignmentItem'} onClick={() => onSelectAssignmentTask(task.id)}>
+                    <strong>{task.taskName}</strong>
+                    <span>
+                      [{task.projectName}] · {task.workType || '-'} · {task.status}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {createOpen ? (
         <div className="modalBackdrop" role="presentation" onClick={() => setCreateOpen(false)}>
