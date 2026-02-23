@@ -231,6 +231,13 @@ function parseIsoDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+function normalizeIsoDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 4) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`
+}
+
 function addDays(date: Date, days: number): Date {
   const copied = new Date(date.getTime())
   copied.setUTCDate(copied.getUTCDate() + days)
@@ -503,7 +510,7 @@ function App() {
       if (input.eventName.trim()) params.set('eventName', input.eventName.trim())
       if (input.eventCategory.trim()) params.set('eventCategory', input.eventCategory.trim())
       if (selectedProject?.eventDate) params.set('eventDate', selectedProject.eventDate)
-      if (input.shippingDate.trim()) params.set('shippingDate', input.shippingDate.trim())
+      if (parseIsoDate(input.shippingDate)) params.set('shippingDate', input.shippingDate)
       if (input.operationMode) params.set('operationMode', input.operationMode)
       if (input.fulfillmentMode) params.set('fulfillmentMode', input.fulfillmentMode)
 
@@ -690,9 +697,10 @@ function App() {
 
   const onChecklistInput = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
+    const nextValue = name === 'shippingDate' ? normalizeIsoDateInput(value) : value
     setChecklistFilters((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: nextValue,
     }))
   }
 
@@ -1069,7 +1077,7 @@ function App() {
   return (
     <div className="page">
       <header className="header">
-        <h1>노션 스타일 업무 협업툴 (MVP)</h1>
+        <h1>디자인팀 업무 도우미//</h1>
         <p>60초 폴링 + Optimistic 업데이트</p>
       </header>
 
@@ -1153,7 +1161,15 @@ function App() {
 
           <label>
             배송일(해외 출고 기준)
-            <input type="date" name="shippingDate" value={checklistFilters.shippingDate} onChange={onChecklistInput} />
+            <input
+              type="text"
+              name="shippingDate"
+              value={checklistFilters.shippingDate}
+              onChange={onChecklistInput}
+              placeholder="YYYY-MM-DD"
+              inputMode="numeric"
+              maxLength={10}
+            />
           </label>
 
           <label>
