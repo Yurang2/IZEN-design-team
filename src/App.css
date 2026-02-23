@@ -589,6 +589,22 @@ button.secondary:hover,
   min-height: 34px;
 }
 
+.boardWorkflowMode {
+  align-items: center;
+  color: var(--text-sub);
+  display: inline-flex;
+  flex-direction: row;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.boardWorkflowMode select {
+  min-height: 34px;
+  min-width: 220px;
+}
+
 .taskBoard {
   display: grid;
   gap: 12px;
@@ -625,6 +641,11 @@ button.secondary:hover,
 .boardColumn.boardColumn-other {
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   border-color: #dde5ef;
+}
+
+.boardColumn.boardColumn-status {
+  background: linear-gradient(180deg, #f7fbff 0%, #f2f8ff 100%);
+  border-color: #d6e5fb;
 }
 
 .boardColumnHeader {
@@ -983,6 +1004,107 @@ textarea {
   font-weight: 600;
 }
 
+.projectTimelineSection {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.projectTimelineHeader {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.projectTimelineHeader h3 {
+  color: var(--text-main);
+  font-size: 15px;
+  margin: 0;
+}
+
+.projectTimelineHeader span {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.projectTimelineList {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.projectTimelineRow {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2eaf5;
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(180px, 2fr) minmax(120px, auto);
+  padding: 10px;
+}
+
+.projectTimelineTask {
+  align-items: flex-start;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.projectTimelineMeta {
+  color: var(--text-sub);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectTimelineTrack {
+  background: #eef3fb;
+  border: 1px solid #dde6f5;
+  border-radius: 999px;
+  height: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.projectTimelineBar {
+  border-radius: 999px;
+  height: 100%;
+  position: absolute;
+  top: 0;
+}
+
+.projectTimelineBar.tone-gray {
+  background: #94a3b8;
+}
+
+.projectTimelineBar.tone-red {
+  background: #f87171;
+}
+
+.projectTimelineBar.tone-blue {
+  background: #60a5fa;
+}
+
+.projectTimelineBar.tone-green {
+  background: #4ade80;
+}
+
+.projectTimelineDates {
+  color: var(--text-sub);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  justify-self: end;
+  white-space: nowrap;
+}
+
 .tableWrap {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1204,11 +1326,23 @@ tr:hover td {
   }
 
   .taskViewMode {
+    align-items: stretch;
+    flex-direction: column;
     width: 100%;
   }
 
   .taskViewMode button {
-    flex: 1;
+    width: 100%;
+  }
+
+  .boardWorkflowMode {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .boardWorkflowMode select {
+    min-width: 0;
+    width: 100%;
   }
 
   .toolbar {
@@ -1233,6 +1367,14 @@ tr:hover td {
   .createForm,
   .detailForm {
     grid-template-columns: 1fr;
+  }
+
+  .projectTimelineRow {
+    grid-template-columns: 1fr;
+  }
+
+  .projectTimelineDates {
+    justify-self: start;
   }
 
   .checklistPreviewActions {

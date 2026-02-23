@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react'
 import './App.css'
 
 type Route =
@@ -169,6 +169,7 @@ type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
 type ChecklistSort = 'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'lead_asc' | 'lead_desc'
 type TaskLayoutMode = 'list' | 'board'
+type BoardWorkflowMode = 'grouped' | 'status'
 
 type ChecklistPreviewFilters = {
   eventName: string
@@ -453,7 +454,8 @@ function toProjectThumbUrl(project: ProjectRecord | undefined): string | undefin
   return project.coverUrl || project.iconUrl
 }
 
-function parseIsoDate(value: string): Date | null {
+function parseIsoDate(value: string | undefined): Date | null {
+  if (!value) return null
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
   const [y, m, d] = value.split('-').map(Number)
   const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
@@ -472,6 +474,15 @@ function toNotionUrlById(id: string | undefined): string | null {
   const normalized = id.replace(/-/g, '').trim()
   if (!normalized) return null
   return `https://www.notion.so/${normalized}`
+}
+
+function normalizeNotionId(value: string | undefined | null): string {
+  return (value ?? '').replace(/-/g, '').trim().toLowerCase()
+}
+
+function diffDays(from: Date, to: Date): number {
+  const ms = 24 * 60 * 60 * 1000
+  return Math.round((to.getTime() - from.getTime()) / ms)
 }
 
 function asSortDate(value: string | undefined): string {
@@ -635,6 +646,7 @@ function App() {
   const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
   const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
   const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>('list')
+  const [boardWorkflowMode, setBoardWorkflowMode] = useState<BoardWorkflowMode>('grouped')
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
   const [quickSearch, setQuickSearch] = useState('')
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
@@ -690,6 +702,7 @@ function App() {
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
   const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
+  const [projectTimelineProjectId, setProjectTimelineProjectId] = useState('')
   const [apiCheckState, setApiCheckState] = useState<ApiCheckState>('idle')
   const [apiCheckMessage, setApiCheckMessage] = useState<string>('')
   const [exporting, setExporting] = useState(false)
@@ -975,7 +988,7 @@ function App() {
     return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
   }, [sortedFilteredTasks])
 
-  const boardColumns = useMemo(() => {
+  const groupedBoardColumns = useMemo(() => {
     const baseColumns: Array<{ key: BoardGroupKey; label: string; items: TaskRecord[] }> = [
       { key: 'todo', label: '할 일', items: [] },
       { key: 'progress', label: '진행 중', items: [] },
@@ -991,6 +1004,52 @@ function App() {
 
     return baseColumns.filter((column) => column.key !== 'other' || column.items.length > 0)
   }, [sortedFilteredTasks])
+
+  const statusOptions = useMemo(() => {
+    const fromSchema = schema?.fields.status?.options ?? []
+    const fromTasks = tasks.map((task) => task.status).filter(Boolean)
+    return unique([...fromSchema, ...fromTasks])
+  }, [schema, tasks])
+
+  const statusBoardColumns = useMemo(() => {
+    const known = statusOptions.map((status) => ({
+      key: `status:${status}`,
+      label: status,
+      items: sortedFilteredTasks.filter((task) => task.status === status),
+      tone: toStatusTone(status),
+    }))
+    const seen = new Set(statusOptions)
+    const unknown = sortedFilteredTasks
+      .filter((task) => task.status && !seen.has(task.status))
+      .map((task) => task.status)
+      .filter(Boolean) as string[]
+    const unknownStatuses = unique(unknown).sort((a, b) => a.localeCompare(b, 'ko'))
+    const unknownColumns = unknownStatuses.map((status) => ({
+      key: `status:${status}`,
+      label: status,
+      items: sortedFilteredTasks.filter((task) => task.status === status),
+      tone: toStatusTone(status),
+    }))
+
+    return [...known, ...unknownColumns].filter((column) => column.items.length > 0)
+  }, [sortedFilteredTasks, statusOptions])
+
+  const boardColumns = useMemo(() => {
+    if (boardWorkflowMode === 'status') {
+      return statusBoardColumns.map((column) => ({
+        key: column.key,
+        label: column.label,
+        items: column.items,
+        style: 'status' as const,
+      }))
+    }
+    return groupedBoardColumns.map((column) => ({
+      key: column.key,
+      label: column.label,
+      items: column.items,
+      style: column.key,
+    }))
+  }, [boardWorkflowMode, groupedBoardColumns, statusBoardColumns])
 
   const projectDbOptions = useMemo(
     () =>
@@ -1010,6 +1069,78 @@ function App() {
     })
     return copy
   }, [projectDbOptions, projectSort])
+
+  useEffect(() => {
+    if (!sortedProjectDbOptions.length) {
+      setProjectTimelineProjectId('')
+      return
+    }
+    const exists = sortedProjectDbOptions.some((project) => project.id === projectTimelineProjectId)
+    if (!exists) {
+      setProjectTimelineProjectId(sortedProjectDbOptions[0].id)
+    }
+  }, [projectTimelineProjectId, sortedProjectDbOptions])
+
+  const selectedTimelineProject = useMemo(
+    () => sortedProjectDbOptions.find((project) => project.id === projectTimelineProjectId) ?? sortedProjectDbOptions[0] ?? null,
+    [projectTimelineProjectId, sortedProjectDbOptions],
+  )
+
+  const projectTimelineTasks = useMemo(() => {
+    if (!selectedTimelineProject) return []
+    const projectKey = normalizeNotionId(selectedTimelineProject.id)
+    return tasks
+      .filter((task) => {
+        const taskProjectKey = normalizeNotionId(task.projectKey)
+        return taskProjectKey === projectKey || task.projectName === selectedTimelineProject.name
+      })
+      .sort((a, b) => asSortDate(a.startDate).localeCompare(asSortDate(b.startDate)))
+  }, [selectedTimelineProject, tasks])
+
+  const projectTimelineRange = useMemo(() => {
+    const parsedStarts = projectTimelineTasks.map((task) => parseIsoDate(task.startDate)).filter((value): value is Date => Boolean(value))
+    const parsedEnds = projectTimelineTasks.map((task) => parseIsoDate(task.dueDate)).filter((value): value is Date => Boolean(value))
+    const points = [...parsedStarts, ...parsedEnds]
+
+    const fallback = parseIsoDate(selectedTimelineProject?.eventDate)
+    const today = new Date()
+    const start = points.length > 0 ? new Date(Math.min(...points.map((point) => point.getTime()))) : fallback ?? today
+    const end = points.length > 0 ? new Date(Math.max(...points.map((point) => point.getTime()))) : fallback ?? today
+
+    if (end < start) {
+      return { start, end: start, totalDays: 1 }
+    }
+    return {
+      start,
+      end,
+      totalDays: Math.max(1, diffDays(start, end) + 1),
+    }
+  }, [projectTimelineTasks, selectedTimelineProject?.eventDate])
+
+  const projectTimelineRows = useMemo(() => {
+    const { start, totalDays } = projectTimelineRange
+
+    return projectTimelineTasks.map((task) => {
+      const startDate = parseIsoDate(task.startDate) ?? parseIsoDate(task.dueDate) ?? start
+      const dueDate = parseIsoDate(task.dueDate) ?? parseIsoDate(task.startDate) ?? startDate
+      const safeStart = startDate <= dueDate ? startDate : dueDate
+      const safeEnd = dueDate >= startDate ? dueDate : startDate
+
+      const offset = diffDays(start, safeStart)
+      const spanDays = Math.max(1, diffDays(safeStart, safeEnd) + 1)
+      const leftPct = Math.max(0, Math.min(100, (offset / totalDays) * 100))
+      const widthPct = Math.max(2, Math.min(100 - leftPct, (spanDays / totalDays) * 100))
+      const barStyle: CSSProperties = {
+        left: `${leftPct}%`,
+        width: `${widthPct}%`,
+      }
+
+      return {
+        task,
+        barStyle,
+      }
+    })
+  }, [projectTimelineRange, projectTimelineTasks])
 
   const quickSearchSections = useMemo(() => {
     const keyword = quickSearch.trim().toLowerCase()
@@ -1099,12 +1230,6 @@ function App() {
     () => Array.from(new Set(tasks.map((task) => task.projectName).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
     [tasks],
   )
-
-  const statusOptions = useMemo(() => {
-    const fromSchema = schema?.fields.status?.options ?? []
-    const fromTasks = tasks.map((task) => task.status).filter(Boolean)
-    return unique([...fromSchema, ...fromTasks])
-  }, [schema, tasks])
 
   const workTypeOptions = useMemo(() => {
     const fromSchema = schema?.fields.workType?.options ?? []
@@ -1845,6 +1970,15 @@ function App() {
                   <span>Board</span>
                 </span>
               </button>
+              {taskLayout === 'board' ? (
+                <label className="boardWorkflowMode">
+                  워크플로우
+                  <select value={boardWorkflowMode} onChange={(event) => setBoardWorkflowMode(event.target.value as BoardWorkflowMode)}>
+                    <option value="grouped">그룹형(할 일/진행/완료)</option>
+                    <option value="status">상태형(노션 상태 그대로)</option>
+                  </select>
+                </label>
+              ) : null}
             </section>
           ) : null}
         </header>
@@ -2194,6 +2328,16 @@ function App() {
                 <option value="date_desc">행사일 늦은순</option>
               </select>
             </label>
+            <label>
+              종속 업무 타임라인 대상
+              <select value={projectTimelineProjectId} onChange={(event) => setProjectTimelineProjectId(event.target.value)}>
+                {sortedProjectDbOptions.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {toProjectLabel(project)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </section>
           <div className="tableWrap">
             <table>
@@ -2230,6 +2374,49 @@ function App() {
               </tbody>
             </table>
           </div>
+
+          <section className="projectTimelineSection">
+            <header className="projectTimelineHeader">
+              <h3>종속 업무 타임라인</h3>
+              <span>{projectTimelineRows.length}건</span>
+            </header>
+
+            {selectedTimelineProject ? (
+              <p className="muted small">
+                대상 프로젝트: {toProjectLabel(selectedTimelineProject)} · 범위: {formatDateLabel(toIsoDate(projectTimelineRange.start))} ~{' '}
+                {formatDateLabel(toIsoDate(projectTimelineRange.end))}
+              </p>
+            ) : null}
+
+            {projectTimelineRows.length === 0 ? (
+              <p className="muted">선택한 프로젝트에 귀속된 업무가 없습니다.</p>
+            ) : (
+              <div className="projectTimelineList">
+                {projectTimelineRows.map(({ task, barStyle }) => (
+                  <article key={task.id} className="projectTimelineRow">
+                    <div className="projectTimelineTask">
+                      <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
+                        {task.taskName}
+                      </button>
+                      <span className="projectTimelineMeta">
+                        {task.projectName} · 담당: {joinOrDash(task.assignee)} · 상태: {task.status || '-'}
+                      </span>
+                    </div>
+
+                    <div className="projectTimelineTrack">
+                      <div className={`projectTimelineBar tone-${toStatusTone(task.status)}`} style={barStyle} />
+                    </div>
+
+                    <div className="projectTimelineDates">
+                      <span>{task.startDate || '-'}</span>
+                      <span>~</span>
+                      <span>{task.dueDate || '-'}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </section>
       ) : null}
 
@@ -2322,7 +2509,7 @@ function App() {
         ) : (
           <section className="taskBoard">
             {boardColumns.map((column) => (
-              <article key={column.key} className={`boardColumn boardColumn-${column.key}`}>
+              <article key={column.key} className={`boardColumn boardColumn-${column.style}`}>
                 <header className="boardColumnHeader">
                   <strong>{column.label}</strong>
                   <span>{column.items.length}</span>
