@@ -39,6 +39,10 @@
   min-height: calc(100vh - 28px);
 }
 
+.mondayShell.sidebarCollapsed {
+  grid-template-columns: 78px minmax(0, 1fr);
+}
+
 .mondaySidebar {
   background: linear-gradient(180deg, #fbfcfe 0%, #f5f7fb 100%);
   border: 1px solid var(--border);
@@ -51,6 +55,10 @@
   padding: 14px;
   position: sticky;
   top: 14px;
+}
+
+.mondaySidebar.collapsed {
+  padding: 10px 8px;
 }
 
 .sidebarWorkspace {
@@ -93,9 +101,116 @@
   line-height: 1.25;
 }
 
-.sidebarSearchBtn {
-  justify-content: space-between;
+.sidebarCollapseBtn {
+  margin-left: auto;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 6px;
+}
+
+.sidebarSearchIconBtn {
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
   width: 100%;
+}
+
+.quickSearchForm {
+  position: relative;
+}
+
+.quickSearchInput {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: row;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  padding: 7px 9px;
+}
+
+.quickSearchInput input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  flex: 1;
+  font-size: 12px;
+  min-height: 24px;
+  min-width: 0;
+  padding: 0;
+}
+
+.quickSearchInput input:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.quickSearchResults {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  display: grid;
+  gap: 8px;
+  left: 0;
+  margin-top: 6px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  z-index: 22;
+}
+
+.quickSearchGroup {
+  display: grid;
+  gap: 5px;
+}
+
+.quickSearchGroup strong {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+button.quickSearchItem {
+  background: #f9fbff;
+  border: 1px solid #dce5f4;
+  box-shadow: none;
+  color: var(--text-main);
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 8px;
+  width: 100%;
+}
+
+button.quickSearchItem:hover {
+  background: #edf4ff;
+  border-color: #bfd4ff;
+  box-shadow: none;
+}
+
+button.quickSearchItem span:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.quickSearchItem span:last-child {
+  color: var(--text-sub);
+  font-size: 11px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.quickSearchEmpty {
+  padding: 4px 2px;
 }
 
 .shortcutKey {
@@ -231,6 +346,36 @@ button.viewTab.active .viewTabCount {
   white-space: nowrap;
 }
 
+.mondaySidebar.collapsed .workspaceMeta,
+.mondaySidebar.collapsed .sidebarBrand,
+.mondaySidebar.collapsed .viewMenuHeader strong,
+.mondaySidebar.collapsed .viewTabCount,
+.mondaySidebar.collapsed .dbJump,
+.mondaySidebar.collapsed .sidebarMeta,
+.mondaySidebar.collapsed .quickSearchForm {
+  display: none;
+}
+
+.mondaySidebar.collapsed .viewTabs {
+  justify-items: center;
+  margin-top: 2px;
+}
+
+.mondaySidebar.collapsed .viewMenuHeader {
+  justify-content: center;
+}
+
+.mondaySidebar.collapsed button.viewTab {
+  justify-content: center;
+  min-width: 48px;
+  padding: 9px;
+}
+
+.mondaySidebar.collapsed button.viewTab .iconLabel span:last-child,
+.mondaySidebar.collapsed .viewMenuHeader .iconLabel span:last-child {
+  display: none;
+}
+
 .mondayMain {
   display: flex;
   flex-direction: column;
@@ -314,13 +459,30 @@ button.viewTab.active .viewTabCount {
   align-items: center;
   display: inline-flex;
   gap: 6px;
+  min-width: 0;
+}
+
+.viewTabs .iconLabel span:last-child,
+.toolbar .iconLabel span:last-child,
+.taskViewMode .iconLabel span:last-child {
+  white-space: nowrap;
 }
 
 .uiIcon {
   color: currentcolor;
-  font-size: 13px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 14px;
+  justify-content: center;
   line-height: 1;
   opacity: 0.9;
+  width: 14px;
+}
+
+.uiIcon svg {
+  display: block;
+  height: 14px;
+  width: 14px;
 }
 
 .syncLabel {
@@ -360,6 +522,7 @@ button,
   line-height: 1.2;
   padding: 9px 12px;
   text-decoration: none;
+  white-space: nowrap;
   transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
 }
 
@@ -420,6 +583,10 @@ button.secondary:hover,
   align-items: center;
   display: inline-flex;
   gap: 8px;
+}
+
+.taskViewMode button {
+  min-height: 34px;
 }
 
 .taskBoard {
@@ -646,6 +813,16 @@ textarea {
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: #97a4b7;
+}
+
+.checklistPreview input[name='shippingDate'] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  letter-spacing: 0.02em;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -782,6 +959,8 @@ th {
 td {
   color: var(--text-main);
   font-size: 13px;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 tr:hover td {
@@ -790,6 +969,12 @@ tr:hover td {
 
 .tableWrap td {
   white-space: normal;
+}
+
+.assignmentCell {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .taskLink {
@@ -906,8 +1091,51 @@ tr:hover td {
     grid-template-columns: 1fr;
   }
 
+  .mondayShell.sidebarCollapsed {
+    grid-template-columns: 1fr;
+  }
+
   .mondaySidebar {
     position: static;
+  }
+
+  .mondaySidebar.collapsed .workspaceMeta,
+  .mondaySidebar.collapsed .sidebarBrand,
+  .mondaySidebar.collapsed .viewMenuHeader strong,
+  .mondaySidebar.collapsed .viewTabCount,
+  .mondaySidebar.collapsed .dbJump,
+  .mondaySidebar.collapsed .sidebarMeta {
+    display: block;
+  }
+
+  .mondaySidebar.collapsed .workspaceMeta {
+    display: grid;
+  }
+
+  .mondaySidebar.collapsed .viewTabCount {
+    display: inline-block;
+  }
+
+  .mondaySidebar.collapsed .dbJump {
+    display: inline-flex;
+  }
+
+  .mondaySidebar.collapsed .sidebarMeta {
+    display: grid;
+  }
+
+  .mondaySidebar.collapsed .quickSearchForm {
+    display: block;
+  }
+
+  .mondaySidebar.collapsed button.viewTab .iconLabel span:last-child,
+  .mondaySidebar.collapsed .viewMenuHeader .iconLabel span:last-child {
+    display: inline;
+  }
+
+  .mondaySidebar.collapsed button.viewTab {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .topbarHeader {

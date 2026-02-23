@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import './App.css'
 
 type Route =
@@ -210,6 +210,7 @@ type DetailForm = {
 }
 
 type ApiCheckState = 'idle' | 'checking' | 'ok' | 'error'
+type QuickSearchScope = 'project' | 'task'
 
 declare global {
   interface Window {
@@ -224,6 +225,159 @@ const POLLING_MS = 60_000
 const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
 const CHECKLIST_ASSIGNMENT_STORAGE_KEY = 'checklist-assignment-v1'
+
+type UiGlyphName =
+  | 'grid'
+  | 'list'
+  | 'calendar'
+  | 'checksquare'
+  | 'chevronLeft'
+  | 'chevronRight'
+  | 'chevronDown'
+  | 'external'
+  | 'refresh'
+  | 'pulse'
+  | 'download'
+  | 'plus'
+  | 'search'
+  | 'board'
+
+function UiGlyph({ name }: { name: UiGlyphName }) {
+  const common = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  }
+
+  if (name === 'grid') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2" width="5" height="5" rx="1" {...common} />
+        <rect x="9" y="2" width="5" height="5" rx="1" {...common} />
+        <rect x="2" y="9" width="5" height="5" rx="1" {...common} />
+        <rect x="9" y="9" width="5" height="5" rx="1" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'list') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M4 4h10" {...common} />
+        <path d="M4 8h10" {...common} />
+        <path d="M4 12h10" {...common} />
+        <circle cx="2" cy="4" r="0.7" fill="currentColor" />
+        <circle cx="2" cy="8" r="0.7" fill="currentColor" />
+        <circle cx="2" cy="12" r="0.7" fill="currentColor" />
+      </svg>
+    )
+  }
+  if (name === 'board') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
+        <rect x="6.4" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
+        <rect x="10.8" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'calendar') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="3.5" width="12" height="10.5" rx="1.5" {...common} />
+        <path d="M2 6.5h12" {...common} />
+        <path d="M5 2v3" {...common} />
+        <path d="M11 2v3" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'checksquare') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2" width="12" height="12" rx="2" {...common} />
+        <path d="M5 8.2l2.1 2.1L11.3 6" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'chevronLeft') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M10.5 3.5L6 8l4.5 4.5" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'chevronRight') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M5.5 3.5L10 8l-4.5 4.5" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'chevronDown') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M3.5 6l4.5 4.5L12.5 6" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'external') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M9.5 2h4.5v4.5" {...common} />
+        <path d="M14 2L7.8 8.2" {...common} />
+        <path d="M7 3.5H4a2 2 0 0 0-2 2V12a2 2 0 0 0 2 2h6.5a2 2 0 0 0 2-2v-3" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'refresh') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M13.2 8a5.2 5.2 0 1 1-1.2-3.3" {...common} />
+        <path d="M13.4 2.8v3.4H10" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'pulse') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="5.5" {...common} />
+        <circle cx="8" cy="8" r="1.4" fill="currentColor" />
+      </svg>
+    )
+  }
+  if (name === 'download') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 2.5v7" {...common} />
+        <path d="M5.2 7.7L8 10.5l2.8-2.8" {...common} />
+        <path d="M2.5 13.5h11" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'plus') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 3v10" {...common} />
+        <path d="M3 8h10" {...common} />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.5" {...common} />
+      <path d="M10.5 10.5L14 14" {...common} />
+    </svg>
+  )
+}
+
+function toTopViewPath(view: TopView): string {
+  if (view === 'projects') return 'Projects'
+  if (view === 'tasks') return 'Tasks'
+  if (view === 'schedule') return 'Schedule'
+  return 'Event Checklist'
+}
 
 function toNonEmpty(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim()
@@ -437,11 +591,15 @@ function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
 function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname))
   const [activeView, setActiveView] = useState<TopView>('tasks')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuCollapsed, setMenuCollapsed] = useState(false)
   const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
   const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
   const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>('list')
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
+  const [quickSearch, setQuickSearch] = useState('')
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false)
+  const quickSearchInputRef = useRef<HTMLInputElement | null>(null)
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [tasks, setTasks] = useState<TaskRecord[]>([])
@@ -807,6 +965,23 @@ function App() {
     return copy
   }, [projectDbOptions, projectSort])
 
+  const quickSearchSections = useMemo(() => {
+    const keyword = quickSearch.trim().toLowerCase()
+    if (!keyword) {
+      return { projects: [] as ProjectRecord[], tasks: [] as TaskRecord[] }
+    }
+
+    const projects = projectDbOptions
+      .filter((project) => `${project.name} ${project.eventDate ?? ''}`.toLowerCase().includes(keyword))
+      .slice(0, 6)
+
+    const matchedTasks = tasks
+      .filter((task) => `${task.projectName} ${task.taskName} ${task.workType} ${task.assignee.join(' ')}`.toLowerCase().includes(keyword))
+      .slice(0, 8)
+
+    return { projects, tasks: matchedTasks }
+  }, [projectDbOptions, quickSearch, tasks])
+
   const selectedChecklistProject = useMemo(
     () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
     [checklistFilters.eventName, projectDbOptions],
@@ -909,6 +1084,53 @@ function App() {
   const assignmentTargetCurrentTaskId = assignmentTarget
     ? assignmentByChecklist[toChecklistAssignmentKey(checklistFilters.eventCategory, assignmentTarget.itemId)] ?? ''
     : ''
+  const hasQuickSearchResults = quickSearchSections.projects.length > 0 || quickSearchSections.tasks.length > 0
+
+  const onQuickSearchPick = (scope: QuickSearchScope, id: string) => {
+    if (scope === 'project') {
+      const project = projectDbOptions.find((item) => item.id === id)
+      if (project) {
+        setFilters((prev) => ({
+          ...prev,
+          projectId: project.bindingValue,
+          q: '',
+        }))
+        setActiveView('tasks')
+      }
+    } else {
+      navigate(`/task/${encodeURIComponent(id)}`)
+      setActiveView('tasks')
+    }
+    setQuickSearchOpen(false)
+  }
+
+  const onQuickSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (quickSearchSections.tasks[0]) {
+      onQuickSearchPick('task', quickSearchSections.tasks[0].id)
+      return
+    }
+    if (quickSearchSections.projects[0]) {
+      onQuickSearchPick('project', quickSearchSections.projects[0].id)
+    }
+  }
+
+  useEffect(() => {
+    const onKeydown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setSidebarCollapsed(false)
+        setQuickSearchOpen(true)
+        window.setTimeout(() => {
+          quickSearchInputRef.current?.focus()
+          quickSearchInputRef.current?.select()
+        }, 0)
+      }
+    }
+
+    window.addEventListener('keydown', onKeydown)
+    return () => window.removeEventListener('keydown', onKeydown)
+  }, [])
 
   const onChangeFilter = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
@@ -1327,22 +1549,106 @@ function App() {
   }
 
   return (
-    <div className="page mondayShell">
-      <aside className="mondaySidebar">
+    <div className={`page mondayShell${sidebarCollapsed ? ' sidebarCollapsed' : ''}`}>
+      <aside className={`mondaySidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="sidebarWorkspace">
           <span className="workspaceMark">IZ</span>
           <div className="workspaceMeta">
             <strong>IZEN Design Team</strong>
             <span>Cloudflare + Notion Workspace</span>
           </div>
+          <button
+            type="button"
+            className="secondary sidebarCollapseBtn"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            title={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+            aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+          >
+            <span className="uiIcon">
+              <UiGlyph name={sidebarCollapsed ? 'chevronRight' : 'chevronLeft'} />
+            </span>
+          </button>
         </div>
-        <button type="button" className="secondary sidebarSearchBtn">
-          <span className="iconLabel">
-            <span className="uiIcon">⌕</span>
-            <span>빠른 이동 / 검색</span>
-          </span>
-          <span className="shortcutKey">⌘K</span>
-        </button>
+        {sidebarCollapsed ? (
+          <button
+            type="button"
+            className="secondary sidebarSearchIconBtn"
+            onClick={() => {
+              setSidebarCollapsed(false)
+              setQuickSearchOpen(true)
+              window.setTimeout(() => {
+                quickSearchInputRef.current?.focus()
+                quickSearchInputRef.current?.select()
+              }, 0)
+            }}
+            title="빠른 이동 / 검색"
+            aria-label="빠른 이동 / 검색"
+          >
+            <span className="uiIcon">
+              <UiGlyph name="search" />
+            </span>
+          </button>
+        ) : (
+          <form className="quickSearchForm" onSubmit={onQuickSearchSubmit}>
+            <label className="quickSearchInput">
+              <span className="uiIcon">
+                <UiGlyph name="search" />
+              </span>
+              <input
+                ref={quickSearchInputRef}
+                value={quickSearch}
+                onFocus={() => setQuickSearchOpen(true)}
+                onBlur={() => window.setTimeout(() => setQuickSearchOpen(false), 130)}
+                onChange={(event) => {
+                  setQuickSearch(event.target.value)
+                  setQuickSearchOpen(true)
+                }}
+                placeholder="프로젝트/업무 빠른 검색"
+              />
+              <span className="shortcutKey">⌘K</span>
+            </label>
+
+            {quickSearchOpen && quickSearch.trim() ? (
+              <div className="quickSearchResults">
+                {hasQuickSearchResults ? null : <p className="muted small quickSearchEmpty">검색 결과가 없습니다.</p>}
+                {quickSearchSections.projects.length > 0 ? (
+                  <div className="quickSearchGroup">
+                    <strong>프로젝트</strong>
+                    {quickSearchSections.projects.map((project) => (
+                      <button
+                        key={project.id}
+                        type="button"
+                        className="quickSearchItem"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => onQuickSearchPick('project', project.id)}
+                      >
+                        <span>{toProjectLabel(project)}</span>
+                        <span>{project.eventDate || '-'}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {quickSearchSections.tasks.length > 0 ? (
+                  <div className="quickSearchGroup">
+                    <strong>업무</strong>
+                    {quickSearchSections.tasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        className="quickSearchItem"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => onQuickSearchPick('task', task.id)}
+                      >
+                        <span>{task.taskName}</span>
+                        <span>{task.projectName}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </form>
+        )}
         <header className="sidebarBrand">
           <h1>디자인팀 업무 도우미</h1>
           <p>Plane-inspired Layout + Asana Workflow</p>
@@ -1352,7 +1658,9 @@ function App() {
             <strong>Views</strong>
             <button type="button" className="secondary" onClick={() => setMenuCollapsed((prev) => !prev)}>
               <span className="iconLabel">
-                <span className="uiIcon">{menuCollapsed ? '▸' : '▾'}</span>
+                <span className="uiIcon">
+                  <UiGlyph name={menuCollapsed ? 'chevronRight' : 'chevronDown'} />
+                </span>
                 <span>{menuCollapsed ? '메뉴 펼치기' : '메뉴 접기'}</span>
               </span>
             </button>
@@ -1363,9 +1671,12 @@ function App() {
                 type="button"
                 className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('projects')}
+                title="프로젝트"
               >
                 <span className="iconLabel">
-                  <span className="uiIcon">▦</span>
+                  <span className="uiIcon">
+                    <UiGlyph name="grid" />
+                  </span>
                   <span>프로젝트</span>
                 </span>
                 <span className="viewTabCount">{projects.length}</span>
@@ -1374,9 +1685,12 @@ function App() {
                 type="button"
                 className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('tasks')}
+                title="업무"
               >
                 <span className="iconLabel">
-                  <span className="uiIcon">☰</span>
+                  <span className="uiIcon">
+                    <UiGlyph name="list" />
+                  </span>
                   <span>업무</span>
                 </span>
                 <span className="viewTabCount">{tasks.length}</span>
@@ -1385,9 +1699,12 @@ function App() {
                 type="button"
                 className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('schedule')}
+                title="일정"
               >
                 <span className="iconLabel">
-                  <span className="uiIcon">◷</span>
+                  <span className="uiIcon">
+                    <UiGlyph name="calendar" />
+                  </span>
                   <span>일정</span>
                 </span>
               </button>
@@ -1395,16 +1712,21 @@ function App() {
                 type="button"
                 className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('checklist')}
+                title="행사 체크리스트"
               >
                 <span className="iconLabel">
-                  <span className="uiIcon">☑</span>
+                  <span className="uiIcon">
+                    <UiGlyph name="checksquare" />
+                  </span>
                   <span>행사 체크리스트</span>
                 </span>
               </button>
               {selectedViewDbUrl ? (
                 <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
                   <span className="iconLabel">
-                    <span className="uiIcon">↗</span>
+                    <span className="uiIcon">
+                      <UiGlyph name="external" />
+                    </span>
                     <span>현재 탭 노션 DB 열기</span>
                   </span>
                 </a>
@@ -1432,7 +1754,7 @@ function App() {
       <main className="mondayMain">
         <header className="header topbarHeader">
           <div className="topbarHeading">
-            <p className="topbarPath">Design Team / {activeView === 'checklist' ? 'Event Checklist' : activeView}</p>
+            <p className="topbarPath">Design Team / {toTopViewPath(activeView)}</p>
             <h1>
               {activeView === 'projects'
                 ? '프로젝트'
@@ -1451,7 +1773,9 @@ function App() {
                 onClick={() => setTaskLayout('list')}
               >
                 <span className="iconLabel">
-                  <span className="uiIcon">☰</span>
+                  <span className="uiIcon">
+                    <UiGlyph name="list" />
+                  </span>
                   <span>List</span>
                 </span>
               </button>
@@ -1461,7 +1785,9 @@ function App() {
                 onClick={() => setTaskLayout('board')}
               >
                 <span className="iconLabel">
-                  <span className="uiIcon">▥</span>
+                  <span className="uiIcon">
+                    <UiGlyph name="board" />
+                  </span>
                   <span>Board</span>
                 </span>
               </button>
@@ -1473,26 +1799,34 @@ function App() {
           {activeView === 'tasks' ? (
             <button type="button" onClick={() => setCreateOpen(true)}>
               <span className="iconLabel">
-                <span className="uiIcon">＋</span>
+                <span className="uiIcon">
+                  <UiGlyph name="plus" />
+                </span>
                 <span>새 업무</span>
               </span>
             </button>
           ) : null}
           <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
             <span className="iconLabel">
-              <span className="uiIcon">↻</span>
+              <span className="uiIcon">
+                <UiGlyph name="refresh" />
+              </span>
               <span>새로고침</span>
             </span>
           </button>
           <button type="button" className="secondary" onClick={() => void runApiConnectionTest()} disabled={apiCheckState === 'checking'}>
             <span className="iconLabel">
-              <span className="uiIcon">◌</span>
+              <span className="uiIcon">
+                <UiGlyph name="pulse" />
+              </span>
               <span>{apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}</span>
             </span>
           </button>
           <button type="button" className="secondary" onClick={() => void onManualExport()} disabled={exporting}>
             <span className="iconLabel">
-              <span className="uiIcon">⭳</span>
+              <span className="uiIcon">
+                <UiGlyph name="download" />
+              </span>
               <span>{exporting ? '내보내는 중...' : '수동 Export'}</span>
             </span>
           </button>
