@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react'
+import { mockApiRequest } from './mock/mockApi'
 import './App.css'
 
 type Route =
@@ -588,10 +589,29 @@ function getApiBaseFromRuntime(): string {
   return normalizeApiBase(buildTimeBaseUrl)
 }
 
-const API_BASE_URL = getApiBaseFromRuntime()
+function getMockDataModeFromRuntime(): boolean {
+  const envFlag = toNonEmpty(import.meta.env.VITE_USE_MOCK_DATA as string | undefined)
+  if (envFlag && ['1', 'true', 'yes', 'on'].includes(envFlag.toLowerCase())) return true
+  if (typeof window === 'undefined') return false
+
+  const query = new URLSearchParams(window.location.search)
+  const queryFlag = toNonEmpty(query.get('demo')) ?? toNonEmpty(query.get('mock'))
+  if (queryFlag && ['1', 'true', 'yes', 'on'].includes(queryFlag.toLowerCase())) return true
+
+  const stored = toNonEmpty(window.localStorage.getItem('USE_MOCK_DATA'))
+  return Boolean(stored && ['1', 'true', 'yes', 'on'].includes(stored.toLowerCase()))
+}
+
+const USE_MOCK_DATA = getMockDataModeFromRuntime()
+const API_BASE_URL = USE_MOCK_DATA ? 'mock://local' : getApiBaseFromRuntime()
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
+
+  if (USE_MOCK_DATA) {
+    return mockApiRequest<T>(normalizedPath, init)
+  }
+
   const headers = new Headers(init?.headers ?? undefined)
   const method = (init?.method ?? 'GET').toUpperCase()
   if (!headers.has('Content-Type') && init?.body != null && method !== 'GET' && method !== 'HEAD') {
@@ -2018,6 +2038,7 @@ function App() {
               <span>{exporting ? '내보내는 중...' : '수동 Export'}</span>
             </span>
           </button>
+          {USE_MOCK_DATA ? <span className="apiModePill">DEMO DATA</span> : null}
           <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
           <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
         </section>

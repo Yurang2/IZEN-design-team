@@ -34,6 +34,8 @@ Notion Databases (원장)
 ├── src/
 │   ├── App.tsx
 │   ├── App.css
+│   ├── mock/
+│   │   └── mockApi.ts
 │   ├── main.tsx
 │   └── index.css
 ├── public/
@@ -42,7 +44,9 @@ Notion Databases (원장)
 │   └── vite.svg
 ├── worker/wrangler.toml
 ├── .env.example
-└── scripts/publish-web.sh
+└── scripts/
+    ├── publish-web.sh
+    └── run-worker.sh
 ```
 
 ## API 엔드포인트
@@ -212,10 +216,14 @@ GET /api/projects
 `.env.example`:
 ```bash
 VITE_API_BASE_URL=/api
+VITE_USE_MOCK_DATA=false
 ```
 
 - 로컬 Worker를 별도 포트로 띄울 경우 예: `http://127.0.0.1:8787/api`
 - Cloudflare Pages에서는 프로젝트 환경변수로 동일 키 설정 가능
+- Firebase Studio/Web Preview에서 백엔드 없이 UI 테스트할 때:
+  - `VITE_USE_MOCK_DATA=true` 또는 URL에 `?demo=1`
+  - `src/mock/mockApi.ts`의 더미 데이터로 동작
 
 ### Worker (시크릿/변수)
 
