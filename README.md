@@ -258,6 +258,20 @@ npm run deploy:worker
 또는 같은 도메인 라우트를 구성했다면:
 - `VITE_API_BASE_URL=/api`
 
+## 트러블슈팅
+
+### `Unexpected token '<', \"<!doctype ...\" is not valid JSON`
+
+- 원인: 프론트가 Worker API 대신 HTML 페이지(`index.html`)를 받았을 때 발생합니다.
+- 해결:
+  1. Pages 환경변수 `VITE_API_BASE_URL`을 Worker URL로 설정
+     - 예: `https://izen-design-api.<subdomain>.workers.dev/api`
+  2. Pages 재배포
+  3. 브라우저 강력 새로고침
+- 확인:
+  - 브라우저에서 `https://...workers.dev/api/projects` 호출 시 JSON이 보여야 정상
+  - HTML이 보이면 API 주소가 잘못된 상태
+
 ## 로그인/권한
 
 - MVP에서는 구현하지 않음
@@ -274,4 +288,3 @@ npm run deploy:worker
   - Cache API 기반 60초 서버 스냅샷 캐시 구현
   - 프론트 API 베이스를 `VITE_API_BASE_URL`로 단순화
   - 목록/상세/생성/상태 변경 + optimistic update 유지
-

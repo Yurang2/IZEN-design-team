@@ -170,21 +170,43 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers,
   })
+  const contentType = (response.headers.get('Content-Type') || '').toLowerCase()
+  const raw = await response.text()
+  const trimmed = raw.trim()
+  const looksHtml = trimmed.toLowerCase().startsWith('<!doctype') || trimmed.toLowerCase().startsWith('<html')
 
   if (!response.ok) {
     let message = `HTTP ${response.status}`
     try {
-      const body = (await response.json()) as { error?: string; message?: string }
+      const body = JSON.parse(raw) as { error?: string; message?: string }
       if (body.message) message = `${message}: ${body.message}`
       else if (body.error) message = `${message}: ${body.error}`
     } catch {
-      const text = (await response.text()).trim()
-      if (text) message = `${message}: ${text.slice(0, 120)}`
+      if (looksHtml) {
+        message = `${message}: API가 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API를 가리키는지 확인하세요.`
+      } else if (trimmed) {
+        message = `${message}: ${trimmed.slice(0, 120)}`
+      }
     }
     throw new Error(message)
   }
 
-  return response.json() as Promise<T>
+  if (!contentType.includes('application/json')) {
+    if (looksHtml) {
+      throw new Error(
+        `API가 JSON 대신 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API 주소인지 확인하세요.`,
+      )
+    }
+    throw new Error(`API 응답 타입이 JSON이 아닙니다: ${contentType || 'unknown'}`)
+  }
+
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    throw new Error(
+      `API JSON 파싱 실패. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API 주소인지 확인하세요.`,
+    )
+  }
 }
 
 function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
