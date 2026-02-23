@@ -24,7 +24,7 @@ type ApiSchemaField = {
 type ApiSchemaSummary = {
   fields: Record<string, ApiSchemaField>
   unknownFields: ApiSchemaField[]
-  projectBindingMode: 'relation' | 'unknown'
+  projectBindingMode: 'relation' | 'select' | 'unknown'
 }
 
 type TaskRecord = {
@@ -32,7 +32,7 @@ type TaskRecord = {
   url: string
   projectKey: string
   projectName: string
-  projectSource: 'relation' | 'unknown'
+  projectSource: 'relation' | 'select' | 'unknown'
   requester: string[]
   workType: string
   taskName: string
@@ -52,7 +52,7 @@ type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
-  source: 'project_db'
+  source: 'project_db' | 'task_select'
 }
 
 type ListTasksResponse = {
@@ -78,10 +78,41 @@ type ProjectsResponse = {
   cacheTtlMs: number
 }
 
+type ChecklistPreviewItem = {
+  id: string
+  productName: string
+  workCategory: string
+  finalDueText: string
+  eventCategories: string[]
+}
+
+type ChecklistPreviewResponse = {
+  ok: boolean
+  eventName: string
+  eventCategory: string
+  keyword: string
+  availableCategories: string[]
+  count: number
+  items: ChecklistPreviewItem[]
+  cacheTtlMs: number
+}
+
 type Filters = {
   projectId: string
   status: string
   q: string
+}
+
+type ChecklistPreviewFilters = {
+  eventName: string
+  eventCategory: string
+  keyword: string
+}
+
+type ChecklistAssignmentTarget = {
+  itemId: string
+  productName: string
+  workCategory: string
 }
 
 type CreateForm = {
@@ -110,39 +141,30 @@ type DetailForm = {
   issue: string
 }
 
+declare global {
+  interface Window {
+    __APP_CONFIG__?: {
+      FUNCTIONS_BASE_URL?: string
+    }
+  }
+}
+
 const POLLING_MS = 60_000
 const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
+const CHECKLIST_ASSIGNMENT_STORAGE_KEY = 'checklist-assignment-v1'
 
 function toNonEmpty(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim()
   return trimmed ? trimmed : undefined
 }
 
-function normalizeApiBase(value: string): string {
+function normalizeFunctionsBaseUrl(value: string): string {
   const trimmed = value.trim().replace(/\/+$/, '')
-  if (!trimmed) return '/api'
-  if (trimmed === '/api' || trimmed.endsWith('/api')) return trimmed
-  if (trimmed.startsWith('/')) return `${trimmed}/api`
+  if (trimmed.endsWith('/api')) {
+    return trimmed
+  }
   return `${trimmed}/api`
-}
-
-function getApiBaseFromRuntime(): string {
-  if (typeof window === 'undefined') {
-    return normalizeApiBase(toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api')
-  }
-
-  const queryValue = toNonEmpty(new URLSearchParams(window.location.search).get('apiBase'))
-  if (queryValue) {
-    const normalized = normalizeApiBase(queryValue)
-    window.localStorage.setItem('API_BASE_URL', normalized)
-    return normalized
-  }
-
-  const stored = toNonEmpty(window.localStorage.getItem('API_BASE_URL'))
-  if (stored) return normalizeApiBase(stored)
-
-  return normalizeApiBase(toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api')
 }
 
 function parseRoute(pathname: string): Route {
@@ -174,57 +196,53 @@ function splitByComma(value: string): string[] {
     .filter(Boolean)
 }
 
-const API_BASE_URL = getApiBaseFromRuntime()
+function toChecklistAssignmentKey(eventCategory: string, itemId: string): string {
+  const categoryKey = eventCategory.trim() || 'ALL'
+  return `${categoryKey}::${itemId}`
+}
+
+const queryBaseUrl =
+  typeof window !== 'undefined' ? toNonEmpty(new URLSearchParams(window.location.search).get('apiBase')) : undefined
+
+if (typeof window !== 'undefined' && queryBaseUrl) {
+  window.localStorage.setItem('FUNCTIONS_BASE_URL', queryBaseUrl)
+}
+
+const runtimeBaseUrl = typeof window !== 'undefined' ? toNonEmpty(window.__APP_CONFIG__?.FUNCTIONS_BASE_URL) : undefined
+const localBaseUrl =
+  typeof window !== 'undefined' ? toNonEmpty(window.localStorage.getItem('FUNCTIONS_BASE_URL')) : undefined
+const buildTimeBaseUrl = toNonEmpty(import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined)
+const RAW_FUNCTIONS_BASE_URL = runtimeBaseUrl ?? queryBaseUrl ?? localBaseUrl ?? buildTimeBaseUrl
+const API_BASE_URL = RAW_FUNCTIONS_BASE_URL ? normalizeFunctionsBaseUrl(RAW_FUNCTIONS_BASE_URL) : undefined
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  const headers = new Headers(init?.headers ?? undefined)
-  const method = (init?.method ?? 'GET').toUpperCase()
-  if (!headers.has('Content-Type') && init?.body != null && method !== 'GET' && method !== 'HEAD') {
-    headers.set('Content-Type', 'application/json')
+  if (!API_BASE_URL) {
+    throw new Error('`VITE_FUNCTIONS_BASE_URL` 또는 `window.__APP_CONFIG__.FUNCTIONS_BASE_URL` 설정이 필요합니다.')
   }
 
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
     ...init,
-    headers,
   })
-  const contentType = (response.headers.get('Content-Type') || '').toLowerCase()
-  const raw = await response.text()
-  const trimmed = raw.trim()
-  const looksHtml = trimmed.toLowerCase().startsWith('<!doctype') || trimmed.toLowerCase().startsWith('<html')
 
   if (!response.ok) {
     let message = `HTTP ${response.status}`
     try {
-      const body = JSON.parse(raw) as { error?: string; message?: string }
+      const body = (await response.json()) as { error?: string; message?: string }
       if (body.message) message = `${message}: ${body.message}`
       else if (body.error) message = `${message}: ${body.error}`
     } catch {
-      if (looksHtml) {
-        message = `${message}: API가 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API를 가리키는지 확인하세요.`
-      } else if (trimmed) {
-        message = `${message}: ${trimmed.slice(0, 120)}`
-      }
+      const text = (await response.text()).trim()
+      if (text) message = `${message}: ${text.slice(0, 120)}`
     }
     throw new Error(message)
   }
 
-  if (!contentType.includes('application/json')) {
-    if (looksHtml) {
-      throw new Error(
-        `API가 JSON 대신 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API 주소인지 확인하세요.`,
-      )
-    }
-    throw new Error(`API 응답 타입이 JSON이 아닙니다: ${contentType || 'unknown'}`)
-  }
-
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    throw new Error(
-      `API JSON 파싱 실패. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API 주소인지 확인하세요.`,
-    )
-  }
+  return response.json() as Promise<T>
 }
 
 function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
@@ -249,7 +267,20 @@ function App() {
   const [listError, setListError] = useState<string | null>(null)
   const [lastSyncedAt, setLastSyncedAt] = useState<string>('')
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<Record<string, boolean>>({})
+  const [checklistFilters, setChecklistFilters] = useState<ChecklistPreviewFilters>({
+    eventName: '',
+    eventCategory: '',
+    keyword: '',
+  })
+  const [checklistItems, setChecklistItems] = useState<ChecklistPreviewItem[]>([])
+  const [checklistCategories, setChecklistCategories] = useState<string[]>([])
+  const [checklistLoading, setChecklistLoading] = useState(false)
+  const [checklistError, setChecklistError] = useState<string | null>(null)
+  const [assignmentByChecklist, setAssignmentByChecklist] = useState<Record<string, string>>({})
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
+  const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
+  const [assignmentSearch, setAssignmentSearch] = useState('')
+  const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -354,6 +385,51 @@ function App() {
     return () => window.clearInterval(timer)
   }, [fetchTasks, route.kind])
 
+  const fetchChecklistPreview = useCallback(async (input: ChecklistPreviewFilters) => {
+    setChecklistLoading(true)
+    setChecklistError(null)
+
+    try {
+      const params = new URLSearchParams()
+      if (input.eventName.trim()) params.set('eventName', input.eventName.trim())
+      if (input.eventCategory.trim()) params.set('eventCategory', input.eventCategory.trim())
+      if (input.keyword.trim()) params.set('q', input.keyword.trim())
+
+      const path = params.size > 0 ? `/checklists?${params.toString()}` : '/checklists'
+      const response = await api<ChecklistPreviewResponse>(path)
+      setChecklistItems(response.items)
+      setChecklistCategories(response.availableCategories)
+    } catch (error: any) {
+      setChecklistError(error?.message ?? '체크리스트 미리보기를 불러오지 못했습니다.')
+    } finally {
+      setChecklistLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (route.kind !== 'list') return
+    void fetchChecklistPreview(checklistFilters)
+  }, [fetchChecklistPreview, route.kind])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(CHECKLIST_ASSIGNMENT_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as Record<string, string>
+      if (parsed && typeof parsed === 'object') {
+        setAssignmentByChecklist(parsed)
+      }
+    } catch {
+      // ignore broken local cache
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(CHECKLIST_ASSIGNMENT_STORAGE_KEY, JSON.stringify(assignmentByChecklist))
+  }, [assignmentByChecklist])
+
   const refreshListAndProjects = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTasks()])
   }, [fetchProjects, fetchTasks])
@@ -374,17 +450,54 @@ function App() {
     return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
   }, [tasks])
 
+  const projectDbOptions = useMemo(
+    () =>
+      projects
+        .filter((project) => project.source === 'project_db')
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    [projects],
+  )
+
+  const taskById = useMemo(() => Object.fromEntries(tasks.map((task) => [task.id, task])) as Record<string, TaskRecord>, [tasks])
+
   useEffect(() => {
     setOpenTaskGroups((prev) => {
       const next: Record<string, boolean> = { ...prev }
       for (const group of groupedTasks) {
         if (next[group.projectName] === undefined) {
-          next[group.projectName] = true
+          // Collapse by default to reduce initial render cost on large datasets.
+          next[group.projectName] = false
         }
       }
       return next
     })
   }, [groupedTasks])
+
+  const assignmentCandidates = useMemo(() => {
+    if (!assignmentTarget) return []
+
+    const keyword = assignmentSearch.trim().toLowerCase()
+    return tasks
+      .filter((task) => {
+        if (assignmentProjectFilter && task.projectName !== assignmentProjectFilter) {
+          return false
+        }
+        if (!keyword) return true
+        return `${task.projectName} ${task.taskName} ${task.workType} ${task.assignee.join(' ')}`.toLowerCase().includes(keyword)
+      })
+      .sort((a, b) => {
+        const sameWorkTypeA = a.workType === assignmentTarget.workCategory ? 0 : 1
+        const sameWorkTypeB = b.workType === assignmentTarget.workCategory ? 0 : 1
+        if (sameWorkTypeA !== sameWorkTypeB) return sameWorkTypeA - sameWorkTypeB
+        return `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')
+      })
+      .slice(0, 120)
+  }, [assignmentProjectFilter, assignmentSearch, assignmentTarget, tasks])
+
+  const assignmentProjectOptions = useMemo(
+    () => Array.from(new Set(tasks.map((task) => task.projectName).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
+    [tasks],
+  )
 
   const statusOptions = useMemo(() => {
     const fromSchema = schema?.fields.status?.options ?? []
@@ -399,6 +512,9 @@ function App() {
   }, [schema, tasks])
 
   const unknownMessages = schemaUnknownMessage(schema)
+  const assignmentTargetCurrentTaskId = assignmentTarget
+    ? assignmentByChecklist[toChecklistAssignmentKey(checklistFilters.eventCategory, assignmentTarget.itemId)] ?? ''
+    : ''
 
   const onChangeFilter = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
@@ -416,11 +532,60 @@ function App() {
     }))
   }
 
+  const onChecklistInput = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = event.target
+    setChecklistFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const onChecklistSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    await fetchChecklistPreview(checklistFilters)
+  }
+
+  const onChecklistReset = async () => {
+    const next = { eventName: '', eventCategory: '', keyword: '' }
+    setChecklistFilters(next)
+    await fetchChecklistPreview(next)
+  }
+
   const onToggleTaskGroup = (projectName: string) => {
     setOpenTaskGroups((prev) => ({
       ...prev,
       [projectName]: !prev[projectName],
     }))
+  }
+
+  const setChecklistAssignment = (itemId: string, taskId: string) => {
+    const key = toChecklistAssignmentKey(checklistFilters.eventCategory, itemId)
+    setAssignmentByChecklist((prev) => {
+      const next = { ...prev }
+      if (!taskId) {
+        delete next[key]
+      } else {
+        next[key] = taskId
+      }
+      return next
+    })
+  }
+
+  const onOpenAssignmentPicker = (item: ChecklistPreviewItem) => {
+    setAssignmentTarget({
+      itemId: item.id,
+      productName: item.productName,
+      workCategory: item.workCategory,
+    })
+    setAssignmentSearch('')
+    setAssignmentProjectFilter('')
+  }
+
+  const onSelectAssignmentTask = (taskId: string) => {
+    if (!assignmentTarget) return
+    setChecklistAssignment(assignmentTarget.itemId, taskId)
+    setAssignmentTarget(null)
+    setAssignmentSearch('')
   }
 
   const onQuickStatusChange = async (taskId: string, nextStatus: string) => {
@@ -466,7 +631,11 @@ function App() {
         detail: createForm.detail.trim() || undefined,
       }
 
-      payload.projectId = createForm.projectValue || undefined
+      if (schema?.projectBindingMode === 'relation') {
+        payload.projectId = createForm.projectValue || undefined
+      } else {
+        payload.projectName = createForm.projectValue || undefined
+      }
 
       const created = await api<TaskResponse>('/tasks', {
         method: 'POST',
@@ -495,34 +664,37 @@ function App() {
     }
   }
 
-  const fetchTaskDetail = useCallback(async (id: string) => {
-    setDetailLoading(true)
-    setDetailError(null)
+  const fetchTaskDetail = useCallback(
+    async (id: string) => {
+      setDetailLoading(true)
+      setDetailError(null)
 
-    try {
-      const response = await api<TaskResponse>(`/tasks/${encodeURIComponent(id)}`)
-      setSchema(response.schema)
-      setDetailTask(response.task)
-      setDetailForm({
-        projectValue: response.task.projectKey,
-        taskName: response.task.taskName,
-        requesterText: response.task.requester.join(', '),
-        workType: response.task.workType === '[UNKNOWN]' ? '' : response.task.workType,
-        status: response.task.status === '[UNKNOWN]' ? '' : response.task.status,
-        assigneeText: response.task.assignee.join(', '),
-        startDate: response.task.startDate ?? '',
-        dueDate: response.task.dueDate ?? '',
-        detail: response.task.detail,
-        priority: response.task.priority ?? '',
-        urgent: Boolean(response.task.urgent),
-        issue: response.task.issue ?? '',
-      })
-    } catch (error: any) {
-      setDetailError(error?.message ?? '업무 상세를 불러오지 못했습니다.')
-    } finally {
-      setDetailLoading(false)
-    }
-  }, [])
+      try {
+        const response = await api<TaskResponse>(`/tasks/${encodeURIComponent(id)}`)
+        setSchema(response.schema)
+        setDetailTask(response.task)
+        setDetailForm({
+          projectValue: response.task.projectKey,
+          taskName: response.task.taskName,
+          requesterText: response.task.requester.join(', '),
+          workType: response.task.workType === '[UNKNOWN]' ? '' : response.task.workType,
+          status: response.task.status === '[UNKNOWN]' ? '' : response.task.status,
+          assigneeText: response.task.assignee.join(', '),
+          startDate: response.task.startDate ?? '',
+          dueDate: response.task.dueDate ?? '',
+          detail: response.task.detail,
+          priority: response.task.priority ?? '',
+          urgent: Boolean(response.task.urgent),
+          issue: response.task.issue ?? '',
+        })
+      } catch (error: any) {
+        setDetailError(error?.message ?? '업무 상세를 불러오지 못했습니다.')
+      } finally {
+        setDetailLoading(false)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     if (route.kind !== 'task') return
@@ -568,7 +740,12 @@ function App() {
         priority: detailForm.priority.trim() || null,
         urgent: detailForm.urgent,
         issue: detailForm.issue.trim() || null,
-        projectId: detailForm.projectValue || null,
+      }
+
+      if (schema?.projectBindingMode === 'relation') {
+        payload.projectId = detailForm.projectValue || null
+      } else {
+        payload.projectName = detailForm.projectValue || null
       }
 
       const response = await api<TaskResponse>(`/tasks/${encodeURIComponent(route.id)}`, {
@@ -591,7 +768,7 @@ function App() {
       <div className="page">
         <header className="header">
           <h1>업무 상세</h1>
-          <p>Notion DB 단일 업무 조회/수정</p>
+          <p>Notion DB 기반 단일 업무 조회/수정</p>
         </header>
 
         <div className="toolbar">
@@ -627,7 +804,7 @@ function App() {
                 <option value="">선택 안 함</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.bindingValue}>
-                    {project.name}
+                    {project.name} {project.source === 'task_select' ? '(select)' : ''}
                   </option>
                 ))}
               </select>
@@ -715,7 +892,7 @@ function App() {
     <div className="page">
       <header className="header">
         <h1>노션 스타일 업무 협업툴 (MVP)</h1>
-        <p>Cloudflare Workers + 60초 폴링 + Optimistic 업데이트</p>
+        <p>60초 폴링 + Optimistic 업데이트</p>
       </header>
 
       <section className="toolbar toolbarWrap">
@@ -757,6 +934,107 @@ function App() {
           검색
           <input name="q" value={filters.q} onChange={onChangeFilter} placeholder="업무/상세 검색" />
         </label>
+      </section>
+
+      <section className="checklistPreview">
+        <div className="checklistPreviewHeader">
+          <h2>행사별 디자인 제작물 체크리스트 미리보기</h2>
+          <p>행사구분으로 항목을 고르고, 결과는 Row 테이블로 보여줍니다. 노션 DB에는 저장하지 않습니다.</p>
+        </div>
+
+        <form className="checklistPreviewFilters" onSubmit={onChecklistSubmit}>
+          <label>
+            행사명
+            <select name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
+              <option value="">프로젝트 선택 안 함</option>
+              {projectDbOptions.map((project) => (
+                <option key={project.id} value={project.name}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            행사구분
+            <select name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
+              <option value="">전체</option>
+              {checklistCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            키워드
+            <input name="keyword" value={checklistFilters.keyword} onChange={onChecklistInput} placeholder="선택사항 (추가 검색)" />
+          </label>
+
+          <div className="checklistPreviewActions">
+            <button type="submit" disabled={checklistLoading}>
+              {checklistLoading ? '조회 중...' : '체크리스트 보기'}
+            </button>
+            <button type="button" className="secondary" onClick={() => void onChecklistReset()} disabled={checklistLoading}>
+              초기화
+            </button>
+          </div>
+        </form>
+        <p className="muted small">행사명은 프로젝트 DB에서 선택합니다. 필터 핵심은 행사구분입니다.</p>
+
+        {checklistError ? <p className="error">{checklistError}</p> : null}
+        {!checklistError ? <p className="muted">조회 결과: {checklistItems.length}건</p> : null}
+
+        {checklistItems.length > 0 ? (
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>제작물</th>
+                  <th>작업분류</th>
+                  <th>최종 완료 시점</th>
+                  <th>작업할당여부</th>
+                  <th>할당 업무</th>
+                  <th>액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checklistItems.map((item) => {
+                  const assignmentKey = toChecklistAssignmentKey(checklistFilters.eventCategory, item.id)
+                  const assignedTaskId = assignmentByChecklist[assignmentKey] ?? ''
+                  const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
+                  const isAssigned = Boolean(assignedTaskId)
+                  return (
+                    <tr key={item.id}>
+                      <td>{item.productName || '-'}</td>
+                      <td>{item.workCategory || '-'}</td>
+                      <td>{item.finalDueText || '-'}</td>
+                      <td>
+                        <span className={isAssigned ? 'assignmentBadge assigned' : 'assignmentBadge unassigned'}>
+                          {isAssigned ? '할당됨' : '미할당'}
+                        </span>
+                      </td>
+                      <td className="assignmentCell">
+                        {assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName} (${joinOrDash(assignedTask.assignee)})` : '-'}
+                      </td>
+                      <td>
+                        <button type="button" className="secondary mini" onClick={() => onOpenAssignmentPicker(item)}>
+                          {isAssigned ? '변경' : '할당'}
+                        </button>
+                        {isAssigned ? (
+                          <button type="button" className="secondary mini" onClick={() => setChecklistAssignment(item.id, '')}>
+                            해제
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </section>
 
       {unknownMessages.length > 0 ? (
@@ -835,6 +1113,63 @@ function App() {
 
         {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
       </section>
+
+      {assignmentTarget ? (
+        <div className="modalBackdrop" role="presentation" onClick={() => setAssignmentTarget(null)}>
+          <div className="modal assignmentModal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <h3>할당 업무 선택</h3>
+            <p className="muted small">
+              대상 제작물: <strong>{assignmentTarget.productName || '-'}</strong> / 작업분류: {assignmentTarget.workCategory || '-'}
+            </p>
+
+            <label>
+              업무 검색
+              <input
+                value={assignmentSearch}
+                onChange={(event) => setAssignmentSearch(event.target.value)}
+                placeholder="프로젝트명, 업무명, 업무구분으로 검색"
+              />
+            </label>
+
+            <label>
+              프로젝트별 보기
+              <select value={assignmentProjectFilter} onChange={(event) => setAssignmentProjectFilter(event.target.value)}>
+                <option value="">전체 프로젝트</option>
+                {assignmentProjectOptions.map((projectName) => (
+                  <option key={projectName} value={projectName}>
+                    {projectName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="assignmentModalActions">
+              <button type="button" className="secondary" onClick={() => onSelectAssignmentTask('')}>
+                미할당 처리
+              </button>
+              <button type="button" className="secondary" onClick={() => setAssignmentTarget(null)}>
+                닫기
+              </button>
+            </div>
+
+            <div className="assignmentList">
+              {assignmentCandidates.length === 0 ? <p className="muted">검색 결과가 없습니다.</p> : null}
+              {assignmentCandidates.map((task) => {
+                const selected = assignmentTargetCurrentTaskId === task.id
+                return (
+                  <button key={task.id} type="button" className={selected ? 'assignmentItem selected' : 'assignmentItem'} onClick={() => onSelectAssignmentTask(task.id)}>
+                    <strong>{task.taskName}</strong>
+                    <span>
+                      [{task.projectName}] · {task.workType || '-'} · {task.status}
+                    </span>
+                    <span>담당자: {joinOrDash(task.assignee)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {createOpen ? (
         <div className="modalBackdrop" role="presentation" onClick={() => setCreateOpen(false)}>
