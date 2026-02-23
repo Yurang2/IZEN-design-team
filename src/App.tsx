@@ -153,6 +153,7 @@ const POLLING_MS = 60_000
 const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
 const CHECKLIST_ASSIGNMENT_STORAGE_KEY = 'checklist-assignment-v1'
+const API_BASE_REQUIRED_MESSAGE = '`VITE_FUNCTIONS_BASE_URL` 또는 `window.__APP_CONFIG__.FUNCTIONS_BASE_URL` 설정이 필요합니다.'
 
 function toNonEmpty(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim()
@@ -165,6 +166,59 @@ function normalizeFunctionsBaseUrl(value: string): string {
     return trimmed
   }
   return `${trimmed}/api`
+}
+
+function isLocalHostName(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '0.0.0.0' || normalized === '::1'
+}
+
+function isLocalUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value)
+    return isLocalHostName(parsed.hostname)
+  } catch {
+    return false
+  }
+}
+
+function resolveFunctionsBaseUrl(
+  runtimeBaseUrl: string | undefined,
+  queryBaseUrl: string | undefined,
+  localBaseUrl: string | undefined,
+  buildTimeBaseUrl: string | undefined,
+): {
+  apiBaseUrl?: string
+  warning?: string
+} {
+  const pageHostname = typeof window !== 'undefined' ? window.location.hostname : ''
+  const pageIsLocal = pageHostname ? isLocalHostName(pageHostname) : false
+
+  const candidates: Array<{ source: string; value: string | undefined }> = [
+    { source: 'query', value: queryBaseUrl },
+    { source: 'runtime', value: runtimeBaseUrl },
+    { source: 'localStorage', value: localBaseUrl },
+    { source: 'buildTime', value: buildTimeBaseUrl },
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate.value) continue
+    if (!pageIsLocal && isLocalUrl(candidate.value)) continue
+    return {
+      apiBaseUrl: normalizeFunctionsBaseUrl(candidate.value),
+    }
+  }
+
+  if (!pageIsLocal) {
+    const blocked = candidates.find((candidate) => candidate.value && isLocalUrl(candidate.value))
+    if (blocked?.value) {
+      return {
+        warning: `배포 환경에서는 로컬 API 주소(${blocked.value})를 사용할 수 없습니다. app-config.js의 FUNCTIONS_BASE_URL을 배포된 Firebase Functions URL로 설정하세요.`,
+      }
+    }
+  }
+
+  return {}
 }
 
 function parseRoute(pathname: string): Route {
@@ -212,21 +266,26 @@ const runtimeBaseUrl = typeof window !== 'undefined' ? toNonEmpty(window.__APP_C
 const localBaseUrl =
   typeof window !== 'undefined' ? toNonEmpty(window.localStorage.getItem('FUNCTIONS_BASE_URL')) : undefined
 const buildTimeBaseUrl = toNonEmpty(import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined)
-const RAW_FUNCTIONS_BASE_URL = runtimeBaseUrl ?? queryBaseUrl ?? localBaseUrl ?? buildTimeBaseUrl
-const API_BASE_URL = RAW_FUNCTIONS_BASE_URL ? normalizeFunctionsBaseUrl(RAW_FUNCTIONS_BASE_URL) : undefined
+const apiBaseResolution = resolveFunctionsBaseUrl(runtimeBaseUrl, queryBaseUrl, localBaseUrl, buildTimeBaseUrl)
+const API_BASE_URL = apiBaseResolution.apiBaseUrl
+const API_BASE_WARNING = apiBaseResolution.warning
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE_URL) {
-    throw new Error('`VITE_FUNCTIONS_BASE_URL` 또는 `window.__APP_CONFIG__.FUNCTIONS_BASE_URL` 설정이 필요합니다.')
+    throw new Error(API_BASE_WARNING ?? API_BASE_REQUIRED_MESSAGE)
   }
 
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const headers = new Headers(init?.headers ?? undefined)
+  const method = (init?.method ?? 'GET').toUpperCase()
+  if (!headers.has('Content-Type') && init?.body != null && method !== 'GET' && method !== 'HEAD') {
+    headers.set('Content-Type', 'application/json')
+  }
+
   const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
     credentials: 'include',
     ...init,
+    headers,
   })
 
   if (!response.ok) {
@@ -904,6 +963,7 @@ function App() {
         </button>
         <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
       </section>
+      {!API_BASE_URL ? <p className="error">{API_BASE_WARNING ?? API_BASE_REQUIRED_MESSAGE}</p> : null}
 
       <section className="filters">
         <label>
