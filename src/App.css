@@ -25,6 +25,31 @@
   flex-wrap: wrap;
 }
 
+.viewTabs {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 14px;
+}
+
+button.viewTab {
+  background: #eef4fa;
+  border: 1px solid #d3dbe4;
+  color: #233546;
+  font-weight: 700;
+}
+
+button.viewTab.active {
+  background: #1f5d8f;
+  border-color: #1f5d8f;
+  color: #fff;
+}
+
+.dbJump {
+  margin-left: auto;
+}
+
 .syncLabel {
   color: #5f6975;
   font-size: 13px;
@@ -88,12 +113,28 @@ button.secondary:hover,
   padding: 14px;
 }
 
+.filtersActions {
+  align-items: flex-end;
+  display: flex;
+}
+
 .checklistPreview {
   background: #fff;
   border: 1px solid #d3dbe4;
   border-radius: 12px;
   margin-bottom: 14px;
   padding: 14px;
+}
+
+.timelineWipBadge {
+  background: #fff7e8;
+  border: 1px solid #f0c66d;
+  border-radius: 8px;
+  color: #6c4b17;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  padding: 8px 10px;
 }
 
 .checklistPreviewHeader h2 {
@@ -420,6 +461,10 @@ td {
   width: 16px;
 }
 
+.checkboxLabel.flat {
+  margin-top: 0;
+}
+
 @media (max-width: 820px) {
   .page {
     padding: 20px 12px 26px;
@@ -435,6 +480,17 @@ td {
   }
 
   .toolbar button {
+    width: 100%;
+  }
+
+  .viewTabs {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .viewTabs .viewTab,
+  .viewTabs .dbJump {
+    margin-left: 0;
     width: 100%;
   }
 

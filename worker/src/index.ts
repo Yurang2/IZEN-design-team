@@ -582,6 +582,12 @@ function checklistAssignmentKey(eventCategory: string | undefined, itemId: strin
   return `${category}::${itemId}`
 }
 
+function notionDatabaseUrl(databaseId: string | undefined): string | null {
+  const normalized = normalizeNotionId(databaseId)
+  if (!normalized) return null
+  return `https://www.notion.so/${normalized}`
+}
+
 async function getSnapshot(service: NotionWorkService, env: Env, ctx: ExecutionContext): Promise<TaskSnapshot> {
   const cacheTtlMs = getCacheTtlMs(env)
   const cached = await loadSnapshotFromCache(cacheTtlMs)
@@ -701,6 +707,29 @@ export default {
             projects: snapshot.projects,
             schema: service.getApiSchemaSummary(snapshot.schema),
             cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && path === '/meta') {
+        return ok(
+          {
+            ok: true,
+            databases: {
+              project: {
+                id: env.NOTION_PROJECT_DB_ID,
+                url: notionDatabaseUrl(env.NOTION_PROJECT_DB_ID),
+              },
+              task: {
+                id: env.NOTION_TASK_DB_ID,
+                url: notionDatabaseUrl(env.NOTION_TASK_DB_ID),
+              },
+              checklist: {
+                id: env.NOTION_CHECKLIST_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_CHECKLIST_DB_ID),
+              },
+            },
           },
           origin,
         )
@@ -941,6 +970,7 @@ export default {
             ok: true,
             supported: [
               'GET /api/projects',
+              'GET /api/meta',
               'GET /api/checklists?eventName=...&eventCategory=...',
               'GET /api/checklist-assignments',
               'GET /api/checklist-assignment-logs?limit=100',

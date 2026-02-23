@@ -110,11 +110,32 @@ type ChecklistAssignmentsResponse = {
   storageMode?: 'd1' | 'cache'
 }
 
+type MetaResponse = {
+  ok: boolean
+  databases: {
+    project: { id: string; url: string | null }
+    task: { id: string; url: string | null }
+    checklist: { id: string | null; url: string | null }
+  }
+}
+
 type Filters = {
   projectId: string
   status: string
   q: string
 }
+
+type TaskViewFilters = {
+  workType: string
+  assignee: string
+  requester: string
+  dueFrom: string
+  dueTo: string
+  urgentOnly: boolean
+  hideDone: boolean
+}
+
+type TopView = 'projects' | 'tasks' | 'timeline'
 
 type ChecklistPreviewFilters = {
   eventName: string
@@ -236,6 +257,13 @@ function normalizeIsoDateInput(value: string): string {
   if (digits.length <= 4) return digits
   if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`
+}
+
+function toNotionUrlById(id: string | undefined): string | null {
+  if (!id) return null
+  const normalized = id.replace(/-/g, '').trim()
+  if (!normalized) return null
+  return `https://www.notion.so/${normalized}`
 }
 
 function addDays(date: Date, days: number): Date {
@@ -361,15 +389,34 @@ function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
 
 function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname))
+  const [activeView, setActiveView] = useState<TopView>('tasks')
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [schema, setSchema] = useState<ApiSchemaSummary | null>(null)
+  const [dbLinks, setDbLinks] = useState<{
+    project: string | null
+    task: string | null
+    checklist: string | null
+  }>({
+    project: null,
+    task: null,
+    checklist: null,
+  })
 
   const [filters, setFilters] = useState<Filters>({
     projectId: '',
     status: '',
     q: '',
+  })
+  const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>({
+    workType: '',
+    assignee: '',
+    requester: '',
+    dueFrom: '',
+    dueTo: '',
+    urgentOnly: false,
+    hideDone: false,
   })
 
   const [loadingList, setLoadingList] = useState(false)
@@ -436,6 +483,19 @@ function App() {
     setSchema(response.schema)
   }, [])
 
+  const fetchMeta = useCallback(async () => {
+    try {
+      const response = await api<MetaResponse>('/meta')
+      setDbLinks({
+        project: response.databases.project.url ?? toNotionUrlById(response.databases.project.id),
+        task: response.databases.task.url ?? toNotionUrlById(response.databases.task.id),
+        checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
+      })
+    } catch {
+      // Ignore meta failures; app can run without DB deep-links.
+    }
+  }, [])
+
   const fetchTasks = useCallback(async () => {
     setLoadingList(true)
     setListError(null)
@@ -485,6 +545,11 @@ function App() {
   useEffect(() => {
     void fetchProjects()
   }, [fetchProjects])
+
+  useEffect(() => {
+    if (route.kind !== 'list') return
+    void fetchMeta()
+  }, [fetchMeta, route.kind])
 
   useEffect(() => {
     if (route.kind !== 'list') return
@@ -584,10 +649,29 @@ function App() {
     await Promise.all([fetchProjects(), fetchTasks()])
   }, [fetchProjects, fetchTasks])
 
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      if (taskViewFilters.workType && task.workType !== taskViewFilters.workType) return false
+      if (taskViewFilters.assignee && !task.assignee.includes(taskViewFilters.assignee)) return false
+      if (taskViewFilters.requester && !task.requester.includes(taskViewFilters.requester)) return false
+      if (taskViewFilters.urgentOnly && !task.urgent) return false
+      if (taskViewFilters.hideDone && (task.status === '완료' || task.status === '보관')) return false
+
+      if (taskViewFilters.dueFrom) {
+        if (!task.dueDate || task.dueDate < taskViewFilters.dueFrom) return false
+      }
+      if (taskViewFilters.dueTo) {
+        if (!task.dueDate || task.dueDate > taskViewFilters.dueTo) return false
+      }
+
+      return true
+    })
+  }, [taskViewFilters.assignee, taskViewFilters.dueFrom, taskViewFilters.dueTo, taskViewFilters.hideDone, taskViewFilters.requester, taskViewFilters.urgentOnly, taskViewFilters.workType, tasks])
+
   const groupedTasks = useMemo(() => {
     const map = new Map<string, { projectName: string; tasks: TaskRecord[] }>()
 
-    for (const task of tasks) {
+    for (const task of filteredTasks) {
       const key = task.projectName || '[UNKNOWN]'
       const current = map.get(key)
       if (current) {
@@ -598,7 +682,7 @@ function App() {
     }
 
     return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
-  }, [tasks])
+  }, [filteredTasks])
 
   const projectDbOptions = useMemo(
     () =>
@@ -674,6 +758,19 @@ function App() {
     return unique([...fromSchema, ...fromTasks])
   }, [schema, tasks])
 
+  const assigneeOptions = useMemo(() => unique(tasks.flatMap((task) => task.assignee).filter(Boolean)).sort((a, b) => a.localeCompare(b, 'ko')), [tasks])
+
+  const requesterOptions = useMemo(
+    () => unique(tasks.flatMap((task) => task.requester).filter(Boolean)).sort((a, b) => a.localeCompare(b, 'ko')),
+    [tasks],
+  )
+
+  const selectedViewDbUrl = useMemo(() => {
+    if (activeView === 'projects') return dbLinks.project
+    if (activeView === 'tasks') return dbLinks.task
+    return dbLinks.checklist
+  }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.task])
+
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
     ? assignmentByChecklist[toChecklistAssignmentKey(checklistFilters.eventCategory, assignmentTarget.itemId)] ?? ''
@@ -685,6 +782,27 @@ function App() {
       ...prev,
       [name]: value,
     }))
+  }
+
+  const onTaskViewFilterChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = event.target
+    const checked = (event.target as HTMLInputElement).checked
+    setTaskViewFilters((prev) => ({
+      ...prev,
+      [name]: name === 'urgentOnly' || name === 'hideDone' ? checked : value,
+    }))
+  }
+
+  const onTaskViewFilterReset = () => {
+    setTaskViewFilters({
+      workType: '',
+      assignee: '',
+      requester: '',
+      dueFrom: '',
+      dueTo: '',
+      urgentOnly: false,
+      hideDone: false,
+    })
   }
 
   const onCreateInput = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -1097,50 +1215,45 @@ function App() {
 
       {apiCheckMessage ? <p className={apiCheckState === 'error' ? 'error' : 'muted'}>{apiCheckMessage}</p> : null}
 
-      <section className="filters">
-        <label>
+      <section className="viewTabs">
+        <button
+          type="button"
+          className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
+          onClick={() => setActiveView('projects')}
+        >
           프로젝트
-          <select name="projectId" value={filters.projectId} onChange={onChangeFilter}>
-            <option value="">전체</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.bindingValue}>
-                {toProjectLabel(project)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          상태
-          <select name="status" value={filters.status} onChange={onChangeFilter}>
-            <option value="">전체</option>
-            {statusOptions.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          검색
-          <input name="q" value={filters.q} onChange={onChangeFilter} placeholder="업무/상세 검색" />
-        </label>
+        </button>
+        <button
+          type="button"
+          className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
+          onClick={() => setActiveView('tasks')}
+        >
+          업무
+        </button>
+        <button
+          type="button"
+          className={activeView === 'timeline' ? 'viewTab active' : 'viewTab'}
+          onClick={() => setActiveView('timeline')}
+        >
+          일정 (작업중)
+        </button>
+        {selectedViewDbUrl ? (
+          <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
+            현재 탭 노션 DB 열기
+          </a>
+        ) : (
+          <span className="muted small dbJump">현재 탭 DB 링크 없음</span>
+        )}
       </section>
 
-      <section className="checklistPreview">
-        <div className="checklistPreviewHeader">
-          <h2>행사별 디자인 제작물 체크리스트 미리보기</h2>
-          <p>행사구분으로 항목을 고르고, 결과는 Row 테이블로 보여줍니다. 노션 DB에는 저장하지 않습니다.</p>
-        </div>
-
-        <form className="checklistPreviewFilters" onSubmit={onChecklistSubmit}>
+      {activeView === 'tasks' ? (
+        <section className="filters">
           <label>
-            행사명
-            <select name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
-              <option value="">프로젝트 선택 안 함</option>
-              {projectDbOptions.map((project) => (
-                <option key={project.id} value={project.name}>
+            프로젝트
+            <select name="projectId" value={filters.projectId} onChange={onChangeFilter}>
+              <option value="">전체</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.bindingValue}>
                   {toProjectLabel(project)}
                 </option>
               ))}
@@ -1148,142 +1261,289 @@ function App() {
           </label>
 
           <label>
-            행사구분
-            <select name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
+            상태
+            <select name="status" value={filters.status} onChange={onChangeFilter}>
               <option value="">전체</option>
-              {checklistCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status}
                 </option>
               ))}
             </select>
           </label>
 
           <label>
-            배송일(해외 출고 기준)
-            <input
-              type="text"
-              name="shippingDate"
-              value={checklistFilters.shippingDate}
-              onChange={onChecklistInput}
-              placeholder="YYYY-MM-DD"
-              inputMode="numeric"
-              maxLength={10}
-            />
+            검색
+            <input name="q" value={filters.q} onChange={onChangeFilter} placeholder="업무/상세 검색" />
           </label>
 
           <label>
-            운영 방식
-            <select name="operationMode" value={checklistFilters.operationMode} onChange={onChecklistInput}>
+            업무구분
+            <select name="workType" value={taskViewFilters.workType} onChange={onTaskViewFilterChange}>
               <option value="">전체</option>
-              <option value="self">자체</option>
-              <option value="dealer">딜러</option>
+              {workTypeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
           </label>
 
           <label>
-            배송 방식
-            <select name="fulfillmentMode" value={checklistFilters.fulfillmentMode} onChange={onChecklistInput}>
+            담당자
+            <select name="assignee" value={taskViewFilters.assignee} onChange={onTaskViewFilterChange}>
               <option value="">전체</option>
-              <option value="domestic">국내</option>
-              <option value="overseas">해외</option>
-              <option value="dealer">딜러</option>
+              {assigneeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
           </label>
 
-          <div className="checklistPreviewActions">
-            <button type="submit" disabled={checklistLoading}>
-              {checklistLoading ? '조회 중...' : '체크리스트 보기'}
-            </button>
-            <button type="button" className="secondary" onClick={() => void onChecklistReset()} disabled={checklistLoading}>
-              초기화
+          <label>
+            요청주체
+            <select name="requester" value={taskViewFilters.requester} onChange={onTaskViewFilterChange}>
+              <option value="">전체</option>
+              {requesterOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            마감일 시작
+            <input type="date" name="dueFrom" value={taskViewFilters.dueFrom} onChange={onTaskViewFilterChange} />
+          </label>
+
+          <label>
+            마감일 끝
+            <input type="date" name="dueTo" value={taskViewFilters.dueTo} onChange={onTaskViewFilterChange} />
+          </label>
+
+          <label className="checkboxLabel flat">
+            <input type="checkbox" name="urgentOnly" checked={taskViewFilters.urgentOnly} onChange={onTaskViewFilterChange} />
+            긴급만 보기
+          </label>
+
+          <label className="checkboxLabel flat">
+            <input type="checkbox" name="hideDone" checked={taskViewFilters.hideDone} onChange={onTaskViewFilterChange} />
+            완료/보관 숨기기
+          </label>
+
+          <div className="filtersActions">
+            <button type="button" className="secondary" onClick={onTaskViewFilterReset}>
+              업무 필터 초기화
             </button>
           </div>
-        </form>
-        <p className="muted small">
-          행사명은 프로젝트 DB에서 선택합니다. 영업일 역산은 주말/한국 공휴일을 제외해 계산하며, 오프셋은 DB에 숫자로 관리합니다.
-        </p>
-        <p className="muted small">할당 저장소: {assignmentStorageMode === 'd1' ? 'D1(영구저장 + 로그)' : 'Cache(임시저장)'}</p>
-        {selectedChecklistProject ? (
-          <p className="muted small projectPreviewLine">
-            {toProjectThumbUrl(selectedChecklistProject) ? (
-              <img className="projectPreviewImage" src={toProjectThumbUrl(selectedChecklistProject)} alt="" />
-            ) : null}
-            선택 행사: {selectedChecklistProject.name}
-          </p>
-        ) : null}
-        {selectedChecklistProject?.eventDate ? (
+        </section>
+      ) : null}
+
+      {activeView === 'timeline' ? (
+        <section className="checklistPreview">
+          <div className="timelineWipBadge">일정 화면은 현재 작업 중입니다. 아래는 체크리스트 기반 임시 뷰입니다.</div>
+          <div className="checklistPreviewHeader">
+            <h2>행사별 디자인 제작물 체크리스트 미리보기</h2>
+            <p>행사구분으로 항목을 고르고, 결과는 Row 테이블로 보여줍니다. 노션 DB에는 저장하지 않습니다.</p>
+          </div>
+
+          <form className="checklistPreviewFilters" onSubmit={onChecklistSubmit}>
+            <label>
+              행사명
+              <select name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
+                <option value="">프로젝트 선택 안 함</option>
+                {projectDbOptions.map((project) => (
+                  <option key={project.id} value={project.name}>
+                    {toProjectLabel(project)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              행사구분
+              <select name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
+                <option value="">전체</option>
+                {checklistCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              배송일(해외 출고 기준)
+              <input
+                type="text"
+                name="shippingDate"
+                value={checklistFilters.shippingDate}
+                onChange={onChecklistInput}
+                placeholder="YYYY-MM-DD"
+                inputMode="numeric"
+                maxLength={10}
+              />
+            </label>
+
+            <label>
+              운영 방식
+              <select name="operationMode" value={checklistFilters.operationMode} onChange={onChecklistInput}>
+                <option value="">전체</option>
+                <option value="self">자체</option>
+                <option value="dealer">딜러</option>
+              </select>
+            </label>
+
+            <label>
+              배송 방식
+              <select name="fulfillmentMode" value={checklistFilters.fulfillmentMode} onChange={onChecklistInput}>
+                <option value="">전체</option>
+                <option value="domestic">국내</option>
+                <option value="overseas">해외</option>
+                <option value="dealer">딜러</option>
+              </select>
+            </label>
+
+            <div className="checklistPreviewActions">
+              <button type="submit" disabled={checklistLoading}>
+                {checklistLoading ? '조회 중...' : '체크리스트 보기'}
+              </button>
+              <button type="button" className="secondary" onClick={() => void onChecklistReset()} disabled={checklistLoading}>
+                초기화
+              </button>
+            </div>
+          </form>
           <p className="muted small">
-            기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)} ({selectedChecklistProject.eventDate})
+            행사명은 프로젝트 DB에서 선택합니다. 영업일 역산은 주말/한국 공휴일을 제외해 계산하며, 오프셋은 DB에 숫자로 관리합니다.
           </p>
-        ) : null}
+          <p className="muted small">할당 저장소: {assignmentStorageMode === 'd1' ? 'D1(영구저장 + 로그)' : 'Cache(임시저장)'}</p>
+          {selectedChecklistProject ? (
+            <p className="muted small projectPreviewLine">
+              {toProjectThumbUrl(selectedChecklistProject) ? (
+                <img className="projectPreviewImage" src={toProjectThumbUrl(selectedChecklistProject)} alt="" />
+              ) : null}
+              선택 행사: {selectedChecklistProject.name}
+            </p>
+          ) : null}
+          {selectedChecklistProject?.eventDate ? (
+            <p className="muted small">
+              기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)} ({selectedChecklistProject.eventDate})
+            </p>
+          ) : null}
 
-        {checklistError ? <p className="error">{checklistError}</p> : null}
-        {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
-        {!checklistError ? <p className="muted">조회 결과: {checklistItems.length}건</p> : null}
+          {checklistError ? <p className="error">{checklistError}</p> : null}
+          {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
+          {!checklistError ? <p className="muted">조회 결과: {checklistItems.length}건</p> : null}
 
-        {checklistItems.length > 0 ? (
+          {checklistItems.length > 0 ? (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>제작물</th>
+                    <th>작업분류</th>
+                    <th>디자인 소요(일)</th>
+                    <th>실물 제작 소요(일)</th>
+                    <th>총 소요(일)</th>
+                    <th>역산 완료 예정일</th>
+                    <th>최종 완료 시점</th>
+                    <th>작업할당여부</th>
+                    <th>할당 업무</th>
+                    <th>액션</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {checklistItems.map((item) => {
+                    const assignmentKey = toChecklistAssignmentKey(checklistFilters.eventCategory, item.id)
+                    const assignedTaskId = assignmentByChecklist[assignmentKey] ?? ''
+                    const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
+                    const isAssigned = Boolean(assignedTaskId)
+                    const totalLeadDays = getChecklistTotalLeadDays(item)
+                    const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
+                    return (
+                      <tr key={item.id}>
+                        <td>{item.productName || '-'}</td>
+                        <td>{item.workCategory || '-'}</td>
+                        <td>{item.designLeadDays ?? '-'}</td>
+                        <td>{item.productionLeadDays ?? '-'}</td>
+                        <td>{totalLeadDays ?? '-'}</td>
+                        <td>{computedDueDate ? `${formatDateLabel(computedDueDate)} (${computedDueDate})` : '-'}</td>
+                        <td>{item.finalDueText || '-'}</td>
+                        <td>
+                          <span className={isAssigned ? 'assignmentBadge assigned' : 'assignmentBadge unassigned'}>
+                            {isAssigned ? '할당됨' : '미할당'}
+                          </span>
+                        </td>
+                        <td className="assignmentCell">
+                          {assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName} (${joinOrDash(assignedTask.assignee)})` : '-'}
+                        </td>
+                        <td>
+                          <button type="button" className="secondary mini" onClick={() => onOpenAssignmentPicker(item)}>
+                            {isAssigned ? '변경' : '할당'}
+                          </button>
+                          {isAssigned ? (
+                            <button type="button" className="secondary mini" onClick={() => void setChecklistAssignment(item.id, '')}>
+                              해제
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {activeView === 'projects' ? (
+        <section className="projectSection">
+          <header className="projectHeader">
+            <h2>프로젝트 목록</h2>
+            <span>{projectDbOptions.length}건</span>
+          </header>
           <div className="tableWrap">
             <table>
               <thead>
                 <tr>
-                  <th>제작물</th>
-                  <th>작업분류</th>
-                  <th>디자인 소요(일)</th>
-                  <th>실물 제작 소요(일)</th>
-                  <th>총 소요(일)</th>
-                  <th>역산 완료 예정일</th>
-                  <th>최종 완료 시점</th>
-                  <th>작업할당여부</th>
-                  <th>할당 업무</th>
-                  <th>액션</th>
+                  <th>프로젝트</th>
+                  <th>행사일</th>
+                  <th>Notion</th>
                 </tr>
               </thead>
               <tbody>
-                {checklistItems.map((item) => {
-                  const assignmentKey = toChecklistAssignmentKey(checklistFilters.eventCategory, item.id)
-                  const assignedTaskId = assignmentByChecklist[assignmentKey] ?? ''
-                  const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
-                  const isAssigned = Boolean(assignedTaskId)
-                  const totalLeadDays = getChecklistTotalLeadDays(item)
-                  const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
-                  return (
-                    <tr key={item.id}>
-                      <td>{item.productName || '-'}</td>
-                      <td>{item.workCategory || '-'}</td>
-                      <td>{item.designLeadDays ?? '-'}</td>
-                      <td>{item.productionLeadDays ?? '-'}</td>
-                      <td>{totalLeadDays ?? '-'}</td>
-                      <td>{computedDueDate ? `${formatDateLabel(computedDueDate)} (${computedDueDate})` : '-'}</td>
-                      <td>{item.finalDueText || '-'}</td>
-                      <td>
-                        <span className={isAssigned ? 'assignmentBadge assigned' : 'assignmentBadge unassigned'}>
-                          {isAssigned ? '할당됨' : '미할당'}
-                        </span>
-                      </td>
-                      <td className="assignmentCell">
-                        {assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName} (${joinOrDash(assignedTask.assignee)})` : '-'}
-                      </td>
-                      <td>
-                        <button type="button" className="secondary mini" onClick={() => onOpenAssignmentPicker(item)}>
-                          {isAssigned ? '변경' : '할당'}
-                        </button>
-                        {isAssigned ? (
-                          <button type="button" className="secondary mini" onClick={() => void setChecklistAssignment(item.id, '')}>
-                            해제
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {projectDbOptions.map((project) => (
+                  <tr key={project.id}>
+                    <td>
+                      <span className="projectTitle">
+                        {project.coverUrl ? <img className="projectCoverImage" src={project.coverUrl} alt="" /> : null}
+                        {project.iconUrl ? <img className="projectIconImage" src={project.iconUrl} alt="" /> : null}
+                        {project.iconEmoji ? <span className="projectIconEmoji">{project.iconEmoji}</span> : null}
+                        <span>{project.name}</span>
+                      </span>
+                    </td>
+                    <td>{project.eventDate ? `${formatDateLabel(project.eventDate)} (${project.eventDate})` : '-'}</td>
+                    <td>
+                      {toNotionUrlById(project.id) ? (
+                        <a className="linkButton secondary mini" href={toNotionUrlById(project.id) ?? undefined} target="_blank" rel="noreferrer">
+                          열기
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
-      {unknownMessages.length > 0 ? (
+      {activeView === 'timeline' ? null : unknownMessages.length > 0 ? (
         <section className="warningBox">
           <strong>스키마 경고 ([UNKNOWN] fallback)</strong>
           <ul>
@@ -1294,79 +1554,81 @@ function App() {
         </section>
       ) : null}
 
-      {loadingList ? <p className="muted">업무 목록 로딩 중...</p> : null}
-      {listError ? <p className="error">{listError}</p> : null}
+      {activeView === 'tasks' ? <>{loadingList ? <p className="muted">업무 목록 로딩 중...</p> : null}</> : null}
+      {activeView === 'tasks' ? <>{listError ? <p className="error">{listError}</p> : null}</> : null}
 
-      <section className="projectGroups">
-        {groupedTasks.map((group) => {
-          const groupProject = projectByName.get(group.projectName)
-          return (
-          <article className="projectSection" key={group.projectName}>
-            <header className="projectHeader">
-              <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
-                {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
-              </button>
-              <h2 className="projectTitle">
-                {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
-                {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
-                {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
-                <span>{group.projectName}</span>
-              </h2>
-              <span>{group.tasks.length}건</span>
-            </header>
+      {activeView === 'tasks' ? (
+        <section className="projectGroups">
+          {groupedTasks.map((group) => {
+            const groupProject = projectByName.get(group.projectName)
+            return (
+            <article className="projectSection" key={group.projectName}>
+              <header className="projectHeader">
+                <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
+                  {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
+                </button>
+                <h2 className="projectTitle">
+                  {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
+                  {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
+                  {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
+                  <span>{group.projectName}</span>
+                </h2>
+                <span>{group.tasks.length}건</span>
+              </header>
 
-            {openTaskGroups[group.projectName] === false ? null : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>요청주체</th>
-                      <th>업무구분</th>
-                      <th>업무</th>
-                      <th>상태</th>
-                      <th>담당자</th>
-                      <th>시작일</th>
-                      <th>마감일</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.tasks.map((task) => (
-                      <tr key={task.id}>
-                        <td>{joinOrDash(task.requester)}</td>
-                        <td>{task.workType || '-'}</td>
-                        <td>
-                          <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
-                            {task.taskName}
-                          </button>
-                        </td>
-                        <td>
-                          <select
-                            value={task.status}
-                            disabled={Boolean(statusUpdatingIds[task.id])}
-                            onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
-                          >
-                            {unique([...statusOptions, task.status]).map((status) => (
-                              <option key={status} value={status}>
-                                {status}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>{joinOrDash(task.assignee)}</td>
-                        <td>{task.startDate || '-'}</td>
-                        <td>{task.dueDate || '-'}</td>
+              {openTaskGroups[group.projectName] === false ? null : (
+                <div className="tableWrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>요청주체</th>
+                        <th>업무구분</th>
+                        <th>업무</th>
+                        <th>상태</th>
+                        <th>담당자</th>
+                        <th>시작일</th>
+                        <th>마감일</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
-          )
-        })}
+                    </thead>
+                    <tbody>
+                      {group.tasks.map((task) => (
+                        <tr key={task.id}>
+                          <td>{joinOrDash(task.requester)}</td>
+                          <td>{task.workType || '-'}</td>
+                          <td>
+                            <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
+                              {task.taskName}
+                            </button>
+                          </td>
+                          <td>
+                            <select
+                              value={task.status}
+                              disabled={Boolean(statusUpdatingIds[task.id])}
+                              onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
+                            >
+                              {unique([...statusOptions, task.status]).map((status) => (
+                                <option key={status} value={status}>
+                                  {status}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>{joinOrDash(task.assignee)}</td>
+                          <td>{task.startDate || '-'}</td>
+                          <td>{task.dueDate || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </article>
+            )
+          })}
 
-        {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
-      </section>
+          {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
+        </section>
+      ) : null}
 
       {assignmentTarget ? (
         <div className="modalBackdrop" role="presentation" onClick={() => setAssignmentTarget(null)}>
