@@ -9,6 +9,7 @@ const DEFAULT_CACHE_TTL_MS = 60_000
 const KR_HOLIDAY_JSON_URL = 'https://holidays.hyunbin.page/basic.json'
 const KR_HOLIDAY_CACHE_MS = 12 * 60 * 60 * 1000
 const DEFAULT_LOG_LIMIT = 100
+const DEFAULT_EXPORT_LOG_LIMIT = 1000
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
@@ -345,10 +346,18 @@ async function writeChecklistAssignmentsToCache(assignments: Record<string, stri
   await caches.default.put(checklistAssignmentCacheRequest(), response)
 }
 
-function parseLogLimit(value: string | undefined): number {
+function parseBoundedLimit(value: string | undefined, fallback: number, max: number): number {
   const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return DEFAULT_LOG_LIMIT
-  return Math.max(1, Math.min(200, Math.floor(parsed)))
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.max(1, Math.min(max, Math.floor(parsed)))
+}
+
+function parseLogLimit(value: string | undefined): number {
+  return parseBoundedLimit(value, DEFAULT_LOG_LIMIT, 200)
+}
+
+function parseExportLogLimit(value: string | undefined): number {
+  return parseBoundedLimit(value, DEFAULT_EXPORT_LOG_LIMIT, 5000)
 }
 
 function hasChecklistDb(env: Env): boolean {
@@ -841,6 +850,30 @@ export default {
         )
       }
 
+      if (request.method === 'GET' && path === '/checklist-assignments/export') {
+        const loaded = await loadChecklistAssignments(env)
+        const logLimit = parseExportLogLimit(asString(url.searchParams.get('logLimit')))
+        const logs = loaded.mode === 'd1' ? await listChecklistAssignmentLogs(env, logLimit) : []
+
+        return ok(
+          {
+            ok: true,
+            exportedAt: new Date().toISOString(),
+            storageMode: loaded.mode,
+            counts: {
+              assignments: Object.keys(loaded.assignments).length,
+              logs: logs.length,
+            },
+            limits: {
+              logLimit,
+            },
+            assignments: loaded.assignments,
+            logs,
+          },
+          origin,
+        )
+      }
+
       if (request.method === 'POST' && path === '/checklist-assignments') {
         let payload: Record<string, unknown>
         try {
@@ -973,6 +1006,7 @@ export default {
               'GET /api/meta',
               'GET /api/checklists?eventName=...&eventCategory=...',
               'GET /api/checklist-assignments',
+              'GET /api/checklist-assignments/export?logLimit=1000',
               'GET /api/checklist-assignment-logs?limit=100',
               'POST /api/checklist-assignments',
               'GET /api/tasks?projectId=...&status=...&q=...&cursor=...&pageSize=...',

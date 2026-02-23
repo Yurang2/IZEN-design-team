@@ -110,6 +110,33 @@ type ChecklistAssignmentsResponse = {
   storageMode?: 'd1' | 'cache'
 }
 
+type ChecklistAssignmentsExportResponse = {
+  ok: boolean
+  exportedAt: string
+  storageMode: 'd1' | 'cache'
+  counts: {
+    assignments: number
+    logs: number
+  }
+  limits: {
+    logLimit: number
+  }
+  assignments: Record<string, string>
+  logs: Array<{
+    id: number
+    key: string
+    eventCategory: string
+    itemId: string
+    previousTaskId: string | null
+    taskId: string | null
+    action: string
+    actor: string | null
+    ip: string | null
+    userAgent: string | null
+    createdAt: number
+  }>
+}
+
 type MetaResponse = {
   ok: boolean
   databases: {
@@ -272,6 +299,17 @@ function toNotionUrlById(id: string | undefined): string | null {
 
 function asSortDate(value: string | undefined): string {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '9999-12-31'
+}
+
+function toExportFilename(prefix: string): string {
+  const now = new Date()
+  const yyyy = String(now.getFullYear())
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mi = String(now.getMinutes()).padStart(2, '0')
+  const ss = String(now.getSeconds()).padStart(2, '0')
+  return `${prefix}-${yyyy}${mm}${dd}-${hh}${mi}${ss}.json`
 }
 
 function addDays(date: Date, days: number): Date {
@@ -455,6 +493,8 @@ function App() {
   const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
   const [apiCheckState, setApiCheckState] = useState<ApiCheckState>('idle')
   const [apiCheckMessage, setApiCheckMessage] = useState<string>('')
+  const [exporting, setExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<string>('')
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -625,6 +665,30 @@ function App() {
     } catch (error: any) {
       setApiCheckState('error')
       setApiCheckMessage(error?.message ?? 'API 연결 확인 실패')
+    }
+  }, [])
+
+  const onManualExport = useCallback(async () => {
+    setExporting(true)
+    setExportMessage('')
+    try {
+      const response = await api<ChecklistAssignmentsExportResponse>('/checklist-assignments/export?logLimit=5000')
+      const blob = new Blob([JSON.stringify(response, null, 2)], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = toExportFilename('checklist-assignments-export')
+      document.body.append(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+      setExportMessage(
+        `내보내기 완료: assignments ${response.counts.assignments}건, logs ${response.counts.logs}건 (${response.storageMode})`,
+      )
+    } catch (error: any) {
+      setExportMessage(error?.message ?? '내보내기에 실패했습니다.')
+    } finally {
+      setExporting(false)
     }
   }, [])
 
@@ -1265,11 +1329,15 @@ function App() {
         <button type="button" className="secondary" onClick={() => void runApiConnectionTest()} disabled={apiCheckState === 'checking'}>
           {apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}
         </button>
+        <button type="button" className="secondary" onClick={() => void onManualExport()} disabled={exporting}>
+          {exporting ? '내보내는 중...' : '수동 Export'}
+        </button>
         <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
         <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
       </section>
 
       {apiCheckMessage ? <p className={apiCheckState === 'error' ? 'error' : 'muted'}>{apiCheckMessage}</p> : null}
+      {exportMessage ? <p className={exportMessage.includes('실패') ? 'error' : 'muted'}>{exportMessage}</p> : null}
 
       <section className="viewMenu">
         <div className="viewMenuHeader">
