@@ -4,6 +4,47 @@ React 프론트 + Cloudflare Workers 백엔드 + Notion API 구조입니다.
 
 Firebase는 제거되었고, 백엔드는 Workers만 사용합니다.
 
+## 현재 상태 (2026-02-23)
+
+- 운영 스택: `Cloudflare Pages + Worker + Notion` (Firebase 제거 완료)
+- 업무 뷰:
+  - List / Board 지원
+  - Board는 `그룹형(할 일/진행/완료)` + `상태형(노션 상태 그대로)` 전환 지원
+- 프로젝트 뷰:
+  - 프로젝트 목록 + `종속 업무 타임라인` 표시
+- 체크리스트:
+  - 행사 체크리스트 조회/역산
+  - 할당 키를 `프로젝트 + 행사구분 + 제작물` 기준으로 분리 저장
+- 백업:
+  - 수동 Export 버튼 제공
+  - `storageMode=cache`면 로그가 비거나 적은 것이 정상
+- 프리뷰:
+  - `VITE_USE_MOCK_DATA=true` 또는 `?demo=1`로 mock 데이터 모드 실행 가능
+- Worker 배포 안정화:
+  - `scripts/run-worker.sh`에서 config 경로 기준 깨짐 이슈 수정 완료
+
+## UI 리빌드 목표 (단계 진행)
+
+1. Phase 1: 디자인 토큰/컴포넌트 시스템 고정
+- 색/타입/간격/상태색 체계 통일
+- 버튼/필터/테이블/카드의 변형 규칙 단순화
+
+2. Phase 2: 업무 화면 재구성
+- List/Board 상단 도구바와 필터 경험 개선
+- 저장/로딩/에러 피드백 강화
+
+3. Phase 3: 프로젝트 중심 플로우 강화
+- 프로젝트 상세에서 종속 업무(리스트/타임라인) 전환
+- 체크리스트 할당과 프로젝트 플로우 연계 강화
+
+4. Phase 4: 상호작용 고도화
+- 보드 드래그/인라인 편집/키보드 단축키
+- 대량 편집/빠른 액션 도입
+
+5. Phase 5: 운영 품질
+- 권한/감사로그/복구 시나리오 문서화
+- 실사용 지표 기반 UI 튜닝
+
 ## 아키텍처
 
 ```text
@@ -346,3 +387,10 @@ npm run deploy:worker
   - Cache API 기반 60초 서버 스냅샷 캐시 구현
   - 프론트 API 베이스를 `VITE_API_BASE_URL`로 단순화
   - 목록/상세/생성/상태 변경 + optimistic update 유지
+- 2026-02-23: UI/운영 고도화
+  - Board 상태 그룹화 + 파스텔 상태 색상 적용
+  - Board 워크플로우 모드(`그룹형/상태형`) 전환 추가
+  - 프로젝트 탭 `종속 업무 타임라인` 뷰 추가
+  - 체크리스트 할당 키를 `프로젝트 + 행사구분 + 제작물`로 확장
+  - Worker 배포 스크립트(run-worker.sh) 경로 이슈 수정
+  - Firebase Studio/Web Preview용 mock 데이터 모드(`src/mock/mockApi.ts`) 추가
