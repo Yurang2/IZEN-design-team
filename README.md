@@ -39,7 +39,7 @@ Notion Databases (원장)
 │   ├── _headers
 │   ├── _redirects
 │   └── vite.svg
-├── wrangler.toml
+├── worker/wrangler.toml
 ├── .env.example
 └── scripts/publish-web.sh
 ```
@@ -211,7 +211,7 @@ npx wrangler secret put NOTION_PROJECT_DB_ID
 
 옵션(평문 vars):
 ```bash
-# wrangler.toml [vars] 또는 Cloudflare dashboard vars
+# worker/wrangler.toml [vars] 또는 Cloudflare dashboard vars
 API_CACHE_TTL_SECONDS=60
 ```
 
@@ -274,6 +274,17 @@ npm run deploy:worker
 - 임시 우회(재배포 전 즉시 테스트):
   - 앱 URL 뒤에 `?apiBase=https://<worker>.<subdomain>.workers.dev/api`를 붙여 접속
   - 예: `https://<pages-url>/?apiBase=https://izen-design-api.xxx.workers.dev/api`
+
+### `No deployment available` + `Failed to publish your Function`
+
+- 원인(로그 기준): Pages가 루트 `wrangler.toml`을 읽다가 충돌해 Functions publish 단계에서 실패할 수 있음
+- 조치(이미 코드 반영):
+  - Worker 설정 파일을 `worker/wrangler.toml`로 이동
+  - `_redirects`를 `/task/* /index.html 200`로 변경(무한루프 경고 제거)
+- 대시보드에서 해야 할 것:
+  1. Pages 프로젝트 `Build command`를 `npm run build`로 지정
+  2. `Build output directory`를 `dist`로 지정
+  3. `Clear build cache` 후 재배포
 
 ## 로그인/권한
 
