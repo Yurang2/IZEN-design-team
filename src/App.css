@@ -31,6 +31,19 @@
   margin-left: auto;
 }
 
+.apiBaseLabel {
+  background: #f4f7fb;
+  border: 1px solid #d3dbe4;
+  border-radius: 999px;
+  color: #2b3d53;
+  font-size: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 7px 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 button,
 .linkButton {
   background: #1f5d8f;
@@ -374,8 +387,21 @@ td {
     font-size: 24px;
   }
 
+  .toolbar {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .toolbar button {
+    width: 100%;
+  }
+
   .syncLabel {
     margin-left: 0;
+    width: 100%;
+  }
+
+  .apiBaseLabel {
     width: 100%;
   }
 
@@ -384,7 +410,20 @@ td {
     grid-template-columns: 1fr;
   }
 
+  .checklistPreviewFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .checklistPreviewActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .checklistPreviewActions button {
+    width: 100%;
+  }
+
   table {
-    min-width: 760px;
+    min-width: 700px;
   }
 }

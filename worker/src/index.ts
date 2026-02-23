@@ -4,6 +4,7 @@ import type { CreateTaskInput, Env, TaskRecord, TaskSnapshot, UpdateTaskInput } 
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const SNAPSHOT_CACHE_URL = 'https://cache.internal/notion-task-snapshot-v1'
+const CHECKLIST_ASSIGNMENT_CACHE_URL = 'https://cache.internal/checklist-assignment-v1'
 const DEFAULT_CACHE_TTL_MS = 60_000
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
@@ -164,6 +165,10 @@ function cacheRequest(): Request {
   return new Request(SNAPSHOT_CACHE_URL, { method: 'GET' })
 }
 
+function checklistAssignmentCacheRequest(): Request {
+  return new Request(CHECKLIST_ASSIGNMENT_CACHE_URL, { method: 'GET' })
+}
+
 async function loadSnapshotFromCache(cacheTtlMs: number): Promise<TaskSnapshot | null> {
   const cached = await caches.default.match(cacheRequest())
   if (!cached) return null
@@ -193,6 +198,43 @@ async function writeSnapshotToCache(snapshot: TaskSnapshot, cacheTtlMs: number):
   )
 
   await caches.default.put(cacheRequest(), response)
+}
+
+async function loadChecklistAssignments(): Promise<Record<string, string>> {
+  const cached = await caches.default.match(checklistAssignmentCacheRequest())
+  if (!cached) return {}
+
+  try {
+    const payload = (await cached.json()) as { assignments?: unknown }
+    if (!payload || typeof payload.assignments !== 'object' || payload.assignments === null) return {}
+    return Object.fromEntries(
+      Object.entries(payload.assignments as Record<string, unknown>).filter(([, value]) => typeof value === 'string' && value.trim()),
+    ) as Record<string, string>
+  } catch {
+    return {}
+  }
+}
+
+async function writeChecklistAssignments(assignments: Record<string, string>): Promise<void> {
+  const response = new Response(
+    JSON.stringify({
+      savedAt: Date.now(),
+      assignments,
+    }),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=31536000',
+      },
+    },
+  )
+
+  await caches.default.put(checklistAssignmentCacheRequest(), response)
+}
+
+function checklistAssignmentKey(eventCategory: string | undefined, itemId: string): string {
+  const category = (eventCategory ?? '').trim() || 'ALL'
+  return `${category}::${itemId}`
 }
 
 async function getSnapshot(service: NotionWorkService, env: Env, ctx: ExecutionContext): Promise<TaskSnapshot> {
@@ -376,6 +418,50 @@ export default {
         )
       }
 
+      if (request.method === 'GET' && path === '/checklist-assignments') {
+        const assignments = await loadChecklistAssignments()
+        return ok(
+          {
+            ok: true,
+            assignments,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/checklist-assignments') {
+        let payload: Record<string, unknown>
+        try {
+          payload = parsePatchBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+
+        const itemId = asString(payload.itemId)
+        const eventCategory = asString(payload.eventCategory)
+        const taskId = asString(payload.taskId)
+        if (!itemId) {
+          return json({ ok: false, error: 'itemId_required' }, 400, origin)
+        }
+
+        const assignments = await loadChecklistAssignments()
+        const key = checklistAssignmentKey(eventCategory, itemId)
+        if (taskId) assignments[key] = taskId
+        else delete assignments[key]
+
+        ctx.waitUntil(writeChecklistAssignments(assignments))
+
+        return ok(
+          {
+            ok: true,
+            key,
+            taskId: assignments[key] ?? null,
+            assignments,
+          },
+          origin,
+        )
+      }
+
       const taskMatch = path.match(/^\/tasks\/([^/]+)$/)
       if (request.method === 'GET' && taskMatch) {
         const id = decodeURIComponent(taskMatch[1])
@@ -458,6 +544,8 @@ export default {
             supported: [
               'GET /api/projects',
               'GET /api/checklists?eventName=...&eventCategory=...&q=...',
+              'GET /api/checklist-assignments',
+              'POST /api/checklist-assignments',
               'GET /api/tasks?projectId=...&status=...&q=...&cursor=...&pageSize=...',
               'GET /api/tasks/:id',
               'POST /api/tasks',

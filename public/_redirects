@@ -1,1 +1,2 @@
+/api/* https://izen-design-team.a98763969.workers.dev/api/:splat 200
 /task/* /index.html 200

@@ -97,6 +97,11 @@ type ChecklistPreviewResponse = {
   cacheTtlMs: number
 }
 
+type ChecklistAssignmentsResponse = {
+  ok: boolean
+  assignments: Record<string, string>
+}
+
 type Filters = {
   projectId: string
   status: string
@@ -140,6 +145,8 @@ type DetailForm = {
   urgent: boolean
   issue: string
 }
+
+type ApiCheckState = 'idle' | 'checking' | 'ok' | 'error'
 
 declare global {
   interface Window {
@@ -308,11 +315,14 @@ function App() {
   const [checklistCategories, setChecklistCategories] = useState<string[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState<string | null>(null)
+  const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentByChecklist, setAssignmentByChecklist] = useState<Record<string, string>>({})
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
   const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
+  const [apiCheckState, setApiCheckState] = useState<ApiCheckState>('idle')
+  const [apiCheckMessage, setApiCheckMessage] = useState<string>('')
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -438,10 +448,40 @@ function App() {
     }
   }, [])
 
+  const fetchChecklistAssignments = useCallback(async () => {
+    try {
+      const response = await api<ChecklistAssignmentsResponse>('/checklist-assignments')
+      setAssignmentByChecklist(response.assignments ?? {})
+    } catch {
+      // Server assignment store is optional; keep local cache fallback.
+    }
+  }, [])
+
+  const runApiConnectionTest = useCallback(async () => {
+    setApiCheckState('checking')
+    setApiCheckMessage('API 연결 확인 중...')
+    try {
+      const [projects, checklists] = await Promise.all([
+        api<ProjectsResponse>('/projects'),
+        api<ChecklistPreviewResponse>('/checklists'),
+      ])
+      setApiCheckState('ok')
+      setApiCheckMessage(`정상 연결: 프로젝트 ${projects.projects.length}건, 체크리스트 ${checklists.items.length}건`)
+    } catch (error: any) {
+      setApiCheckState('error')
+      setApiCheckMessage(error?.message ?? 'API 연결 확인 실패')
+    }
+  }, [])
+
   useEffect(() => {
     if (route.kind !== 'list') return
     void fetchChecklistPreview(checklistFilters)
   }, [fetchChecklistPreview, route.kind])
+
+  useEffect(() => {
+    if (route.kind !== 'list') return
+    void fetchChecklistAssignments()
+  }, [fetchChecklistAssignments, route.kind])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -590,17 +630,32 @@ function App() {
     }))
   }
 
-  const setChecklistAssignment = (itemId: string, taskId: string) => {
+  const setChecklistAssignment = async (itemId: string, taskId: string) => {
     const key = toChecklistAssignmentKey(checklistFilters.eventCategory, itemId)
-    setAssignmentByChecklist((prev) => {
-      const next = { ...prev }
-      if (!taskId) {
-        delete next[key]
-      } else {
-        next[key] = taskId
-      }
-      return next
-    })
+    const previous = assignmentByChecklist
+    const next = { ...previous }
+    if (!taskId) {
+      delete next[key]
+    } else {
+      next[key] = taskId
+    }
+    setAssignmentByChecklist(next)
+    setAssignmentSyncError(null)
+
+    try {
+      const response = await api<ChecklistAssignmentsResponse>('/checklist-assignments', {
+        method: 'POST',
+        body: JSON.stringify({
+          eventCategory: checklistFilters.eventCategory,
+          itemId,
+          taskId: taskId || null,
+        }),
+      })
+      setAssignmentByChecklist(response.assignments ?? next)
+    } catch (error: any) {
+      setAssignmentByChecklist(previous)
+      setAssignmentSyncError(error?.message ?? '체크리스트 할당 저장에 실패했습니다.')
+    }
   }
 
   const onOpenAssignmentPicker = (item: ChecklistPreviewItem) => {
@@ -613,9 +668,9 @@ function App() {
     setAssignmentProjectFilter('')
   }
 
-  const onSelectAssignmentTask = (taskId: string) => {
+  const onSelectAssignmentTask = async (taskId: string) => {
     if (!assignmentTarget) return
-    setChecklistAssignment(assignmentTarget.itemId, taskId)
+    await setChecklistAssignment(assignmentTarget.itemId, taskId)
     setAssignmentTarget(null)
     setAssignmentSearch('')
   }
@@ -934,8 +989,14 @@ function App() {
         <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
           새로고침
         </button>
+        <button type="button" className="secondary" onClick={() => void runApiConnectionTest()} disabled={apiCheckState === 'checking'}>
+          {apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}
+        </button>
+        <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
         <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
       </section>
+
+      {apiCheckMessage ? <p className={apiCheckState === 'error' ? 'error' : 'muted'}>{apiCheckMessage}</p> : null}
 
       <section className="filters">
         <label>
@@ -1016,6 +1077,7 @@ function App() {
         <p className="muted small">행사명은 프로젝트 DB에서 선택합니다. 필터 핵심은 행사구분입니다.</p>
 
         {checklistError ? <p className="error">{checklistError}</p> : null}
+        {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
         {!checklistError ? <p className="muted">조회 결과: {checklistItems.length}건</p> : null}
 
         {checklistItems.length > 0 ? (
@@ -1055,7 +1117,7 @@ function App() {
                           {isAssigned ? '변경' : '할당'}
                         </button>
                         {isAssigned ? (
-                          <button type="button" className="secondary mini" onClick={() => setChecklistAssignment(item.id, '')}>
+                          <button type="button" className="secondary mini" onClick={() => void setChecklistAssignment(item.id, '')}>
                             해제
                           </button>
                         ) : null}
@@ -1176,7 +1238,7 @@ function App() {
             </label>
 
             <div className="assignmentModalActions">
-              <button type="button" className="secondary" onClick={() => onSelectAssignmentTask('')}>
+              <button type="button" className="secondary" onClick={() => void onSelectAssignmentTask('')}>
                 미할당 처리
               </button>
               <button type="button" className="secondary" onClick={() => setAssignmentTarget(null)}>
@@ -1189,7 +1251,12 @@ function App() {
               {assignmentCandidates.map((task) => {
                 const selected = assignmentTargetCurrentTaskId === task.id
                 return (
-                  <button key={task.id} type="button" className={selected ? 'assignmentItem selected' : 'assignmentItem'} onClick={() => onSelectAssignmentTask(task.id)}>
+                  <button
+                    key={task.id}
+                    type="button"
+                    className={selected ? 'assignmentItem selected' : 'assignmentItem'}
+                    onClick={() => void onSelectAssignmentTask(task.id)}
+                  >
                     <strong>{task.taskName}</strong>
                     <span>
                       [{task.projectName}] · {task.workType || '-'} · {task.status}
