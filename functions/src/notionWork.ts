@@ -48,7 +48,7 @@ type TaskRecord = {
   url: string
   projectKey: string
   projectName: string
-  projectSource: 'relation' | 'select' | 'unknown'
+  projectSource: 'relation' | 'unknown'
   requester: string[]
   workType: string
   taskName: string
@@ -499,12 +499,17 @@ export class NotionWorkService {
   }
 
   private buildTaskSchema(properties: Record<string, any>): TaskSchema {
-    const relationFallback = (entries: Array<[string, any]>) =>
-      entries.find(
-        ([name, prop]) =>
-          prop?.type === 'relation' &&
-          (name.includes('귀속') || normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(config.projectDbId)),
+    const relationFallback = (entries: Array<[string, any]>) => {
+      const byTargetDb = entries.find(
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(config.projectDbId),
       )
+      if (byTargetDb) return byTargetDb
+
+      return entries.find(
+        ([name, prop]) =>
+          prop?.type === 'relation' && (name.includes('귀속 프로젝트') || (name.includes('귀속') && name.includes('프로젝트'))),
+      )
+    }
 
     const projectSelectFallback = (entries: Array<[string, any]>) => {
       const byName = entries.find(([name, prop]) => name.includes('프로젝트') && ['select', 'multi_select', 'rich_text'].includes(prop?.type))
@@ -602,11 +607,7 @@ export class NotionWorkService {
 
     const unknownFields = Object.values(fields).filter((field) => field.status === 'missing' || field.status === 'mismatch')
 
-    const projectBindingMode: 'relation' | 'select' | 'unknown' = isKnownField(schema.fields.projectRelation)
-      ? 'relation'
-      : isKnownField(schema.fields.projectSelect)
-        ? 'select'
-        : 'unknown'
+    const projectBindingMode: 'relation' | 'select' | 'unknown' = isKnownField(schema.fields.projectRelation) ? 'relation' : 'unknown'
 
     return {
       fields,
@@ -620,20 +621,15 @@ export class NotionWorkService {
 
     const relationIds = extractRelationIds(props, schema.fields.projectRelation)
     const relationProjectId = first(relationIds)
-    const selectProjectName = extractTextLike(props, schema.fields.projectSelect, '')
 
     const projectNameFromRelation = relationProjectId
       ? projectNameMap[normalizeNotionId(relationProjectId)] ?? projectNameMap[relationProjectId] ?? relationProjectId
       : undefined
-    const projectName = projectNameFromRelation || selectProjectName || '[UNKNOWN]'
+    const projectName = projectNameFromRelation || '[UNKNOWN]'
 
-    const projectSource: 'relation' | 'select' | 'unknown' = projectNameFromRelation
-      ? 'relation'
-      : selectProjectName
-        ? 'select'
-        : 'unknown'
+    const projectSource: 'relation' | 'unknown' = projectNameFromRelation ? 'relation' : 'unknown'
 
-    const projectKey = relationProjectId ?? selectProjectName ?? '[UNKNOWN]'
+    const projectKey = relationProjectId ?? '[UNKNOWN]'
 
     const taskName = extractTitle(props, schema.fields.taskName)
     const workType = extractTextLike(props, schema.fields.workType, '[UNKNOWN]') || '[UNKNOWN]'
@@ -687,32 +683,8 @@ export class NotionWorkService {
       }
     })
 
-    const selectOptions = schema.fields.projectSelect.options
-
-    const selectProjects: ProjectRecord[] = selectOptions.map((name) => ({
-      id: `select:${name}`,
-      key: name,
-      bindingValue: name,
-      name,
-      source: 'task_select',
-    }))
-
-    const byBinding = new Map<string, ProjectRecord>()
-
-    for (const project of [...projectsFromDb, ...selectProjects]) {
-      if (!byBinding.has(project.bindingValue)) {
-        byBinding.set(project.bindingValue, project)
-        continue
-      }
-      const existing = byBinding.get(project.bindingValue)
-      if (!existing) continue
-      if (existing.source === 'task_select' && project.source === 'project_db') {
-        byBinding.set(project.bindingValue, project)
-      }
-    }
-
     return {
-      projects: Array.from(byBinding.values()).sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+      projects: projectsFromDb.sort((a, b) => a.name.localeCompare(b.name, 'ko')),
       schema,
     }
   }
@@ -737,15 +709,6 @@ export class NotionWorkService {
           property: schema.fields.projectRelation.actualName,
           relation: { contains: query.projectId },
         })
-      } else if (isKnownField(schema.fields.projectSelect)) {
-        const selectField = schema.fields.projectSelect
-        if (selectField.actualType === 'select') {
-          filters.push({ property: selectField.actualName, select: { equals: query.projectId } })
-        } else if (selectField.actualType === 'multi_select') {
-          filters.push({ property: selectField.actualName, multi_select: { contains: query.projectId } })
-        } else if (selectField.actualType === 'rich_text') {
-          filters.push({ property: selectField.actualName, rich_text: { contains: query.projectId } })
-        }
       }
     }
 
@@ -855,17 +818,8 @@ export class NotionWorkService {
     const useRelation = isKnownField(schema.fields.projectRelation) && schema.fields.projectRelation.actualType === 'relation'
     if (useRelation && input.projectId) {
       properties[schema.fields.projectRelation.actualName] = { relation: [{ id: input.projectId }] }
-    } else if (isKnownField(schema.fields.projectSelect)) {
-      const projectName = normalizeText(input.projectName ?? '') || normalizeText(input.projectId ?? '')
-      if (projectName) {
-        if (schema.fields.projectSelect.actualType === 'select') {
-          properties[schema.fields.projectSelect.actualName] = { select: { name: projectName } }
-        } else if (schema.fields.projectSelect.actualType === 'multi_select') {
-          properties[schema.fields.projectSelect.actualName] = { multi_select: [{ name: projectName }] }
-        } else if (schema.fields.projectSelect.actualType === 'rich_text') {
-          properties[schema.fields.projectSelect.actualName] = { rich_text: [{ text: { content: projectName } }] }
-        }
-      }
+    } else if (input.projectId) {
+      throw new Error('project_relation_property_[UNKNOWN]')
     }
 
     applySelectLike(properties, schema.fields.workType, input.workType)
@@ -907,17 +861,8 @@ export class NotionWorkService {
       if (useRelation) {
         const value = normalizeText((patch.projectId ?? '') as string)
         properties[schema.fields.projectRelation.actualName] = value ? { relation: [{ id: value }] } : { relation: [] }
-      } else if (isKnownField(schema.fields.projectSelect)) {
-        const value = normalizeText((patch.projectName ?? patch.projectId ?? '') as string)
-        if (schema.fields.projectSelect.actualType === 'select') {
-          properties[schema.fields.projectSelect.actualName] = value ? { select: { name: value } } : { select: null }
-        } else if (schema.fields.projectSelect.actualType === 'multi_select') {
-          properties[schema.fields.projectSelect.actualName] = value ? { multi_select: [{ name: value }] } : { multi_select: [] }
-        } else if (schema.fields.projectSelect.actualType === 'rich_text') {
-          properties[schema.fields.projectSelect.actualName] = value
-            ? { rich_text: [{ text: { content: value } }] }
-            : { rich_text: [] }
-        }
+      } else if (patch.projectId || patch.projectName) {
+        throw new Error('project_relation_property_[UNKNOWN]')
       }
     }
 
