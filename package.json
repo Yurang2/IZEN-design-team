@@ -11,7 +11,8 @@
     "prebuild": "cp -f index.template.html index.html",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "publish:web": "bash ./scripts/publish-web.sh"
   },
   "dependencies": {
     "react": "^19.2.0",
