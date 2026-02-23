@@ -127,6 +127,24 @@ function normalizeApiBase(value: string): string {
   return `${trimmed}/api`
 }
 
+function getApiBaseFromRuntime(): string {
+  if (typeof window === 'undefined') {
+    return normalizeApiBase(toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api')
+  }
+
+  const queryValue = toNonEmpty(new URLSearchParams(window.location.search).get('apiBase'))
+  if (queryValue) {
+    const normalized = normalizeApiBase(queryValue)
+    window.localStorage.setItem('API_BASE_URL', normalized)
+    return normalized
+  }
+
+  const stored = toNonEmpty(window.localStorage.getItem('API_BASE_URL'))
+  if (stored) return normalizeApiBase(stored)
+
+  return normalizeApiBase(toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api')
+}
+
 function parseRoute(pathname: string): Route {
   const cleaned = pathname.replace(/\/+$/, '') || '/'
   if (cleaned === '/') {
@@ -156,7 +174,7 @@ function splitByComma(value: string): string[] {
     .filter(Boolean)
 }
 
-const API_BASE_URL = normalizeApiBase(toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api')
+const API_BASE_URL = getApiBaseFromRuntime()
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`

@@ -271,6 +271,9 @@ npm run deploy:worker
 - 확인:
   - 브라우저에서 `https://...workers.dev/api/projects` 호출 시 JSON이 보여야 정상
   - HTML이 보이면 API 주소가 잘못된 상태
+- 임시 우회(재배포 전 즉시 테스트):
+  - 앱 URL 뒤에 `?apiBase=https://<worker>.<subdomain>.workers.dev/api`를 붙여 접속
+  - 예: `https://<pages-url>/?apiBase=https://izen-design-api.xxx.workers.dev/api`
 
 ## 로그인/권한
 
