@@ -6,6 +6,8 @@
   "scripts": {
     "predev": "cp -f index.template.html index.html",
     "dev": "vite",
+    "dev:local": "bash ./scripts/dev-local.sh",
+    "setup:functions-env": "bash ./scripts/setup-functions-env.sh",
     "prebuild": "cp -f index.template.html index.html",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

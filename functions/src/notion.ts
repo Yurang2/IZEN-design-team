@@ -25,6 +25,13 @@ const TASK_PROP = {
 }
 
 type AnyMap = Record<string, any>
+type AccessCheckResult = {
+  ok: boolean
+  databaseId: string
+  title?: string
+  errorCode?: string
+  errorMessage?: string
+}
 
 function normalizeText(value: string): string {
   return value.trim()
@@ -81,6 +88,12 @@ function extractCategory(props: AnyMap, name: string): string[] {
   }
 
   return []
+}
+
+function extractDatabaseTitle(value: any): string {
+  const title = value?.title
+  if (!Array.isArray(title)) return ''
+  return title.map((item: any) => item?.plain_text ?? '').join('').trim()
 }
 
 export class NotionService {
@@ -140,6 +153,42 @@ export class NotionService {
       types[name] = value.type
     }
     return types
+  }
+
+  private async checkDatabaseAccess(databaseId: string): Promise<AccessCheckResult> {
+    try {
+      const db: any = await this.client.databases.retrieve({ database_id: databaseId })
+      return {
+        ok: true,
+        databaseId,
+        title: extractDatabaseTitle(db),
+      }
+    } catch (error: any) {
+      return {
+        ok: false,
+        databaseId,
+        errorCode: error?.code ? String(error.code) : undefined,
+        errorMessage: error?.message ? String(error.message) : 'unknown_error',
+      }
+    }
+  }
+
+  async diagnoseAccess(): Promise<{
+    projectDb: AccessCheckResult
+    checklistDb: AccessCheckResult
+    taskDb: AccessCheckResult
+  }> {
+    const [projectDb, checklistDb, taskDb] = await Promise.all([
+      this.checkDatabaseAccess(config.projectDbId),
+      this.checkDatabaseAccess(config.checklistDbId),
+      this.checkDatabaseAccess(config.taskDbId),
+    ])
+
+    return {
+      projectDb,
+      checklistDb,
+      taskDb,
+    }
   }
 
   async createTask(input: {

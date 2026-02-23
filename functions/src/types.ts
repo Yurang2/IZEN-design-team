@@ -20,7 +20,9 @@ export interface ProposalRecord {
   status: ProposalStatus
   projectId: string
   projectName: string
+  projectCategory?: string
   checklistItemId: string
+  eventCategories?: string[]
   taskName: string
   workCategory: string
   dueDate?: string
