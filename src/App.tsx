@@ -135,7 +135,11 @@ type TaskViewFilters = {
   hideDone: boolean
 }
 
-type TopView = 'projects' | 'tasks' | 'timeline'
+type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist'
+
+type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
+type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
+type ChecklistSort = 'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'lead_asc' | 'lead_desc'
 
 type ChecklistPreviewFilters = {
   eventName: string
@@ -266,6 +270,10 @@ function toNotionUrlById(id: string | undefined): string | null {
   return `https://www.notion.so/${normalized}`
 }
 
+function asSortDate(value: string | undefined): string {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '9999-12-31'
+}
+
 function addDays(date: Date, days: number): Date {
   const copied = new Date(date.getTime())
   copied.setUTCDate(copied.getUTCDate() + days)
@@ -390,6 +398,10 @@ function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
 function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname))
   const [activeView, setActiveView] = useState<TopView>('tasks')
+  const [menuCollapsed, setMenuCollapsed] = useState(false)
+  const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
+  const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
+  const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [tasks, setTasks] = useState<TaskRecord[]>([])
@@ -668,10 +680,23 @@ function App() {
     })
   }, [taskViewFilters.assignee, taskViewFilters.dueFrom, taskViewFilters.dueTo, taskViewFilters.hideDone, taskViewFilters.requester, taskViewFilters.urgentOnly, taskViewFilters.workType, tasks])
 
+  const sortedFilteredTasks = useMemo(() => {
+    const copy = [...filteredTasks]
+    copy.sort((a, b) => {
+      if (taskSort === 'due_asc') return asSortDate(a.dueDate).localeCompare(asSortDate(b.dueDate))
+      if (taskSort === 'due_desc') return asSortDate(b.dueDate).localeCompare(asSortDate(a.dueDate))
+      if (taskSort === 'start_asc') return asSortDate(a.startDate).localeCompare(asSortDate(b.startDate))
+      if (taskSort === 'start_desc') return asSortDate(b.startDate).localeCompare(asSortDate(a.startDate))
+      if (taskSort === 'status_asc') return (a.status || '').localeCompare(b.status || '', 'ko')
+      return (a.taskName || '').localeCompare(b.taskName || '', 'ko')
+    })
+    return copy
+  }, [filteredTasks, taskSort])
+
   const groupedTasks = useMemo(() => {
     const map = new Map<string, { projectName: string; tasks: TaskRecord[] }>()
 
-    for (const task of filteredTasks) {
+    for (const task of sortedFilteredTasks) {
       const key = task.projectName || '[UNKNOWN]'
       const current = map.get(key)
       if (current) {
@@ -682,7 +707,7 @@ function App() {
     }
 
     return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
-  }, [filteredTasks])
+  }, [sortedFilteredTasks])
 
   const projectDbOptions = useMemo(
     () =>
@@ -692,10 +717,39 @@ function App() {
     [projects],
   )
 
+  const sortedProjectDbOptions = useMemo(() => {
+    const copy = [...projectDbOptions]
+    copy.sort((a, b) => {
+      if (projectSort === 'name_asc') return a.name.localeCompare(b.name, 'ko')
+      if (projectSort === 'name_desc') return b.name.localeCompare(a.name, 'ko')
+      if (projectSort === 'date_asc') return asSortDate(a.eventDate).localeCompare(asSortDate(b.eventDate))
+      return asSortDate(b.eventDate).localeCompare(asSortDate(a.eventDate))
+    })
+    return copy
+  }, [projectDbOptions, projectSort])
+
   const selectedChecklistProject = useMemo(
     () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
     [checklistFilters.eventName, projectDbOptions],
   )
+
+  const sortedChecklistItems = useMemo(() => {
+    const copy = [...checklistItems]
+    copy.sort((a, b) => {
+      const aDue = a.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, a) ?? '9999-12-31'
+      const bDue = b.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, b) ?? '9999-12-31'
+      const aLead = getChecklistTotalLeadDays(a) ?? -1
+      const bLead = getChecklistTotalLeadDays(b) ?? -1
+
+      if (checklistSort === 'due_asc') return aDue.localeCompare(bDue)
+      if (checklistSort === 'due_desc') return bDue.localeCompare(aDue)
+      if (checklistSort === 'name_asc') return (a.productName || '').localeCompare(b.productName || '', 'ko')
+      if (checklistSort === 'name_desc') return (b.productName || '').localeCompare(a.productName || '', 'ko')
+      if (checklistSort === 'lead_asc') return aLead - bLead
+      return bLead - aLead
+    })
+    return copy
+  }, [checklistItems, checklistSort, selectedChecklistProject?.eventDate])
 
   const projectByName = useMemo(() => {
     const map = new Map<string, ProjectRecord>()
@@ -768,7 +822,8 @@ function App() {
   const selectedViewDbUrl = useMemo(() => {
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
-    return dbLinks.checklist
+    if (activeView === 'checklist') return dbLinks.checklist
+    return null
   }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.task])
 
   const unknownMessages = schemaUnknownMessage(schema)
@@ -1195,14 +1250,15 @@ function App() {
   return (
     <div className="page">
       <header className="header">
-        <h1>디자인팀 업무 도우미//</h1>
-        <p>60초 폴링 + Optimistic 업데이트</p>
+        <h1>디자인팀 업무 도우미</h1>
       </header>
 
       <section className="toolbar toolbarWrap">
-        <button type="button" onClick={() => setCreateOpen(true)}>
-          + 새 업무
-        </button>
+        {activeView === 'tasks' ? (
+          <button type="button" onClick={() => setCreateOpen(true)}>
+            + 새 업무
+          </button>
+        ) : null}
         <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
           새로고침
         </button>
@@ -1215,34 +1271,51 @@ function App() {
 
       {apiCheckMessage ? <p className={apiCheckState === 'error' ? 'error' : 'muted'}>{apiCheckMessage}</p> : null}
 
-      <section className="viewTabs">
-        <button
-          type="button"
-          className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
-          onClick={() => setActiveView('projects')}
-        >
-          프로젝트
-        </button>
-        <button
-          type="button"
-          className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
-          onClick={() => setActiveView('tasks')}
-        >
-          업무
-        </button>
-        <button
-          type="button"
-          className={activeView === 'timeline' ? 'viewTab active' : 'viewTab'}
-          onClick={() => setActiveView('timeline')}
-        >
-          일정 (작업중)
-        </button>
-        {selectedViewDbUrl ? (
-          <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
-            현재 탭 노션 DB 열기
-          </a>
-        ) : (
-          <span className="muted small dbJump">현재 탭 DB 링크 없음</span>
+      <section className="viewMenu">
+        <div className="viewMenuHeader">
+          <strong>메뉴</strong>
+          <button type="button" className="secondary" onClick={() => setMenuCollapsed((prev) => !prev)}>
+            {menuCollapsed ? '메뉴 펼치기' : '메뉴 접기'}
+          </button>
+        </div>
+        {menuCollapsed ? null : (
+          <div className="viewTabs">
+            <button
+              type="button"
+              className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
+              onClick={() => setActiveView('projects')}
+            >
+              프로젝트
+            </button>
+            <button
+              type="button"
+              className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
+              onClick={() => setActiveView('tasks')}
+            >
+              업무
+            </button>
+            <button
+              type="button"
+              className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
+              onClick={() => setActiveView('schedule')}
+            >
+              일정
+            </button>
+            <button
+              type="button"
+              className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
+              onClick={() => setActiveView('checklist')}
+            >
+              행사 체크리스트
+            </button>
+            {selectedViewDbUrl ? (
+              <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
+                현재 탭 노션 DB 열기
+              </a>
+            ) : (
+              <span className="muted small dbJump">현재 탭 DB 링크 없음</span>
+            )}
+          </div>
         )}
       </section>
 
@@ -1275,6 +1348,18 @@ function App() {
           <label>
             검색
             <input name="q" value={filters.q} onChange={onChangeFilter} placeholder="업무/상세 검색" />
+          </label>
+
+          <label>
+            정렬
+            <select name="taskSort" value={taskSort} onChange={(event) => setTaskSort(event.target.value as TaskSort)}>
+              <option value="due_asc">마감일 빠른순</option>
+              <option value="due_desc">마감일 늦은순</option>
+              <option value="start_asc">시작일 빠른순</option>
+              <option value="start_desc">시작일 늦은순</option>
+              <option value="status_asc">상태 오름차순</option>
+              <option value="name_asc">업무명 오름차순</option>
+            </select>
           </label>
 
           <label>
@@ -1341,12 +1426,17 @@ function App() {
         </section>
       ) : null}
 
-      {activeView === 'timeline' ? (
+      {activeView === 'schedule' ? (
         <section className="checklistPreview">
-          <div className="timelineWipBadge">일정 화면은 현재 작업 중입니다. 아래는 체크리스트 기반 임시 뷰입니다.</div>
+          <div className="timelineWipBadge">일정 화면은 준비 중입니다.</div>
+        </section>
+      ) : null}
+
+      {activeView === 'checklist' ? (
+        <section className="checklistPreview">
           <div className="checklistPreviewHeader">
-            <h2>행사별 디자인 제작물 체크리스트 미리보기</h2>
-            <p>행사구분으로 항목을 고르고, 결과는 Row 테이블로 보여줍니다. 노션 DB에는 저장하지 않습니다.</p>
+            <h2>행사 체크리스트</h2>
+            <p>행사구분으로 항목을 고르고 결과를 확인합니다. 노션 체크리스트 DB의 계산용 오프셋을 사용합니다.</p>
           </div>
 
           <form className="checklistPreviewFilters" onSubmit={onChecklistSubmit}>
@@ -1406,6 +1496,18 @@ function App() {
               </select>
             </label>
 
+            <label>
+              정렬
+              <select value={checklistSort} onChange={(event) => setChecklistSort(event.target.value as ChecklistSort)}>
+                <option value="due_asc">완료예정일 빠른순</option>
+                <option value="due_desc">완료예정일 늦은순</option>
+                <option value="name_asc">제작물 이름 오름차순</option>
+                <option value="name_desc">제작물 이름 내림차순</option>
+                <option value="lead_asc">총 소요일 짧은순</option>
+                <option value="lead_desc">총 소요일 긴순</option>
+              </select>
+            </label>
+
             <div className="checklistPreviewActions">
               <button type="submit" disabled={checklistLoading}>
                 {checklistLoading ? '조회 중...' : '체크리스트 보기'}
@@ -1435,9 +1537,9 @@ function App() {
 
           {checklistError ? <p className="error">{checklistError}</p> : null}
           {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
-          {!checklistError ? <p className="muted">조회 결과: {checklistItems.length}건</p> : null}
+          {!checklistError ? <p className="muted">조회 결과: {sortedChecklistItems.length}건</p> : null}
 
-          {checklistItems.length > 0 ? (
+          {sortedChecklistItems.length > 0 ? (
             <div className="tableWrap">
               <table>
                 <thead>
@@ -1455,7 +1557,7 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {checklistItems.map((item) => {
+                  {sortedChecklistItems.map((item) => {
                     const assignmentKey = toChecklistAssignmentKey(checklistFilters.eventCategory, item.id)
                     const assignedTaskId = assignmentByChecklist[assignmentKey] ?? ''
                     const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
@@ -1503,8 +1605,19 @@ function App() {
         <section className="projectSection">
           <header className="projectHeader">
             <h2>프로젝트 목록</h2>
-            <span>{projectDbOptions.length}건</span>
+            <span>{sortedProjectDbOptions.length}건</span>
           </header>
+          <section className="filters compact">
+            <label>
+              정렬
+              <select value={projectSort} onChange={(event) => setProjectSort(event.target.value as ProjectSort)}>
+                <option value="name_asc">이름 오름차순</option>
+                <option value="name_desc">이름 내림차순</option>
+                <option value="date_asc">행사일 빠른순</option>
+                <option value="date_desc">행사일 늦은순</option>
+              </select>
+            </label>
+          </section>
           <div className="tableWrap">
             <table>
               <thead>
@@ -1515,7 +1628,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {projectDbOptions.map((project) => (
+                {sortedProjectDbOptions.map((project) => (
                   <tr key={project.id}>
                     <td>
                       <span className="projectTitle">
@@ -1543,7 +1656,7 @@ function App() {
         </section>
       ) : null}
 
-      {activeView === 'timeline' ? null : unknownMessages.length > 0 ? (
+      {activeView === 'tasks' && unknownMessages.length > 0 ? (
         <section className="warningBox">
           <strong>스키마 경고 ([UNKNOWN] fallback)</strong>
           <ul>

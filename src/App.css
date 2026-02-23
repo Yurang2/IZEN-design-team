@@ -25,12 +25,26 @@
   flex-wrap: wrap;
 }
 
+.viewMenu {
+  background: #fff;
+  border: 1px solid #d3dbe4;
+  border-radius: 12px;
+  margin: 12px 0 14px;
+  padding: 10px 12px;
+}
+
+.viewMenuHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
 .viewTabs {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 12px 0 14px;
+  margin: 10px 0 0;
 }
 
 button.viewTab {
@@ -111,6 +125,12 @@ button.secondary:hover,
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   margin-bottom: 14px;
   padding: 14px;
+}
+
+.filters.compact {
+  border: 0;
+  margin: 0 0 10px;
+  padding: 0;
 }
 
 .filtersActions {
