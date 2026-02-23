@@ -10,8 +10,6 @@ enabled = true
 [vars]
 API_CACHE_TTL_SECONDS = "60"
 
-# Enable persistent checklist assignment storage + audit logs with D1.
-# [[d1_databases]]
-# binding = "CHECKLIST_DB"
-# database_name = "izen-design-checklist"
-# database_id = "YOUR_D1_DATABASE_ID"
+# D1 binding is appended at runtime by `scripts/run-worker.sh` when:
+# - CHECKLIST_DB_ID is set
+# - CHECKLIST_DB_NAME (optional, default: izen-design-checklist)

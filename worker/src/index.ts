@@ -377,6 +377,7 @@ async function ensureChecklistDbTables(env: Env): Promise<void> {
       .prepare(
       `CREATE TABLE IF NOT EXISTS checklist_assignments (
         assignment_key TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL DEFAULT '',
         event_category TEXT NOT NULL,
         item_id TEXT NOT NULL,
         task_id TEXT NOT NULL,
@@ -394,6 +395,7 @@ async function ensureChecklistDbTables(env: Env): Promise<void> {
       `CREATE TABLE IF NOT EXISTS checklist_assignment_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         assignment_key TEXT NOT NULL,
+        project_id TEXT NOT NULL DEFAULT '',
         event_category TEXT NOT NULL,
         item_id TEXT NOT NULL,
         previous_task_id TEXT,
@@ -404,9 +406,18 @@ async function ensureChecklistDbTables(env: Env): Promise<void> {
         user_agent TEXT,
         created_at INTEGER NOT NULL
       )`,
-    )
+      )
       .bind()
       .run()
+
+    // Backward-compatible migration for already-created tables.
+    try {
+      await db.prepare(`ALTER TABLE checklist_assignments ADD COLUMN project_id TEXT NOT NULL DEFAULT ''`).bind().run()
+    } catch {}
+
+    try {
+      await db.prepare(`ALTER TABLE checklist_assignment_logs ADD COLUMN project_id TEXT NOT NULL DEFAULT ''`).bind().run()
+    } catch {}
 
     await db
       .prepare(
@@ -483,6 +494,7 @@ async function writeChecklistAssignmentToD1(
   request: Request,
   params: {
     key: string
+    projectId: string
     eventCategory: string
     itemId: string
     taskId?: string
@@ -502,9 +514,10 @@ async function writeChecklistAssignmentToD1(
   if (params.taskId) {
     await env.CHECKLIST_DB.prepare(
       `INSERT INTO checklist_assignments
-       (assignment_key, event_category, item_id, task_id, updated_at, updated_by, updated_ip, updated_user_agent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       (assignment_key, project_id, event_category, item_id, task_id, updated_at, updated_by, updated_ip, updated_user_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(assignment_key) DO UPDATE SET
+         project_id = excluded.project_id,
          event_category = excluded.event_category,
          item_id = excluded.item_id,
          task_id = excluded.task_id,
@@ -513,7 +526,7 @@ async function writeChecklistAssignmentToD1(
          updated_ip = excluded.updated_ip,
          updated_user_agent = excluded.updated_user_agent`,
     )
-      .bind(params.key, params.eventCategory, params.itemId, params.taskId, now, actor, ip, userAgent)
+      .bind(params.key, params.projectId, params.eventCategory, params.itemId, params.taskId, now, actor, ip, userAgent)
       .run()
   } else {
     await env.CHECKLIST_DB.prepare(`DELETE FROM checklist_assignments WHERE assignment_key = ?`).bind(params.key).run()
@@ -521,10 +534,22 @@ async function writeChecklistAssignmentToD1(
 
   await env.CHECKLIST_DB.prepare(
     `INSERT INTO checklist_assignment_logs
-     (assignment_key, event_category, item_id, previous_task_id, next_task_id, action, actor, ip, user_agent, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (assignment_key, project_id, event_category, item_id, previous_task_id, next_task_id, action, actor, ip, user_agent, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(params.key, params.eventCategory, params.itemId, params.previousTaskId ?? null, params.taskId ?? null, action, actor, ip, userAgent, now)
+    .bind(
+      params.key,
+      params.projectId,
+      params.eventCategory,
+      params.itemId,
+      params.previousTaskId ?? null,
+      params.taskId ?? null,
+      action,
+      actor,
+      ip,
+      userAgent,
+      now,
+    )
     .run()
 }
 
@@ -535,6 +560,7 @@ async function listChecklistAssignmentLogs(
   Array<{
     id: number
     key: string
+    projectId: string
     eventCategory: string
     itemId: string
     previousTaskId: string | null
@@ -550,7 +576,7 @@ async function listChecklistAssignmentLogs(
   await ensureChecklistDbTables(env)
 
   const result = await env.CHECKLIST_DB.prepare(
-    `SELECT id, assignment_key, event_category, item_id, previous_task_id, next_task_id, action, actor, ip, user_agent, created_at
+    `SELECT id, assignment_key, project_id, event_category, item_id, previous_task_id, next_task_id, action, actor, ip, user_agent, created_at
      FROM checklist_assignment_logs
      ORDER BY id DESC
      LIMIT ?`,
@@ -559,6 +585,7 @@ async function listChecklistAssignmentLogs(
     .all<{
       id?: unknown
       assignment_key?: unknown
+      project_id?: unknown
       event_category?: unknown
       item_id?: unknown
       previous_task_id?: unknown
@@ -574,6 +601,7 @@ async function listChecklistAssignmentLogs(
   return rows.map((row) => ({
     id: typeof row.id === 'number' ? row.id : Number(row.id ?? 0),
     key: typeof row.assignment_key === 'string' ? row.assignment_key : '',
+    projectId: typeof row.project_id === 'string' ? row.project_id : '',
     eventCategory: typeof row.event_category === 'string' ? row.event_category : '',
     itemId: typeof row.item_id === 'string' ? row.item_id : '',
     previousTaskId: typeof row.previous_task_id === 'string' ? row.previous_task_id : null,
@@ -586,9 +614,10 @@ async function listChecklistAssignmentLogs(
   }))
 }
 
-function checklistAssignmentKey(eventCategory: string | undefined, itemId: string): string {
+function checklistAssignmentKey(eventCategory: string | undefined, itemId: string, projectId?: string): string {
+  const projectKey = normalizeNotionId(projectId) || 'all_project'
   const category = (eventCategory ?? '').trim() || 'ALL'
-  return `${category}::${itemId}`
+  return `${projectKey}::${category}::${itemId}`
 }
 
 function notionDatabaseUrl(databaseId: string | undefined): string | null {
@@ -884,6 +913,7 @@ export default {
 
         const itemId = asString(payload.itemId)
         const eventCategory = asString(payload.eventCategory)
+        const projectId = asString(payload.projectId)
         const taskId = asString(payload.taskId)
         if (!itemId) {
           return json({ ok: false, error: 'itemId_required' }, 400, origin)
@@ -891,8 +921,12 @@ export default {
 
         const loaded = await loadChecklistAssignments(env)
         const assignments = loaded.assignments
-        const key = checklistAssignmentKey(eventCategory, itemId)
-        const previousTaskId = assignments[key]
+        const key = checklistAssignmentKey(eventCategory, itemId, projectId)
+        const legacyKey = `${(eventCategory ?? '').trim() || 'ALL'}::${itemId}`
+        const previousTaskId = assignments[key] ?? assignments[legacyKey]
+        if (key !== legacyKey) {
+          delete assignments[legacyKey]
+        }
         if (taskId) assignments[key] = taskId
         else delete assignments[key]
 
@@ -900,6 +934,7 @@ export default {
           const actor = asString(payload.actor)
           await writeChecklistAssignmentToD1(env, request, {
             key,
+            projectId: normalizeNotionId(projectId),
             eventCategory: eventCategory ?? '',
             itemId,
             taskId,

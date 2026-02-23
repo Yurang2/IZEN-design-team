@@ -235,14 +235,20 @@ API_CACHE_TTL_SECONDS=60
 ```
 
 D1(권장, 체크리스트 할당 영구저장/로그):
-```toml
-[[d1_databases]]
-binding = "CHECKLIST_DB"
-database_name = "izen-design-checklist"
-database_id = "<Cloudflare D1 database id>"
+```bash
+# 1) D1 생성 (최초 1회)
+npx wrangler d1 create izen-design-checklist
+
+# 2) Worker 배포 환경 변수에 D1 id/name 등록
+# - CHECKLIST_DB_ID=<Cloudflare D1 database id>
+# - CHECKLIST_DB_NAME=izen-design-checklist
+
+# 3) 배포
+npm run deploy:worker
 ```
 
-- D1을 연결하면 `checklist_assignments`, `checklist_assignment_logs` 테이블은 Worker가 자동 생성합니다.
+- `npm run deploy:worker`는 `scripts/run-worker.sh`를 통해 `CHECKLIST_DB_ID`가 있을 때만 D1 바인딩을 붙입니다.
+- D1을 연결하면 `checklist_assignments`, `checklist_assignment_logs` 테이블은 Worker가 자동 생성/마이그레이션됩니다.
 - D1 미연결 시 체크리스트 할당은 Cache API(임시 저장)로 동작합니다.
 
 ## 로컬 실행

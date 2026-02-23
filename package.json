@@ -6,8 +6,8 @@
   "scripts": {
     "predev": "cp -f index.template.html index.html",
     "dev": "vite",
-    "dev:worker": "npx wrangler dev --config worker/wrangler.toml",
-    "deploy:worker": "npx wrangler deploy --config worker/wrangler.toml",
+    "dev:worker": "bash ./scripts/run-worker.sh dev",
+    "deploy:worker": "bash ./scripts/run-worker.sh deploy",
     "prebuild": "cp -f index.template.html index.html",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

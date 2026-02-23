@@ -125,6 +125,7 @@ type ChecklistAssignmentsExportResponse = {
   logs: Array<{
     id: number
     key: string
+    projectId?: string
     eventCategory: string
     itemId: string
     previousTaskId: string | null
@@ -524,9 +525,26 @@ function computeChecklistDueDate(eventDate: string | undefined, item: ChecklistP
   return toIsoDate(addDays(base, -totalLead))
 }
 
-function toChecklistAssignmentKey(eventCategory: string, itemId: string): string {
+function toChecklistAssignmentKey(eventCategory: string, itemId: string, projectId?: string): string {
+  const projectKey = projectId?.replace(/-/g, '').trim().toLowerCase() || 'ALL_PROJECT'
+  const categoryKey = eventCategory.trim() || 'ALL'
+  return `${projectKey}::${categoryKey}::${itemId}`
+}
+
+function toLegacyChecklistAssignmentKey(eventCategory: string, itemId: string): string {
   const categoryKey = eventCategory.trim() || 'ALL'
   return `${categoryKey}::${itemId}`
+}
+
+function getChecklistAssignmentTaskId(
+  assignments: Record<string, string>,
+  eventCategory: string,
+  itemId: string,
+  projectId?: string,
+): string {
+  const nextKey = toChecklistAssignmentKey(eventCategory, itemId, projectId)
+  const legacyKey = toLegacyChecklistAssignmentKey(eventCategory, itemId)
+  return assignments[nextKey] ?? assignments[legacyKey] ?? ''
 }
 
 function getApiBaseFromRuntime(): string {
@@ -863,8 +881,11 @@ function App() {
       anchor.click()
       anchor.remove()
       URL.revokeObjectURL(url)
+      const summary = `내보내기 완료: assignments ${response.counts.assignments}건, logs ${response.counts.logs}건 (${response.storageMode})`
       setExportMessage(
-        `내보내기 완료: assignments ${response.counts.assignments}건, logs ${response.counts.logs}건 (${response.storageMode})`,
+        response.storageMode === 'cache'
+          ? `${summary} · D1 미연결이라 로그가 누적되지 않습니다.`
+          : summary,
       )
     } catch (error: any) {
       setExportMessage(error?.message ?? '내보내기에 실패했습니다.')
@@ -1107,7 +1128,12 @@ function App() {
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
-    ? assignmentByChecklist[toChecklistAssignmentKey(checklistFilters.eventCategory, assignmentTarget.itemId)] ?? ''
+    ? getChecklistAssignmentTaskId(
+        assignmentByChecklist,
+        checklistFilters.eventCategory,
+        assignmentTarget.itemId,
+        selectedChecklistProject?.id,
+      )
     : ''
   const hasQuickSearchResults = quickSearchSections.projects.length > 0 || quickSearchSections.tasks.length > 0
 
@@ -1228,9 +1254,11 @@ function App() {
   }
 
   const setChecklistAssignment = async (itemId: string, taskId: string) => {
-    const key = toChecklistAssignmentKey(checklistFilters.eventCategory, itemId)
+    const key = toChecklistAssignmentKey(checklistFilters.eventCategory, itemId, selectedChecklistProject?.id)
+    const legacyKey = toLegacyChecklistAssignmentKey(checklistFilters.eventCategory, itemId)
     const previous = assignmentByChecklist
     const next = { ...previous }
+    delete next[legacyKey]
     if (!taskId) {
       delete next[key]
     } else {
@@ -1244,6 +1272,7 @@ function App() {
         method: 'POST',
         body: JSON.stringify({
           eventCategory: checklistFilters.eventCategory,
+          projectId: selectedChecklistProject?.id ?? null,
           itemId,
           taskId: taskId || null,
         }),
@@ -1263,7 +1292,7 @@ function App() {
       workCategory: item.workCategory,
     })
     setAssignmentSearch('')
-    setAssignmentProjectFilter('')
+    setAssignmentProjectFilter(selectedChecklistProject?.name ?? '')
   }
 
   const onSelectAssignmentTask = async (taskId: string) => {
@@ -2063,6 +2092,7 @@ function App() {
           <p className="muted small">
             행사명은 프로젝트 DB에서 선택합니다. 영업일 역산은 주말/한국 공휴일을 제외해 계산하며, 오프셋은 DB에 숫자로 관리합니다.
           </p>
+          <p className="muted small">할당은 프로젝트(행사) + 행사구분 + 제작물 기준으로 분리 저장됩니다.</p>
           <p className="muted small">할당 저장소: {assignmentStorageMode === 'd1' ? 'D1(영구저장 + 로그)' : 'Cache(임시저장)'}</p>
           {selectedChecklistProject ? (
             <p className="muted small projectPreviewLine">
@@ -2101,8 +2131,12 @@ function App() {
                 </thead>
                 <tbody>
                   {sortedChecklistItems.map((item) => {
-                    const assignmentKey = toChecklistAssignmentKey(checklistFilters.eventCategory, item.id)
-                    const assignedTaskId = assignmentByChecklist[assignmentKey] ?? ''
+                    const assignedTaskId = getChecklistAssignmentTaskId(
+                      assignmentByChecklist,
+                      checklistFilters.eventCategory,
+                      item.id,
+                      selectedChecklistProject?.id,
+                    )
                     const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
                     const isAssigned = Boolean(assignedTaskId)
                     const totalLeadDays = getChecklistTotalLeadDays(item)
