@@ -60,6 +60,8 @@ export type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
+  iconEmoji?: string
+  iconUrl?: string
   source: 'project_db'
 }
 
@@ -95,6 +97,10 @@ export type ChecklistPreviewItem = {
   workCategory: string
   finalDueText: string
   eventCategories: string[]
+  designLeadDays?: number
+  productionLeadDays?: number
+  bufferDays?: number
+  totalLeadDays?: number
 }
 
 export type CreateTaskInput = {

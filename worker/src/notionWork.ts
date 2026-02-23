@@ -51,6 +51,47 @@ function parseCsvText(value: string): string[] {
     .filter(Boolean)
 }
 
+function normalizeFieldName(value: string): string {
+  return value.replace(/\s+/g, '').toLowerCase()
+}
+
+function pickPropertyByNames(props: AnyMap, names: string[]): any | undefined {
+  for (const name of names) {
+    if (props[name]) return props[name]
+  }
+
+  const byNormalized = new Map<string, any>()
+  for (const [name, prop] of Object.entries(props)) {
+    byNormalized.set(normalizeFieldName(name), prop)
+  }
+  for (const name of names) {
+    const hit = byNormalized.get(normalizeFieldName(name))
+    if (hit) return hit
+  }
+  return undefined
+}
+
+function extractNumberFromProperty(prop: any): number | undefined {
+  if (!prop || typeof prop !== 'object') return undefined
+
+  if (prop.type === 'number') {
+    return Number.isFinite(prop.number) ? Number(prop.number) : undefined
+  }
+
+  if (prop.type === 'formula') {
+    const formula = prop.formula
+    if (formula?.type === 'number' && Number.isFinite(formula.number)) {
+      return Number(formula.number)
+    }
+    if (formula?.type === 'string' && typeof formula.string === 'string') {
+      const parsed = Number(formula.string.trim())
+      return Number.isFinite(parsed) ? parsed : undefined
+    }
+  }
+
+  return undefined
+}
+
 function extractCategoryValues(props: AnyMap, name: string): string[] {
   const prop = props[name]
   if (!prop) return []
@@ -532,6 +573,14 @@ export class NotionWorkService {
             ? joinRichText(titleProp.title ?? []) || '(이름 없음 프로젝트)'
             : parseDbTitle(page) || '(이름 없음 프로젝트)'
         const eventDate = eventDateProp?.type === 'date' ? eventDateProp.date?.start ?? undefined : undefined
+        const icon = page.icon
+        const iconEmoji = icon?.type === 'emoji' ? icon.emoji ?? undefined : undefined
+        const iconUrl =
+          icon?.type === 'external'
+            ? icon.external?.url ?? undefined
+            : icon?.type === 'file'
+              ? icon.file?.url ?? undefined
+              : undefined
 
         return {
           id: page.id,
@@ -539,6 +588,8 @@ export class NotionWorkService {
           bindingValue: page.id,
           name,
           eventDate,
+          iconEmoji,
+          iconUrl,
           source: 'project_db' as const,
         }
       })
@@ -560,6 +611,10 @@ export class NotionWorkService {
 
       const workCategoryProp = props['작업 분류']
       const finalDueProp = props['최종 완료 시점']
+      const designLeadProp = pickPropertyByNames(props, ['디자인 소요 기간', '디자인 소요 기간(일)', '디자인소요기간'])
+      const productionLeadProp = pickPropertyByNames(props, ['실물 제작 소요 기간', '실물 제작 소요 기간(일)', '실물제작소요기간'])
+      const bufferProp = pickPropertyByNames(props, ['버퍼', '버퍼(일)', '버퍼 기간', '버퍼기간'])
+      const totalLeadProp = pickPropertyByNames(props, ['총 소요 기간', '총 소요 기간(일)', '총소요기간'])
 
       const workCategory =
         workCategoryProp?.type === 'rich_text'
@@ -575,12 +630,26 @@ export class NotionWorkService {
             ? finalDueProp.select?.name ?? ''
             : ''
 
+      const designLeadDays = extractNumberFromProperty(designLeadProp)
+      const productionLeadDays = extractNumberFromProperty(productionLeadProp)
+      const bufferDays = extractNumberFromProperty(bufferProp)
+      const totalLeadFromProp = extractNumberFromProperty(totalLeadProp)
+      const totalLeadDays =
+        totalLeadFromProp ??
+        (designLeadDays !== undefined || productionLeadDays !== undefined || bufferDays !== undefined
+          ? (designLeadDays ?? 0) + (productionLeadDays ?? 0) + (bufferDays ?? 0)
+          : undefined)
+
       return {
         id: page.id,
         productName,
         workCategory,
         finalDueText,
         eventCategories: extractCategoryValues(props, '행사 분류'),
+        designLeadDays,
+        productionLeadDays,
+        bufferDays,
+        totalLeadDays,
       }
     })
   }

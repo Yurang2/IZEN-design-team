@@ -52,6 +52,8 @@ type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
+  iconEmoji?: string
+  iconUrl?: string
   source: 'project_db' | 'task_select'
 }
 
@@ -84,6 +86,10 @@ type ChecklistPreviewItem = {
   workCategory: string
   finalDueText: string
   eventCategories: string[]
+  designLeadDays?: number
+  productionLeadDays?: number
+  bufferDays?: number
+  totalLeadDays?: number
 }
 
 type ChecklistPreviewResponse = {
@@ -202,6 +208,54 @@ function splitByComma(value: string): string[] {
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
+}
+
+function toProjectLabel(project: ProjectRecord): string {
+  if (project.iconEmoji) return `${project.iconEmoji} ${project.name}`
+  return project.name
+}
+
+function parseIsoDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const [y, m, d] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function addDays(date: Date, days: number): Date {
+  const copied = new Date(date.getTime())
+  copied.setUTCDate(copied.getUTCDate() + days)
+  return copied
+}
+
+function toIsoDate(date: Date): string {
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function formatDateLabel(value: string): string {
+  const parsed = parseIsoDate(value)
+  if (!parsed) return value
+  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(parsed)
+}
+
+function getChecklistTotalLeadDays(item: ChecklistPreviewItem): number | undefined {
+  if (typeof item.totalLeadDays === 'number') return item.totalLeadDays
+  const hasAny =
+    typeof item.designLeadDays === 'number' || typeof item.productionLeadDays === 'number' || typeof item.bufferDays === 'number'
+  if (!hasAny) return undefined
+  return (item.designLeadDays ?? 0) + (item.productionLeadDays ?? 0) + (item.bufferDays ?? 0)
+}
+
+function computeChecklistDueDate(eventDate: string | undefined, item: ChecklistPreviewItem): string | undefined {
+  if (!eventDate) return undefined
+  const base = parseIsoDate(eventDate)
+  if (!base) return undefined
+  const totalLead = getChecklistTotalLeadDays(item)
+  if (typeof totalLead !== 'number') return undefined
+  return toIsoDate(addDays(base, -totalLead))
 }
 
 function toChecklistAssignmentKey(eventCategory: string, itemId: string): string {
@@ -529,6 +583,19 @@ function App() {
         .sort((a, b) => a.name.localeCompare(b.name, 'ko')),
     [projects],
   )
+
+  const selectedChecklistProject = useMemo(
+    () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
+    [checklistFilters.eventName, projectDbOptions],
+  )
+
+  const projectByName = useMemo(() => {
+    const map = new Map<string, ProjectRecord>()
+    for (const project of projectDbOptions) {
+      if (!map.has(project.name)) map.set(project.name, project)
+    }
+    return map
+  }, [projectDbOptions])
 
   const taskById = useMemo(() => Object.fromEntries(tasks.map((task) => [task.id, task])) as Record<string, TaskRecord>, [tasks])
 
@@ -891,7 +958,7 @@ function App() {
                 <option value="">선택 안 함</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.bindingValue}>
-                    {project.name} {project.source === 'task_select' ? '(select)' : ''}
+                    {toProjectLabel(project)} {project.source === 'task_select' ? '(select)' : ''}
                   </option>
                 ))}
               </select>
@@ -1005,7 +1072,7 @@ function App() {
             <option value="">전체</option>
             {projects.map((project) => (
               <option key={project.id} value={project.bindingValue}>
-                {project.name}
+                {toProjectLabel(project)}
               </option>
             ))}
           </select>
@@ -1042,7 +1109,7 @@ function App() {
               <option value="">프로젝트 선택 안 함</option>
               {projectDbOptions.map((project) => (
                 <option key={project.id} value={project.name}>
-                  {project.name}
+                  {toProjectLabel(project)}
                 </option>
               ))}
             </select>
@@ -1075,6 +1142,11 @@ function App() {
           </div>
         </form>
         <p className="muted small">행사명은 프로젝트 DB에서 선택합니다. 필터 핵심은 행사구분입니다.</p>
+        {selectedChecklistProject?.eventDate ? (
+          <p className="muted small">
+            기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)} ({selectedChecklistProject.eventDate})
+          </p>
+        ) : null}
 
         {checklistError ? <p className="error">{checklistError}</p> : null}
         {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
@@ -1087,6 +1159,10 @@ function App() {
                 <tr>
                   <th>제작물</th>
                   <th>작업분류</th>
+                  <th>디자인 소요(일)</th>
+                  <th>실물 제작 소요(일)</th>
+                  <th>총 소요(일)</th>
+                  <th>역산 완료 예정일</th>
                   <th>최종 완료 시점</th>
                   <th>작업할당여부</th>
                   <th>할당 업무</th>
@@ -1099,10 +1175,16 @@ function App() {
                   const assignedTaskId = assignmentByChecklist[assignmentKey] ?? ''
                   const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
                   const isAssigned = Boolean(assignedTaskId)
+                  const totalLeadDays = getChecklistTotalLeadDays(item)
+                  const computedDueDate = computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
                   return (
                     <tr key={item.id}>
                       <td>{item.productName || '-'}</td>
                       <td>{item.workCategory || '-'}</td>
+                      <td>{item.designLeadDays ?? '-'}</td>
+                      <td>{item.productionLeadDays ?? '-'}</td>
+                      <td>{totalLeadDays ?? '-'}</td>
+                      <td>{computedDueDate ? `${formatDateLabel(computedDueDate)} (${computedDueDate})` : '-'}</td>
                       <td>{item.finalDueText || '-'}</td>
                       <td>
                         <span className={isAssigned ? 'assignmentBadge assigned' : 'assignmentBadge unassigned'}>
@@ -1146,13 +1228,19 @@ function App() {
       {listError ? <p className="error">{listError}</p> : null}
 
       <section className="projectGroups">
-        {groupedTasks.map((group) => (
+        {groupedTasks.map((group) => {
+          const groupProject = projectByName.get(group.projectName)
+          return (
           <article className="projectSection" key={group.projectName}>
             <header className="projectHeader">
               <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
                 {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
               </button>
-              <h2>{group.projectName}</h2>
+              <h2 className="projectTitle">
+                {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
+                {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
+                <span>{group.projectName}</span>
+              </h2>
               <span>{group.tasks.length}건</span>
             </header>
 
@@ -1203,7 +1291,8 @@ function App() {
               </div>
             )}
           </article>
-        ))}
+          )
+        })}
 
         {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
       </section>
@@ -1281,7 +1370,7 @@ function App() {
                   <option value="">선택 안 함</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.bindingValue}>
-                      {project.name}
+                      {toProjectLabel(project)}
                     </option>
                   ))}
                 </select>
