@@ -1320,17 +1320,29 @@ function App() {
       <section className="toolbar toolbarWrap">
         {activeView === 'tasks' ? (
           <button type="button" onClick={() => setCreateOpen(true)}>
-            + 새 업무
+            <span className="iconLabel">
+              <span className="uiIcon">＋</span>
+              <span>새 업무</span>
+            </span>
           </button>
         ) : null}
         <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
-          새로고침
+          <span className="iconLabel">
+            <span className="uiIcon">↻</span>
+            <span>새로고침</span>
+          </span>
         </button>
         <button type="button" className="secondary" onClick={() => void runApiConnectionTest()} disabled={apiCheckState === 'checking'}>
-          {apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}
+          <span className="iconLabel">
+            <span className="uiIcon">◌</span>
+            <span>{apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}</span>
+          </span>
         </button>
         <button type="button" className="secondary" onClick={() => void onManualExport()} disabled={exporting}>
-          {exporting ? '내보내는 중...' : '수동 Export'}
+          <span className="iconLabel">
+            <span className="uiIcon">⭳</span>
+            <span>{exporting ? '내보내는 중...' : '수동 Export'}</span>
+          </span>
         </button>
         <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
         <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
@@ -1343,7 +1355,10 @@ function App() {
         <div className="viewMenuHeader">
           <strong>메뉴</strong>
           <button type="button" className="secondary" onClick={() => setMenuCollapsed((prev) => !prev)}>
-            {menuCollapsed ? '메뉴 펼치기' : '메뉴 접기'}
+            <span className="iconLabel">
+              <span className="uiIcon">{menuCollapsed ? '▸' : '▾'}</span>
+              <span>{menuCollapsed ? '메뉴 펼치기' : '메뉴 접기'}</span>
+            </span>
           </button>
         </div>
         {menuCollapsed ? null : (
@@ -1353,32 +1368,47 @@ function App() {
               className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
               onClick={() => setActiveView('projects')}
             >
-              프로젝트
+              <span className="iconLabel">
+                <span className="uiIcon">▦</span>
+                <span>프로젝트</span>
+              </span>
             </button>
             <button
               type="button"
               className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
               onClick={() => setActiveView('tasks')}
             >
-              업무
+              <span className="iconLabel">
+                <span className="uiIcon">☰</span>
+                <span>업무</span>
+              </span>
             </button>
             <button
               type="button"
               className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
               onClick={() => setActiveView('schedule')}
             >
-              일정
+              <span className="iconLabel">
+                <span className="uiIcon">◷</span>
+                <span>일정</span>
+              </span>
             </button>
             <button
               type="button"
               className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
               onClick={() => setActiveView('checklist')}
             >
-              행사 체크리스트
+              <span className="iconLabel">
+                <span className="uiIcon">☑</span>
+                <span>행사 체크리스트</span>
+              </span>
             </button>
             {selectedViewDbUrl ? (
               <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
-                현재 탭 노션 DB 열기
+                <span className="iconLabel">
+                  <span className="uiIcon">↗</span>
+                  <span>현재 탭 노션 DB 열기</span>
+                </span>
               </a>
             ) : (
               <span className="muted small dbJump">현재 탭 DB 링크 없음</span>
