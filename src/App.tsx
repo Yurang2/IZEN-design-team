@@ -1329,13 +1329,27 @@ function App() {
   return (
     <div className="page mondayShell">
       <aside className="mondaySidebar">
+        <div className="sidebarWorkspace">
+          <span className="workspaceMark">IZ</span>
+          <div className="workspaceMeta">
+            <strong>IZEN Design Team</strong>
+            <span>Cloudflare + Notion Workspace</span>
+          </div>
+        </div>
+        <button type="button" className="secondary sidebarSearchBtn">
+          <span className="iconLabel">
+            <span className="uiIcon">⌕</span>
+            <span>빠른 이동 / 검색</span>
+          </span>
+          <span className="shortcutKey">⌘K</span>
+        </button>
         <header className="sidebarBrand">
           <h1>디자인팀 업무 도우미</h1>
-          <p>Monday Layout + Asana Flow</p>
+          <p>Plane-inspired Layout + Asana Workflow</p>
         </header>
         <section className="viewMenu">
           <div className="viewMenuHeader">
-            <strong>Workspace</strong>
+            <strong>Views</strong>
             <button type="button" className="secondary" onClick={() => setMenuCollapsed((prev) => !prev)}>
               <span className="iconLabel">
                 <span className="uiIcon">{menuCollapsed ? '▸' : '▾'}</span>
@@ -1354,6 +1368,7 @@ function App() {
                   <span className="uiIcon">▦</span>
                   <span>프로젝트</span>
                 </span>
+                <span className="viewTabCount">{projects.length}</span>
               </button>
               <button
                 type="button"
@@ -1364,6 +1379,7 @@ function App() {
                   <span className="uiIcon">☰</span>
                   <span>업무</span>
                 </span>
+                <span className="viewTabCount">{tasks.length}</span>
               </button>
               <button
                 type="button"
@@ -1399,22 +1415,58 @@ function App() {
           )}
         </section>
         <section className="sidebarMeta">
-          <p className="muted small">Projects {projects.length}</p>
-          <p className="muted small">Tasks {tasks.length}</p>
-          <p className="muted small">Sync {lastSyncedAt || '-'}</p>
+          <article className="metaCard">
+            <span className="muted small">프로젝트</span>
+            <strong>{projects.length}</strong>
+          </article>
+          <article className="metaCard">
+            <span className="muted small">업무</span>
+            <strong>{tasks.length}</strong>
+          </article>
+          <article className="metaCard">
+            <span className="muted small">마지막 동기화</span>
+            <strong>{lastSyncedAt || '-'}</strong>
+          </article>
         </section>
       </aside>
       <main className="mondayMain">
-        <header className="header">
-          <h1>
-            {activeView === 'projects'
-              ? '프로젝트'
-              : activeView === 'tasks'
-                ? '업무'
-                : activeView === 'schedule'
-                  ? '일정'
-                  : '행사 체크리스트'}
-          </h1>
+        <header className="header topbarHeader">
+          <div className="topbarHeading">
+            <p className="topbarPath">Design Team / {activeView === 'checklist' ? 'Event Checklist' : activeView}</p>
+            <h1>
+              {activeView === 'projects'
+                ? '프로젝트'
+                : activeView === 'tasks'
+                  ? '업무'
+                  : activeView === 'schedule'
+                    ? '일정'
+                    : '행사 체크리스트'}
+            </h1>
+          </div>
+          {activeView === 'tasks' ? (
+            <section className="taskViewMode">
+              <button
+                type="button"
+                className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setTaskLayout('list')}
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">☰</span>
+                  <span>List</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={taskLayout === 'board' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setTaskLayout('board')}
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">▥</span>
+                  <span>Board</span>
+                </span>
+              </button>
+            </section>
+          ) : null}
         </header>
 
         <section className="toolbar toolbarWrap">
@@ -1801,31 +1853,6 @@ function App() {
 
       {activeView === 'tasks' ? <>{loadingList ? <p className="muted">업무 목록 로딩 중...</p> : null}</> : null}
       {activeView === 'tasks' ? <>{listError ? <p className="error">{listError}</p> : null}</> : null}
-
-      {activeView === 'tasks' ? (
-        <section className="taskViewMode">
-          <button
-            type="button"
-            className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
-            onClick={() => setTaskLayout('list')}
-          >
-            <span className="iconLabel">
-              <span className="uiIcon">☰</span>
-              <span>List</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            className={taskLayout === 'board' ? 'viewTab active' : 'viewTab'}
-            onClick={() => setTaskLayout('board')}
-          >
-            <span className="iconLabel">
-              <span className="uiIcon">▥</span>
-              <span>Board</span>
-            </span>
-          </button>
-        </section>
-      ) : null}
 
       {activeView === 'tasks' ? (
         taskLayout === 'list' ? (
