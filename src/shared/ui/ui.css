@@ -1214,10 +1214,147 @@ textarea {
   background: #eef5ff;
 }
 
+.timelineModeBar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.timelineModeBar strong {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timelineModeButtons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.timelineModeAssignee {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.timelineModeAssignee select {
+  min-height: 34px;
+  min-width: 180px;
+}
+
 .projectTimelinePanel {
   background: #fdfefe;
   border-top: 1px solid #e2ebf7;
   display: grid;
+}
+
+.timelineSummary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.timelineSummaryCard {
+  background: #f8fbff;
+  border: 1px solid #d8e3f4;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.timelineSummaryCard span {
+  color: #5f7088;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.timelineSummaryCard strong {
+  color: #0f172a;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.timelineSummaryCard.danger {
+  background: #fff4f4;
+  border-color: #f3cccc;
+}
+
+.timelineSummaryCard.warning {
+  background: #fffaf0;
+  border-color: #f2e0bc;
+}
+
+.timelineSummaryCard.info {
+  background: #f4f8ff;
+  border-color: #d4e3fb;
+}
+
+.timelineSummaryCard.ok {
+  background: #f2fcf5;
+  border-color: #ccebd6;
+}
+
+.timelineMilestoneList {
+  background: #fbfdff;
+  border: 1px solid #dbe6f4;
+  border-radius: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+
+.timelineMilestoneList h4 {
+  color: #253247;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.timelineMilestoneList ul {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timelineMilestoneList li {
+  align-items: center;
+  border-bottom: 1px solid #edf3fb;
+  display: flex;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.timelineMilestoneList li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.timelineSummaryTag {
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+}
+
+.timelineSummaryTag.risk-delayed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.timelineSummaryTag.risk-urgent {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.timelineSummaryTag.risk-normal {
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .projectTimelineAxisGrid {
@@ -1294,6 +1431,18 @@ textarea {
 
 .projectTimelineTaskRow {
   border-top: 1px solid #edf2f9;
+}
+
+.projectTimelineTaskRow.risk-delayed {
+  background: #fff6f6;
+}
+
+.projectTimelineTaskRow.risk-urgent {
+  background: #fffbf1;
+}
+
+.projectTimelineTaskRow.is-focus {
+  box-shadow: inset 3px 0 0 #f59e0b;
 }
 
 .projectTimelineTask {
@@ -1840,6 +1989,37 @@ tr:hover td {
   .projectTimelineAxisGrid,
   .projectTimelineGroupRow {
     grid-template-columns: 1fr;
+  }
+
+  .timelineModeBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .timelineModeButtons {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .timelineModeAssignee {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .timelineModeAssignee select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .timelineSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .timelineMilestoneList li {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .projectTimelineAxisLabel {
