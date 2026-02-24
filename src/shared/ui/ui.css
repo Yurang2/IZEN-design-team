@@ -1613,7 +1613,14 @@ textarea {
 }
 
 .projectTimelineEventBand {
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.16) 0%, rgba(37, 99, 235, 0.08) 100%);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(210, 189, 255, 0.42) 0 6px,
+      rgba(232, 219, 255, 0.22) 6px 12px
+    );
+  border-left: 1px solid rgba(139, 92, 246, 0.24);
+  border-right: 1px solid rgba(139, 92, 246, 0.24);
   bottom: 0;
   left: 0;
   position: absolute;
@@ -1624,11 +1631,27 @@ textarea {
 }
 
 .projectTimelineEventBand.event-inline {
-  background: rgba(37, 99, 235, 0.11);
+  opacity: 0.84;
+}
+
+.projectTimelineEventLabel {
+  background: #f3ebff;
+  border: 1px solid #d7c3ff;
+  border-radius: 999px;
+  color: #6b21a8;
+  font-size: 10px;
+  font-weight: 700;
+  left: 0;
+  line-height: 1;
+  padding: 3px 8px;
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+  z-index: 3;
 }
 
 .projectTimelineEventMarker::before {
-  background: #2563eb;
+  background: #8b5cf6;
   content: '';
   height: 100%;
   left: -1px;
@@ -1637,10 +1660,10 @@ textarea {
 }
 
 .projectTimelineEventDot {
-  background: #2563eb;
+  background: #8b5cf6;
   border: 2px solid #fff;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px #2563eb33;
+  box-shadow: 0 0 0 2px #8b5cf655;
   height: 9px;
   left: -4px;
   position: absolute;
@@ -1649,7 +1672,7 @@ textarea {
 }
 
 .projectTimelineEventMarker.event-inline::before {
-  background: #1d4ed8;
+  background: #7c3aed;
   opacity: 0.55;
 }
 
@@ -1661,6 +1684,20 @@ textarea {
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
+}
+
+.projectTimelineBar.actual {
+  height: 11px;
+  top: 39%;
+}
+
+.projectTimelineBar.planned {
+  background: linear-gradient(180deg, #c8d2e5 0%, #b7c3da 100%);
+  box-shadow: inset 0 0 0 1px #ffffff80;
+  height: 9px;
+  opacity: 0.72;
+  top: 61%;
+  z-index: 1;
 }
 
 .projectTimelineBar.tone-gray {
@@ -2069,6 +2106,10 @@ tr:hover td {
   }
 
   .projectTimelineTaskRow .projectTimelineTask::before {
+    display: none;
+  }
+
+  .projectTimelineEventLabel {
     display: none;
   }
 

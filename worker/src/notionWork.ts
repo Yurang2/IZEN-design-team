@@ -562,6 +562,15 @@ export class NotionWorkService {
           if (byName) return byName
           return findFirstByTypes(entries, ['date'])
         }),
+        actualEndDate: pickField('actualEndDate', properties, '실제 종료일', ['date'], true, (entries) => {
+          const byName = entries.find(
+            ([name, prop]) =>
+              prop?.type === 'date' &&
+              (name.includes('실제 종료') || name.includes('실제종료') || name.includes('실제 완료') || name.includes('실제완료') || name.includes('완료일')),
+          )
+          if (byName) return byName
+          return entries.find(([name, prop]) => prop?.type === 'date' && name.includes('종료'))
+        }),
         detail: pickField('detail', properties, '업무상세', ['rich_text', 'title'], false, (entries) => {
           const byName = entries.find(([name, prop]) => name.includes('상세') && ['rich_text', 'title'].includes(prop?.type))
           if (byName) return byName
@@ -775,6 +784,7 @@ export class NotionWorkService {
       assignee,
       startDate: extractDate(props, schema.fields.startDate),
       dueDate: extractDate(props, schema.fields.dueDate),
+      actualEndDate: extractDate(props, schema.fields.actualEndDate),
       detail,
       priority,
       urgent: extractCheckbox(props, schema.fields.urgent),

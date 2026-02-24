@@ -52,6 +52,7 @@ type TaskRecord = {
   assignee: string[]
   startDate?: string
   dueDate?: string
+  actualEndDate?: string
   detail: string
   priority?: string
   urgent?: boolean
@@ -1254,8 +1255,14 @@ function App() {
       }
 
       if (taskQuickGroupBy === 'assignee') {
-        const label = task.assignee.length > 0 ? task.assignee.join(', ') : '담당자 미지정'
-        ensureBucket(`assignee:${label}`, label, 'assignee', 0, label).items.push(task)
+        if (task.assignee.length === 0) {
+          ensureBucket('assignee:unassigned', '담당자 미지정', 'assignee', 9_999, '담당자 미지정').items.push(task)
+          continue
+        }
+
+        for (const name of task.assignee) {
+          ensureBucket(`assignee:${name}`, name, 'assignee', 0, name).items.push(task)
+        }
         continue
       }
 
@@ -1263,6 +1270,12 @@ function App() {
         const label = task.status || '미분류'
         const order = statusOrder.get(label) ?? 9_999
         ensureBucket(`status:${label}`, label, 'status', order, label).items.push(task)
+        continue
+      }
+
+      const tone = toStatusTone(task.status)
+      if (tone === 'green') {
+        ensureBucket('due:done', '완료', 'due', 6, '완료').items.push(task)
         continue
       }
 
@@ -1401,6 +1414,8 @@ function App() {
         if (startCompare !== 0) return startCompare
         const dueCompare = asSortDate(a.dueDate).localeCompare(asSortDate(b.dueDate))
         if (dueCompare !== 0) return dueCompare
+        const actualEndCompare = asSortDate(a.actualEndDate).localeCompare(asSortDate(b.actualEndDate))
+        if (actualEndCompare !== 0) return actualEndCompare
         return a.taskName.localeCompare(b.taskName, 'ko')
       })
 
@@ -1446,8 +1461,10 @@ function App() {
       for (const item of group.tasks) {
         const taskStart = parseIsoDate(item.task.startDate)
         const taskEnd = parseIsoDate(item.task.dueDate)
+        const taskActualEnd = parseIsoDate(item.task.actualEndDate)
         if (taskStart) points.push(taskStart)
         if (taskEnd) points.push(taskEnd)
+        if (taskActualEnd) points.push(taskActualEnd)
       }
     }
 

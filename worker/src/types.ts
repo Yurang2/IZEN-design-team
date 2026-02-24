@@ -51,6 +51,7 @@ export type TaskSchema = {
     assignee: FieldSchema
     startDate: FieldSchema
     dueDate: FieldSchema
+    actualEndDate: FieldSchema
     detail: FieldSchema
     requester: FieldSchema
     priority: FieldSchema
@@ -101,6 +102,7 @@ export type TaskRecord = {
   assignee: string[]
   startDate?: string
   dueDate?: string
+  actualEndDate?: string
   detail: string
   priority?: string
   urgent?: boolean

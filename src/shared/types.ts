@@ -37,6 +37,7 @@ export type TaskRecord = {
   assignee: string[]
   startDate?: string
   dueDate?: string
+  actualEndDate?: string
   detail: string
   priority?: string
   urgent?: boolean

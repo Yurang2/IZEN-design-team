@@ -19,6 +19,8 @@ type TimelineRow = {
   tone: 'gray' | 'red' | 'blue' | 'green'
   risk: 'delayed' | 'urgent' | 'normal' | 'done'
   barStyle: CSSProperties
+  plannedBarStyle?: CSSProperties
+  hasActualCompletion: boolean
   leftPct: number
   widthPct: number
   predecessor?: {
@@ -219,8 +221,10 @@ function buildTimelineRange(group: ProjectTimelineGroup): TimelineRange {
   for (const item of group.tasks) {
     const startDate = parseIsoDate(item.task.startDate)
     const dueDate = parseIsoDate(item.task.dueDate)
+    const actualEndDate = parseIsoDate(item.task.actualEndDate)
     if (startDate) points.push(startDate)
     if (dueDate) points.push(dueDate)
+    if (actualEndDate) points.push(actualEndDate)
   }
 
   const today = parseIsoDate(new Date().toISOString().slice(0, 10)) ?? new Date()
@@ -254,28 +258,43 @@ function buildProjectTimelineModel(
       ? buildWeekSegments(range.start, range.end, range.totalDays)
       : buildDaySegments(range.start, range.end, range.totalDays)
 
-  const rows: TimelineRow[] = group.tasks.map((item) => {
-    const tone = toStatusTone(item.task.status)
-    const taskStart = parseIsoDate(item.task.startDate) ?? parseIsoDate(item.task.dueDate) ?? range.start
-    const taskEnd = parseIsoDate(item.task.dueDate) ?? parseIsoDate(item.task.startDate) ?? taskStart
-    const safeStart = taskStart <= taskEnd ? taskStart : taskEnd
-    const safeEnd = taskEnd >= taskStart ? taskEnd : taskStart
-
+  const toBarStyle = (start: Date, end: Date): { leftPct: number; widthPct: number; style: CSSProperties } => {
+    const safeStart = start <= end ? start : end
+    const safeEnd = end >= start ? end : start
     const offset = diffUtcDays(range.start, safeStart)
     const spanDays = Math.max(1, diffUtcDays(safeStart, safeEnd) + 1)
     const leftPct = Math.max(0, Math.min(100, (offset / range.totalDays) * 100))
     const widthPct = Math.max(2, Math.min(100 - leftPct, (spanDays / range.totalDays) * 100))
+    return {
+      leftPct,
+      widthPct,
+      style: {
+        left: `${leftPct}%`,
+        width: `${widthPct}%`,
+      },
+    }
+  }
+
+  const rows: TimelineRow[] = group.tasks.map((item) => {
+    const tone = toStatusTone(item.task.status)
+    const startAnchor = parseIsoDate(item.task.startDate) ?? parseIsoDate(item.task.dueDate) ?? parseIsoDate(item.task.actualEndDate) ?? range.start
+    const dueAnchor = parseIsoDate(item.task.dueDate) ?? startAnchor
+    const actualAnchor = parseIsoDate(item.task.actualEndDate) ?? dueAnchor
+    const mainBar = toBarStyle(startAnchor, actualAnchor)
+    const plannedBar =
+      parseIsoDate(item.task.actualEndDate) !== null && parseIsoDate(item.task.dueDate) !== null
+        ? toBarStyle(startAnchor, dueAnchor)
+        : null
 
     return {
       item,
       tone,
       risk: riskBandForTask(item.task, tone, today),
-      leftPct,
-      widthPct,
-      barStyle: {
-        left: `${leftPct}%`,
-        width: `${widthPct}%`,
-      },
+      hasActualCompletion: parseIsoDate(item.task.actualEndDate) !== null,
+      leftPct: mainBar.leftPct,
+      widthPct: mainBar.widthPct,
+      barStyle: mainBar.style,
+      plannedBarStyle: plannedBar?.style,
     }
   })
 
@@ -794,6 +813,11 @@ export function ProjectsView({
                           <span key={`${row.item.task.id}-mini`} className={`projectTimelineMiniBar tone-${row.tone}`} style={row.barStyle} />
                         ))}
                         {model.eventMarkerStyle ? (
+                          <span className="projectTimelineEventLabel" style={model.eventMarkerStyle}>
+                            행사 진행일
+                          </span>
+                        ) : null}
+                        {model.eventMarkerStyle ? (
                           <span className="projectTimelineEventMarker" style={model.eventMarkerStyle} title={group.project.eventDate ?? ''}>
                             <span className="projectTimelineEventDot" />
                           </span>
@@ -860,7 +884,7 @@ export function ProjectsView({
                                     {renderAssigneeBadges(task.assignee)}
                                   </div>
                                   <span className="projectTimelineMeta">
-                                    기간 {task.startDate || '-'} ~ {task.dueDate || '-'} · 담당 {joinOrDash(task.assignee)}
+                                    기간 {task.startDate || '-'} ~ {task.dueDate || '-'} · 실제 종료 {task.actualEndDate || '-'} · 담당 {joinOrDash(task.assignee)}
                                   </span>
                                   {row.predecessor ? (
                                     <a className="timelineDependencyLink" href={`#timeline-task-${row.predecessor.id}`}>
@@ -884,7 +908,8 @@ export function ProjectsView({
                                       aria-hidden="true"
                                     />
                                   ) : null}
-                                  <div className={`projectTimelineBar tone-${row.tone}`} style={row.barStyle} />
+                                  {row.plannedBarStyle ? <div className="projectTimelineBar planned" style={row.plannedBarStyle} /> : null}
+                                  <div className={`projectTimelineBar tone-${row.tone} ${row.hasActualCompletion ? 'actual' : ''}`.trim()} style={row.barStyle} />
                                 </div>
                               </div>
                             )
