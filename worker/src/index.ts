@@ -10,12 +10,28 @@ const KR_HOLIDAY_JSON_URL = 'https://holidays.hyunbin.page/basic.json'
 const KR_HOLIDAY_CACHE_MS = 12 * 60 * 60 * 1000
 const DEFAULT_LOG_LIMIT = 100
 const DEFAULT_EXPORT_LOG_LIMIT = 1000
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000
+const DEFAULT_RATE_LIMIT_MAX_REQUESTS = 180
+const DEFAULT_RATE_LIMIT_BLOCK_MS = 30_000
+const RATE_LIMIT_MAX_ENTRIES = 10_000
+const RATE_LIMIT_CLEANUP_INTERVAL_MS = 30_000
+const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
 let checklistDbInitInFlight: Promise<void> | null = null
+let lastRateLimitCleanupAt = 0
+
+type RateLimitBucket = {
+  count: number
+  resetAt: number
+  blockedUntil: number
+}
+
+const rateLimitBuckets = new Map<string, RateLimitBucket>()
 
 function requiredEnv(env: Env): string | null {
+  if (!env.API_KEY) return 'API_KEY'
   if (!env.NOTION_TOKEN) return 'NOTION_TOKEN'
   if (!env.NOTION_TASK_DB_ID) return 'NOTION_TASK_DB_ID'
   if (!env.NOTION_PROJECT_DB_ID) return 'NOTION_PROJECT_DB_ID'
@@ -35,6 +51,151 @@ function asString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return trimmed || undefined
+}
+
+function isTruthy(value: string | undefined): boolean {
+  if (!value) return false
+  const normalized = value.trim().toLowerCase()
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on'
+}
+
+function normalizeOrigin(origin: string | undefined): string | null {
+  if (!origin) return null
+  try {
+    const parsed = new URL(origin)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    return parsed.origin.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+function parseCsvSet(input: string | undefined): Set<string> {
+  if (!input) return new Set<string>()
+  const values = input
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+  return new Set(values)
+}
+
+function parseAllowedOrigins(env: Env): Set<string> {
+  const configured = parseCsvSet(asString(env.ALLOWED_ORIGINS))
+  const normalized = new Set<string>()
+
+  for (const value of configured) {
+    const origin = normalizeOrigin(value)
+    if (origin) normalized.add(origin)
+  }
+
+  return normalized
+}
+
+function isLocalhostOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin)
+    return LOCALHOST_HOSTS.has(parsed.hostname.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
+function resolveAllowedOrigin(requestOrigin: string | null, env: Env): string | null {
+  const normalizedOrigin = normalizeOrigin(requestOrigin ?? undefined)
+  if (!normalizedOrigin) return null
+
+  const allowlist = parseAllowedOrigins(env)
+  if (allowlist.size > 0) {
+    return allowlist.has(normalizedOrigin) ? normalizedOrigin : null
+  }
+
+  // Safe default: allow only localhost when no explicit allowlist is configured.
+  return isLocalhostOrigin(normalizedOrigin) ? normalizedOrigin : null
+}
+
+function parseBoundedInt(value: string | undefined, fallback: number, min: number, max: number): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.max(min, Math.min(max, Math.floor(parsed)))
+}
+
+function getRateLimitConfig(env: Env): { windowMs: number; maxRequests: number; blockMs: number } {
+  const windowSec = parseBoundedInt(asString(env.RATE_LIMIT_WINDOW_SECONDS), DEFAULT_RATE_LIMIT_WINDOW_MS / 1000, 1, 120)
+  const maxRequests = parseBoundedInt(asString(env.RATE_LIMIT_MAX_REQUESTS), DEFAULT_RATE_LIMIT_MAX_REQUESTS, 30, 2_000)
+  const blockSec = parseBoundedInt(asString(env.RATE_LIMIT_BLOCK_SECONDS), DEFAULT_RATE_LIMIT_BLOCK_MS / 1000, 1, 600)
+  return {
+    windowMs: windowSec * 1000,
+    maxRequests,
+    blockMs: blockSec * 1000,
+  }
+}
+
+function getClientIp(request: Request): string {
+  const cfIp = asString(request.headers.get('CF-Connecting-IP'))
+  if (cfIp) return cfIp
+
+  const xff = asString(request.headers.get('X-Forwarded-For'))
+  if (xff) return xff.split(',')[0]?.trim() || 'unknown'
+
+  return 'unknown'
+}
+
+function cleanupRateLimitBuckets(now: number): void {
+  if (rateLimitBuckets.size === 0) return
+  if (rateLimitBuckets.size < RATE_LIMIT_MAX_ENTRIES && now - lastRateLimitCleanupAt < RATE_LIMIT_CLEANUP_INTERVAL_MS) return
+
+  for (const [key, bucket] of rateLimitBuckets.entries()) {
+    if (bucket.resetAt <= now && bucket.blockedUntil <= now) {
+      rateLimitBuckets.delete(key)
+    }
+  }
+
+  lastRateLimitCleanupAt = now
+}
+
+function checkRateLimit(request: Request, env: Env): { allowed: true } | { allowed: false; retryAfterSec: number } {
+  const now = Date.now()
+  cleanupRateLimitBuckets(now)
+
+  const ip = getClientIp(request)
+  const key = ip || 'unknown'
+  const config = getRateLimitConfig(env)
+  const current = rateLimitBuckets.get(key)
+
+  if (current && current.blockedUntil > now) {
+    return { allowed: false, retryAfterSec: Math.max(1, Math.ceil((current.blockedUntil - now) / 1000)) }
+  }
+
+  const bucket: RateLimitBucket =
+    !current || current.resetAt <= now
+      ? { count: 0, resetAt: now + config.windowMs, blockedUntil: 0 }
+      : { ...current, blockedUntil: 0 }
+
+  bucket.count += 1
+  if (bucket.count > config.maxRequests) {
+    bucket.blockedUntil = now + config.blockMs
+    rateLimitBuckets.set(key, bucket)
+    return { allowed: false, retryAfterSec: Math.max(1, Math.ceil(config.blockMs / 1000)) }
+  }
+
+  rateLimitBuckets.set(key, bucket)
+  return { allowed: true }
+}
+
+function isAuthenticated(request: Request, env: Env): boolean {
+  const apiKey = asString(env.API_KEY)
+  const provided = asString(request.headers.get('X-API-Key'))
+  if (!apiKey || !provided || provided !== apiKey) return false
+
+  if (!isTruthy(asString(env.REQUIRE_CF_ACCESS))) return true
+  const accessEmail = asString(request.headers.get('CF-Access-Authenticated-User-Email'))
+  if (!accessEmail) return false
+
+  const allowedEmails = parseCsvSet(asString(env.ALLOWED_ACCESS_EMAILS))
+  if (allowedEmails.size === 0) return true
+  const normalizedEmail = accessEmail.toLowerCase()
+  const normalizedAllowlist = new Set(Array.from(allowedEmails).map((email) => email.toLowerCase()))
+  return normalizedAllowlist.has(normalizedEmail)
 }
 
 function parsePageSize(value: unknown): number {
@@ -648,23 +809,46 @@ function invalidateSnapshotCache(ctx: ExecutionContext): void {
   ctx.waitUntil(caches.default.delete(cacheRequest()))
 }
 
-function makeCorsHeaders(origin: string | null): Headers {
+type ResponseContext = {
+  requestOrigin: string | null
+  corsOrigin: string | null
+  path: string
+}
+
+function isSensitivePath(path: string): boolean {
+  return path === '/projects' || path === '/meta' || path === '/tasks' || /^\/tasks\/[^/]+$/.test(path)
+}
+
+function buildResponseHeaders(context: ResponseContext): Headers {
   const headers = new Headers()
-  headers.set('Access-Control-Allow-Origin', origin ?? '*')
-  headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
-  headers.set('Access-Control-Allow-Headers', 'Content-Type')
-  headers.set('Vary', 'Origin')
+
+  if (context.requestOrigin) {
+    headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, CF-Access-Authenticated-User-Email')
+    headers.set('Access-Control-Allow-Origin', context.corsOrigin ?? 'null')
+    headers.set('Vary', 'Origin')
+  }
+
+  headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  headers.set('X-Content-Type-Options', 'nosniff')
+  headers.set('Referrer-Policy', 'no-referrer')
+
+  if (isSensitivePath(context.path)) {
+    headers.set('Cache-Control', 'no-store')
+  }
+
   return headers
 }
 
-function json(body: unknown, status: number, origin: string | null): Response {
-  const headers = makeCorsHeaders(origin)
+function jsonResponse(body: unknown, status: number, context: ResponseContext): Response {
+  const headers = buildResponseHeaders(context)
   headers.set('Content-Type', 'application/json; charset=utf-8')
   return new Response(JSON.stringify(body), { status, headers })
 }
 
-function ok(body: unknown, origin: string | null): Response {
-  return json(body, 200, origin)
+function emptyResponse(status: number, context: ResponseContext): Response {
+  const headers = buildResponseHeaders(context)
+  return new Response('', { status, headers })
 }
 
 function filterTasks(tasks: TaskRecord[], projectId?: string, status?: string, q?: string): TaskRecord[] {
@@ -720,10 +904,33 @@ function serviceFromEnv(env: Env): NotionWorkService {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url)
+    const path = normalizePath(url.pathname)
     const origin = request.headers.get('Origin')
+    const allowedOrigin = resolveAllowedOrigin(origin, env)
+
+    const json = (body: unknown, status: number, _origin?: string | null, responsePath = path): Response =>
+      jsonResponse(body, status, { requestOrigin: origin, corsOrigin: allowedOrigin, path: responsePath })
+    const ok = (body: unknown, _origin?: string | null, responsePath = path): Response =>
+      jsonResponse(body, 200, { requestOrigin: origin, corsOrigin: allowedOrigin, path: responsePath })
 
     if (request.method === 'OPTIONS') {
-      return new Response('', { status: 204, headers: makeCorsHeaders(origin) })
+      if (!origin || !allowedOrigin) {
+        return jsonResponse(
+          { ok: false, error: 'cors_forbidden', message: 'Origin is not allowed.' },
+          403,
+          { requestOrigin: origin, corsOrigin: null, path },
+        )
+      }
+      return emptyResponse(204, { requestOrigin: origin, corsOrigin: allowedOrigin, path })
+    }
+
+    if (origin && !allowedOrigin) {
+      return jsonResponse(
+        { ok: false, error: 'cors_forbidden', message: 'Origin is not allowed.' },
+        403,
+        { requestOrigin: origin, corsOrigin: null, path },
+      )
     }
 
     const missing = requiredEnv(env)
@@ -731,8 +938,31 @@ export default {
       return json({ ok: false, error: 'config_missing', message: `Missing environment variable: ${missing}` }, 500, origin)
     }
 
-    const url = new URL(request.url)
-    const path = normalizePath(url.pathname)
+    const rateLimit = checkRateLimit(request, env)
+    if (!rateLimit.allowed) {
+      const retryAfterSec = 'retryAfterSec' in rateLimit ? rateLimit.retryAfterSec : 1
+      const response = json(
+        {
+          ok: false,
+          error: 'rate_limited',
+          message: 'Too many requests. Please retry later.',
+          retryAfterSec,
+        },
+        429,
+        origin,
+      )
+      response.headers.set('Retry-After', String(retryAfterSec))
+      return response
+    }
+
+    if (!isAuthenticated(request, env)) {
+      return json(
+        { ok: false, error: 'unauthorized', message: 'Missing or invalid credentials.' },
+        401,
+        origin,
+      )
+    }
+
     const service = serviceFromEnv(env)
     const cacheTtlMs = getCacheTtlMs(env)
 

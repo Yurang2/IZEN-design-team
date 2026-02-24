@@ -13,6 +13,13 @@ export interface Env {
   NOTION_TASK_DB_ID: string
   NOTION_PROJECT_DB_ID: string
   NOTION_CHECKLIST_DB_ID?: string
+  API_KEY: string
+  ALLOWED_ORIGINS?: string
+  RATE_LIMIT_WINDOW_SECONDS?: string
+  RATE_LIMIT_MAX_REQUESTS?: string
+  RATE_LIMIT_BLOCK_SECONDS?: string
+  REQUIRE_CF_ACCESS?: string
+  ALLOWED_ACCESS_EMAILS?: string
   API_CACHE_TTL_SECONDS?: string
   CHECKLIST_DB?: ChecklistDbBinding
 }
