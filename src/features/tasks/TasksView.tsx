@@ -8,6 +8,7 @@ import type {
   TaskSort,
   TaskViewFilters,
 } from '../../shared/types'
+import { EmptyState } from '../../shared/ui'
 import { TaskFilters } from './TaskFilters'
 import { TasksBoardView } from './TasksBoardView'
 import { TasksListView } from './TasksListView'
@@ -34,6 +35,8 @@ type TasksViewProps = {
   onTaskSortChange: (nextSort: TaskSort) => void
   onTaskViewFilterChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
   onTaskViewFilterReset: () => void
+  onTaskFiltersResetAll: () => void
+  onOpenTaskCreate: () => void
   onToggleTaskGroup: (projectName: string) => void
   onTaskOpen: (taskId: string) => void
   onQuickStatusChange: (taskId: string, nextStatus: string) => Promise<void>
@@ -65,6 +68,8 @@ export function TasksView({
   onTaskSortChange,
   onTaskViewFilterChange,
   onTaskViewFilterReset,
+  onTaskFiltersResetAll,
+  onOpenTaskCreate,
   onToggleTaskGroup,
   onTaskOpen,
   onQuickStatusChange,
@@ -73,6 +78,8 @@ export function TasksView({
   unique,
   toStatusTone,
 }: TasksViewProps) {
+  const isEmpty = !loadingList && !listError && groupedTasks.length === 0
+
   return (
     <>
       <TaskFilters
@@ -102,7 +109,6 @@ export function TasksView({
         </section>
       ) : null}
 
-      {loadingList ? <p className="muted">업무 목록 로딩 중...</p> : null}
       {listError ? <p className="error">{listError}</p> : null}
 
       {taskLayout === 'list' ? (
@@ -128,6 +134,17 @@ export function TasksView({
           toStatusTone={toStatusTone}
         />
       )}
+
+      {isEmpty ? (
+        <EmptyState
+          title="조건에 맞는 업무가 없습니다"
+          message="필터를 조정하거나 새 업무를 생성해 시작해보세요."
+          actions={[
+            { label: '필터 초기화', variant: 'secondary', onClick: onTaskFiltersResetAll },
+            { label: '새 업무 만들기', variant: 'primary', onClick: onOpenTaskCreate },
+          ]}
+        />
+      ) : null}
     </>
   )
 }

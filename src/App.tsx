@@ -9,6 +9,7 @@ import { api, API_BASE_URL, USE_MOCK_DATA } from './shared/api/client'
 import { useDebouncedValue } from './shared/hooks/useDebouncedValue'
 import { useKeybinding } from './shared/hooks/useKeybinding'
 import { useLocalStorage } from './shared/hooks/useLocalStorage'
+import { ToastStack, type ToastItem, type ToastTone } from './shared/ui'
 import './App.css'
 import './shared/ui/ui.css'
 
@@ -239,6 +240,77 @@ const POLLING_MS = 60_000
 const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
 const CHECKLIST_ASSIGNMENT_STORAGE_KEY = 'checklist-assignment-v1'
+const TOAST_LIFETIME_MS = 3600
+
+const DEFAULT_FILTERS: Filters = {
+  projectId: '',
+  status: '',
+  q: '',
+}
+
+const DEFAULT_TASK_VIEW_FILTERS: TaskViewFilters = {
+  workType: '',
+  assignee: '',
+  requester: '',
+  dueFrom: '',
+  dueTo: '',
+  urgentOnly: false,
+  hideDone: false,
+}
+
+function createDefaultFilters(): Filters {
+  return { ...DEFAULT_FILTERS }
+}
+
+function createDefaultTaskViewFilters(): TaskViewFilters {
+  return { ...DEFAULT_TASK_VIEW_FILTERS }
+}
+
+function parseTopView(value: string | null): TopView {
+  if (value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist') return value
+  return 'tasks'
+}
+
+function parseTaskLayout(value: string | null): TaskLayoutMode {
+  return value === 'board' ? 'board' : 'list'
+}
+
+function parseBoardWorkflowMode(value: string | null): BoardWorkflowMode {
+  return value === 'status' ? 'status' : 'grouped'
+}
+
+function parseBooleanQuery(value: string | null): boolean {
+  return value === '1' || value === 'true'
+}
+
+function readListUiStateFromSearch(search: string): {
+  activeView: TopView
+  taskLayout: TaskLayoutMode
+  boardWorkflowMode: BoardWorkflowMode
+  filters: Filters
+  taskViewFilters: TaskViewFilters
+} {
+  const params = new URLSearchParams(search)
+  return {
+    activeView: parseTopView(params.get('view')),
+    taskLayout: parseTaskLayout(params.get('taskLayout')),
+    boardWorkflowMode: parseBoardWorkflowMode(params.get('boardWorkflowMode')),
+    filters: {
+      projectId: params.get('projectId') ?? '',
+      status: params.get('status') ?? '',
+      q: params.get('q') ?? '',
+    },
+    taskViewFilters: {
+      workType: params.get('workType') ?? '',
+      assignee: params.get('assignee') ?? '',
+      requester: params.get('requester') ?? '',
+      dueFrom: params.get('dueFrom') ?? '',
+      dueTo: params.get('dueTo') ?? '',
+      urgentOnly: parseBooleanQuery(params.get('urgentOnly')),
+      hideDone: parseBooleanQuery(params.get('hideDone')),
+    },
+  }
+}
 
 type UiGlyphName =
   | 'grid'
@@ -568,14 +640,15 @@ function toErrorMessage(error: unknown, fallback: string): string {
 }
 
 function App() {
+  const initialListUiState = readListUiStateFromSearch(window.location.search)
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname))
-  const [activeView, setActiveView] = useState<TopView>('tasks')
+  const [activeView, setActiveView] = useState<TopView>(initialListUiState.activeView)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuCollapsed, setMenuCollapsed] = useState(false)
   const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
   const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
-  const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>('list')
-  const [boardWorkflowMode, setBoardWorkflowMode] = useState<BoardWorkflowMode>('grouped')
+  const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>(initialListUiState.taskLayout)
+  const [boardWorkflowMode, setBoardWorkflowMode] = useState<BoardWorkflowMode>(initialListUiState.boardWorkflowMode)
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
   const [quickSearch, setQuickSearch] = useState('')
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
@@ -595,22 +668,11 @@ function App() {
     checklist: null,
   })
 
-  const [filters, setFilters] = useState<Filters>({
-    projectId: '',
-    status: '',
-    q: '',
-  })
-  const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>({
-    workType: '',
-    assignee: '',
-    requester: '',
-    dueFrom: '',
-    dueTo: '',
-    urgentOnly: false,
-    hideDone: false,
-  })
+  const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
+  const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>(initialListUiState.taskViewFilters)
 
   const [loadingList, setLoadingList] = useState(false)
+  const [loadingProjects, setLoadingProjects] = useState(false)
   const [listError, setListError] = useState<string | null>(null)
   const [lastSyncedAt, setLastSyncedAt] = useState<string>('')
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<Record<string, boolean>>({})
@@ -640,6 +702,8 @@ function App() {
   const [apiCheckMessage, setApiCheckMessage] = useState<string>('')
   const [exporting, setExporting] = useState(false)
   const [exportMessage, setExportMessage] = useState<string>('')
+  const [toasts, setToasts] = useState<ToastItem[]>([])
+  const toastTimerRef = useRef<Record<number, number>>({})
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -660,24 +724,123 @@ function App() {
   const [detailSaving, setDetailSaving] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
 
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id))
+    const timerId = toastTimerRef.current[id]
+    if (timerId) {
+      window.clearTimeout(timerId)
+      delete toastTimerRef.current[id]
+    }
+  }, [])
+
+  const pushToast = useCallback(
+    (tone: ToastTone, message: string) => {
+      const id = Date.now() + Math.floor(Math.random() * 1000)
+      setToasts((prev) => [...prev, { id, tone, message }].slice(-5))
+      const timerId = window.setTimeout(() => {
+        dismissToast(id)
+      }, TOAST_LIFETIME_MS)
+      toastTimerRef.current[id] = timerId
+    },
+    [dismissToast],
+  )
+
+  useEffect(() => {
+    const toastTimers = toastTimerRef.current
+    return () => {
+      for (const timerId of Object.values(toastTimers)) {
+        window.clearTimeout(timerId)
+      }
+    }
+  }, [])
+
   const navigate = useCallback((to: string) => {
     window.history.pushState({}, '', to)
     setRoute(parseRoute(to))
   }, [])
 
+  const applyListUiStateFromSearch = useCallback((search: string) => {
+    const next = readListUiStateFromSearch(search)
+    setActiveView(next.activeView)
+    setTaskLayout(next.taskLayout)
+    setBoardWorkflowMode(next.boardWorkflowMode)
+    setFilters(next.filters)
+    setTaskViewFilters(next.taskViewFilters)
+  }, [])
+
   useEffect(() => {
     const onPopState = () => {
-      setRoute(parseRoute(window.location.pathname))
+      const nextRoute = parseRoute(window.location.pathname)
+      setRoute(nextRoute)
+      if (nextRoute.kind === 'list') {
+        applyListUiStateFromSearch(window.location.search)
+      }
     }
 
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
-  }, [])
+  }, [applyListUiStateFromSearch])
+
+  useEffect(() => {
+    if (route.kind !== 'list') return
+
+    const params = new URLSearchParams(window.location.search)
+    params.set('view', activeView)
+    params.set('taskLayout', taskLayout)
+    params.set('boardWorkflowMode', boardWorkflowMode)
+
+    const setOptional = (key: string, value: string) => {
+      if (value) params.set(key, value)
+      else params.delete(key)
+    }
+    const setOptionalBoolean = (key: string, value: boolean) => {
+      if (value) params.set(key, '1')
+      else params.delete(key)
+    }
+
+    setOptional('projectId', filters.projectId)
+    setOptional('status', filters.status)
+    setOptional('q', filters.q)
+    setOptional('workType', taskViewFilters.workType)
+    setOptional('assignee', taskViewFilters.assignee)
+    setOptional('requester', taskViewFilters.requester)
+    setOptional('dueFrom', taskViewFilters.dueFrom)
+    setOptional('dueTo', taskViewFilters.dueTo)
+    setOptionalBoolean('urgentOnly', taskViewFilters.urgentOnly)
+    setOptionalBoolean('hideDone', taskViewFilters.hideDone)
+
+    const nextSearch = params.toString()
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`
+    const currentUrl = `${window.location.pathname}${window.location.search}`
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState(window.history.state, '', nextUrl)
+    }
+  }, [
+    activeView,
+    boardWorkflowMode,
+    filters.projectId,
+    filters.q,
+    filters.status,
+    route.kind,
+    taskLayout,
+    taskViewFilters.assignee,
+    taskViewFilters.dueFrom,
+    taskViewFilters.dueTo,
+    taskViewFilters.hideDone,
+    taskViewFilters.requester,
+    taskViewFilters.urgentOnly,
+    taskViewFilters.workType,
+  ])
 
   const fetchProjects = useCallback(async () => {
-    const response = await api<ProjectsResponse>('/projects')
-    setProjects(response.projects)
-    setSchema(response.schema)
+    setLoadingProjects(true)
+    try {
+      const response = await api<ProjectsResponse>('/projects')
+      setProjects(response.projects)
+      setSchema(response.schema)
+    } finally {
+      setLoadingProjects(false)
+    }
   }, [])
 
   const fetchMeta = useCallback(async () => {
@@ -833,12 +996,15 @@ function App() {
           ? `${summary} · D1 미연결이라 로그가 누적되지 않습니다.`
           : summary,
       )
+      pushToast('success', summary)
     } catch (error: unknown) {
-      setExportMessage(toErrorMessage(error, '내보내기에 실패했습니다.'))
+      const message = toErrorMessage(error, '내보내기에 실패했습니다.')
+      setExportMessage(message)
+      pushToast('error', message)
     } finally {
       setExporting(false)
     }
-  }, [])
+  }, [pushToast])
 
   useEffect(() => {
     if (route.kind !== 'list') return
@@ -1262,15 +1428,12 @@ function App() {
   }
 
   const onTaskViewFilterReset = () => {
-    setTaskViewFilters({
-      workType: '',
-      assignee: '',
-      requester: '',
-      dueFrom: '',
-      dueTo: '',
-      urgentOnly: false,
-      hideDone: false,
-    })
+    setTaskViewFilters(createDefaultTaskViewFilters())
+  }
+
+  const onTaskFiltersResetAll = () => {
+    setFilters(createDefaultFilters())
+    setTaskViewFilters(createDefaultTaskViewFilters())
   }
 
   const onCreateInput = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -1340,9 +1503,16 @@ function App() {
       })
       setAssignmentByChecklist(response.assignments ?? next)
       if (response.storageMode) setAssignmentStorageMode(response.storageMode)
+      if (taskId) {
+        pushToast('success', '체크리스트 할당이 저장되었습니다.')
+      } else {
+        pushToast('success', '체크리스트 할당을 해제했습니다.')
+      }
     } catch (error: unknown) {
       setAssignmentByChecklist(previous)
-      setAssignmentSyncError(toErrorMessage(error, '체크리스트 할당 저장에 실패했습니다.'))
+      const message = toErrorMessage(error, '체크리스트 할당 저장에 실패했습니다.')
+      setAssignmentSyncError(message)
+      pushToast('error', message)
     }
   }
 
@@ -1376,9 +1546,12 @@ function App() {
 
       setTasks((prev) => prev.map((task) => (task.id === taskId ? response.task : task)))
       setSchema(response.schema)
+      pushToast('success', '업무 상태가 저장되었습니다.')
     } catch (error: unknown) {
       setTasks(previous)
-      setListError(toErrorMessage(error, '상태 변경에 실패했습니다.'))
+      const message = toErrorMessage(error, '상태 변경에 실패했습니다.')
+      setListError(message)
+      pushToast('error', message)
     } finally {
       setStatusUpdatingIds((prev) => ({ ...prev, [taskId]: false }))
     }
@@ -1431,9 +1604,12 @@ function App() {
       })
 
       await refreshListAndProjects()
+      pushToast('success', '새 업무가 생성되었습니다.')
       navigate(`/task/${encodeURIComponent(created.task.id)}`)
     } catch (error: unknown) {
-      setListError(toErrorMessage(error, '업무 생성에 실패했습니다.'))
+      const message = toErrorMessage(error, '업무 생성에 실패했습니다.')
+      setListError(message)
+      pushToast('error', message)
     } finally {
       setCreateSubmitting(false)
     }
@@ -1531,8 +1707,11 @@ function App() {
       setDetailTask(response.task)
       setSchema(response.schema)
       await refreshListAndProjects()
+      pushToast('success', '업무 변경사항이 저장되었습니다.')
     } catch (error: unknown) {
-      setDetailError(toErrorMessage(error, '업무 저장에 실패했습니다.'))
+      const message = toErrorMessage(error, '업무 저장에 실패했습니다.')
+      setDetailError(message)
+      pushToast('error', message)
     } finally {
       setDetailSaving(false)
     }
@@ -1540,21 +1719,24 @@ function App() {
 
   if (route.kind === 'task') {
     return (
-      <TaskDetailView
-        detailTask={detailTask}
-        detailForm={detailForm}
-        detailLoading={detailLoading}
-        detailSaving={detailSaving}
-        detailError={detailError}
-        unknownMessages={unknownMessages}
-        projects={projects}
-        statusOptions={statusOptions}
-        workTypeOptions={workTypeOptions}
-        onBack={() => navigate('/')}
-        onDetailInput={onDetailInput}
-        onDetailSubmit={onDetailSubmit}
-        toProjectLabel={toProjectLabel}
-      />
+      <>
+        <TaskDetailView
+          detailTask={detailTask}
+          detailForm={detailForm}
+          detailLoading={detailLoading}
+          detailSaving={detailSaving}
+          detailError={detailError}
+          unknownMessages={unknownMessages}
+          projects={projects}
+          statusOptions={statusOptions}
+          workTypeOptions={workTypeOptions}
+          onBack={() => navigate('/')}
+          onDetailInput={onDetailInput}
+          onDetailSubmit={onDetailSubmit}
+          toProjectLabel={toProjectLabel}
+        />
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
+      </>
     )
   }
 
@@ -1873,6 +2055,8 @@ function App() {
           onTaskSortChange={setTaskSort}
           onTaskViewFilterChange={onTaskViewFilterChange}
           onTaskViewFilterReset={onTaskViewFilterReset}
+          onTaskFiltersResetAll={onTaskFiltersResetAll}
+          onOpenTaskCreate={() => setCreateOpen(true)}
           onToggleTaskGroup={onToggleTaskGroup}
           onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
           onQuickStatusChange={onQuickStatusChange}
@@ -1921,6 +2105,7 @@ function App() {
           projectTimelineRows={projectTimelineRows}
           selectedTimelineProject={selectedTimelineProject}
           projectTimelineRange={projectTimelineRange}
+          loadingProjects={loadingProjects}
           onProjectSortChange={setProjectSort}
           onProjectTimelineProjectIdChange={setProjectTimelineProjectId}
           onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
@@ -1970,6 +2155,7 @@ function App() {
         ))}
       </datalist>
     </main>
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }

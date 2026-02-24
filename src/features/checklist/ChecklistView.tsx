@@ -1,4 +1,4 @@
-﻿import { type ChangeEvent, type FormEvent } from 'react'
+﻿import { useRef, type ChangeEvent, type FormEvent } from 'react'
 import type {
   ChecklistPreviewFilters,
   ChecklistPreviewItem,
@@ -6,7 +6,7 @@ import type {
   ChecklistTableRow,
   ProjectRecord,
 } from '../../shared/types'
-import { Button, TableWrap } from '../../shared/ui'
+import { Button, EmptyState, Skeleton, TableWrap } from '../../shared/ui'
 
 type ChecklistViewProps = {
   checklistFilters: ChecklistPreviewFilters
@@ -30,6 +30,40 @@ type ChecklistViewProps = {
   formatDateLabel: (value: string) => string
 }
 
+function ChecklistSkeletonTable() {
+  return (
+    <TableWrap>
+      <table>
+        <thead>
+          <tr>
+            <th>제작물</th>
+            <th>작업분류</th>
+            <th>디자인 소요(일)</th>
+            <th>실물 제작 소요(일)</th>
+            <th>총 소요(일)</th>
+            <th>역산 완료 예정일</th>
+            <th>최종 완료 시점</th>
+            <th>작업할당여부</th>
+            <th>할당 업무</th>
+            <th>액션</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }).map((_, idx) => (
+            <tr key={`checklist-skeleton-row-${idx}`}>
+              {Array.from({ length: 10 }).map((__, colIdx) => (
+                <td key={`checklist-skeleton-col-${idx}-${colIdx}`}>
+                  <Skeleton width="100%" height="14px" />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableWrap>
+  )
+}
+
 export function ChecklistView({
   checklistFilters,
   checklistCategories,
@@ -51,6 +85,9 @@ export function ChecklistView({
   toProjectThumbUrl,
   formatDateLabel,
 }: ChecklistViewProps) {
+  const eventNameRef = useRef<HTMLSelectElement | null>(null)
+  const eventCategoryRef = useRef<HTMLSelectElement | null>(null)
+
   return (
     <section className="checklistPreview">
       <div className="checklistPreviewHeader">
@@ -61,7 +98,7 @@ export function ChecklistView({
       <form className="checklistPreviewFilters" onSubmit={(event) => void onChecklistSubmit(event)}>
         <label>
           행사명
-          <select name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
+          <select ref={eventNameRef} name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
             <option value="">프로젝트 선택 안 함</option>
             {projectDbOptions.map((project) => (
               <option key={project.id} value={project.name}>
@@ -73,7 +110,7 @@ export function ChecklistView({
 
         <label>
           행사구분
-          <select name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
+          <select ref={eventCategoryRef} name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
             <option value="">전체</option>
             {checklistCategories.map((category) => (
               <option key={category} value={category}>
@@ -155,7 +192,28 @@ export function ChecklistView({
       {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
       {!checklistError ? <p className="muted">조회 결과: {rows.length}건</p> : null}
 
-      {rows.length > 0 ? (
+      {checklistLoading ? <ChecklistSkeletonTable /> : null}
+
+      {!checklistLoading && !checklistError && rows.length === 0 ? (
+        <EmptyState
+          title="체크리스트 항목이 없습니다"
+          message="행사명 또는 행사구분을 선택해 조건을 좁혀보세요."
+          actions={[
+            {
+              label: '행사명 선택',
+              variant: 'secondary',
+              onClick: () => eventNameRef.current?.focus(),
+            },
+            {
+              label: '행사구분 선택',
+              variant: 'secondary',
+              onClick: () => eventCategoryRef.current?.focus(),
+            },
+          ]}
+        />
+      ) : null}
+
+      {!checklistLoading && rows.length > 0 ? (
         <TableWrap>
           <table>
             <thead>

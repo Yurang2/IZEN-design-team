@@ -1,5 +1,5 @@
 ﻿import type { ProjectRecord, ProjectSort, ProjectTimelineRow } from '../../shared/types'
-import { EmptyState, TableWrap } from '../../shared/ui'
+import { EmptyState, Skeleton, TableWrap } from '../../shared/ui'
 
 type ProjectsViewProps = {
   sortedProjectDbOptions: ProjectRecord[]
@@ -12,6 +12,7 @@ type ProjectsViewProps = {
     end: Date
     totalDays: number
   }
+  loadingProjects: boolean
   onProjectSortChange: (nextSort: ProjectSort) => void
   onProjectTimelineProjectIdChange: (projectId: string) => void
   onTaskOpen: (taskId: string) => void
@@ -23,6 +24,64 @@ type ProjectsViewProps = {
   toStatusTone: (status: string | undefined) => 'gray' | 'red' | 'blue' | 'green'
 }
 
+function ProjectsSkeleton() {
+  return (
+    <>
+      <TableWrap>
+        <table>
+          <thead>
+            <tr>
+              <th>프로젝트</th>
+              <th>행사일</th>
+              <th>Notion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <tr key={`projects-skeleton-row-${idx}`}>
+                <td>
+                  <Skeleton width="220px" height="16px" />
+                </td>
+                <td>
+                  <Skeleton width="160px" height="16px" />
+                </td>
+                <td>
+                  <Skeleton width="56px" height="16px" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableWrap>
+
+      <section className="projectTimelineSection" aria-hidden="true">
+        <header className="projectTimelineHeader">
+          <h3>종속 업무 타임라인</h3>
+          <Skeleton width="24px" height="16px" />
+        </header>
+        <div className="projectTimelineList">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <article key={`timeline-skeleton-${idx}`} className="projectTimelineRow">
+              <div className="projectTimelineTask">
+                <Skeleton width="60%" height="15px" />
+                <Skeleton width="72%" height="12px" />
+              </div>
+              <div className="projectTimelineTrack">
+                <Skeleton width="100%" height="12px" />
+              </div>
+              <div className="projectTimelineDates">
+                <Skeleton width="84px" height="12px" />
+                <span>~</span>
+                <Skeleton width="84px" height="12px" />
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </>
+  )
+}
+
 export function ProjectsView({
   sortedProjectDbOptions,
   projectSort,
@@ -30,6 +89,7 @@ export function ProjectsView({
   projectTimelineRows,
   selectedTimelineProject,
   projectTimelineRange,
+  loadingProjects,
   onProjectSortChange,
   onProjectTimelineProjectIdChange,
   onTaskOpen,
@@ -67,84 +127,91 @@ export function ProjectsView({
           </select>
         </label>
       </section>
-      <TableWrap>
-        <table>
-          <thead>
-            <tr>
-              <th>프로젝트</th>
-              <th>행사일</th>
-              <th>Notion</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedProjectDbOptions.map((project) => (
-              <tr key={project.id}>
-                <td>
-                  <span className="projectTitle">
-                    {project.coverUrl ? <img className="projectCoverImage" src={project.coverUrl} alt="" /> : null}
-                    {project.iconUrl ? <img className="projectIconImage" src={project.iconUrl} alt="" /> : null}
-                    {project.iconEmoji ? <span className="projectIconEmoji">{project.iconEmoji}</span> : null}
-                    <span>{project.name}</span>
-                  </span>
-                </td>
-                <td>{project.eventDate ? `${formatDateLabel(project.eventDate)} (${project.eventDate})` : '-'}</td>
-                <td>
-                  {toNotionUrlById(project.id) ? (
-                    <a className="linkButton secondary mini" href={toNotionUrlById(project.id) ?? undefined} target="_blank" rel="noreferrer">
-                      열기
-                    </a>
-                  ) : (
-                    '-'
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </TableWrap>
 
-      <section className="projectTimelineSection">
-        <header className="projectTimelineHeader">
-          <h3>종속 업무 타임라인</h3>
-          <span>{projectTimelineRows.length}건</span>
-        </header>
+      {loadingProjects ? (
+        <ProjectsSkeleton />
+      ) : (
+        <>
+          <TableWrap>
+            <table>
+              <thead>
+                <tr>
+                  <th>프로젝트</th>
+                  <th>행사일</th>
+                  <th>Notion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedProjectDbOptions.map((project) => (
+                  <tr key={project.id}>
+                    <td>
+                      <span className="projectTitle">
+                        {project.coverUrl ? <img className="projectCoverImage" src={project.coverUrl} alt="" /> : null}
+                        {project.iconUrl ? <img className="projectIconImage" src={project.iconUrl} alt="" /> : null}
+                        {project.iconEmoji ? <span className="projectIconEmoji">{project.iconEmoji}</span> : null}
+                        <span>{project.name}</span>
+                      </span>
+                    </td>
+                    <td>{project.eventDate ? `${formatDateLabel(project.eventDate)} (${project.eventDate})` : '-'}</td>
+                    <td>
+                      {toNotionUrlById(project.id) ? (
+                        <a className="linkButton secondary mini" href={toNotionUrlById(project.id) ?? undefined} target="_blank" rel="noreferrer">
+                          열기
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
 
-        {selectedTimelineProject ? (
-          <p className="muted small">
-            대상 프로젝트: {toProjectLabel(selectedTimelineProject)} · 범위: {formatDateLabel(toIsoDate(projectTimelineRange.start))} ~{' '}
-            {formatDateLabel(toIsoDate(projectTimelineRange.end))}
-          </p>
-        ) : null}
+          <section className="projectTimelineSection">
+            <header className="projectTimelineHeader">
+              <h3>종속 업무 타임라인</h3>
+              <span>{projectTimelineRows.length}건</span>
+            </header>
 
-        {projectTimelineRows.length === 0 ? (
-          <EmptyState message="선택한 프로젝트에 귀속된 업무가 없습니다." />
-        ) : (
-          <div className="projectTimelineList">
-            {projectTimelineRows.map(({ task, barStyle }) => (
-              <article key={task.id} className="projectTimelineRow">
-                <div className="projectTimelineTask">
-                  <button type="button" className="taskLink" onClick={() => onTaskOpen(task.id)}>
-                    {task.taskName}
-                  </button>
-                  <span className="projectTimelineMeta">
-                    {task.projectName} · 담당: {joinOrDash(task.assignee)} · 상태: {task.status || '-'}
-                  </span>
-                </div>
+            {selectedTimelineProject ? (
+              <p className="muted small">
+                대상 프로젝트: {toProjectLabel(selectedTimelineProject)} · 범위: {formatDateLabel(toIsoDate(projectTimelineRange.start))} ~{' '}
+                {formatDateLabel(toIsoDate(projectTimelineRange.end))}
+              </p>
+            ) : null}
 
-                <div className="projectTimelineTrack">
-                  <div className={`projectTimelineBar tone-${toStatusTone(task.status)}`} style={barStyle} />
-                </div>
+            {projectTimelineRows.length === 0 ? (
+              <EmptyState message="선택한 프로젝트에 귀속된 업무가 없습니다." />
+            ) : (
+              <div className="projectTimelineList">
+                {projectTimelineRows.map(({ task, barStyle }) => (
+                  <article key={task.id} className="projectTimelineRow">
+                    <div className="projectTimelineTask">
+                      <button type="button" className="taskLink" onClick={() => onTaskOpen(task.id)}>
+                        {task.taskName}
+                      </button>
+                      <span className="projectTimelineMeta">
+                        {task.projectName} · 담당: {joinOrDash(task.assignee)} · 상태: {task.status || '-'}
+                      </span>
+                    </div>
 
-                <div className="projectTimelineDates">
-                  <span>{task.startDate || '-'}</span>
-                  <span>~</span>
-                  <span>{task.dueDate || '-'}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+                    <div className="projectTimelineTrack">
+                      <div className={`projectTimelineBar tone-${toStatusTone(task.status)}`} style={barStyle} />
+                    </div>
+
+                    <div className="projectTimelineDates">
+                      <span>{task.startDate || '-'}</span>
+                      <span>~</span>
+                      <span>{task.dueDate || '-'}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </section>
   )
 }

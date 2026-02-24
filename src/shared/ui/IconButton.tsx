@@ -1,7 +1,8 @@
 ﻿import { type ButtonHTMLAttributes, type ReactNode } from 'react'
 
-type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> & {
   icon: ReactNode
+  'aria-label': string
 }
 
 export function IconButton({ icon, className, ...props }: IconButtonProps) {

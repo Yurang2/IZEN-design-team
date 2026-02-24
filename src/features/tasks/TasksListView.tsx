@@ -1,5 +1,5 @@
 ﻿import type { ProjectRecord, TaskGroup } from '../../shared/types'
-import { EmptyState, TableWrap } from '../../shared/ui'
+import { Skeleton, TableWrap } from '../../shared/ui'
 
 type TasksListViewProps = {
   groupedTasks: TaskGroup[]
@@ -15,6 +15,48 @@ type TasksListViewProps = {
   joinOrDash: (values: string[]) => string
 }
 
+function ListSkeleton() {
+  return (
+    <section className="projectGroups" aria-hidden="true">
+      {Array.from({ length: 2 }).map((_, idx) => (
+        <article className="projectSection" key={`tasks-list-skeleton-${idx}`}>
+          <header className="projectHeader">
+            <Skeleton width="72px" height="28px" />
+            <Skeleton width="220px" height="20px" />
+            <Skeleton width="36px" height="18px" />
+          </header>
+          <TableWrap>
+            <table>
+              <thead>
+                <tr>
+                  <th>요청주체</th>
+                  <th>업무구분</th>
+                  <th>업무</th>
+                  <th>상태</th>
+                  <th>담당자</th>
+                  <th>시작일</th>
+                  <th>마감일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 4 }).map((__, rowIdx) => (
+                  <tr key={`tasks-list-skeleton-row-${idx}-${rowIdx}`}>
+                    {Array.from({ length: 7 }).map((___, colIdx) => (
+                      <td key={`tasks-list-skeleton-col-${idx}-${rowIdx}-${colIdx}`}>
+                        <Skeleton width="100%" height="14px" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
+        </article>
+      ))}
+    </section>
+  )
+}
+
 export function TasksListView({
   groupedTasks,
   projectByName,
@@ -28,6 +70,10 @@ export function TasksListView({
   unique,
   joinOrDash,
 }: TasksListViewProps) {
+  if (loadingList) {
+    return <ListSkeleton />
+  }
+
   return (
     <section className="projectGroups">
       {groupedTasks.map((group) => {
@@ -96,8 +142,6 @@ export function TasksListView({
           </article>
         )
       })}
-
-      {!loadingList && groupedTasks.length === 0 ? <EmptyState message="조건에 맞는 업무가 없습니다." /> : null}
     </section>
   )
 }

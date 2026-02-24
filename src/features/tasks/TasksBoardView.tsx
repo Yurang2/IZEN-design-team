@@ -1,5 +1,5 @@
 ﻿import type { BoardColumn } from '../../shared/types'
-import { Badge, EmptyState } from '../../shared/ui'
+import { Badge, Skeleton } from '../../shared/ui'
 
 type TasksBoardViewProps = {
   boardColumns: BoardColumn[]
@@ -9,8 +9,36 @@ type TasksBoardViewProps = {
   toStatusTone: (status: string | undefined) => 'gray' | 'red' | 'blue' | 'green'
 }
 
+function BoardSkeleton() {
+  return (
+    <section className="taskBoard" aria-hidden="true">
+      {Array.from({ length: 3 }).map((_, idx) => (
+        <article key={`tasks-board-skeleton-${idx}`} className="boardColumn boardColumn-status">
+          <header className="boardColumnHeader">
+            <Skeleton width="88px" height="18px" />
+            <Skeleton width="26px" height="16px" />
+          </header>
+          <div className="boardCards">
+            {Array.from({ length: 3 }).map((__, cardIdx) => (
+              <div key={`tasks-board-skeleton-card-${idx}-${cardIdx}`} className="boardCard" role="presentation">
+                <Skeleton width="58px" height="18px" />
+                <Skeleton width="96%" height="16px" />
+                <Skeleton width="78%" height="12px" />
+                <Skeleton width="64%" height="12px" />
+                <Skeleton width="72%" height="12px" />
+              </div>
+            ))}
+          </div>
+        </article>
+      ))}
+    </section>
+  )
+}
+
 export function TasksBoardView({ boardColumns, loadingList, onTaskOpen, joinOrDash, toStatusTone }: TasksBoardViewProps) {
-  const hasRows = boardColumns.some((column) => column.items.length > 0)
+  if (loadingList) {
+    return <BoardSkeleton />
+  }
 
   return (
     <section className="taskBoard">
@@ -33,7 +61,6 @@ export function TasksBoardView({ boardColumns, loadingList, onTaskOpen, joinOrDa
           </div>
         </article>
       ))}
-      {!loadingList && !hasRows ? <EmptyState message="조건에 맞는 업무가 없습니다." /> : null}
     </section>
   )
 }
