@@ -91,16 +91,63 @@ function parseCsvSet(input: string | undefined): Set<string> {
   return new Set(values)
 }
 
-function parseAllowedOrigins(env: Env): Set<string> {
+type WildcardOriginRule = {
+  protocol: 'http:' | 'https:'
+  suffix: string
+}
+
+type AllowedOrigins = {
+  exact: Set<string>
+  wildcard: WildcardOriginRule[]
+}
+
+function parseWildcardOriginRule(value: string): WildcardOriginRule | null {
+  const match = value.trim().toLowerCase().match(/^(https?):\/\/\*\.(.+)$/)
+  if (!match) return null
+
+  const protocol = (match[1] === 'http' ? 'http:' : 'https:') as 'http:' | 'https:'
+  const hostname = match[2].trim()
+  if (!hostname || hostname.includes('*')) return null
+
+  try {
+    const parsed = new URL(`${protocol}//preview.${hostname}`)
+    return {
+      protocol,
+      suffix: `.${parsed.hostname.toLowerCase()}`,
+    }
+  } catch {
+    return null
+  }
+}
+
+function isWildcardOriginMatch(origin: string, rule: WildcardOriginRule): boolean {
+  try {
+    const parsed = new URL(origin)
+    if (parsed.protocol !== rule.protocol) return false
+    const hostname = parsed.hostname.toLowerCase()
+    return hostname.endsWith(rule.suffix) && hostname.length > rule.suffix.length
+  } catch {
+    return false
+  }
+}
+
+function parseAllowedOrigins(env: Env): AllowedOrigins {
   const configured = parseCsvSet(asString(env.ALLOWED_ORIGINS))
-  const normalized = new Set<string>()
+  const exact = new Set<string>()
+  const wildcard: WildcardOriginRule[] = []
 
   for (const value of configured) {
+    const wildcardRule = parseWildcardOriginRule(value)
+    if (wildcardRule) {
+      wildcard.push(wildcardRule)
+      continue
+    }
+
     const origin = normalizeOrigin(value)
-    if (origin) normalized.add(origin)
+    if (origin) exact.add(origin)
   }
 
-  return normalized
+  return { exact, wildcard }
 }
 
 function isLocalhostOrigin(origin: string): boolean {
@@ -117,8 +164,12 @@ function resolveAllowedOrigin(requestOrigin: string | null, env: Env): string | 
   if (!normalizedOrigin) return null
 
   const allowlist = parseAllowedOrigins(env)
-  if (allowlist.size > 0) {
-    return allowlist.has(normalizedOrigin) ? normalizedOrigin : null
+  if (allowlist.exact.size > 0 || allowlist.wildcard.length > 0) {
+    if (allowlist.exact.has(normalizedOrigin)) return normalizedOrigin
+    for (const wildcardRule of allowlist.wildcard) {
+      if (isWildcardOriginMatch(normalizedOrigin, wildcardRule)) return normalizedOrigin
+    }
+    return null
   }
 
   // Safe default: allow only localhost when no explicit allowlist is configured.

@@ -60,6 +60,7 @@ Worker > Settings > Variables and Secrets:
 - Add `SESSION_SECRET` (recommended)
 - Add `ALLOWED_ORIGINS`
   - Example: `https://your-pages-domain.pages.dev,https://your-custom-domain.com`
+  - Wildcard subdomain is supported with `*.` notation, e.g. `https://*.izen-design-team.pages.dev`
 - Tune rate-limit vars only if needed
 
 ## Local development note

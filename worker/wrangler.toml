@@ -19,8 +19,8 @@ API_CACHE_TTL_SECONDS = "60"
 #
 # Optional API key for server-to-server calls (not required for page login):
 # npx wrangler secret put API_KEY --config worker/wrangler.toml
-# Comma-separated exact origins for browser access.
-# Example: "http://localhost:5173,https://izen-design-team.pages.dev"
+# Comma-separated origins for browser access (exact + optional wildcard subdomain with *.)
+# Example: "http://localhost:5173,https://izen-design-team.pages.dev,https://*.izen-design-team.pages.dev"
 # ALLOWED_ORIGINS = "http://localhost:5173"
 
 # Basic burst protection (best effort, in-memory per isolate).
