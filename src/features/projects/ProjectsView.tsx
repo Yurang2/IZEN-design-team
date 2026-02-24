@@ -1,11 +1,40 @@
-import { useMemo } from 'react'
-import type { ProjectRecord, ProjectSort, ProjectTimelineGroup } from '../../shared/types'
+import { useMemo, type CSSProperties } from 'react'
+import type { ProjectRecord, ProjectSort, ProjectTimelineGroup, ProjectTimelineTask } from '../../shared/types'
 import { EmptyState, Skeleton } from '../../shared/ui'
 
 type AxisSegment = {
   key: string
   label: string
   widthPct: number
+}
+
+type TimelineRange = {
+  start: Date
+  end: Date
+  totalDays: number
+}
+
+type TimelineRow = {
+  item: ProjectTimelineTask
+  tone: 'gray' | 'red' | 'blue' | 'green'
+  barStyle: CSSProperties
+  leftPct: number
+  widthPct: number
+  predecessor?: {
+    id: string
+    label: string
+  }
+  dependencyGuideStyle?: CSSProperties
+  dependencyDirection?: 'left' | 'right'
+}
+
+type ProjectTimelineModel = {
+  range: TimelineRange
+  axisMode: 'day' | 'week'
+  monthSegments: AxisSegment[]
+  unitSegments: AxisSegment[]
+  rows: TimelineRow[]
+  eventMarkerStyle: CSSProperties | null
 }
 
 type ProjectsViewProps = {
@@ -17,14 +46,24 @@ type ProjectsViewProps = {
     end: Date
     totalDays: number
   }
+  openProjectTimelineGroups: Record<string, boolean>
   loadingProjects: boolean
   onProjectSortChange: (nextSort: ProjectSort) => void
+  onToggleProjectTimelineGroup: (projectId: string) => void
   onTaskOpen: (taskId: string) => void
   formatDateLabel: (value: string) => string
   toIsoDate: (value: Date) => string
   toNotionUrlById: (id: string | undefined) => string | null
   joinOrDash: (values: string[]) => string
   toStatusTone: (status: string | undefined) => 'gray' | 'red' | 'blue' | 'green'
+}
+
+function parseIsoDate(value: string | undefined): Date | null {
+  if (!value) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const [y, m, d] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 function addUtcDays(date: Date, days: number): Date {
@@ -121,53 +160,163 @@ function buildWeekSegments(start: Date, end: Date, totalDays: number): AxisSegme
   return segments
 }
 
+function buildTimelineRange(group: ProjectTimelineGroup): TimelineRange {
+  const points: Date[] = []
+  const eventDate = parseIsoDate(group.project.eventDate)
+  if (eventDate) points.push(eventDate)
+
+  for (const item of group.tasks) {
+    const startDate = parseIsoDate(item.task.startDate)
+    const dueDate = parseIsoDate(item.task.dueDate)
+    if (startDate) points.push(startDate)
+    if (dueDate) points.push(dueDate)
+  }
+
+  const today = parseIsoDate(new Date().toISOString().slice(0, 10)) ?? new Date()
+  let start = points.length > 0 ? new Date(Math.min(...points.map((point) => point.getTime()))) : eventDate ?? today
+  let end = points.length > 0 ? new Date(Math.max(...points.map((point) => point.getTime()))) : eventDate ?? today
+
+  start = addUtcDays(start, -1)
+  end = addUtcDays(end, 1)
+
+  if (end < start) {
+    return { start, end: start, totalDays: 1 }
+  }
+
+  return {
+    start,
+    end,
+    totalDays: Math.max(1, diffUtcDays(start, end) + 1),
+  }
+}
+
+function buildProjectTimelineModel(
+  group: ProjectTimelineGroup,
+  toStatusTone: (status: string | undefined) => 'gray' | 'red' | 'blue' | 'green',
+): ProjectTimelineModel {
+  const range = buildTimelineRange(group)
+  const axisMode: 'day' | 'week' = range.totalDays > 42 ? 'week' : 'day'
+  const monthSegments = buildMonthSegments(range.start, range.end, range.totalDays)
+  const unitSegments =
+    axisMode === 'week'
+      ? buildWeekSegments(range.start, range.end, range.totalDays)
+      : buildDaySegments(range.start, range.end, range.totalDays)
+
+  const rows: TimelineRow[] = group.tasks.map((item) => {
+    const taskStart = parseIsoDate(item.task.startDate) ?? parseIsoDate(item.task.dueDate) ?? range.start
+    const taskEnd = parseIsoDate(item.task.dueDate) ?? parseIsoDate(item.task.startDate) ?? taskStart
+    const safeStart = taskStart <= taskEnd ? taskStart : taskEnd
+    const safeEnd = taskEnd >= taskStart ? taskEnd : taskStart
+
+    const offset = diffUtcDays(range.start, safeStart)
+    const spanDays = Math.max(1, diffUtcDays(safeStart, safeEnd) + 1)
+    const leftPct = Math.max(0, Math.min(100, (offset / range.totalDays) * 100))
+    const widthPct = Math.max(2, Math.min(100 - leftPct, (spanDays / range.totalDays) * 100))
+
+    return {
+      item,
+      tone: toStatusTone(item.task.status),
+      leftPct,
+      widthPct,
+      barStyle: {
+        left: `${leftPct}%`,
+        width: `${widthPct}%`,
+      },
+    }
+  })
+
+  const rowByTaskId = new Map<string, TimelineRow>()
+  for (const row of rows) {
+    rowByTaskId.set(row.item.task.id, row)
+  }
+
+  for (const row of rows) {
+    const predecessorTaskId = row.item.predecessorTaskId
+    if (!predecessorTaskId) continue
+
+    const predecessorRow = rowByTaskId.get(predecessorTaskId)
+    if (!predecessorRow) continue
+
+    const predecessorEnd = predecessorRow.leftPct + predecessorRow.widthPct
+    const currentStart = row.leftPct
+    const guideLeft = Math.min(predecessorEnd, currentStart)
+    const guideWidth = Math.max(1, Math.abs(currentStart - predecessorEnd))
+
+    row.predecessor = {
+      id: predecessorRow.item.task.id,
+      label: predecessorRow.item.task.taskName,
+    }
+    row.dependencyDirection = predecessorEnd <= currentStart ? 'right' : 'left'
+    row.dependencyGuideStyle = {
+      left: `${guideLeft}%`,
+      width: `${guideWidth}%`,
+    }
+  }
+
+  const eventDate = parseIsoDate(group.project.eventDate)
+  const eventMarkerStyle =
+    eventDate !== null
+      ? {
+          left: `${Math.max(0, Math.min(100, (diffUtcDays(range.start, eventDate) / range.totalDays) * 100))}%`,
+        }
+      : null
+
+  return {
+    range,
+    axisMode,
+    monthSegments,
+    unitSegments,
+    rows,
+    eventMarkerStyle,
+  }
+}
+
 function ProjectsSkeleton() {
   return (
     <section className="projectTimelineBoard" aria-hidden="true">
       <header className="projectTimelineBoardHeader">
         <div className="projectTimelineBoardTitle">
           <h3>프로젝트 타임라인</h3>
-          <Skeleton width="220px" height="14px" />
+          <Skeleton width="260px" height="14px" />
         </div>
-        <Skeleton width="320px" height="14px" />
       </header>
-
-      <div className="projectTimelineAxisGrid">
-        <div className="projectTimelineAxisLabel">
-          <Skeleton width="48px" height="14px" />
-        </div>
-        <div className="projectTimelineAxisTrack">
-          <Skeleton width="100%" height="38px" />
-        </div>
-      </div>
 
       <div className="projectTimelineGroupList">
         {Array.from({ length: 3 }).map((_, groupIndex) => (
           <article key={`timeline-group-skeleton-${groupIndex}`} className="projectTimelineGroup">
             <div className="projectTimelineGroupRow projectTimelineProjectRow">
               <div className="projectTimelineIdentity">
-                <Skeleton width="240px" height="16px" />
+                <Skeleton width="220px" height="16px" />
                 <Skeleton width="180px" height="12px" />
               </div>
               <div className="projectTimelineTrack">
                 <Skeleton width="100%" height="18px" />
               </div>
             </div>
-            {Array.from({ length: 2 }).map((_, rowIndex) => (
-              <div key={`timeline-row-skeleton-${groupIndex}-${rowIndex}`} className="projectTimelineGroupRow projectTimelineTaskRow">
-                <div className="projectTimelineTask">
-                  <Skeleton width="66%" height="14px" />
-                  <Skeleton width="84%" height="12px" />
-                </div>
-                <div className="projectTimelineTrack">
-                  <Skeleton width="100%" height="16px" />
-                </div>
-              </div>
-            ))}
           </article>
         ))}
       </div>
     </section>
+  )
+}
+
+function renderAssigneeBadges(assignee: string[]) {
+  if (assignee.length === 0) {
+    return <span className="timelineAssigneeBadge">담당 미지정</span>
+  }
+
+  const visible = assignee.slice(0, 2)
+  const hiddenCount = Math.max(0, assignee.length - visible.length)
+
+  return (
+    <>
+      {visible.map((name) => (
+        <span key={name} className="timelineAssigneeBadge">
+          {name}
+        </span>
+      ))}
+      {hiddenCount > 0 ? <span className="timelineAssigneeBadge">+{hiddenCount}</span> : null}
+    </>
   )
 }
 
@@ -176,8 +325,10 @@ export function ProjectsView({
   projectSort,
   projectTimelineGroups,
   projectTimelineRange,
+  openProjectTimelineGroups,
   loadingProjects,
   onProjectSortChange,
+  onToggleProjectTimelineGroup,
   onTaskOpen,
   formatDateLabel,
   toIsoDate,
@@ -185,22 +336,18 @@ export function ProjectsView({
   joinOrDash,
   toStatusTone,
 }: ProjectsViewProps) {
-  const axisMode: 'day' | 'week' = projectTimelineRange.totalDays > 42 ? 'week' : 'day'
-  const monthSegments = useMemo(
-    () => buildMonthSegments(projectTimelineRange.start, projectTimelineRange.end, projectTimelineRange.totalDays),
-    [projectTimelineRange.end, projectTimelineRange.start, projectTimelineRange.totalDays],
-  )
-  const unitSegments = useMemo(
-    () =>
-      axisMode === 'week'
-        ? buildWeekSegments(projectTimelineRange.start, projectTimelineRange.end, projectTimelineRange.totalDays)
-        : buildDaySegments(projectTimelineRange.start, projectTimelineRange.end, projectTimelineRange.totalDays),
-    [axisMode, projectTimelineRange.end, projectTimelineRange.start, projectTimelineRange.totalDays],
-  )
   const totalTimelineTasks = useMemo(
     () => projectTimelineGroups.reduce((sum, group) => sum + group.tasks.length, 0),
     [projectTimelineGroups],
   )
+
+  const timelineModels = useMemo(() => {
+    const map = new Map<string, ProjectTimelineModel>()
+    for (const group of projectTimelineGroups) {
+      map.set(group.project.id, buildProjectTimelineModel(group, toStatusTone))
+    }
+    return map
+  }, [projectTimelineGroups, toStatusTone])
 
   return (
     <section className="projectSection">
@@ -227,105 +374,148 @@ export function ProjectsView({
         <section className="projectTimelineBoard">
           <header className="projectTimelineBoardHeader">
             <div className="projectTimelineBoardTitle">
-              <h3>종속 업무 포함 전체 타임라인</h3>
+              <h3>종속 업무 타임라인</h3>
               <span>
                 프로젝트 {projectTimelineGroups.length}건 · 종속 업무 {totalTimelineTasks}건
               </span>
             </div>
             <p className="muted small">
-              범위: {formatDateLabel(toIsoDate(projectTimelineRange.start))} ~ {formatDateLabel(toIsoDate(projectTimelineRange.end))} · 축 분류:{' '}
-              {axisMode === 'week' ? '연/월/n주차' : '연/월/일'}
+              전체 범위: {formatDateLabel(toIsoDate(projectTimelineRange.start))} ~ {formatDateLabel(toIsoDate(projectTimelineRange.end))}
             </p>
           </header>
 
           {projectTimelineGroups.length === 0 ? (
             <EmptyState message="프로젝트 데이터가 없습니다." />
           ) : (
-            <>
-              <div className="projectTimelineAxisGrid">
-                <div className="projectTimelineAxisLabel">기간축</div>
-                <div className="projectTimelineAxisTrack">
-                  <div className="projectTimelineAxisMonths">
-                    {monthSegments.map((segment) => (
-                      <span key={segment.key} style={{ flexBasis: `${segment.widthPct}%` }}>
-                        {segment.label}
-                      </span>
-                    ))}
-                  </div>
-                  <div className={`projectTimelineAxisUnits mode-${axisMode}`}>
-                    {unitSegments.map((segment) => (
-                      <span key={segment.key} style={{ flexBasis: `${segment.widthPct}%` }}>
-                        {segment.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            <div className="projectTimelineGroupList">
+              {projectTimelineGroups.map((group) => {
+                const model = timelineModels.get(group.project.id)
+                if (!model) return null
+                const isOpen = openProjectTimelineGroups[group.project.id] !== false
+                const scheduledCount = model.rows.filter((row) => row.tone === 'gray').length
+                const progressCount = model.rows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
+                const doneCount = model.rows.filter((row) => row.tone === 'green').length
 
-              <div className="projectTimelineGroupList">
-                {projectTimelineGroups.map(({ project, tasks, eventMarkerStyle }) => (
-                  <article key={project.id} className="projectTimelineGroup">
+                return (
+                  <article key={group.project.id} className={isOpen ? 'projectTimelineGroup' : 'projectTimelineGroup is-collapsed'}>
                     <div className="projectTimelineGroupRow projectTimelineProjectRow">
                       <div className="projectTimelineIdentity">
                         <span className="projectTitle">
-                          {project.coverUrl ? <img className="projectCoverImage" src={project.coverUrl} alt="" /> : null}
-                          {project.iconUrl ? <img className="projectIconImage" src={project.iconUrl} alt="" /> : null}
-                          {project.iconEmoji ? <span className="projectIconEmoji">{project.iconEmoji}</span> : null}
-                          <span>{project.name}</span>
+                          {group.project.coverUrl ? <img className="projectCoverImage" src={group.project.coverUrl} alt="" /> : null}
+                          {group.project.iconUrl ? <img className="projectIconImage" src={group.project.iconUrl} alt="" /> : null}
+                          {group.project.iconEmoji ? <span className="projectIconEmoji">{group.project.iconEmoji}</span> : null}
+                          <span>{group.project.name}</span>
                         </span>
                         <div className="projectTimelineProjectMeta">
-                          <span>{project.eventDate ? `행사일 ${project.eventDate}` : '행사일 미정'}</span>
-                          <span>종속 업무 {tasks.length}건</span>
-                          {toNotionUrlById(project.id) ? (
-                            <a className="linkButton secondary mini" href={toNotionUrlById(project.id) ?? undefined} target="_blank" rel="noreferrer">
+                          <span>{group.project.eventDate ? `행사일 ${group.project.eventDate}` : '행사일 미정'}</span>
+                          <span>예정 {scheduledCount}</span>
+                          <span>진행 {progressCount}</span>
+                          <span>완료 {doneCount}</span>
+                          <span>종속 {group.tasks.length}건</span>
+                          {toNotionUrlById(group.project.id) ? (
+                            <a className="linkButton secondary mini" href={toNotionUrlById(group.project.id) ?? undefined} target="_blank" rel="noreferrer">
                               Notion
                             </a>
                           ) : null}
+                          <button
+                            type="button"
+                            className="timelineToggleButton"
+                            aria-expanded={isOpen}
+                            onClick={() => onToggleProjectTimelineGroup(group.project.id)}
+                          >
+                            {isOpen ? '종속업무 접기' : '종속업무 펼치기'}
+                          </button>
                         </div>
                       </div>
 
                       <div className="projectTimelineTrack projectTimelineProjectTrack">
                         <div className="projectTimelineTrackGrid" aria-hidden="true" />
-                        {eventMarkerStyle ? (
-                          <span className="projectTimelineEventMarker" style={eventMarkerStyle} title={project.eventDate ?? ''}>
+                        {model.rows.slice(0, 14).map((row) => (
+                          <span key={`${row.item.task.id}-mini`} className={`projectTimelineMiniBar tone-${row.tone}`} style={row.barStyle} />
+                        ))}
+                        {model.eventMarkerStyle ? (
+                          <span className="projectTimelineEventMarker" style={model.eventMarkerStyle} title={group.project.eventDate ?? ''}>
                             <span className="projectTimelineEventDot" />
                           </span>
                         ) : null}
                       </div>
                     </div>
 
-                    {tasks.length === 0 ? (
-                      <div className="projectTimelineGroupRow projectTimelineTaskRow is-empty">
-                        <div className="projectTimelineTask">
-                          <span className="projectTimelineMeta">종속 업무가 없습니다.</span>
-                        </div>
-                        <div className="projectTimelineTrack">
-                          <div className="projectTimelineTrackGrid" aria-hidden="true" />
-                        </div>
-                      </div>
-                    ) : (
-                      tasks.map(({ task, barStyle }) => (
-                        <div key={task.id} className="projectTimelineGroupRow projectTimelineTaskRow">
-                          <div className="projectTimelineTask">
-                            <button type="button" className="taskLink" onClick={() => onTaskOpen(task.id)}>
-                              {task.taskName}
-                            </button>
-                            <span className="projectTimelineMeta">
-                              담당: {joinOrDash(task.assignee)} · 상태: {task.status || '-'} · 기간: {task.startDate || '-'} ~ {task.dueDate || '-'}
-                            </span>
+                    {isOpen ? (
+                      <div className="projectTimelinePanel">
+                        <div className="projectTimelineAxisGrid">
+                          <div className="projectTimelineAxisLabel">기간축</div>
+                          <div className="projectTimelineAxisTrack">
+                            <div className="projectTimelineAxisMonths">
+                              {model.monthSegments.map((segment) => (
+                                <span key={segment.key} style={{ flexBasis: `${segment.widthPct}%` }}>
+                                  {segment.label}
+                                </span>
+                              ))}
+                            </div>
+                            <div className={`projectTimelineAxisUnits mode-${model.axisMode}`}>
+                              {model.unitSegments.map((segment) => (
+                                <span key={segment.key} style={{ flexBasis: `${segment.widthPct}%` }}>
+                                  {segment.label}
+                                </span>
+                              ))}
+                            </div>
                           </div>
+                        </div>
 
-                          <div className="projectTimelineTrack">
-                            <div className="projectTimelineTrackGrid" aria-hidden="true" />
-                            <div className={`projectTimelineBar tone-${toStatusTone(task.status)}`} style={barStyle} />
+                        {model.rows.length === 0 ? (
+                          <div className="projectTimelineGroupRow projectTimelineTaskRow is-empty">
+                            <div className="projectTimelineTask">
+                              <span className="projectTimelineMeta">종속 업무가 없습니다.</span>
+                            </div>
+                            <div className="projectTimelineTrack">
+                              <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                            </div>
                           </div>
-                        </div>
-                      ))
-                    )}
+                        ) : (
+                          model.rows.map((row) => {
+                            const task = row.item.task
+                            return (
+                              <div key={task.id} id={`timeline-task-${task.id}`} className="projectTimelineGroupRow projectTimelineTaskRow">
+                                <div className="projectTimelineTask">
+                                  <button type="button" className="taskLink" onClick={() => onTaskOpen(task.id)}>
+                                    {task.taskName}
+                                  </button>
+                                  <div className="projectTimelineTaskTags">
+                                    <span className={`timelineStatusBadge tone-${row.tone}`}>{task.status || '상태 미정'}</span>
+                                    {renderAssigneeBadges(task.assignee)}
+                                  </div>
+                                  <span className="projectTimelineMeta">
+                                    기간 {task.startDate || '-'} ~ {task.dueDate || '-'} · 담당 {joinOrDash(task.assignee)}
+                                  </span>
+                                  {row.predecessor ? (
+                                    <a className="timelineDependencyLink" href={`#timeline-task-${row.predecessor.id}`}>
+                                      ↖ 선행작업: {row.predecessor.label}
+                                    </a>
+                                  ) : null}
+                                </div>
+
+                                <div className="projectTimelineTrack">
+                                  <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                                  {row.dependencyGuideStyle ? (
+                                    <span
+                                      className={`projectTimelineDependencyGuide dir-${row.dependencyDirection ?? 'right'}`}
+                                      style={row.dependencyGuideStyle}
+                                      aria-hidden="true"
+                                    />
+                                  ) : null}
+                                  <div className={`projectTimelineBar tone-${row.tone}`} style={row.barStyle} />
+                                </div>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    ) : null}
                   </article>
-                ))}
-              </div>
-            </>
+                )
+              })}
+            </div>
           )}
         </section>
       )}

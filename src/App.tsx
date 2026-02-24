@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { AssignmentModal } from './features/checklist/AssignmentModal'
 import { ChecklistView } from './features/checklist/ChecklistView'
 import { ProjectsView } from './features/projects/ProjectsView'
@@ -562,6 +562,51 @@ function normalizeNotionId(value: string | undefined | null): string {
   return (value ?? '').replace(/-/g, '').trim().toLowerCase()
 }
 
+function toTimelineStatusRank(status: string | undefined): number {
+  const tone = toStatusTone(status)
+  if (tone === 'gray') return 0
+  if (tone === 'blue' || tone === 'red') return 1
+  if (tone === 'green') return 2
+  return 1
+}
+
+function normalizeTaskLookupKey(value: string | undefined): string {
+  return (value ?? '')
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+}
+
+function extractPredecessorTokens(...sources: Array<string | undefined>): string[] {
+  const patterns = [
+    /(?:\uC120\uD589\uC791\uC5C5|\uC120\uD589|preced(?:ing|essor)?|depends?\s*on)\s*[:\uFF1A]\s*([^\n]+)/gi,
+    /(?:after)\s*[:\uFF1A]\s*([^\n]+)/gi,
+  ]
+  const tokens: string[] = []
+
+  for (const source of sources) {
+    if (!source) continue
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0
+      let match = pattern.exec(source)
+      while (match) {
+        const chunk = (match[1] ?? '').trim()
+        if (chunk) {
+          const split = chunk.split(/[,|/>\u2192]/g).map((entry) => entry.trim())
+          for (const part of split) {
+            const cleaned = part.replace(/^\s*[-*]\s*/, '').trim()
+            if (cleaned) tokens.push(cleaned)
+          }
+        }
+        match = pattern.exec(source)
+      }
+    }
+  }
+
+  return tokens
+}
+
 function diffDays(from: Date, to: Date): number {
   const ms = 24 * 60 * 60 * 1000
   return Math.round((to.getTime() - from.getTime()) / ms)
@@ -711,6 +756,7 @@ function App() {
     {},
   )
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
+  const [openProjectTimelineGroups, setOpenProjectTimelineGroups] = useState<Record<string, boolean>>({})
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
   const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
@@ -1259,7 +1305,31 @@ function App() {
     return copy
   }, [projectDbOptions, projectSort])
 
-  const projectTimelineTaskGroups = useMemo(() => {
+  useEffect(() => {
+    setOpenProjectTimelineGroups((prev) => {
+      let changed = false
+      const next: Record<string, boolean> = { ...prev }
+      const active = new Set(sortedProjectDbOptions.map((project) => project.id))
+
+      for (const project of sortedProjectDbOptions) {
+        if (next[project.id] === undefined) {
+          next[project.id] = true
+          changed = true
+        }
+      }
+
+      for (const key of Object.keys(next)) {
+        if (!active.has(key)) {
+          delete next[key]
+          changed = true
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [sortedProjectDbOptions])
+
+  const projectTimelineGroups = useMemo(() => {
     const byProjectKey = new Map<string, TaskRecord[]>()
     const byProjectName = new Map<string, TaskRecord[]>()
 
@@ -1298,6 +1368,8 @@ function App() {
       appendTasks(byProjectName.get(projectName))
 
       matched.sort((a, b) => {
+        const rankCompare = toTimelineStatusRank(a.status) - toTimelineStatusRank(b.status)
+        if (rankCompare !== 0) return rankCompare
         const startCompare = asSortDate(a.startDate).localeCompare(asSortDate(b.startDate))
         if (startCompare !== 0) return startCompare
         const dueCompare = asSortDate(a.dueDate).localeCompare(asSortDate(b.dueDate))
@@ -1305,20 +1377,48 @@ function App() {
         return a.taskName.localeCompare(b.taskName, 'ko')
       })
 
-      return { project, tasks: matched }
+      const taskById = new Map<string, TaskRecord>()
+      const taskByName = new Map<string, TaskRecord>()
+      for (const task of matched) {
+        taskById.set(normalizeNotionId(task.id), task)
+        taskByName.set(normalizeTaskLookupKey(task.taskName), task)
+      }
+
+      const timelineTasks = matched.map((task) => {
+        let predecessorTaskId: string | undefined
+        const tokens = extractPredecessorTokens(task.detail, task.issue)
+        for (const token of tokens) {
+          const normalizedToken = normalizeTaskLookupKey(token)
+          if (!normalizedToken) continue
+
+          const byId = taskById.get(normalizedToken)
+          const byName = taskByName.get(normalizedToken)
+          const found = byId ?? byName
+          if (!found || found.id === task.id) continue
+          predecessorTaskId = found.id
+          break
+        }
+
+        return {
+          task,
+          predecessorTaskId,
+        }
+      })
+
+      return { project, tasks: timelineTasks }
     })
   }, [sortedProjectDbOptions, tasks])
 
   const projectTimelineRange = useMemo(() => {
     const points: Date[] = []
 
-    for (const group of projectTimelineTaskGroups) {
+    for (const group of projectTimelineGroups) {
       const projectDate = parseIsoDate(group.project.eventDate)
       if (projectDate) points.push(projectDate)
 
-      for (const task of group.tasks) {
-        const taskStart = parseIsoDate(task.startDate)
-        const taskEnd = parseIsoDate(task.dueDate)
+      for (const item of group.tasks) {
+        const taskStart = parseIsoDate(item.task.startDate)
+        const taskEnd = parseIsoDate(item.task.dueDate)
         if (taskStart) points.push(taskStart)
         if (taskEnd) points.push(taskEnd)
       }
@@ -1340,50 +1440,7 @@ function App() {
       end,
       totalDays: Math.max(1, diffDays(start, end) + 1),
     }
-  }, [projectTimelineTaskGroups])
-
-  const projectTimelineGroups = useMemo(() => {
-    const { start, totalDays } = projectTimelineRange
-
-    return projectTimelineTaskGroups.map(({ project, tasks: groupedTasks }) => {
-      const tasks = groupedTasks.map((task) => {
-        const taskStartDate = parseIsoDate(task.startDate) ?? parseIsoDate(task.dueDate) ?? start
-        const taskDueDate = parseIsoDate(task.dueDate) ?? parseIsoDate(task.startDate) ?? taskStartDate
-        const safeStart = taskStartDate <= taskDueDate ? taskStartDate : taskDueDate
-        const safeEnd = taskDueDate >= taskStartDate ? taskDueDate : taskStartDate
-
-        const offset = diffDays(start, safeStart)
-        const spanDays = Math.max(1, diffDays(safeStart, safeEnd) + 1)
-        const leftPct = Math.max(0, Math.min(100, (offset / totalDays) * 100))
-        const widthPct = Math.max(2, Math.min(100 - leftPct, (spanDays / totalDays) * 100))
-        const barStyle: CSSProperties = {
-          left: `${leftPct}%`,
-          width: `${widthPct}%`,
-        }
-
-        return {
-          task,
-          barStyle,
-        }
-      })
-
-      const eventDate = parseIsoDate(project.eventDate)
-      let eventMarkerStyle: CSSProperties | null = null
-      if (eventDate) {
-        const eventOffset = diffDays(start, eventDate)
-        const eventLeft = Math.max(0, Math.min(100, (eventOffset / totalDays) * 100))
-        eventMarkerStyle = {
-          left: `${eventLeft}%`,
-        }
-      }
-
-      return {
-        project,
-        tasks,
-        eventMarkerStyle,
-      }
-    })
-  }, [projectTimelineRange, projectTimelineTaskGroups])
+  }, [projectTimelineGroups])
 
   const quickSearchSections = useMemo(() => {
     const keyword = debouncedQuickSearch.trim().toLowerCase()
@@ -1642,6 +1699,13 @@ function App() {
     setOpenTaskGroups((prev) => ({
       ...prev,
       [projectName]: !prev[projectName],
+    }))
+  }
+
+  const onToggleProjectTimelineGroup = (projectId: string) => {
+    setOpenProjectTimelineGroups((prev) => ({
+      ...prev,
+      [projectId]: prev[projectId] === false ? true : false,
     }))
   }
 
@@ -2305,8 +2369,10 @@ function App() {
           projectSort={projectSort}
           projectTimelineGroups={projectTimelineGroups}
           projectTimelineRange={projectTimelineRange}
+          openProjectTimelineGroups={openProjectTimelineGroups}
           loadingProjects={loadingProjects}
           onProjectSortChange={setProjectSort}
+          onToggleProjectTimelineGroup={onToggleProjectTimelineGroup}
           onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
           formatDateLabel={formatDateLabel}
           toIsoDate={toIsoDate}

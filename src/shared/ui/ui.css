@@ -1082,12 +1082,83 @@ textarea {
   font-weight: 600;
 }
 
-.projectTimelineAxisGrid {
-  border: 1px solid #d9e3f2;
-  border-radius: 10px;
+.projectTimelineGroupList {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 12px;
   margin-top: 12px;
+}
+
+.projectTimelineGroup {
+  background: #fff;
+  border: 1px solid #dde6f3;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.projectTimelineGroup.is-collapsed {
+  border-color: #d7e0ee;
+}
+
+.projectTimelineGroupRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+  padding: 10px 12px;
+}
+
+.projectTimelineProjectRow {
+  background: linear-gradient(180deg, #f4f8ff 0%, #eef4ff 100%);
+  border-bottom: 1px solid #dde6f3;
+}
+
+.projectTimelineIdentity {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  min-width: 0;
+  text-align: left;
+}
+
+.projectTimelineProjectMeta {
+  align-items: center;
+  color: #60708a;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 8px;
+}
+
+.projectTimelineProjectMeta .linkButton {
+  margin-left: auto;
+}
+
+.timelineToggleButton {
+  background: #ffffff;
+  border: 1px solid #c9d8ee;
+  border-radius: 999px;
+  color: #2155a5;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+  padding: 4px 10px;
+}
+
+.timelineToggleButton:hover {
+  background: #eef5ff;
+}
+
+.projectTimelinePanel {
+  background: #fdfefe;
+  border-top: 1px solid #e2ebf7;
+  display: grid;
+}
+
+.projectTimelineAxisGrid {
+  border-bottom: 1px solid #dfe7f5;
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -1099,6 +1170,7 @@ textarea {
   display: inline-flex;
   font-size: 11px;
   font-weight: 700;
+  justify-content: flex-start;
   letter-spacing: 0.08em;
   padding: 8px 12px;
   text-transform: uppercase;
@@ -1155,80 +1227,78 @@ textarea {
   font-weight: 700;
 }
 
-.projectTimelineGroupList {
-  display: grid;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.projectTimelineGroup {
-  background: #fff;
-  border: 1px solid #dde6f3;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.projectTimelineGroupRow {
-  align-items: center;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
-  padding: 10px 12px;
-}
-
-.projectTimelineProjectRow {
-  background: linear-gradient(180deg, #f4f8ff 0%, #eef4ff 100%);
-  border-bottom: 1px solid #dde6f3;
-}
-
-.projectTimelineIdentity {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.projectTimelineProjectMeta {
-  align-items: center;
-  color: #60708a;
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 11px;
-  gap: 8px;
-}
-
-.projectTimelineProjectMeta .linkButton {
-  margin-left: auto;
+.projectTimelineTaskRow {
+  border-top: 1px solid #edf2f9;
 }
 
 .projectTimelineTask {
   align-items: flex-start;
   display: grid;
   gap: 4px;
+  justify-items: start;
   min-width: 0;
-}
-
-.projectTimelineTaskRow .projectTimelineTask {
-  padding-left: 14px;
+  padding-left: 16px;
   position: relative;
+  text-align: left;
 }
 
-.projectTimelineTaskRow .projectTimelineTask::before {
-  background: #98a6bb;
+.projectTimelineTask::before {
+  background: #93a7c5;
   border-radius: 999px;
   content: '';
-  height: 4px;
+  height: 5px;
   left: 2px;
   position: absolute;
-  top: 11px;
-  width: 4px;
+  top: 10px;
+  width: 5px;
 }
 
 .projectTimelineTaskRow.is-empty .projectTimelineTask::before {
-  background: #c3cddd;
+  background: #c5cfdf;
 }
 
-.projectTimelineTaskRow {
-  border-top: 1px solid #edf2f9;
+.projectTimelineTaskTags {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.timelineStatusBadge {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+.timelineStatusBadge.tone-gray {
+  background: #e8edf5;
+  color: #475569;
+}
+
+.timelineStatusBadge.tone-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.timelineStatusBadge.tone-blue {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.timelineStatusBadge.tone-green {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.timelineAssigneeBadge {
+  background: #f1f5f9;
+  border: 1px solid #d6e0ee;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
 }
 
 .projectTimelineMeta {
@@ -1239,11 +1309,26 @@ textarea {
   white-space: nowrap;
 }
 
+.timelineDependencyLink {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineDependencyLink:hover {
+  text-decoration: underline;
+}
+
 .projectTimelineTrack {
   background: #f6f9ff;
   border: 1px solid #dfe8f6;
   border-radius: 8px;
-  height: 22px;
+  height: 24px;
   overflow: hidden;
   position: relative;
 }
@@ -1258,7 +1343,45 @@ textarea {
 
 .projectTimelineProjectTrack {
   background: #f2f7ff;
-  height: 26px;
+  height: 28px;
+}
+
+.projectTimelineMiniBar {
+  border-radius: 4px;
+  height: 6px;
+  opacity: 0.35;
+  position: absolute;
+  top: 5px;
+  z-index: 1;
+}
+
+.projectTimelineDependencyGuide {
+  border-top: 1px dashed #7a9ac9;
+  height: 0;
+  left: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.projectTimelineDependencyGuide::after {
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid #7a9ac9;
+  border-top: 4px solid transparent;
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -4px;
+}
+
+.projectTimelineDependencyGuide.dir-left::after {
+  border-bottom: 4px solid transparent;
+  border-left: 0;
+  border-right: 6px solid #7a9ac9;
+  border-top: 4px solid transparent;
+  left: -2px;
+  right: auto;
 }
 
 .projectTimelineEventMarker {
@@ -1299,11 +1422,11 @@ textarea {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 1;
+  z-index: 2;
 }
 
 .projectTimelineBar.tone-gray {
-  background: #94a3b8;
+  background: #64748b;
 }
 
 .projectTimelineBar.tone-red {
@@ -1311,11 +1434,11 @@ textarea {
 }
 
 .projectTimelineBar.tone-blue {
-  background: #3b82f6;
+  background: #2563eb;
 }
 
 .projectTimelineBar.tone-green {
-  background: #22c55e;
+  background: #16a34a;
 }
 
 .tableWrap {
@@ -1642,12 +1765,22 @@ tr:hover td {
     margin-left: 0;
   }
 
+  .timelineToggleButton {
+    margin-left: 0;
+    width: 100%;
+  }
+
   .projectTimelineTaskRow .projectTimelineTask {
     padding-left: 0;
   }
 
   .projectTimelineTaskRow .projectTimelineTask::before {
     display: none;
+  }
+
+  .projectTimelineMeta,
+  .timelineDependencyLink {
+    white-space: normal;
   }
 
   .checklistPreviewActions {
@@ -1811,3 +1944,4 @@ tr:hover td {
     width: auto;
   }
 }
+

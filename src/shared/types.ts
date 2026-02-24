@@ -1,4 +1,4 @@
-﻿export type Route =
+export type Route =
   | {
       kind: 'list'
     }
@@ -224,15 +224,14 @@ export type BoardColumn = {
   style: string
 }
 
-export type ProjectTimelineRow = {
+export type ProjectTimelineTask = {
   task: TaskRecord
-  barStyle: CSSProperties
+  predecessorTaskId?: string
 }
 
 export type ProjectTimelineGroup = {
   project: ProjectRecord
-  tasks: ProjectTimelineRow[]
-  eventMarkerStyle: CSSProperties | null
+  tasks: ProjectTimelineTask[]
 }
 
 export type ChecklistTableRow = {
@@ -243,4 +242,3 @@ export type ChecklistTableRow = {
   totalLeadDays?: number
   computedDueDate?: string
 }
-import type { CSSProperties } from 'react'
