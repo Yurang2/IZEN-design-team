@@ -684,6 +684,18 @@ button.secondary:hover,
   gap: 8px;
 }
 
+.boardCardsVirtualized {
+  display: block;
+}
+
+.boardCardVirtualItem {
+  padding-bottom: 8px;
+}
+
+.boardCardVirtualItem .boardCard {
+  width: 100%;
+}
+
 button.boardCard {
   align-items: flex-start;
   background: var(--surface);
@@ -955,6 +967,27 @@ textarea {
 .projectGroups {
   display: grid;
   gap: 12px;
+}
+
+.projectGroupsVirtualized {
+  display: block;
+}
+
+.virtualListInner {
+  position: relative;
+  width: 100%;
+}
+
+.virtualListItem {
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  will-change: transform;
+}
+
+.projectGroupVirtualItem {
+  padding-bottom: 12px;
 }
 
 .projectHeader {

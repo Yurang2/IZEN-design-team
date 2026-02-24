@@ -652,7 +652,7 @@ function App() {
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
   const [quickSearch, setQuickSearch] = useState('')
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
-  const debouncedQuickSearch = useDebouncedValue(quickSearch, 0)
+  const debouncedQuickSearch = useDebouncedValue(quickSearch, 250)
   const quickSearchInputRef = useRef<HTMLInputElement | null>(null)
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
@@ -670,6 +670,7 @@ function App() {
 
   const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
   const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>(initialListUiState.taskViewFilters)
+  const debouncedFilterQ = useDebouncedValue(filters.q, 250)
 
   const [loadingList, setLoadingList] = useState(false)
   const [loadingProjects, setLoadingProjects] = useState(false)
@@ -871,7 +872,7 @@ function App() {
         const params = new URLSearchParams()
         if (filters.projectId) params.set('projectId', filters.projectId)
         if (filters.status) params.set('status', filters.status)
-        if (filters.q) params.set('q', filters.q)
+        if (debouncedFilterQ) params.set('q', debouncedFilterQ)
         params.set('pageSize', String(TASK_PAGE_SIZE))
         if (cursor) params.set('cursor', cursor)
 
@@ -900,7 +901,7 @@ function App() {
     } finally {
       setLoadingList(false)
     }
-  }, [filters.projectId, filters.q, filters.status])
+  }, [debouncedFilterQ, filters.projectId, filters.status])
 
   useEffect(() => {
     void fetchProjects()
@@ -1093,26 +1094,43 @@ function App() {
   }, [schema, tasks])
 
   const statusBoardColumns = useMemo(() => {
-    const known = statusOptions.map((status) => ({
-      key: `status:${status}`,
-      label: status,
-      items: sortedFilteredTasks.filter((task) => task.status === status),
-      tone: toStatusTone(status),
-    }))
-    const seen = new Set(statusOptions)
-    const unknown = sortedFilteredTasks
-      .filter((task) => task.status && !seen.has(task.status))
-      .map((task) => task.status)
-      .filter(Boolean) as string[]
-    const unknownStatuses = unique(unknown).sort((a, b) => a.localeCompare(b, 'ko'))
-    const unknownColumns = unknownStatuses.map((status) => ({
-      key: `status:${status}`,
-      label: status,
-      items: sortedFilteredTasks.filter((task) => task.status === status),
-      tone: toStatusTone(status),
-    }))
+    const itemsByStatus = new Map<string, TaskRecord[]>()
+    for (const task of sortedFilteredTasks) {
+      if (!task.status) continue
+      const bucket = itemsByStatus.get(task.status)
+      if (bucket) bucket.push(task)
+      else itemsByStatus.set(task.status, [task])
+    }
 
-    return [...known, ...unknownColumns].filter((column) => column.items.length > 0)
+    const seen = new Set(statusOptions)
+    const columns = statusOptions
+      .map((status) => {
+        const items = itemsByStatus.get(status) ?? []
+        return {
+          key: `status:${status}`,
+          label: status,
+          items,
+          tone: toStatusTone(status),
+        }
+      })
+      .filter((column) => column.items.length > 0)
+
+    const unknownStatuses = Array.from(itemsByStatus.keys())
+      .filter((status) => !seen.has(status))
+      .sort((a, b) => a.localeCompare(b, 'ko'))
+
+    for (const status of unknownStatuses) {
+      const items = itemsByStatus.get(status)
+      if (!items || items.length === 0) continue
+      columns.push({
+        key: `status:${status}`,
+        label: status,
+        items,
+        tone: toStatusTone(status),
+      })
+    }
+
+    return columns
   }, [sortedFilteredTasks, statusOptions])
 
   const boardColumns = useMemo(() => {
@@ -1271,7 +1289,13 @@ function App() {
     return map
   }, [projectDbOptions])
 
-  const taskById = useMemo(() => Object.fromEntries(tasks.map((task) => [task.id, task])) as Record<string, TaskRecord>, [tasks])
+  const taskById = useMemo(() => {
+    const map = new Map<string, TaskRecord>()
+    for (const task of tasks) {
+      map.set(task.id, task)
+    }
+    return map
+  }, [tasks])
 
   const checklistRows = useMemo(() => {
     return sortedChecklistItems.map((item) => {
@@ -1281,7 +1305,7 @@ function App() {
         item.id,
         selectedChecklistProject?.id,
       )
-      const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
+      const assignedTask = assignedTaskId ? taskById.get(assignedTaskId) : undefined
       const totalLeadDays = getChecklistTotalLeadDays(item)
       const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
 
