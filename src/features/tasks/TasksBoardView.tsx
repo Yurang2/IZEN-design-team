@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import type { BoardColumn } from '../../shared/types'
+import type { BoardColumn, TaskLayoutMode } from '../../shared/types'
 import { Badge, Skeleton } from '../../shared/ui'
 
 const BOARD_CARD_VIRTUALIZATION_THRESHOLD = 60
@@ -8,6 +8,7 @@ const BOARD_CARD_OVERSCAN = 6
 const BOARD_CARD_ESTIMATE = 152
 
 type TasksBoardViewProps = {
+  layout: TaskLayoutMode
   boardColumns: BoardColumn[]
   loadingList: boolean
   onTaskOpen: (taskId: string) => void
@@ -126,15 +127,15 @@ function BoardColumnCards({ column, onTaskOpen, joinOrDash, toStatusTone }: Boar
   )
 }
 
-export function TasksBoardView({ boardColumns, loadingList, onTaskOpen, joinOrDash, toStatusTone }: TasksBoardViewProps) {
+export function TasksBoardView({ layout, boardColumns, loadingList, onTaskOpen, joinOrDash, toStatusTone }: TasksBoardViewProps) {
   if (loadingList) {
     return <BoardSkeleton />
   }
 
   return (
-    <section className="taskBoard">
+    <section className={`taskBoard taskBoard-${layout}`}>
       {boardColumns.map((column) => (
-        <article key={column.key} className={`boardColumn boardColumn-${column.style}`}>
+        <article key={column.key} className={`boardColumn boardColumn-${column.style} boardColumn-layout-${layout}`}>
           <header className="boardColumnHeader">
             <strong>{column.label}</strong>
             <span>{column.items.length}</span>

@@ -5,6 +5,7 @@ import type {
   ProjectRecord,
   TaskGroup,
   TaskLayoutMode,
+  TaskQuickGroupBy,
   TaskSort,
   TaskViewFilters,
 } from '../../shared/types'
@@ -15,6 +16,8 @@ import { TasksListView } from './TasksListView'
 
 type TasksViewProps = {
   taskLayout: TaskLayoutMode
+  taskQuickGroupBy: TaskQuickGroupBy
+  showTaskFilters: boolean
   projects: ProjectRecord[]
   filters: Filters
   statusOptions: string[]
@@ -35,9 +38,10 @@ type TasksViewProps = {
   onTaskSortChange: (nextSort: TaskSort) => void
   onTaskViewFilterChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
   onTaskViewFilterReset: () => void
+  onToggleTaskFilters: () => void
   onTaskFiltersResetAll: () => void
   onOpenTaskCreate: () => void
-  onToggleTaskGroup: (projectName: string) => void
+  onToggleTaskGroup: (groupKey: string) => void
   onTaskOpen: (taskId: string) => void
   onQuickStatusChange: (taskId: string, nextStatus: string) => Promise<void>
   toProjectLabel: (project: ProjectRecord) => string
@@ -48,6 +52,8 @@ type TasksViewProps = {
 
 export function TasksView({
   taskLayout,
+  taskQuickGroupBy,
+  showTaskFilters,
   projects,
   filters,
   statusOptions,
@@ -68,6 +74,7 @@ export function TasksView({
   onTaskSortChange,
   onTaskViewFilterChange,
   onTaskViewFilterReset,
+  onToggleTaskFilters,
   onTaskFiltersResetAll,
   onOpenTaskCreate,
   onToggleTaskGroup,
@@ -82,21 +89,31 @@ export function TasksView({
 
   return (
     <>
-      <TaskFilters
-        projects={projects}
-        filters={filters}
-        statusOptions={statusOptions}
-        taskSort={taskSort}
-        taskViewFilters={taskViewFilters}
-        workTypeOptions={workTypeOptions}
-        assigneeOptions={assigneeOptions}
-        requesterOptions={requesterOptions}
-        onChangeFilter={onChangeFilter}
-        onTaskSortChange={onTaskSortChange}
-        onTaskViewFilterChange={onTaskViewFilterChange}
-        onTaskViewFilterReset={onTaskViewFilterReset}
-        toProjectLabel={toProjectLabel}
-      />
+      <section className="taskFiltersShell">
+        <header className="taskFiltersHeader">
+          <strong>검색/필터</strong>
+          <button type="button" className="secondary taskFiltersToggle" onClick={onToggleTaskFilters}>
+            {showTaskFilters ? '검색/필터 숨기기' : '검색/필터 펼치기'}
+          </button>
+        </header>
+        {showTaskFilters ? (
+          <TaskFilters
+            projects={projects}
+            filters={filters}
+            statusOptions={statusOptions}
+            taskSort={taskSort}
+            taskViewFilters={taskViewFilters}
+            workTypeOptions={workTypeOptions}
+            assigneeOptions={assigneeOptions}
+            requesterOptions={requesterOptions}
+            onChangeFilter={onChangeFilter}
+            onTaskSortChange={onTaskSortChange}
+            onTaskViewFilterChange={onTaskViewFilterChange}
+            onTaskViewFilterReset={onTaskViewFilterReset}
+            toProjectLabel={toProjectLabel}
+          />
+        ) : null}
+      </section>
 
       {unknownMessages.length > 0 ? (
         <section className="warningBox">
@@ -114,6 +131,7 @@ export function TasksView({
       {taskLayout === 'list' ? (
         <TasksListView
           groupedTasks={groupedTasks}
+          taskQuickGroupBy={taskQuickGroupBy}
           projectByName={projectByName}
           openTaskGroups={openTaskGroups}
           statusUpdatingIds={statusUpdatingIds}
@@ -127,6 +145,7 @@ export function TasksView({
         />
       ) : (
         <TasksBoardView
+          layout={taskLayout}
           boardColumns={boardColumns}
           loadingList={loadingList}
           onTaskOpen={onTaskOpen}

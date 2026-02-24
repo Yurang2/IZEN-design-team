@@ -191,8 +191,8 @@ type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist'
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
 type ChecklistSort = 'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'lead_asc' | 'lead_desc'
-type TaskLayoutMode = 'list' | 'board'
-type BoardWorkflowMode = 'grouped' | 'status'
+type TaskLayoutMode = 'list' | 'board' | 'kanban'
+type TaskQuickGroupBy = 'assignee' | 'project' | 'status' | 'due'
 
 type ChecklistPreviewFilters = {
   eventName: string
@@ -236,7 +236,6 @@ type DetailForm = {
 
 type ApiCheckState = 'idle' | 'checking' | 'ok' | 'error'
 type QuickSearchScope = 'project' | 'task'
-type BoardGroupKey = 'todo' | 'progress' | 'done' | 'other'
 
 declare global {
   interface Window {
@@ -284,11 +283,13 @@ function parseTopView(value: string | null): TopView {
 }
 
 function parseTaskLayout(value: string | null): TaskLayoutMode {
-  return value === 'board' ? 'board' : 'list'
+  if (value === 'board' || value === 'kanban') return value
+  return 'list'
 }
 
-function parseBoardWorkflowMode(value: string | null): BoardWorkflowMode {
-  return value === 'status' ? 'status' : 'grouped'
+function parseTaskQuickGroupBy(value: string | null): TaskQuickGroupBy {
+  if (value === 'assignee' || value === 'status' || value === 'due') return value
+  return 'project'
 }
 
 function parseBooleanQuery(value: string | null): boolean {
@@ -298,15 +299,18 @@ function parseBooleanQuery(value: string | null): boolean {
 function readListUiStateFromSearch(search: string): {
   activeView: TopView
   taskLayout: TaskLayoutMode
-  boardWorkflowMode: BoardWorkflowMode
+  taskQuickGroupBy: TaskQuickGroupBy
+  showTaskFilters: boolean
   filters: Filters
   taskViewFilters: TaskViewFilters
 } {
   const params = new URLSearchParams(search)
+  const showTaskFiltersParam = params.get('showTaskFilters')
   return {
     activeView: parseTopView(params.get('view')),
     taskLayout: parseTaskLayout(params.get('taskLayout')),
-    boardWorkflowMode: parseBoardWorkflowMode(params.get('boardWorkflowMode')),
+    taskQuickGroupBy: parseTaskQuickGroupBy(params.get('taskGroupBy')),
+    showTaskFilters: showTaskFiltersParam === null ? true : parseBooleanQuery(showTaskFiltersParam),
     filters: {
       projectId: params.get('projectId') ?? '',
       status: params.get('status') ?? '',
@@ -339,6 +343,7 @@ type UiGlyphName =
   | 'plus'
   | 'search'
   | 'board'
+  | 'kanban'
 
 function UiGlyph({ name }: { name: UiGlyphName }) {
   const common = {
@@ -377,6 +382,16 @@ function UiGlyph({ name }: { name: UiGlyphName }) {
         <rect x="2" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
         <rect x="6.4" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
         <rect x="10.8" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'kanban') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2.5" width="12" height="11" rx="1.1" {...common} />
+        <path d="M6 2.5v11" {...common} />
+        <path d="M10 2.5v11" {...common} />
+        <path d="M2 6.5h12" {...common} />
       </svg>
     )
   }
@@ -479,14 +494,6 @@ function toTopViewPath(view: TopView): string {
 
 function normalizeStatus(status: string | undefined): string {
   return (status ?? '').replace(/\s+/g, '')
-}
-
-function toBoardGroup(status: string | undefined): BoardGroupKey {
-  const normalized = normalizeStatus(status)
-  if (normalized === '시작전' || normalized === '보류') return 'todo'
-  if (normalized === '진행중' || normalized === '검토중' || normalized === '수정중') return 'progress'
-  if (normalized === '완료' || normalized === '보관') return 'done'
-  return 'other'
 }
 
 function toStatusTone(status: string | undefined): 'gray' | 'red' | 'blue' | 'green' {
@@ -705,7 +712,8 @@ function App() {
   const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
   const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
   const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>(initialListUiState.taskLayout)
-  const [boardWorkflowMode, setBoardWorkflowMode] = useState<BoardWorkflowMode>(initialListUiState.boardWorkflowMode)
+  const [taskQuickGroupBy, setTaskQuickGroupBy] = useState<TaskQuickGroupBy>(initialListUiState.taskQuickGroupBy)
+  const [showTaskFilters, setShowTaskFilters] = useState(initialListUiState.showTaskFilters)
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
   const [quickSearch, setQuickSearch] = useState('')
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
@@ -859,7 +867,8 @@ function App() {
     const next = readListUiStateFromSearch(search)
     setActiveView(next.activeView)
     setTaskLayout(next.taskLayout)
-    setBoardWorkflowMode(next.boardWorkflowMode)
+    setTaskQuickGroupBy(next.taskQuickGroupBy)
+    setShowTaskFilters(next.showTaskFilters)
     setFilters(next.filters)
     setTaskViewFilters(next.taskViewFilters)
   }, [])
@@ -883,7 +892,8 @@ function App() {
     const params = new URLSearchParams(window.location.search)
     params.set('view', activeView)
     params.set('taskLayout', taskLayout)
-    params.set('boardWorkflowMode', boardWorkflowMode)
+    params.set('taskGroupBy', taskQuickGroupBy)
+    params.delete('boardWorkflowMode')
 
     const setOptional = (key: string, value: string) => {
       if (value) params.set(key, value)
@@ -904,6 +914,11 @@ function App() {
     setOptional('dueTo', taskViewFilters.dueTo)
     setOptionalBoolean('urgentOnly', taskViewFilters.urgentOnly)
     setOptionalBoolean('hideDone', taskViewFilters.hideDone)
+    if (showTaskFilters) {
+      params.delete('showTaskFilters')
+    } else {
+      params.set('showTaskFilters', '0')
+    }
 
     const nextSearch = params.toString()
     const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`
@@ -913,12 +928,13 @@ function App() {
     }
   }, [
     activeView,
-    boardWorkflowMode,
     filters.projectId,
     filters.q,
     filters.status,
     route.kind,
+    showTaskFilters,
     taskLayout,
+    taskQuickGroupBy,
     taskViewFilters.assignee,
     taskViewFilters.dueFrom,
     taskViewFilters.dueTo,
@@ -1190,101 +1206,112 @@ function App() {
     return copy
   }, [filteredTasks, taskSort])
 
-  const groupedTasks = useMemo(() => {
-    const map = new Map<string, { projectName: string; tasks: TaskRecord[] }>()
-
-    for (const task of sortedFilteredTasks) {
-      const key = task.projectName || '[UNKNOWN]'
-      const current = map.get(key)
-      if (current) {
-        current.tasks.push(task)
-      } else {
-        map.set(key, { projectName: key, tasks: [task] })
-      }
-    }
-
-    return Array.from(map.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'ko'))
-  }, [sortedFilteredTasks])
-
-  const groupedBoardColumns = useMemo(() => {
-    const baseColumns: Array<{ key: BoardGroupKey; label: string; items: TaskRecord[] }> = [
-      { key: 'todo', label: '할 일', items: [] },
-      { key: 'progress', label: '진행 중', items: [] },
-      { key: 'done', label: '완료', items: [] },
-      { key: 'other', label: '기타', items: [] },
-    ]
-
-    const byKey = new Map(baseColumns.map((column) => [column.key, column]))
-    for (const task of sortedFilteredTasks) {
-      const group = toBoardGroup(task.status)
-      byKey.get(group)?.items.push(task)
-    }
-
-    return baseColumns.filter((column) => column.key !== 'other' || column.items.length > 0)
-  }, [sortedFilteredTasks])
-
   const statusOptions = useMemo(() => {
     const fromSchema = schema?.fields.status?.options ?? []
     const fromTasks = tasks.map((task) => task.status).filter(Boolean)
     return unique([...fromSchema, ...fromTasks])
   }, [schema, tasks])
 
-  const statusBoardColumns = useMemo(() => {
-    const itemsByStatus = new Map<string, TaskRecord[]>()
+  const taskGroupBuckets = useMemo(() => {
+    type TaskGroupBucket = {
+      key: string
+      label: string
+      style: string
+      order: number
+      sortLabel: string
+      items: TaskRecord[]
+    }
+
+    const statusOrder = new Map<string, number>()
+    statusOptions.forEach((status, index) => {
+      statusOrder.set(status, index)
+    })
+
+    const byKey = new Map<string, TaskGroupBucket>()
+    const today = parseIsoDate(toIsoDate(new Date())) ?? new Date()
+
+    const ensureBucket = (key: string, label: string, style: string, order: number, sortLabel: string): TaskGroupBucket => {
+      const existing = byKey.get(key)
+      if (existing) return existing
+
+      const created: TaskGroupBucket = {
+        key,
+        label,
+        style,
+        order,
+        sortLabel,
+        items: [],
+      }
+      byKey.set(key, created)
+      return created
+    }
+
     for (const task of sortedFilteredTasks) {
-      if (!task.status) continue
-      const bucket = itemsByStatus.get(task.status)
-      if (bucket) bucket.push(task)
-      else itemsByStatus.set(task.status, [task])
+      if (taskQuickGroupBy === 'project') {
+        const label = task.projectName || '[UNKNOWN]'
+        ensureBucket(`project:${label}`, label, 'project', 0, label).items.push(task)
+        continue
+      }
+
+      if (taskQuickGroupBy === 'assignee') {
+        const label = task.assignee.length > 0 ? task.assignee.join(', ') : '담당자 미지정'
+        ensureBucket(`assignee:${label}`, label, 'assignee', 0, label).items.push(task)
+        continue
+      }
+
+      if (taskQuickGroupBy === 'status') {
+        const label = task.status || '미분류'
+        const order = statusOrder.get(label) ?? 9_999
+        ensureBucket(`status:${label}`, label, 'status', order, label).items.push(task)
+        continue
+      }
+
+      const due = task.dueDate ? parseIsoDate(task.dueDate) : null
+      if (!due) {
+        ensureBucket('due:none', '마감일 미정', 'due', 5, '마감일 미정').items.push(task)
+        continue
+      }
+
+      const remaining = diffDays(today, due)
+      if (remaining < 0) {
+        ensureBucket('due:overdue', '지연', 'due', 0, '지연').items.push(task)
+      } else if (remaining === 0) {
+        ensureBucket('due:today', '오늘 마감', 'due', 1, '오늘 마감').items.push(task)
+      } else if (remaining <= 7) {
+        ensureBucket('due:week', '7일 이내', 'due', 2, '7일 이내').items.push(task)
+      } else if (remaining <= 30) {
+        ensureBucket('due:month', '30일 이내', 'due', 3, '30일 이내').items.push(task)
+      } else {
+        ensureBucket('due:later', '30일 이후', 'due', 4, '30일 이후').items.push(task)
+      }
     }
 
-    const seen = new Set(statusOptions)
-    const columns = statusOptions
-      .map((status) => {
-        const items = itemsByStatus.get(status) ?? []
-        return {
-          key: `status:${status}`,
-          label: status,
-          items,
-          tone: toStatusTone(status),
-        }
-      })
-      .filter((column) => column.items.length > 0)
+    return Array.from(byKey.values()).sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order
+      return a.sortLabel.localeCompare(b.sortLabel, 'ko')
+    })
+  }, [sortedFilteredTasks, statusOptions, taskQuickGroupBy])
 
-    const unknownStatuses = Array.from(itemsByStatus.keys())
-      .filter((status) => !seen.has(status))
-      .sort((a, b) => a.localeCompare(b, 'ko'))
+  const groupedTasks = useMemo(
+    () =>
+      taskGroupBuckets.map((bucket) => ({
+        key: bucket.key,
+        label: bucket.label,
+        tasks: bucket.items,
+      })),
+    [taskGroupBuckets],
+  )
 
-    for (const status of unknownStatuses) {
-      const items = itemsByStatus.get(status)
-      if (!items || items.length === 0) continue
-      columns.push({
-        key: `status:${status}`,
-        label: status,
-        items,
-        tone: toStatusTone(status),
-      })
-    }
-
-    return columns
-  }, [sortedFilteredTasks, statusOptions])
-
-  const boardColumns = useMemo(() => {
-    if (boardWorkflowMode === 'status') {
-      return statusBoardColumns.map((column) => ({
-        key: column.key,
-        label: column.label,
-        items: column.items,
-        style: 'status' as const,
-      }))
-    }
-    return groupedBoardColumns.map((column) => ({
-      key: column.key,
-      label: column.label,
-      items: column.items,
-      style: column.key,
-    }))
-  }, [boardWorkflowMode, groupedBoardColumns, statusBoardColumns])
+  const boardColumns = useMemo(
+    () =>
+      taskGroupBuckets.map((bucket) => ({
+        key: bucket.key,
+        label: bucket.label,
+        items: bucket.items,
+        style: bucket.style,
+      })),
+    [taskGroupBuckets],
+  )
 
   const projectDbOptions = useMemo(
     () =>
@@ -1313,7 +1340,7 @@ function App() {
 
       for (const project of sortedProjectDbOptions) {
         if (next[project.id] === undefined) {
-          next[project.id] = true
+          next[project.id] = false
           changed = true
         }
       }
@@ -1523,14 +1550,26 @@ function App() {
 
   useEffect(() => {
     setOpenTaskGroups((prev) => {
+      let changed = false
       const next: Record<string, boolean> = { ...prev }
+      const activeKeys = new Set(groupedTasks.map((group) => group.key))
+
       for (const group of groupedTasks) {
-        if (next[group.projectName] === undefined) {
+        if (next[group.key] === undefined) {
           // Collapse by default to reduce initial render cost on large datasets.
-          next[group.projectName] = false
+          next[group.key] = false
+          changed = true
         }
       }
-      return next
+
+      for (const key of Object.keys(next)) {
+        if (!activeKeys.has(key)) {
+          delete next[key]
+          changed = true
+        }
+      }
+
+      return changed ? next : prev
     })
   }, [groupedTasks])
 
@@ -1695,10 +1734,10 @@ function App() {
     await fetchChecklistPreview(next)
   }
 
-  const onToggleTaskGroup = (projectName: string) => {
+  const onToggleTaskGroup = (groupKey: string) => {
     setOpenTaskGroups((prev) => ({
       ...prev,
-      [projectName]: !prev[projectName],
+      [groupKey]: prev[groupKey] === false ? true : false,
     }))
   }
 
@@ -2217,41 +2256,80 @@ function App() {
             </h1>
           </div>
           {activeView === 'tasks' ? (
-            <section className="taskViewMode">
-              <button
-                type="button"
-                className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setTaskLayout('list')}
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="list" />
+            <div className="taskViewControls">
+              <section className="taskViewMode">
+                <button
+                  type="button"
+                  className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
+                  onClick={() => setTaskLayout('list')}
+                >
+                  <span className="iconLabel">
+                    <span className="uiIcon">
+                      <UiGlyph name="list" />
+                    </span>
+                    <span>List</span>
                   </span>
-                  <span>List</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={taskLayout === 'board' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setTaskLayout('board')}
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="board" />
+                </button>
+                <button
+                  type="button"
+                  className={taskLayout === 'board' ? 'viewTab active' : 'viewTab'}
+                  onClick={() => setTaskLayout('board')}
+                >
+                  <span className="iconLabel">
+                    <span className="uiIcon">
+                      <UiGlyph name="board" />
+                    </span>
+                    <span>Board</span>
                   </span>
-                  <span>Board</span>
-                </span>
-              </button>
-              {taskLayout === 'board' ? (
-                <label className="boardWorkflowMode">
-                  워크플로우
-                  <select value={boardWorkflowMode} onChange={(event) => setBoardWorkflowMode(event.target.value as BoardWorkflowMode)}>
-                    <option value="grouped">그룹형(할 일/진행/완료)</option>
-                    <option value="status">상태형(노션 상태 그대로)</option>
-                  </select>
-                </label>
-              ) : null}
-            </section>
+                </button>
+                <button
+                  type="button"
+                  className={taskLayout === 'kanban' ? 'viewTab active' : 'viewTab'}
+                  onClick={() => setTaskLayout('kanban')}
+                >
+                  <span className="iconLabel">
+                    <span className="uiIcon">
+                      <UiGlyph name="kanban" />
+                    </span>
+                    <span>Kanban</span>
+                  </span>
+                </button>
+              </section>
+
+              <section className="taskQuickGroup">
+                <span className="taskQuickLabel">Quick</span>
+                <div className="taskQuickButtons">
+                  <button
+                    type="button"
+                    className={taskQuickGroupBy === 'assignee' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => setTaskQuickGroupBy('assignee')}
+                  >
+                    사람
+                  </button>
+                  <button
+                    type="button"
+                    className={taskQuickGroupBy === 'project' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => setTaskQuickGroupBy('project')}
+                  >
+                    귀속 프로젝트
+                  </button>
+                  <button
+                    type="button"
+                    className={taskQuickGroupBy === 'status' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => setTaskQuickGroupBy('status')}
+                  >
+                    상태
+                  </button>
+                  <button
+                    type="button"
+                    className={taskQuickGroupBy === 'due' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => setTaskQuickGroupBy('due')}
+                  >
+                    마감일
+                  </button>
+                </div>
+              </section>
+            </div>
           ) : null}
         </header>
 
@@ -2301,6 +2379,8 @@ function App() {
       {activeView === 'tasks' ? (
         <TasksView
           taskLayout={taskLayout}
+          taskQuickGroupBy={taskQuickGroupBy}
+          showTaskFilters={showTaskFilters}
           projects={projects}
           filters={filters}
           statusOptions={statusOptions}
@@ -2321,6 +2401,7 @@ function App() {
           onTaskSortChange={setTaskSort}
           onTaskViewFilterChange={onTaskViewFilterChange}
           onTaskViewFilterReset={onTaskViewFilterReset}
+          onToggleTaskFilters={() => setShowTaskFilters((prev) => !prev)}
           onTaskFiltersResetAll={onTaskFiltersResetAll}
           onOpenTaskCreate={() => setCreateOpen(true)}
           onToggleTaskGroup={onToggleTaskGroup}

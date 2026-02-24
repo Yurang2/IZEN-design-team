@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import type { ProjectRecord, TaskGroup } from '../../shared/types'
+import type { ProjectRecord, TaskGroup, TaskQuickGroupBy } from '../../shared/types'
 import { Skeleton, TableWrap } from '../../shared/ui'
 
 const GROUP_VIRTUALIZATION_THRESHOLD = 18
@@ -12,12 +12,13 @@ const GROUP_ESTIMATE_CAP = 12
 
 type TasksListViewProps = {
   groupedTasks: TaskGroup[]
+  taskQuickGroupBy: TaskQuickGroupBy
   projectByName: Map<string, ProjectRecord>
   openTaskGroups: Record<string, boolean>
   statusUpdatingIds: Record<string, boolean>
   statusOptions: string[]
   loadingList: boolean
-  onToggleTaskGroup: (projectName: string) => void
+  onToggleTaskGroup: (groupKey: string) => void
   onTaskOpen: (taskId: string) => void
   onQuickStatusChange: (taskId: string, nextStatus: string) => Promise<void>
   unique: (values: string[]) => string[]
@@ -73,6 +74,7 @@ function estimateGroupHeight(group: TaskGroup, isOpen: boolean): number {
 
 export function TasksListView({
   groupedTasks,
+  taskQuickGroupBy,
   projectByName,
   openTaskGroups,
   statusUpdatingIds,
@@ -97,11 +99,11 @@ export function TasksListView({
     estimateSize: (index) => {
       const group = groupedTasks[index]
       if (!group) return GROUP_COLLAPSED_ESTIMATE
-      const isOpen = openTaskGroups[group.projectName] !== false
+      const isOpen = openTaskGroups[group.key] !== false
       return estimateGroupHeight(group, isOpen)
     },
     overscan: GROUP_VIRTUAL_OVERSCAN,
-    getItemKey: (index) => groupedTasks[index]?.projectName ?? `task-group-${index}`,
+    getItemKey: (index) => groupedTasks[index]?.key ?? `task-group-${index}`,
     scrollMargin: groupScrollMargin,
   })
 
@@ -110,23 +112,23 @@ export function TasksListView({
   }
 
   const renderGroup = (group: TaskGroup) => {
-    const groupProject = projectByName.get(group.projectName)
+    const groupProject = taskQuickGroupBy === 'project' ? projectByName.get(group.label) : undefined
     return (
-      <article className="projectSection" key={group.projectName}>
+      <article className="projectSection" key={group.key}>
         <header className="projectHeader">
-          <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
-            {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
+          <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.key)}>
+            {openTaskGroups[group.key] === false ? '펼치기' : '접기'}
           </button>
           <h2 className="projectTitle">
             {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
             {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
             {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
-            <span>{group.projectName}</span>
+            <span>{group.label}</span>
           </h2>
           <span>{group.tasks.length}건</span>
         </header>
 
-        {openTaskGroups[group.projectName] === false ? null : (
+        {openTaskGroups[group.key] === false ? null : (
           <TableWrap>
             <table>
               <thead>
@@ -191,7 +193,7 @@ export function TasksListView({
 
           return (
             <div
-              key={group.projectName}
+              key={group.key}
               ref={groupVirtualizer.measureElement}
               data-index={virtualGroup.index}
               className="virtualListItem projectGroupVirtualItem"

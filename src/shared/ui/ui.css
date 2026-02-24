@@ -591,6 +591,29 @@ button.secondary:hover,
   display: flex;
 }
 
+.taskFiltersShell {
+  margin-bottom: 10px;
+}
+
+.taskFiltersHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.taskFiltersToggle {
+  min-height: 32px;
+}
+
+.taskViewControls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .taskViewMode {
   align-items: center;
   display: inline-flex;
@@ -601,20 +624,27 @@ button.secondary:hover,
   min-height: 34px;
 }
 
-.boardWorkflowMode {
+.taskQuickGroup {
   align-items: center;
-  color: var(--text-sub);
   display: inline-flex;
-  flex-direction: row;
+  gap: 8px;
+}
+
+.taskQuickLabel {
+  color: var(--text-sub);
   font-size: 12px;
   font-weight: 700;
-  gap: 8px;
   white-space: nowrap;
 }
 
-.boardWorkflowMode select {
+.taskQuickButtons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.taskQuickButtons button {
   min-height: 34px;
-  min-width: 220px;
 }
 
 .taskBoard {
@@ -658,6 +688,41 @@ button.secondary:hover,
 .boardColumn.boardColumn-status {
   background: linear-gradient(180deg, #f7fbff 0%, #f2f8ff 100%);
   border-color: #d6e5fb;
+}
+
+.boardColumn.boardColumn-project {
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f6ff 100%);
+  border-color: #d5e1f4;
+}
+
+.boardColumn.boardColumn-assignee {
+  background: linear-gradient(180deg, #f8fdfb 0%, #f0f9f5 100%);
+  border-color: #d3eadf;
+}
+
+.boardColumn.boardColumn-due {
+  background: linear-gradient(180deg, #fffaf7 0%, #fff3eb 100%);
+  border-color: #f1dcc8;
+}
+
+.taskBoard.taskBoard-kanban .boardColumn {
+  border-top-width: 4px;
+}
+
+.taskBoard.taskBoard-kanban .boardColumn.boardColumn-project {
+  border-top-color: #4f46e5;
+}
+
+.taskBoard.taskBoard-kanban .boardColumn.boardColumn-assignee {
+  border-top-color: #0f766e;
+}
+
+.taskBoard.taskBoard-kanban .boardColumn.boardColumn-status {
+  border-top-color: #1d4ed8;
+}
+
+.taskBoard.taskBoard-kanban .boardColumn.boardColumn-due {
+  border-top-color: #c2410c;
 }
 
 .boardColumnHeader {
@@ -1707,9 +1772,14 @@ tr:hover td {
     flex-direction: column;
   }
 
-  .taskViewMode {
+  .taskViewControls {
     align-items: stretch;
     flex-direction: column;
+    width: 100%;
+  }
+
+  .taskViewMode {
+    align-items: stretch;
     width: 100%;
   }
 
@@ -1717,13 +1787,29 @@ tr:hover td {
     width: 100%;
   }
 
-  .boardWorkflowMode {
-    justify-content: space-between;
+  .taskQuickGroup {
+    align-items: stretch;
+    flex-direction: column;
+    margin-left: 0;
     width: 100%;
   }
 
-  .boardWorkflowMode select {
-    min-width: 0;
+  .taskQuickButtons {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .taskQuickButtons button {
+    width: 100%;
+  }
+
+  .taskFiltersHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .taskFiltersToggle {
     width: 100%;
   }
 

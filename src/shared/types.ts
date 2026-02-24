@@ -165,8 +165,8 @@ export type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist'
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 export type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
 export type ChecklistSort = 'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'lead_asc' | 'lead_desc'
-export type TaskLayoutMode = 'list' | 'board'
-export type BoardWorkflowMode = 'grouped' | 'status'
+export type TaskLayoutMode = 'list' | 'board' | 'kanban'
+export type TaskQuickGroupBy = 'assignee' | 'project' | 'status' | 'due'
 
 export type ChecklistPreviewFilters = {
   eventName: string
@@ -213,7 +213,8 @@ export type QuickSearchScope = 'project' | 'task'
 export type BoardGroupKey = 'todo' | 'progress' | 'done' | 'other'
 
 export type TaskGroup = {
-  projectName: string
+  key: string
+  label: string
   tasks: TaskRecord[]
 }
 
