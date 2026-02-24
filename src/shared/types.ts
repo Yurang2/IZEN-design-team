@@ -229,6 +229,12 @@ export type ProjectTimelineRow = {
   barStyle: CSSProperties
 }
 
+export type ProjectTimelineGroup = {
+  project: ProjectRecord
+  tasks: ProjectTimelineRow[]
+  eventMarkerStyle: CSSProperties | null
+}
+
 export type ChecklistTableRow = {
   item: ChecklistPreviewItem
   assignedTaskId: string

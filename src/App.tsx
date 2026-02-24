@@ -714,7 +714,6 @@ function App() {
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
   const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
-  const [projectTimelineProjectId, setProjectTimelineProjectId] = useState('')
   const [apiCheckState, setApiCheckState] = useState<ApiCheckState>('idle')
   const [apiCheckMessage, setApiCheckMessage] = useState<string>('')
   const [exporting, setExporting] = useState(false)
@@ -1260,77 +1259,131 @@ function App() {
     return copy
   }, [projectDbOptions, projectSort])
 
-  useEffect(() => {
-    if (!sortedProjectDbOptions.length) {
-      setProjectTimelineProjectId('')
-      return
-    }
-    const exists = sortedProjectDbOptions.some((project) => project.id === projectTimelineProjectId)
-    if (!exists) {
-      setProjectTimelineProjectId(sortedProjectDbOptions[0].id)
-    }
-  }, [projectTimelineProjectId, sortedProjectDbOptions])
+  const projectTimelineTaskGroups = useMemo(() => {
+    const byProjectKey = new Map<string, TaskRecord[]>()
+    const byProjectName = new Map<string, TaskRecord[]>()
 
-  const selectedTimelineProject = useMemo(
-    () => sortedProjectDbOptions.find((project) => project.id === projectTimelineProjectId) ?? sortedProjectDbOptions[0] ?? null,
-    [projectTimelineProjectId, sortedProjectDbOptions],
-  )
+    for (const task of tasks) {
+      const taskProjectKey = normalizeNotionId(task.projectKey)
+      if (taskProjectKey) {
+        const bucket = byProjectKey.get(taskProjectKey) ?? []
+        bucket.push(task)
+        byProjectKey.set(taskProjectKey, bucket)
+      }
 
-  const projectTimelineTasks = useMemo(() => {
-    if (!selectedTimelineProject) return []
-    const projectKey = normalizeNotionId(selectedTimelineProject.id)
-    return tasks
-      .filter((task) => {
-        const taskProjectKey = normalizeNotionId(task.projectKey)
-        return taskProjectKey === projectKey || task.projectName === selectedTimelineProject.name
+      const taskProjectName = task.projectName.trim().toLowerCase()
+      if (taskProjectName) {
+        const bucket = byProjectName.get(taskProjectName) ?? []
+        bucket.push(task)
+        byProjectName.set(taskProjectName, bucket)
+      }
+    }
+
+    return sortedProjectDbOptions.map((project) => {
+      const projectKey = normalizeNotionId(project.id)
+      const projectName = project.name.trim().toLowerCase()
+      const seen = new Set<string>()
+      const matched: TaskRecord[] = []
+
+      const appendTasks = (items: TaskRecord[] | undefined) => {
+        if (!items) return
+        for (const item of items) {
+          if (seen.has(item.id)) continue
+          seen.add(item.id)
+          matched.push(item)
+        }
+      }
+
+      appendTasks(byProjectKey.get(projectKey))
+      appendTasks(byProjectName.get(projectName))
+
+      matched.sort((a, b) => {
+        const startCompare = asSortDate(a.startDate).localeCompare(asSortDate(b.startDate))
+        if (startCompare !== 0) return startCompare
+        const dueCompare = asSortDate(a.dueDate).localeCompare(asSortDate(b.dueDate))
+        if (dueCompare !== 0) return dueCompare
+        return a.taskName.localeCompare(b.taskName, 'ko')
       })
-      .sort((a, b) => asSortDate(a.startDate).localeCompare(asSortDate(b.startDate)))
-  }, [selectedTimelineProject, tasks])
+
+      return { project, tasks: matched }
+    })
+  }, [sortedProjectDbOptions, tasks])
 
   const projectTimelineRange = useMemo(() => {
-    const parsedStarts = projectTimelineTasks.map((task) => parseIsoDate(task.startDate)).filter((value): value is Date => Boolean(value))
-    const parsedEnds = projectTimelineTasks.map((task) => parseIsoDate(task.dueDate)).filter((value): value is Date => Boolean(value))
-    const points = [...parsedStarts, ...parsedEnds]
+    const points: Date[] = []
 
-    const fallback = parseIsoDate(selectedTimelineProject?.eventDate)
-    const today = new Date()
-    const start = points.length > 0 ? new Date(Math.min(...points.map((point) => point.getTime()))) : fallback ?? today
-    const end = points.length > 0 ? new Date(Math.max(...points.map((point) => point.getTime()))) : fallback ?? today
+    for (const group of projectTimelineTaskGroups) {
+      const projectDate = parseIsoDate(group.project.eventDate)
+      if (projectDate) points.push(projectDate)
+
+      for (const task of group.tasks) {
+        const taskStart = parseIsoDate(task.startDate)
+        const taskEnd = parseIsoDate(task.dueDate)
+        if (taskStart) points.push(taskStart)
+        if (taskEnd) points.push(taskEnd)
+      }
+    }
+
+    const today = parseIsoDate(toIsoDate(new Date())) ?? new Date()
+    let start = points.length > 0 ? new Date(Math.min(...points.map((point) => point.getTime()))) : today
+    let end = points.length > 0 ? new Date(Math.max(...points.map((point) => point.getTime()))) : today
+
+    start = addDays(start, -1)
+    end = addDays(end, 1)
 
     if (end < start) {
       return { start, end: start, totalDays: 1 }
     }
+
     return {
       start,
       end,
       totalDays: Math.max(1, diffDays(start, end) + 1),
     }
-  }, [projectTimelineTasks, selectedTimelineProject?.eventDate])
+  }, [projectTimelineTaskGroups])
 
-  const projectTimelineRows = useMemo(() => {
+  const projectTimelineGroups = useMemo(() => {
     const { start, totalDays } = projectTimelineRange
 
-    return projectTimelineTasks.map((task) => {
-      const startDate = parseIsoDate(task.startDate) ?? parseIsoDate(task.dueDate) ?? start
-      const dueDate = parseIsoDate(task.dueDate) ?? parseIsoDate(task.startDate) ?? startDate
-      const safeStart = startDate <= dueDate ? startDate : dueDate
-      const safeEnd = dueDate >= startDate ? dueDate : startDate
+    return projectTimelineTaskGroups.map(({ project, tasks: groupedTasks }) => {
+      const tasks = groupedTasks.map((task) => {
+        const taskStartDate = parseIsoDate(task.startDate) ?? parseIsoDate(task.dueDate) ?? start
+        const taskDueDate = parseIsoDate(task.dueDate) ?? parseIsoDate(task.startDate) ?? taskStartDate
+        const safeStart = taskStartDate <= taskDueDate ? taskStartDate : taskDueDate
+        const safeEnd = taskDueDate >= taskStartDate ? taskDueDate : taskStartDate
 
-      const offset = diffDays(start, safeStart)
-      const spanDays = Math.max(1, diffDays(safeStart, safeEnd) + 1)
-      const leftPct = Math.max(0, Math.min(100, (offset / totalDays) * 100))
-      const widthPct = Math.max(2, Math.min(100 - leftPct, (spanDays / totalDays) * 100))
-      const barStyle: CSSProperties = {
-        left: `${leftPct}%`,
-        width: `${widthPct}%`,
+        const offset = diffDays(start, safeStart)
+        const spanDays = Math.max(1, diffDays(safeStart, safeEnd) + 1)
+        const leftPct = Math.max(0, Math.min(100, (offset / totalDays) * 100))
+        const widthPct = Math.max(2, Math.min(100 - leftPct, (spanDays / totalDays) * 100))
+        const barStyle: CSSProperties = {
+          left: `${leftPct}%`,
+          width: `${widthPct}%`,
+        }
+
+        return {
+          task,
+          barStyle,
+        }
+      })
+
+      const eventDate = parseIsoDate(project.eventDate)
+      let eventMarkerStyle: CSSProperties | null = null
+      if (eventDate) {
+        const eventOffset = diffDays(start, eventDate)
+        const eventLeft = Math.max(0, Math.min(100, (eventOffset / totalDays) * 100))
+        eventMarkerStyle = {
+          left: `${eventLeft}%`,
+        }
       }
 
       return {
-        task,
-        barStyle,
+        project,
+        tasks,
+        eventMarkerStyle,
       }
     })
-  }, [projectTimelineRange, projectTimelineTasks])
+  }, [projectTimelineRange, projectTimelineTaskGroups])
 
   const quickSearchSections = useMemo(() => {
     const keyword = debouncedQuickSearch.trim().toLowerCase()
@@ -2250,15 +2303,11 @@ function App() {
         <ProjectsView
           sortedProjectDbOptions={sortedProjectDbOptions}
           projectSort={projectSort}
-          projectTimelineProjectId={projectTimelineProjectId}
-          projectTimelineRows={projectTimelineRows}
-          selectedTimelineProject={selectedTimelineProject}
+          projectTimelineGroups={projectTimelineGroups}
           projectTimelineRange={projectTimelineRange}
           loadingProjects={loadingProjects}
           onProjectSortChange={setProjectSort}
-          onProjectTimelineProjectIdChange={setProjectTimelineProjectId}
           onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
-          toProjectLabel={toProjectLabel}
           formatDateLabel={formatDateLabel}
           toIsoDate={toIsoDate}
           toNotionUrlById={toNotionUrlById}
