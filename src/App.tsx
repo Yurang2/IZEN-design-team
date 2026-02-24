@@ -252,6 +252,7 @@ const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
 const CHECKLIST_ASSIGNMENT_STORAGE_KEY = 'checklist-assignment-v1'
 const TOAST_LIFETIME_MS = 3600
+const AUTH_GATE_ENABLED = false
 
 const DEFAULT_FILTERS: Filters = {
   projectId: '',
@@ -682,9 +683,7 @@ function App() {
   const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
   const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>(initialListUiState.taskViewFilters)
   const debouncedFilterQ = useDebouncedValue(filters.q, 250)
-  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>(
-    USE_MOCK_DATA ? 'authenticated' : 'checking',
-  )
+  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>('authenticated')
   const [authPassword, setAuthPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -773,6 +772,12 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!AUTH_GATE_ENABLED) {
+      setAuthState('authenticated')
+      setAuthError(null)
+      return
+    }
+
     if (USE_MOCK_DATA) {
       setAuthState('authenticated')
       return
@@ -1828,7 +1833,7 @@ function App() {
     }
   }
 
-  if (authState !== 'authenticated') {
+  if (AUTH_GATE_ENABLED && authState !== 'authenticated') {
     const checking = authState === 'checking'
     return (
       <div className="page authGateShell">

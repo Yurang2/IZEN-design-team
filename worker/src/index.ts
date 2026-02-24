@@ -39,6 +39,7 @@ type AuthSessionPayload = {
 }
 
 function requiredAuthEnv(env: Env): string | null {
+  if (isAuthDisabled(env)) return null
   if (!env.PAGE_PASSWORD) return 'PAGE_PASSWORD'
   return null
 }
@@ -69,6 +70,10 @@ function isTruthy(value: string | undefined): boolean {
   if (!value) return false
   const normalized = value.trim().toLowerCase()
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on'
+}
+
+function isAuthDisabled(env: Env): boolean {
+  return isTruthy(asString(env.AUTH_DISABLED))
 }
 
 function normalizeOrigin(origin: string | undefined): string | null {
@@ -413,6 +418,7 @@ function hasValidAccessIdentity(request: Request, env: Env): boolean {
 }
 
 async function isAuthenticated(request: Request, env: Env): Promise<boolean> {
+  if (isAuthDisabled(env)) return true
   if (hasValidApiKey(request, env)) {
     return hasValidAccessIdentity(request, env)
   }
@@ -1192,6 +1198,17 @@ export default {
     }
 
     if (request.method === 'POST' && path === '/auth/login') {
+      if (isAuthDisabled(env)) {
+        return ok(
+          {
+            ok: true,
+            authenticated: true,
+            authDisabled: true,
+          },
+          origin,
+        )
+      }
+
       if (!hasValidAccessIdentity(request, env)) {
         return json(
           { ok: false, error: 'access_forbidden', message: 'Cloudflare Access policy check failed.' },

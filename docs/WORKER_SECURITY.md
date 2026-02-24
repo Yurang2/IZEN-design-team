@@ -22,6 +22,7 @@ The Worker API now enforces secure defaults:
 - `SESSION_SECRET` (recommended): cookie signing secret (fallback: `PAGE_PASSWORD`)
 - `SESSION_TTL_SECONDS` (default: `43200`, 12h)
 - `API_KEY` (optional): for server-to-server requests via `X-API-Key`
+- `AUTH_DISABLED` (default: `false`): if `true`, disables page-password/session enforcement (temporary use only)
 - `ALLOWED_ORIGINS` (recommended): comma-separated exact browser origins
 - `RATE_LIMIT_WINDOW_SECONDS` (default: `10`)
 - `RATE_LIMIT_MAX_REQUESTS` (default: `180`)

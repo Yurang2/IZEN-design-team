@@ -10,6 +10,8 @@ enabled = true
 # Optional: local/dev TTL override (seconds)
 [vars]
 API_CACHE_TTL_SECONDS = "60"
+# Temporary toggle: disable password/session auth gate.
+AUTH_DISABLED = "true"
 # PAGE_PASSWORD is required. Prefer setting it as a secret:
 # npx wrangler secret put PAGE_PASSWORD --config worker/wrangler.toml
 # PAGE_PASSWORD = "izenjsk_62988"

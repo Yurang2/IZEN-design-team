@@ -14,6 +14,7 @@ export interface Env {
   NOTION_PROJECT_DB_ID: string
   NOTION_CHECKLIST_DB_ID?: string
   PAGE_PASSWORD: string
+  AUTH_DISABLED?: string
   SESSION_SECRET?: string
   SESSION_TTL_SECONDS?: string
   API_KEY?: string
