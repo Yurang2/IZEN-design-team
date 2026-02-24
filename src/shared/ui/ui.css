@@ -1234,6 +1234,10 @@ textarea {
   gap: 6px;
 }
 
+.timelineDoneToggle {
+  min-height: 34px;
+}
+
 .timelineModeAssignee {
   align-items: center;
   display: inline-flex;
@@ -1608,6 +1612,21 @@ textarea {
   z-index: 2;
 }
 
+.projectTimelineEventBand {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.16) 0%, rgba(37, 99, 235, 0.08) 100%);
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: clamp(8px, 2.8%, 24px);
+  z-index: 1;
+}
+
+.projectTimelineEventBand.event-inline {
+  background: rgba(37, 99, 235, 0.11);
+}
+
 .projectTimelineEventMarker::before {
   background: #2563eb;
   content: '';
@@ -1627,6 +1646,11 @@ textarea {
   position: absolute;
   top: calc(50% - 4.5px);
   width: 9px;
+}
+
+.projectTimelineEventMarker.event-inline::before {
+  background: #1d4ed8;
+  opacity: 0.55;
 }
 
 .projectTimelineBar {
@@ -2000,6 +2024,10 @@ tr:hover td {
     display: grid;
     gap: 8px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .timelineDoneToggle {
     width: 100%;
   }
 

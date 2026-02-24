@@ -168,12 +168,22 @@ function todayUtcDate(): Date {
   return parseIsoDate(new Date().toISOString().slice(0, 10)) ?? new Date()
 }
 
+function normalizeStatusKey(status: string | undefined): string {
+  return (status ?? '').replace(/\s+/g, '')
+}
+
+function isDelayExcludedStatus(status: string | undefined): boolean {
+  const normalized = normalizeStatusKey(status)
+  return normalized === '보류' || normalized === '보관'
+}
+
 function riskBandForTask(
   task: ProjectTimelineTask['task'],
   tone: 'gray' | 'red' | 'blue' | 'green',
   today: Date,
 ): 'delayed' | 'urgent' | 'normal' | 'done' {
   if (tone === 'green') return 'done'
+  if (isDelayExcludedStatus(task.status)) return 'normal'
   if (tone === 'red') return 'delayed'
 
   const dueDate = parseIsoDate(task.dueDate)
@@ -383,6 +393,7 @@ export function ProjectsView({
 }: ProjectsViewProps) {
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('manage')
   const [workerAssignee, setWorkerAssignee] = useState('')
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false)
 
   const timelineAssigneeOptions = useMemo(() => {
     const uniqueNames = new Set<string>()
@@ -408,15 +419,13 @@ export function ProjectsView({
           byTaskTone.set(item.task.id, toStatusTone(item.task.status))
         }
 
-        let tasks = [...group.tasks]
-        if (timelineMode === 'work') {
-          tasks = tasks.filter((item) => {
-            const tone = toStatusTone(item.task.status)
-            if (tone === 'green') return false
-            if (!effectiveWorkerAssignee) return true
-            return item.task.assignee.includes(effectiveWorkerAssignee)
-          })
-        }
+        let tasks = [...group.tasks].filter((item) => {
+          const tone = toStatusTone(item.task.status)
+          if (!showCompletedTasks && tone === 'green') return false
+          if (timelineMode !== 'work') return true
+          if (!effectiveWorkerAssignee) return true
+          return item.task.assignee.includes(effectiveWorkerAssignee)
+        })
 
         tasks.sort((a, b) => {
           const toneA = toStatusTone(a.task.status)
@@ -445,6 +454,7 @@ export function ProjectsView({
           const reportFocused = tasks.filter((item) => {
             const tone = toStatusTone(item.task.status)
             const risk = riskBandForTask(item.task, tone, today)
+            if (showCompletedTasks && risk === 'done') return true
             return risk === 'delayed' || risk === 'urgent'
           })
           tasks = reportFocused.slice(0, 6)
@@ -459,7 +469,7 @@ export function ProjectsView({
         if (timelineMode === 'work') return group.tasks.length > 0
         return true
       })
-  }, [effectiveWorkerAssignee, projectTimelineGroups, timelineMode, toStatusTone])
+  }, [effectiveWorkerAssignee, projectTimelineGroups, showCompletedTasks, timelineMode, toStatusTone])
 
   const allTimelineModels = useMemo(() => {
     const map = new Map<string, ProjectTimelineModel>()
@@ -608,6 +618,9 @@ export function ProjectsView({
             업무용
           </button>
         </div>
+        <button type="button" className="secondary timelineDoneToggle" onClick={() => setShowCompletedTasks((prev) => !prev)}>
+          {showCompletedTasks ? '완료업무 접기' : '완료업무 펼치기'}
+        </button>
         {timelineMode === 'work' ? (
           <label className="timelineModeAssignee">
             담당자
@@ -776,6 +789,7 @@ export function ProjectsView({
 
                       <div className="projectTimelineTrack projectTimelineProjectTrack">
                         <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                        {model.eventMarkerStyle ? <span className="projectTimelineEventBand" style={model.eventMarkerStyle} aria-hidden="true" /> : null}
                         {model.rows.slice(0, 14).map((row) => (
                           <span key={`${row.item.task.id}-mini`} className={`projectTimelineMiniBar tone-${row.tone}`} style={row.barStyle} />
                         ))}
@@ -816,6 +830,12 @@ export function ProjectsView({
                             </div>
                             <div className="projectTimelineTrack">
                               <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                              {model.eventMarkerStyle ? (
+                                <>
+                                  <span className="projectTimelineEventBand event-inline" style={model.eventMarkerStyle} aria-hidden="true" />
+                                  <span className="projectTimelineEventMarker event-inline" style={model.eventMarkerStyle} aria-hidden="true" />
+                                </>
+                              ) : null}
                             </div>
                           </div>
                         ) : (
@@ -851,6 +871,12 @@ export function ProjectsView({
 
                                 <div className="projectTimelineTrack">
                                   <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                                  {model.eventMarkerStyle ? (
+                                    <>
+                                      <span className="projectTimelineEventBand event-inline" style={model.eventMarkerStyle} aria-hidden="true" />
+                                      <span className="projectTimelineEventMarker event-inline" style={model.eventMarkerStyle} aria-hidden="true" />
+                                    </>
+                                  ) : null}
                                   {row.dependencyGuideStyle ? (
                                     <span
                                       className={`projectTimelineDependencyGuide dir-${row.dependencyDirection ?? 'right'}`}
