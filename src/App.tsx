@@ -8,7 +8,6 @@ import { TasksView } from './features/tasks/TasksView'
 import { api, API_BASE_URL, USE_MOCK_DATA } from './shared/api/client'
 import { useDebouncedValue } from './shared/hooks/useDebouncedValue'
 import { useKeybinding } from './shared/hooks/useKeybinding'
-import { useLocalStorage } from './shared/hooks/useLocalStorage'
 import { ToastStack, type ToastItem, type ToastTone } from './shared/ui'
 import './App.css'
 import './shared/ui/ui.css'
@@ -65,6 +64,8 @@ type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
+  projectType?: string
+  eventCategory?: string
   iconEmoji?: string
   iconUrl?: string
   coverUrl?: string
@@ -100,11 +101,26 @@ type ChecklistPreviewItem = {
   workCategory: string
   finalDueText: string
   eventCategories: string[]
+  applicableProjectTypes: string[]
+  applicableEventCategories: string[]
   designLeadDays?: number
   productionLeadDays?: number
   bufferDays?: number
   totalLeadDays?: number
   computedDueDate?: string
+}
+
+type ChecklistAssignmentStatus = 'not_applicable' | 'unassigned' | 'assigned'
+
+type ChecklistAssignmentRow = {
+  id: string
+  key: string
+  projectPageId: string
+  checklistItemPageId: string
+  taskPageId: string | null
+  applicable: boolean
+  assignmentStatus: ChecklistAssignmentStatus
+  assignmentStatusText: string
 }
 
 type ChecklistPreviewResponse = {
@@ -119,8 +135,10 @@ type ChecklistPreviewResponse = {
 
 type ChecklistAssignmentsResponse = {
   ok: boolean
-  assignments: Record<string, string>
-  storageMode?: 'd1' | 'cache'
+  rows?: ChecklistAssignmentRow[]
+  row?: ChecklistAssignmentRow
+  assignments?: Record<string, string>
+  storageMode?: 'notion_matrix' | 'd1' | 'cache'
 }
 
 type ChecklistAssignmentsExportResponse = {
@@ -250,7 +268,6 @@ declare global {
 const POLLING_MS = 60_000
 const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
-const CHECKLIST_ASSIGNMENT_STORAGE_KEY = 'checklist-assignment-v1'
 const TOAST_LIFETIME_MS = 3600
 const AUTH_GATE_ENABLED = false
 
@@ -671,26 +688,31 @@ function computeChecklistDueDate(eventDate: string | undefined, item: ChecklistP
   return toIsoDate(addDays(base, -totalLead))
 }
 
-function toChecklistAssignmentKey(eventCategory: string, itemId: string, projectId?: string): string {
-  const projectKey = projectId?.replace(/-/g, '').trim().toLowerCase() || 'ALL_PROJECT'
-  const categoryKey = eventCategory.trim() || 'ALL'
-  return `${projectKey}::${categoryKey}::${itemId}`
+function checklistMatrixKey(projectPageId: string, checklistItemPageId: string): string {
+  return `${projectPageId}::${checklistItemPageId}`
 }
 
-function toLegacyChecklistAssignmentKey(eventCategory: string, itemId: string): string {
-  const categoryKey = eventCategory.trim() || 'ALL'
-  return `${categoryKey}::${itemId}`
+function toChecklistAssignmentLabel(status: ChecklistAssignmentStatus): string {
+  if (status === 'not_applicable') return '해당없음'
+  if (status === 'assigned') return '할당됨'
+  return '미할당'
 }
 
-function getChecklistAssignmentTaskId(
-  assignments: Record<string, string>,
-  eventCategory: string,
-  itemId: string,
-  projectId?: string,
-): string {
-  const nextKey = toChecklistAssignmentKey(eventCategory, itemId, projectId)
-  const legacyKey = toLegacyChecklistAssignmentKey(eventCategory, itemId)
-  return assignments[nextKey] ?? assignments[legacyKey] ?? ''
+function normalizeChecklistValue(value: string | undefined): string {
+  return (value ?? '').replace(/\s+/g, '').toLowerCase()
+}
+
+function includesChecklistValue(values: string[] | undefined, target: string | undefined): boolean {
+  const normalizedTarget = normalizeChecklistValue(target)
+  if (!normalizedTarget) return false
+  return (values ?? []).some((entry) => normalizeChecklistValue(entry) === normalizedTarget)
+}
+
+function checklistAppliesToProject(item: ChecklistPreviewItem, project: ProjectRecord | undefined): boolean {
+  if (!project) return false
+  const byProjectType = !item.applicableProjectTypes?.length || includesChecklistValue(item.applicableProjectTypes, project.projectType)
+  const byEventCategory = !item.applicableEventCategories?.length || includesChecklistValue(item.applicableEventCategories, project.eventCategory)
+  return Boolean(byProjectType && byEventCategory)
 }
 
 function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
@@ -759,11 +781,9 @@ function App() {
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState<string | null>(null)
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
-  const [assignmentStorageMode, setAssignmentStorageMode] = useState<'d1' | 'cache'>('cache')
-  const [assignmentByChecklist, setAssignmentByChecklist] = useLocalStorage<Record<string, string>>(
-    CHECKLIST_ASSIGNMENT_STORAGE_KEY,
-    {},
-  )
+  const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
+  const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
+  const [prioritizeUnassignedChecklist, setPrioritizeUnassignedChecklist] = useState(true)
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
   const [openProjectTimelineGroups, setOpenProjectTimelineGroups] = useState<Record<string, boolean>>({})
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
@@ -1066,15 +1086,22 @@ function App() {
     }
   }, [projects])
 
-  const fetchChecklistAssignments = useCallback(async () => {
-    try {
-      const response = await api<ChecklistAssignmentsResponse>('/checklist-assignments')
-      setAssignmentByChecklist(response.assignments ?? {})
-      if (response.storageMode) setAssignmentStorageMode(response.storageMode)
-    } catch {
-      // Server assignment store is optional; keep local cache fallback.
+  const fetchChecklistAssignments = useCallback(async (projectPageId?: string) => {
+    if (!projectPageId) {
+      setAssignmentRows([])
+      return
     }
-  }, [setAssignmentByChecklist])
+
+    try {
+      const response = await api<ChecklistAssignmentsResponse>(`/checklist-assignments?projectId=${encodeURIComponent(projectPageId)}`)
+      setAssignmentRows(response.rows ?? [])
+      if (response.storageMode) setAssignmentStorageMode(response.storageMode)
+      setAssignmentSyncError(null)
+    } catch (error: unknown) {
+      setAssignmentRows([])
+      setAssignmentSyncError(toErrorMessage(error, '체크리스트 할당 상태를 불러오지 못했습니다.'))
+    }
+  }, [])
 
   const runApiConnectionTest = useCallback(async () => {
     setApiCheckState('checking')
@@ -1165,12 +1192,6 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, fetchChecklistPreview, route.kind])
 
-  useEffect(() => {
-    if (authState !== 'authenticated') return
-    if (route.kind !== 'list') return
-    void fetchChecklistAssignments()
-  }, [authState, fetchChecklistAssignments, route.kind])
-
   const refreshListAndProjects = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTasks()])
   }, [fetchProjects, fetchTasks])
@@ -1230,6 +1251,7 @@ function App() {
 
     const byKey = new Map<string, TaskGroupBucket>()
     const today = parseIsoDate(toIsoDate(new Date())) ?? new Date()
+    const completedItems: TaskRecord[] = []
 
     const ensureBucket = (key: string, label: string, style: string, order: number, sortLabel: string): TaskGroupBucket => {
       const existing = byKey.get(key)
@@ -1248,6 +1270,12 @@ function App() {
     }
 
     for (const task of sortedFilteredTasks) {
+      const tone = toStatusTone(task.status)
+      if (tone === 'green') {
+        completedItems.push(task)
+        continue
+      }
+
       if (taskQuickGroupBy === 'project') {
         const label = task.projectName || '[UNKNOWN]'
         ensureBucket(`project:${label}`, label, 'project', 0, label).items.push(task)
@@ -1273,12 +1301,6 @@ function App() {
         continue
       }
 
-      const tone = toStatusTone(task.status)
-      if (tone === 'green') {
-        ensureBucket('due:done', '완료', 'due', 6, '완료').items.push(task)
-        continue
-      }
-
       const due = task.dueDate ? parseIsoDate(task.dueDate) : null
       if (!due) {
         ensureBucket('due:none', '마감일 미정', 'due', 5, '마감일 미정').items.push(task)
@@ -1297,6 +1319,10 @@ function App() {
       } else {
         ensureBucket('due:later', '30일 이후', 'due', 4, '30일 이후').items.push(task)
       }
+    }
+
+    if (completedItems.length > 0) {
+      ensureBucket('done:all', '완료', 'status', 10_000, '완료').items.push(...completedItems)
     }
 
     return Array.from(byKey.values()).sort((a, b) => {
@@ -1508,6 +1534,12 @@ function App() {
     [checklistFilters.eventName, projectDbOptions],
   )
 
+  useEffect(() => {
+    if (authState !== 'authenticated') return
+    if (route.kind !== 'list') return
+    void fetchChecklistAssignments(selectedChecklistProject?.id)
+  }, [authState, fetchChecklistAssignments, route.kind, selectedChecklistProject?.id])
+
   const sortedChecklistItems = useMemo(() => {
     const copy = [...checklistItems]
     copy.sort((a, b) => {
@@ -1542,28 +1574,65 @@ function App() {
     return map
   }, [tasks])
 
+  const assignmentRowByChecklistId = useMemo(() => {
+    const map = new Map<string, ChecklistAssignmentRow>()
+    for (const row of assignmentRows) {
+      if (
+        selectedChecklistProject &&
+        normalizeNotionId(row.projectPageId) !== normalizeNotionId(selectedChecklistProject.id)
+      ) {
+        continue
+      }
+      map.set(row.checklistItemPageId, row)
+    }
+    return map
+  }, [assignmentRows, selectedChecklistProject])
+
   const checklistRows = useMemo(() => {
-    return sortedChecklistItems.map((item) => {
-      const assignedTaskId = getChecklistAssignmentTaskId(
-        assignmentByChecklist,
-        checklistFilters.eventCategory,
-        item.id,
-        selectedChecklistProject?.id,
-      )
+    const rows = sortedChecklistItems.map((item, index) => {
+      const matrixRow = assignmentRowByChecklistId.get(item.id)
+      const fallbackApplicable = checklistAppliesToProject(item, selectedChecklistProject)
+      const assignedTaskId = matrixRow?.taskPageId ?? ''
       const assignedTask = assignedTaskId ? taskById.get(assignedTaskId) : undefined
       const totalLeadDays = getChecklistTotalLeadDays(item)
       const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
+      const assignmentStatus: ChecklistAssignmentStatus = matrixRow?.assignmentStatus ?? (fallbackApplicable ? 'unassigned' : 'not_applicable')
+      const assignmentStatusLabel = matrixRow?.assignmentStatusText?.trim() || toChecklistAssignmentLabel(assignmentStatus)
 
       return {
         item,
+        matrixKey: matrixRow?.key ?? (selectedChecklistProject ? checklistMatrixKey(selectedChecklistProject.id, item.id) : undefined),
+        assignmentStatus,
+        assignmentStatusLabel,
+        isApplicable: assignmentStatus !== 'not_applicable',
         assignedTaskId,
         assignedTaskLabel: assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName} (${joinOrDash(assignedTask.assignee)})` : '',
-        isAssigned: Boolean(assignedTaskId),
+        isAssigned: assignmentStatus === 'assigned',
         totalLeadDays,
         computedDueDate,
+        __sortIndex: index,
       }
     })
-  }, [assignmentByChecklist, checklistFilters.eventCategory, selectedChecklistProject?.eventDate, selectedChecklistProject?.id, sortedChecklistItems, taskById])
+
+    if (prioritizeUnassignedChecklist) {
+      const rank = (status: ChecklistAssignmentStatus): number => {
+        if (status === 'unassigned') return 0
+        if (status === 'assigned') return 1
+        return 2
+      }
+      rows.sort((a, b) => {
+        const rankDiff = rank(a.assignmentStatus) - rank(b.assignmentStatus)
+        if (rankDiff !== 0) return rankDiff
+        return a.__sortIndex - b.__sortIndex
+      })
+    }
+
+    return rows.map((entry) => {
+      const copy = { ...entry }
+      delete (copy as { __sortIndex?: number }).__sortIndex
+      return copy
+    })
+  }, [assignmentRowByChecklistId, prioritizeUnassignedChecklist, selectedChecklistProject, sortedChecklistItems, taskById])
 
   useEffect(() => {
     setOpenTaskGroups((prev) => {
@@ -1638,12 +1707,7 @@ function App() {
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
-    ? getChecklistAssignmentTaskId(
-        assignmentByChecklist,
-        checklistFilters.eventCategory,
-        assignmentTarget.itemId,
-        selectedChecklistProject?.id,
-      )
+    ? assignmentRowByChecklistId.get(assignmentTarget.itemId)?.taskPageId ?? ''
     : ''
   const hasQuickSearchResults = quickSearchSections.projects.length > 0 || quickSearchSections.tasks.length > 0
 
@@ -1766,30 +1830,77 @@ function App() {
   }
 
   const setChecklistAssignment = async (itemId: string, taskId: string) => {
-    const key = toChecklistAssignmentKey(checklistFilters.eventCategory, itemId, selectedChecklistProject?.id)
-    const legacyKey = toLegacyChecklistAssignmentKey(checklistFilters.eventCategory, itemId)
-    const previous = assignmentByChecklist
-    const next = { ...previous }
-    delete next[legacyKey]
-    if (!taskId) {
-      delete next[key]
-    } else {
-      next[key] = taskId
+    const projectPageId = selectedChecklistProject?.id
+    if (!projectPageId) {
+      const message = '체크리스트 할당 전에 프로젝트를 먼저 선택해주세요.'
+      setAssignmentSyncError(message)
+      pushToast('error', message)
+      return
     }
-    setAssignmentByChecklist(next)
+
+    const previousRows = assignmentRows
+    const key = checklistMatrixKey(projectPageId, itemId)
+    setAssignmentRows((prev) => {
+      const index = prev.findIndex(
+        (row) =>
+          normalizeNotionId(row.projectPageId) === normalizeNotionId(projectPageId) &&
+          normalizeNotionId(row.checklistItemPageId) === normalizeNotionId(itemId),
+      )
+
+      const fallback: ChecklistAssignmentRow = {
+        id: key,
+        key,
+        projectPageId,
+        checklistItemPageId: itemId,
+        taskPageId: null,
+        applicable: true,
+        assignmentStatus: 'unassigned',
+        assignmentStatusText: '미할당',
+      }
+
+      const current = index >= 0 ? prev[index] : fallback
+      const nextStatus: ChecklistAssignmentStatus = current.assignmentStatus === 'not_applicable' ? 'not_applicable' : taskId ? 'assigned' : 'unassigned'
+      const nextRow: ChecklistAssignmentRow = {
+        ...current,
+        taskPageId: taskId || null,
+        assignmentStatus: nextStatus,
+        assignmentStatusText: toChecklistAssignmentLabel(nextStatus),
+      }
+
+      if (index >= 0) {
+        const copy = [...prev]
+        copy[index] = nextRow
+        return copy
+      }
+
+      return [...prev, nextRow]
+    })
     setAssignmentSyncError(null)
 
     try {
       const response = await api<ChecklistAssignmentsResponse>('/checklist-assignments', {
         method: 'POST',
         body: JSON.stringify({
-          eventCategory: checklistFilters.eventCategory,
-          projectId: selectedChecklistProject?.id ?? null,
-          itemId,
-          taskId: taskId || null,
+          projectPageId,
+          checklistItemPageId: itemId,
+          taskPageId: taskId || null,
         }),
       })
-      setAssignmentByChecklist(response.assignments ?? next)
+
+      if (response.rows) {
+        setAssignmentRows(response.rows)
+      } else if (response.row) {
+        setAssignmentRows((prev) => {
+          const index = prev.findIndex((row) => row.id === response.row?.id)
+          if (index < 0) return [...prev, response.row as ChecklistAssignmentRow]
+          const copy = [...prev]
+          copy[index] = response.row as ChecklistAssignmentRow
+          return copy
+        })
+      } else {
+        await fetchChecklistAssignments(projectPageId)
+      }
+
       if (response.storageMode) setAssignmentStorageMode(response.storageMode)
       if (taskId) {
         pushToast('success', '체크리스트 할당이 저장되었습니다.')
@@ -1797,7 +1908,7 @@ function App() {
         pushToast('success', '체크리스트 할당을 해제했습니다.')
       }
     } catch (error: unknown) {
-      setAssignmentByChecklist(previous)
+      setAssignmentRows(previousRows)
       const message = toErrorMessage(error, '체크리스트 할당 저장에 실패했습니다.')
       setAssignmentSyncError(message)
       pushToast('error', message)
@@ -2446,6 +2557,7 @@ function App() {
           checklistError={checklistError}
           assignmentSyncError={assignmentSyncError}
           assignmentStorageMode={assignmentStorageMode}
+          prioritizeUnassignedChecklist={prioritizeUnassignedChecklist}
           projectDbOptions={projectDbOptions}
           selectedChecklistProject={selectedChecklistProject}
           rows={checklistRows}
@@ -2453,6 +2565,7 @@ function App() {
           onChecklistSubmit={onChecklistSubmit}
           onChecklistReset={onChecklistReset}
           onChecklistSortChange={setChecklistSort}
+          onTogglePrioritizeUnassignedChecklist={setPrioritizeUnassignedChecklist}
           onOpenAssignmentPicker={onOpenAssignmentPicker}
           onClearAssignment={(itemId) => setChecklistAssignment(itemId, '')}
           toProjectLabel={toProjectLabel}

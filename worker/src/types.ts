@@ -13,6 +13,7 @@ export interface Env {
   NOTION_TASK_DB_ID: string
   NOTION_PROJECT_DB_ID: string
   NOTION_CHECKLIST_DB_ID?: string
+  NOTION_CHECKLIST_ASSIGNMENT_DB_ID?: string
   PAGE_PASSWORD: string
   AUTH_DISABLED?: string
   SESSION_SECRET?: string
@@ -83,6 +84,8 @@ export type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
+  projectType?: string
+  eventCategory?: string
   iconEmoji?: string
   iconUrl?: string
   coverUrl?: string
@@ -122,6 +125,8 @@ export type ChecklistPreviewItem = {
   workCategory: string
   finalDueText: string
   eventCategories: string[]
+  applicableProjectTypes: string[]
+  applicableEventCategories: string[]
   designLeadDays?: number
   productionLeadDays?: number
   bufferDays?: number
@@ -132,6 +137,19 @@ export type ChecklistPreviewItem = {
   domesticOffsetBusinessDays?: number
   overseasOffsetBusinessDays?: number
   computedDueDate?: string
+}
+
+export type ChecklistAssignmentStatus = 'not_applicable' | 'unassigned' | 'assigned'
+
+export type ChecklistAssignmentRow = {
+  id: string
+  key: string
+  projectPageId: string
+  checklistItemPageId: string
+  taskPageId: string | null
+  applicable: boolean
+  assignmentStatus: ChecklistAssignmentStatus
+  assignmentStatusText: string
 }
 
 export type CreateTaskInput = {

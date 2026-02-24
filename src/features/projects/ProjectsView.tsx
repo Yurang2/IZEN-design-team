@@ -213,6 +213,14 @@ function sortTaskByDue(a: ProjectTimelineTask['task'], b: ProjectTimelineTask['t
   return a.taskName.localeCompare(b.taskName, 'ko')
 }
 
+function overloadReason(entry: { active: number; delayed: number; urgent: number }): string {
+  const reasons: string[] = []
+  if (entry.delayed >= 2) reasons.push(`지연 ${entry.delayed}건`)
+  if (entry.urgent >= 4) reasons.push(`임박 ${entry.urgent}건`)
+  if (entry.active >= 6) reasons.push(`활성 ${entry.active}건`)
+  return reasons.join(' / ')
+}
+
 function buildTimelineRange(group: ProjectTimelineGroup): TimelineRange {
   const points: Date[] = []
   const eventDate = parseIsoDate(group.project.eventDate)
@@ -526,7 +534,7 @@ export function ProjectsView({
     for (const group of projectTimelineGroups) {
       for (const item of group.tasks) {
         const tone = toStatusTone(item.task.status)
-        if (tone === 'green') continue
+        if (tone === 'green' || isDelayExcludedStatus(item.task.status)) continue
         const risk = riskBandForTask(item.task, tone, todayUtcDate())
         const names = item.task.assignee.length > 0 ? item.task.assignee : ['담당 미지정']
         for (const name of names) {
@@ -550,7 +558,6 @@ export function ProjectsView({
         if (a.urgent !== b.urgent) return b.urgent - a.urgent
         return b.active - a.active
       })
-      .slice(0, 6)
 
     const conflictCount = Array.from(conflictCounter.values()).filter((count) => count > 1).length
 
@@ -726,9 +733,13 @@ export function ProjectsView({
               </article>
             </section>
           ) : null}
-          {timelineMode === 'manage' && timelineSummary.overloadedAssignees.length > 0 ? (
+          {timelineMode === 'manage' ? (
             <section className="timelineMilestoneList">
               <h4>담당자 과부하 TOP</h4>
+              <p className="muted small">기준: 활성 6건 이상 또는 지연 2건 이상 또는 임박 4건 이상. 완료/보류/보관은 제외합니다.</p>
+              {timelineSummary.overloadedAssignees.length === 0 ? (
+                <p className="muted small">현재 기준에 해당하는 과부하 담당자가 없습니다.</p>
+              ) : null}
               <ul>
                 {timelineSummary.overloadedAssignees.map((entry) => (
                   <li key={entry.name}>
@@ -736,6 +747,7 @@ export function ProjectsView({
                     <span>활성 {entry.active}</span>
                     <span>지연 {entry.delayed}</span>
                     <span>임박 {entry.urgent}</span>
+                    <span>{overloadReason(entry)}</span>
                   </li>
                 ))}
               </ul>

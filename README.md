@@ -14,7 +14,19 @@ Firebase는 제거되었고, 백엔드는 Workers만 사용합니다.
   - 프로젝트 목록 + `종속 업무 타임라인` 표시
 - 체크리스트:
   - 행사 체크리스트 조회/역산
-  - 할당 키를 `프로젝트 + 행사구분 + 제작물` 기준으로 분리 저장
+  - 할당 소스: 노션 `행사-체크리스트 할당 매트릭스` DB (업서트 키: `projectPageId::checklistItemPageId`)
+  - 분류 기준:
+    - 프로젝트 유형: `전시회 | 행사 | 교육 | 내부업무 | 기타 | 제품개발`
+    - 행사구분: 노션 운영 기준값을 그대로 사용 (코드에 고정 카테고리 하드코딩 금지)
+    - 현재 운영 행사구분(예시):
+      - 이젠 자체 행사(국내)
+      - 이젠 자체 행사(해외)
+      - 전시회 참가(자사/국내)
+      - 전시회 참가(자사/해외)
+      - 딜러 자체 행사(딜러/지원)
+      - 딜러 자체 행사(딜러/미지원)
+      - 전시회 참가(딜러/지원)
+      - 전시회 참가(딜러/미지원)
 - 백업:
   - 수동 Export 버튼 제공
   - `storageMode=cache`면 로그가 비거나 적은 것이 정상
@@ -230,11 +242,15 @@ GET /api/projects
 - `operationMode`: `self | dealer`
 - `fulfillmentMode`: `domestic | overseas | dealer`
 
-### 7) GET `/api/checklist-assignments`
+### 7) GET `/api/checklist-assignments?projectId=...`
+
+- 설명: 선택 프로젝트 기준 매트릭스 행 조회 + 누락된 적용 항목 자동 생성
 
 - 설명: 체크리스트 할당 상태 조회
 
 ### 8) POST `/api/checklist-assignments`
+
+- 설명: `projectPageId + checklistItemPageId` 기준 업서트, `taskPageId` relation 저장/해제
 
 - 설명: 체크리스트 항목을 업무(Task ID)에 할당/해제
 
@@ -391,6 +407,6 @@ npm run deploy:worker
   - Board 상태 그룹화 + 파스텔 상태 색상 적용
   - Board 워크플로우 모드(`그룹형/상태형`) 전환 추가
   - 프로젝트 탭 `종속 업무 타임라인` 뷰 추가
-  - 체크리스트 할당 키를 `프로젝트 + 행사구분 + 제작물`로 확장
+  - 체크리스트 할당 저장소를 노션 `행사-체크리스트 할당 매트릭스` DB 기반 업서트로 전환 (`projectPageId::checklistItemPageId`)
   - Worker 배포 스크립트(run-worker.sh) 경로 이슈 수정
   - Firebase Studio/Web Preview용 mock 데이터 모드(`src/mock/mockApi.ts`) 추가

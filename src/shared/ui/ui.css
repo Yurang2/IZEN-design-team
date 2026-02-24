@@ -891,8 +891,18 @@ button.boardCard:hover {
   color: var(--danger-text);
 }
 
+.assignmentBadge.notApplicable {
+  background: #eef2f7;
+  color: #6b7280;
+}
+
 .assignmentCell {
   max-width: 380px;
+}
+
+.checklistRow.isNotApplicable {
+  background: #fbfcfe;
+  color: #6b7280;
 }
 
 button.secondary.mini,
@@ -1084,6 +1094,7 @@ textarea {
 }
 
 .projectIconEmoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', sans-serif;
   font-size: 18px;
   line-height: 1;
 }

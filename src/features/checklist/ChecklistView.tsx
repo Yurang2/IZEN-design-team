@@ -15,7 +15,8 @@ type ChecklistViewProps = {
   checklistLoading: boolean
   checklistError: string | null
   assignmentSyncError: string | null
-  assignmentStorageMode: 'd1' | 'cache'
+  assignmentStorageMode: 'notion_matrix' | 'd1' | 'cache'
+  prioritizeUnassignedChecklist: boolean
   projectDbOptions: ProjectRecord[]
   selectedChecklistProject: ProjectRecord | undefined
   rows: ChecklistTableRow[]
@@ -23,6 +24,7 @@ type ChecklistViewProps = {
   onChecklistSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
   onChecklistReset: () => Promise<void>
   onChecklistSortChange: (nextSort: ChecklistSort) => void
+  onTogglePrioritizeUnassignedChecklist: (nextValue: boolean) => void
   onOpenAssignmentPicker: (item: ChecklistPreviewItem) => void
   onClearAssignment: (itemId: string) => Promise<void>
   toProjectLabel: (project: ProjectRecord) => string
@@ -72,6 +74,7 @@ export function ChecklistView({
   checklistError,
   assignmentSyncError,
   assignmentStorageMode,
+  prioritizeUnassignedChecklist,
   projectDbOptions,
   selectedChecklistProject,
   rows,
@@ -79,6 +82,7 @@ export function ChecklistView({
   onChecklistSubmit,
   onChecklistReset,
   onChecklistSortChange,
+  onTogglePrioritizeUnassignedChecklist,
   onOpenAssignmentPicker,
   onClearAssignment,
   toProjectLabel,
@@ -174,8 +178,22 @@ export function ChecklistView({
         </div>
       </form>
       <p className="muted small">행사명은 프로젝트 DB에서 선택합니다. 영업일 역산은 주말/한국 공휴일을 제외해 계산하며, 오프셋은 DB에 숫자로 관리합니다.</p>
-      <p className="muted small">할당은 프로젝트(행사) + 행사구분 + 제작물 기준으로 분리 저장됩니다.</p>
-      <p className="muted small">할당 저장소: {assignmentStorageMode === 'd1' ? 'D1(영구저장 + 로그)' : 'Cache(임시저장)'}</p>
+      <label className="checkboxLabel flat">
+        <input
+          type="checkbox"
+          checked={prioritizeUnassignedChecklist}
+          onChange={(event) => onTogglePrioritizeUnassignedChecklist(event.target.checked)}
+        />
+        미할당 우선 정렬
+      </label>
+      <p className="muted small">
+        할당 저장소:{' '}
+        {assignmentStorageMode === 'notion_matrix'
+          ? '노션 행사-체크리스트 할당 매트릭스(단일 소스)'
+          : assignmentStorageMode === 'd1'
+            ? 'D1(레거시 보조)'
+            : 'Cache(레거시 보조)'}
+      </p>
       {selectedChecklistProject ? (
         <p className="muted small projectPreviewLine">
           {toProjectThumbUrl(selectedChecklistProject) ? <img className="projectPreviewImage" src={toProjectThumbUrl(selectedChecklistProject)} alt="" /> : null}
@@ -232,7 +250,7 @@ export function ChecklistView({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.item.id}>
+                <tr key={row.item.id} className={row.assignmentStatus === 'not_applicable' ? 'checklistRow isNotApplicable' : 'checklistRow'}>
                   <td>{row.item.productName || '-'}</td>
                   <td>{row.item.workCategory || '-'}</td>
                   <td>{row.item.designLeadDays ?? '-'}</td>
@@ -241,16 +259,30 @@ export function ChecklistView({
                   <td>{row.computedDueDate ? `${formatDateLabel(row.computedDueDate)} (${row.computedDueDate})` : '-'}</td>
                   <td>{row.item.finalDueText || '-'}</td>
                   <td>
-                    <span className={row.isAssigned ? 'assignmentBadge assigned' : 'assignmentBadge unassigned'}>
-                      {row.isAssigned ? '할당됨' : '미할당'}
+                    <span
+                      className={`assignmentBadge ${
+                        row.assignmentStatus === 'not_applicable'
+                          ? 'notApplicable'
+                          : row.assignmentStatus === 'assigned'
+                            ? 'assigned'
+                            : 'unassigned'
+                      }`}
+                    >
+                      {row.assignmentStatusLabel}
                     </span>
                   </td>
                   <td className="assignmentCell">{row.assignedTaskLabel || '-'}</td>
                   <td>
-                    <Button type="button" variant="secondary" size="mini" onClick={() => onOpenAssignmentPicker(row.item)}>
-                      {row.isAssigned ? '변경' : '할당'}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="mini"
+                      disabled={!row.isApplicable}
+                      onClick={() => onOpenAssignmentPicker(row.item)}
+                    >
+                      {row.isApplicable ? (row.isAssigned ? '변경' : '할당') : '미해당'}
                     </Button>
-                    {row.isAssigned ? (
+                    {row.isApplicable && row.isAssigned ? (
                       <Button type="button" variant="secondary" size="mini" onClick={() => void onClearAssignment(row.item.id)}>
                         해제
                       </Button>

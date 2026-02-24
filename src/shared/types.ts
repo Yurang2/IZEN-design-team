@@ -50,6 +50,8 @@ export type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
+  projectType?: string
+  eventCategory?: string
   iconEmoji?: string
   iconUrl?: string
   coverUrl?: string
@@ -85,11 +87,26 @@ export type ChecklistPreviewItem = {
   workCategory: string
   finalDueText: string
   eventCategories: string[]
+  applicableProjectTypes: string[]
+  applicableEventCategories: string[]
   designLeadDays?: number
   productionLeadDays?: number
   bufferDays?: number
   totalLeadDays?: number
   computedDueDate?: string
+}
+
+export type ChecklistAssignmentStatus = 'not_applicable' | 'unassigned' | 'assigned'
+
+export type ChecklistAssignmentRow = {
+  id: string
+  key: string
+  projectPageId: string
+  checklistItemPageId: string
+  taskPageId: string | null
+  applicable: boolean
+  assignmentStatus: ChecklistAssignmentStatus
+  assignmentStatusText: string
 }
 
 export type ChecklistPreviewResponse = {
@@ -104,8 +121,10 @@ export type ChecklistPreviewResponse = {
 
 export type ChecklistAssignmentsResponse = {
   ok: boolean
-  assignments: Record<string, string>
-  storageMode?: 'd1' | 'cache'
+  rows?: ChecklistAssignmentRow[]
+  row?: ChecklistAssignmentRow
+  assignments?: Record<string, string>
+  storageMode?: 'notion_matrix' | 'd1' | 'cache'
 }
 
 export type ChecklistAssignmentsExportResponse = {
@@ -238,6 +257,10 @@ export type ProjectTimelineGroup = {
 
 export type ChecklistTableRow = {
   item: ChecklistPreviewItem
+  matrixKey?: string
+  assignmentStatus: ChecklistAssignmentStatus
+  assignmentStatusLabel: string
+  isApplicable: boolean
   assignedTaskId: string
   assignedTaskLabel: string
   isAssigned: boolean
