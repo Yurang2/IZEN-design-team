@@ -1,0 +1,240 @@
+﻿export type Route =
+  | {
+      kind: 'list'
+    }
+  | {
+      kind: 'task'
+      id: string
+    }
+
+export type ApiSchemaField = {
+  key: string
+  expectedName: string
+  expectedTypes: string[]
+  actualName: string
+  actualType: string
+  status: 'exact' | 'fallback' | 'missing' | 'mismatch'
+  optional?: boolean
+  options: string[]
+}
+
+export type ApiSchemaSummary = {
+  fields: Record<string, ApiSchemaField>
+  unknownFields: ApiSchemaField[]
+  projectBindingMode: 'relation' | 'select' | 'unknown'
+}
+
+export type TaskRecord = {
+  id: string
+  url: string
+  projectKey: string
+  projectName: string
+  projectSource: 'relation' | 'select' | 'unknown'
+  requester: string[]
+  workType: string
+  taskName: string
+  status: string
+  assignee: string[]
+  startDate?: string
+  dueDate?: string
+  detail: string
+  priority?: string
+  urgent?: boolean
+  issue?: string
+}
+
+export type ProjectRecord = {
+  id: string
+  key: string
+  bindingValue: string
+  name: string
+  eventDate?: string
+  iconEmoji?: string
+  iconUrl?: string
+  coverUrl?: string
+  source: 'project_db' | 'task_select'
+}
+
+export type ListTasksResponse = {
+  ok: boolean
+  tasks: TaskRecord[]
+  nextCursor?: string
+  hasMore: boolean
+  schema: ApiSchemaSummary
+  cacheTtlMs: number
+}
+
+export type TaskResponse = {
+  ok: boolean
+  task: TaskRecord
+  schema: ApiSchemaSummary
+  cacheTtlMs?: number
+}
+
+export type ProjectsResponse = {
+  ok: boolean
+  projects: ProjectRecord[]
+  schema: ApiSchemaSummary
+  cacheTtlMs: number
+}
+
+export type ChecklistPreviewItem = {
+  id: string
+  productName: string
+  workCategory: string
+  finalDueText: string
+  eventCategories: string[]
+  designLeadDays?: number
+  productionLeadDays?: number
+  bufferDays?: number
+  totalLeadDays?: number
+  computedDueDate?: string
+}
+
+export type ChecklistPreviewResponse = {
+  ok: boolean
+  eventName: string
+  eventCategory: string
+  availableCategories: string[]
+  count: number
+  items: ChecklistPreviewItem[]
+  cacheTtlMs: number
+}
+
+export type ChecklistAssignmentsResponse = {
+  ok: boolean
+  assignments: Record<string, string>
+  storageMode?: 'd1' | 'cache'
+}
+
+export type ChecklistAssignmentsExportResponse = {
+  ok: boolean
+  exportedAt: string
+  storageMode: 'd1' | 'cache'
+  counts: {
+    assignments: number
+    logs: number
+  }
+  limits: {
+    logLimit: number
+  }
+  assignments: Record<string, string>
+  logs: Array<{
+    id: number
+    key: string
+    projectId?: string
+    eventCategory: string
+    itemId: string
+    previousTaskId: string | null
+    taskId: string | null
+    action: string
+    actor: string | null
+    ip: string | null
+    userAgent: string | null
+    createdAt: number
+  }>
+}
+
+export type MetaResponse = {
+  ok: boolean
+  databases: {
+    project: { id: string; url: string | null }
+    task: { id: string; url: string | null }
+    checklist: { id: string | null; url: string | null }
+  }
+}
+
+export type Filters = {
+  projectId: string
+  status: string
+  q: string
+}
+
+export type TaskViewFilters = {
+  workType: string
+  assignee: string
+  requester: string
+  dueFrom: string
+  dueTo: string
+  urgentOnly: boolean
+  hideDone: boolean
+}
+
+export type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist'
+
+export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
+export type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
+export type ChecklistSort = 'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'lead_asc' | 'lead_desc'
+export type TaskLayoutMode = 'list' | 'board'
+export type BoardWorkflowMode = 'grouped' | 'status'
+
+export type ChecklistPreviewFilters = {
+  eventName: string
+  eventCategory: string
+  shippingDate: string
+  operationMode: '' | 'self' | 'dealer'
+  fulfillmentMode: '' | 'domestic' | 'overseas' | 'dealer'
+}
+
+export type ChecklistAssignmentTarget = {
+  itemId: string
+  productName: string
+  workCategory: string
+}
+
+export type CreateForm = {
+  projectValue: string
+  taskName: string
+  workType: string
+  status: string
+  assigneeText: string
+  startDate: string
+  dueDate: string
+  detail: string
+}
+
+export type DetailForm = {
+  projectValue: string
+  taskName: string
+  requesterText: string
+  workType: string
+  status: string
+  assigneeText: string
+  startDate: string
+  dueDate: string
+  detail: string
+  priority: string
+  urgent: boolean
+  issue: string
+}
+
+export type ApiCheckState = 'idle' | 'checking' | 'ok' | 'error'
+export type QuickSearchScope = 'project' | 'task'
+export type BoardGroupKey = 'todo' | 'progress' | 'done' | 'other'
+
+export type TaskGroup = {
+  projectName: string
+  tasks: TaskRecord[]
+}
+
+export type BoardColumn = {
+  key: string
+  label: string
+  items: TaskRecord[]
+  style: string
+}
+
+export type ProjectTimelineRow = {
+  task: TaskRecord
+  barStyle: CSSProperties
+}
+
+export type ChecklistTableRow = {
+  item: ChecklistPreviewItem
+  assignedTaskId: string
+  assignedTaskLabel: string
+  isAssigned: boolean
+  totalLeadDays?: number
+  computedDueDate?: string
+}
+import type { CSSProperties } from 'react'

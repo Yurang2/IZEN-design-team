@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react'
-import { mockApiRequest } from './mock/mockApi'
+import { AssignmentModal } from './features/checklist/AssignmentModal'
+import { ChecklistView } from './features/checklist/ChecklistView'
+import { ProjectsView } from './features/projects/ProjectsView'
+import { TaskDetailView } from './features/taskDetail/TaskDetailView'
+import { TaskCreateModal } from './features/tasks/TaskCreateModal'
+import { TasksView } from './features/tasks/TasksView'
+import { api, API_BASE_URL, USE_MOCK_DATA } from './shared/api/client'
+import { useDebouncedValue } from './shared/hooks/useDebouncedValue'
+import { useKeybinding } from './shared/hooks/useKeybinding'
+import { useLocalStorage } from './shared/hooks/useLocalStorage'
 import './App.css'
+import './shared/ui/ui.css'
 
 type Route =
   | {
@@ -403,19 +413,6 @@ function toStatusTone(status: string | undefined): 'gray' | 'red' | 'blue' | 'gr
   return 'gray'
 }
 
-function toNonEmpty(value: string | null | undefined): string | undefined {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed : undefined
-}
-
-function normalizeApiBase(value: string): string {
-  const trimmed = value.trim().replace(/\/+$/, '')
-  if (!trimmed) return '/api'
-  if (trimmed === '/api' || trimmed.endsWith('/api')) return trimmed
-  if (trimmed.startsWith('/')) return `${trimmed}/api`
-  return `${trimmed}/api`
-}
-
 function parseRoute(pathname: string): Route {
   const cleaned = pathname.replace(/\/+$/, '') || '/'
   if (cleaned === '/') {
@@ -559,103 +556,15 @@ function getChecklistAssignmentTaskId(
   return assignments[nextKey] ?? assignments[legacyKey] ?? ''
 }
 
-function getApiBaseFromRuntime(): string {
-  const buildTimeBaseUrl =
-    toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ??
-    toNonEmpty(import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined) ??
-    '/api'
-
-  if (typeof window === 'undefined') {
-    return normalizeApiBase(buildTimeBaseUrl)
-  }
-
-  const queryValue = toNonEmpty(new URLSearchParams(window.location.search).get('apiBase'))
-  if (queryValue) {
-    const normalized = normalizeApiBase(queryValue)
-    window.localStorage.setItem('API_BASE_URL', normalized)
-    window.localStorage.setItem('FUNCTIONS_BASE_URL', normalized)
-    return normalized
-  }
-
-  const runtimeBaseUrl =
-    toNonEmpty(window.__APP_CONFIG__?.API_BASE_URL) ?? toNonEmpty(window.__APP_CONFIG__?.FUNCTIONS_BASE_URL)
-  if (runtimeBaseUrl) return normalizeApiBase(runtimeBaseUrl)
-
-  const stored =
-    toNonEmpty(window.localStorage.getItem('API_BASE_URL')) ??
-    toNonEmpty(window.localStorage.getItem('FUNCTIONS_BASE_URL'))
-  if (stored) return normalizeApiBase(stored)
-
-  return normalizeApiBase(buildTimeBaseUrl)
-}
-
-function getMockDataModeFromRuntime(): boolean {
-  const envFlag = toNonEmpty(import.meta.env.VITE_USE_MOCK_DATA as string | undefined)
-  if (envFlag && ['1', 'true', 'yes', 'on'].includes(envFlag.toLowerCase())) return true
-  if (typeof window === 'undefined') return false
-
-  const query = new URLSearchParams(window.location.search)
-  const queryFlag = toNonEmpty(query.get('demo')) ?? toNonEmpty(query.get('mock'))
-  if (queryFlag && ['1', 'true', 'yes', 'on'].includes(queryFlag.toLowerCase())) return true
-
-  const stored = toNonEmpty(window.localStorage.getItem('USE_MOCK_DATA'))
-  return Boolean(stored && ['1', 'true', 'yes', 'on'].includes(stored.toLowerCase()))
-}
-
-const USE_MOCK_DATA = getMockDataModeFromRuntime()
-const API_BASE_URL = USE_MOCK_DATA ? 'mock://local' : getApiBaseFromRuntime()
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-
-  if (USE_MOCK_DATA) {
-    return mockApiRequest<T>(normalizedPath, init)
-  }
-
-  const headers = new Headers(init?.headers ?? undefined)
-  const method = (init?.method ?? 'GET').toUpperCase()
-  if (!headers.has('Content-Type') && init?.body != null && method !== 'GET' && method !== 'HEAD') {
-    headers.set('Content-Type', 'application/json')
-  }
-
-  const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
-    ...init,
-    headers,
-  })
-  const contentType = (response.headers.get('Content-Type') || '').toLowerCase()
-  const raw = await response.text()
-  const trimmed = raw.trim()
-  const looksHtml = trimmed.toLowerCase().startsWith('<!doctype') || trimmed.toLowerCase().startsWith('<html')
-
-  if (!response.ok) {
-    let message = `HTTP ${response.status}`
-    try {
-      const body = JSON.parse(raw) as { error?: string; message?: string }
-      if (body.message) message = `${message}: ${body.message}`
-      else if (body.error) message = `${message}: ${body.error}`
-    } catch {
-      if (looksHtml) {
-        message = `${message}: API가 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API를 가리키는지 확인하세요.`
-      } else if (trimmed) {
-        message = `${message}: ${trimmed.slice(0, 120)}`
-      }
-    }
-    throw new Error(message)
-  }
-
-  if (!contentType.includes('application/json')) {
-    if (looksHtml) {
-      throw new Error(`API가 JSON 대신 HTML을 반환했습니다. VITE_API_BASE_URL(${API_BASE_URL})이 Worker API 주소인지 확인하세요.`)
-    }
-    throw new Error(`API 응답 타입이 JSON이 아닙니다: ${contentType || 'unknown'}`)
-  }
-
-  return JSON.parse(raw) as T
-}
-
 function schemaUnknownMessage(schema: ApiSchemaSummary | null): string[] {
   if (!schema) return []
   return schema.unknownFields.map((field) => `${field.expectedName} (${field.expectedTypes.join('|')}) -> [UNKNOWN]`)
+}
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === 'string' && error.trim()) return error
+  return fallback
 }
 
 function App() {
@@ -670,6 +579,7 @@ function App() {
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
   const [quickSearch, setQuickSearch] = useState('')
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
+  const debouncedQuickSearch = useDebouncedValue(quickSearch, 0)
   const quickSearchInputRef = useRef<HTMLInputElement | null>(null)
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
@@ -717,7 +627,10 @@ function App() {
   const [checklistError, setChecklistError] = useState<string | null>(null)
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'d1' | 'cache'>('cache')
-  const [assignmentByChecklist, setAssignmentByChecklist] = useState<Record<string, string>>({})
+  const [assignmentByChecklist, setAssignmentByChecklist] = useLocalStorage<Record<string, string>>(
+    CHECKLIST_ASSIGNMENT_STORAGE_KEY,
+    {},
+  )
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
@@ -819,8 +732,8 @@ function App() {
       if (hasMore && page >= MAX_TASK_PAGES) {
         setListError('업무가 매우 많아 일부만 표시될 수 있습니다. 필터를 좁혀 주세요.')
       }
-    } catch (error: any) {
-      setListError(error?.message ?? '업무 목록을 불러오지 못했습니다.')
+    } catch (error: unknown) {
+      setListError(toErrorMessage(error, '업무 목록을 불러오지 못했습니다.'))
     } finally {
       setLoadingList(false)
     }
@@ -867,8 +780,8 @@ function App() {
       const response = await api<ChecklistPreviewResponse>(path)
       setChecklistItems(response.items)
       setChecklistCategories(response.availableCategories)
-    } catch (error: any) {
-      setChecklistError(error?.message ?? '체크리스트 미리보기를 불러오지 못했습니다.')
+    } catch (error: unknown) {
+      setChecklistError(toErrorMessage(error, '체크리스트 미리보기를 불러오지 못했습니다.'))
     } finally {
       setChecklistLoading(false)
     }
@@ -882,7 +795,7 @@ function App() {
     } catch {
       // Server assignment store is optional; keep local cache fallback.
     }
-  }, [])
+  }, [setAssignmentByChecklist])
 
   const runApiConnectionTest = useCallback(async () => {
     setApiCheckState('checking')
@@ -894,9 +807,9 @@ function App() {
       ])
       setApiCheckState('ok')
       setApiCheckMessage(`정상 연결: 프로젝트 ${projects.projects.length}건, 체크리스트 ${checklists.items.length}건`)
-    } catch (error: any) {
+    } catch (error: unknown) {
       setApiCheckState('error')
-      setApiCheckMessage(error?.message ?? 'API 연결 확인 실패')
+      setApiCheckMessage(toErrorMessage(error, 'API 연결 확인 실패'))
     }
   }, [])
 
@@ -920,8 +833,8 @@ function App() {
           ? `${summary} · D1 미연결이라 로그가 누적되지 않습니다.`
           : summary,
       )
-    } catch (error: any) {
-      setExportMessage(error?.message ?? '내보내기에 실패했습니다.')
+    } catch (error: unknown) {
+      setExportMessage(toErrorMessage(error, '내보내기에 실패했습니다.'))
     } finally {
       setExporting(false)
     }
@@ -930,31 +843,13 @@ function App() {
   useEffect(() => {
     if (route.kind !== 'list') return
     void fetchChecklistPreview(checklistFilters)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchChecklistPreview, route.kind])
 
   useEffect(() => {
     if (route.kind !== 'list') return
     void fetchChecklistAssignments()
   }, [fetchChecklistAssignments, route.kind])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const raw = window.localStorage.getItem(CHECKLIST_ASSIGNMENT_STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as Record<string, string>
-      if (parsed && typeof parsed === 'object') {
-        setAssignmentByChecklist(parsed)
-      }
-    } catch {
-      // ignore broken local cache
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem(CHECKLIST_ASSIGNMENT_STORAGE_KEY, JSON.stringify(assignmentByChecklist))
-  }, [assignmentByChecklist])
 
   const refreshListAndProjects = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTasks()])
@@ -1163,7 +1058,7 @@ function App() {
   }, [projectTimelineRange, projectTimelineTasks])
 
   const quickSearchSections = useMemo(() => {
-    const keyword = quickSearch.trim().toLowerCase()
+    const keyword = debouncedQuickSearch.trim().toLowerCase()
     if (!keyword) {
       return { projects: [] as ProjectRecord[], tasks: [] as TaskRecord[] }
     }
@@ -1177,7 +1072,7 @@ function App() {
       .slice(0, 8)
 
     return { projects, tasks: matchedTasks }
-  }, [projectDbOptions, quickSearch, tasks])
+  }, [debouncedQuickSearch, projectDbOptions, tasks])
 
   const selectedChecklistProject = useMemo(
     () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
@@ -1211,6 +1106,29 @@ function App() {
   }, [projectDbOptions])
 
   const taskById = useMemo(() => Object.fromEntries(tasks.map((task) => [task.id, task])) as Record<string, TaskRecord>, [tasks])
+
+  const checklistRows = useMemo(() => {
+    return sortedChecklistItems.map((item) => {
+      const assignedTaskId = getChecklistAssignmentTaskId(
+        assignmentByChecklist,
+        checklistFilters.eventCategory,
+        item.id,
+        selectedChecklistProject?.id,
+      )
+      const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
+      const totalLeadDays = getChecklistTotalLeadDays(item)
+      const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
+
+      return {
+        item,
+        assignedTaskId,
+        assignedTaskLabel: assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName} (${joinOrDash(assignedTask.assignee)})` : '',
+        isAssigned: Boolean(assignedTaskId),
+        totalLeadDays,
+        computedDueDate,
+      }
+    })
+  }, [assignmentByChecklist, checklistFilters.eventCategory, selectedChecklistProject?.eventDate, selectedChecklistProject?.id, sortedChecklistItems, taskById])
 
   useEffect(() => {
     setOpenTaskGroups((prev) => {
@@ -1311,22 +1229,20 @@ function App() {
     }
   }
 
-  useEffect(() => {
-    const onKeydown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setSidebarCollapsed(false)
-        setQuickSearchOpen(true)
-        window.setTimeout(() => {
-          quickSearchInputRef.current?.focus()
-          quickSearchInputRef.current?.select()
-        }, 0)
-      }
-    }
-
-    window.addEventListener('keydown', onKeydown)
-    return () => window.removeEventListener('keydown', onKeydown)
+  const openQuickSearch = useCallback(() => {
+    setSidebarCollapsed(false)
+    setQuickSearchOpen(true)
+    window.setTimeout(() => {
+      quickSearchInputRef.current?.focus()
+      quickSearchInputRef.current?.select()
+    }, 0)
   }, [])
+
+  useKeybinding({
+    key: 'k',
+    ctrlOrMeta: true,
+    onTrigger: openQuickSearch,
+  })
 
   const onChangeFilter = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
@@ -1424,9 +1340,9 @@ function App() {
       })
       setAssignmentByChecklist(response.assignments ?? next)
       if (response.storageMode) setAssignmentStorageMode(response.storageMode)
-    } catch (error: any) {
+    } catch (error: unknown) {
       setAssignmentByChecklist(previous)
-      setAssignmentSyncError(error?.message ?? '체크리스트 할당 저장에 실패했습니다.')
+      setAssignmentSyncError(toErrorMessage(error, '체크리스트 할당 저장에 실패했습니다.'))
     }
   }
 
@@ -1460,9 +1376,9 @@ function App() {
 
       setTasks((prev) => prev.map((task) => (task.id === taskId ? response.task : task)))
       setSchema(response.schema)
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTasks(previous)
-      setListError(error?.message ?? '상태 변경에 실패했습니다.')
+      setListError(toErrorMessage(error, '상태 변경에 실패했습니다.'))
     } finally {
       setStatusUpdatingIds((prev) => ({ ...prev, [taskId]: false }))
     }
@@ -1516,8 +1432,8 @@ function App() {
 
       await refreshListAndProjects()
       navigate(`/task/${encodeURIComponent(created.task.id)}`)
-    } catch (error: any) {
-      setListError(error?.message ?? '업무 생성에 실패했습니다.')
+    } catch (error: unknown) {
+      setListError(toErrorMessage(error, '업무 생성에 실패했습니다.'))
     } finally {
       setCreateSubmitting(false)
     }
@@ -1546,8 +1462,8 @@ function App() {
           urgent: Boolean(response.task.urgent),
           issue: response.task.issue ?? '',
         })
-      } catch (error: any) {
-        setDetailError(error?.message ?? '업무 상세를 불러오지 못했습니다.')
+      } catch (error: unknown) {
+        setDetailError(toErrorMessage(error, '업무 상세를 불러오지 못했습니다.'))
       } finally {
         setDetailLoading(false)
       }
@@ -1615,8 +1531,8 @@ function App() {
       setDetailTask(response.task)
       setSchema(response.schema)
       await refreshListAndProjects()
-    } catch (error: any) {
-      setDetailError(error?.message ?? '업무 저장에 실패했습니다.')
+    } catch (error: unknown) {
+      setDetailError(toErrorMessage(error, '업무 저장에 실패했습니다.'))
     } finally {
       setDetailSaving(false)
     }
@@ -1624,126 +1540,21 @@ function App() {
 
   if (route.kind === 'task') {
     return (
-      <div className="page">
-        <header className="header">
-          <h1>업무 상세</h1>
-          <p>Notion DB 기반 단일 업무 조회/수정</p>
-        </header>
-
-        <div className="toolbar">
-          <button type="button" className="secondary" onClick={() => navigate('/')}>
-            목록으로
-          </button>
-          {detailTask?.url ? (
-            <a className="linkButton" href={detailTask.url} target="_blank" rel="noreferrer">
-              Notion 원본 열기
-            </a>
-          ) : null}
-        </div>
-
-        {unknownMessages.length > 0 ? (
-          <section className="warningBox">
-            <strong>스키마 경고 ([UNKNOWN] fallback)</strong>
-            <ul>
-              {unknownMessages.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {detailLoading ? <p className="muted">상세 로딩 중...</p> : null}
-        {detailError ? <p className="error">{detailError}</p> : null}
-
-        {!detailLoading && detailForm ? (
-          <form className="detailForm" onSubmit={onDetailSubmit}>
-            <label>
-              귀속 프로젝트
-              <select name="projectValue" value={detailForm.projectValue} onChange={onDetailInput}>
-                <option value="">선택 안 함</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.bindingValue}>
-                    {toProjectLabel(project)} {project.source === 'task_select' ? '(select)' : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              업무
-              <input name="taskName" value={detailForm.taskName} onChange={onDetailInput} required />
-            </label>
-
-            <label>
-              요청주체
-              <input name="requesterText" value={detailForm.requesterText} onChange={onDetailInput} placeholder="쉼표로 구분" />
-            </label>
-
-            <label>
-              업무구분
-              <input name="workType" list="workTypeOptions" value={detailForm.workType} onChange={onDetailInput} />
-            </label>
-
-            <label>
-              상태
-              <input name="status" list="statusOptions" value={detailForm.status} onChange={onDetailInput} />
-            </label>
-
-            <label>
-              담당자
-              <input name="assigneeText" value={detailForm.assigneeText} onChange={onDetailInput} placeholder="쉼표로 구분" />
-            </label>
-
-            <label>
-              시작일
-              <input type="date" name="startDate" value={detailForm.startDate} onChange={onDetailInput} />
-            </label>
-
-            <label>
-              마감일
-              <input type="date" name="dueDate" value={detailForm.dueDate} onChange={onDetailInput} />
-            </label>
-
-            <label>
-              우선순위
-              <input name="priority" value={detailForm.priority} onChange={onDetailInput} />
-            </label>
-
-            <label className="checkboxLabel">
-              <input type="checkbox" name="urgent" checked={detailForm.urgent} onChange={onDetailInput} />
-              긴급
-            </label>
-
-            <label>
-              이슈
-              <textarea name="issue" value={detailForm.issue} onChange={onDetailInput} rows={3} />
-            </label>
-
-            <label className="fullWidth">
-              업무상세
-              <textarea name="detail" value={detailForm.detail} onChange={onDetailInput} rows={8} />
-            </label>
-
-            <div className="actions fullWidth">
-              <button type="submit" disabled={detailSaving}>
-                {detailSaving ? '저장 중...' : '저장'}
-              </button>
-            </div>
-          </form>
-        ) : null}
-
-        <datalist id="statusOptions">
-          {statusOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-
-        <datalist id="workTypeOptions">
-          {workTypeOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-      </div>
+      <TaskDetailView
+        detailTask={detailTask}
+        detailForm={detailForm}
+        detailLoading={detailLoading}
+        detailSaving={detailSaving}
+        detailError={detailError}
+        unknownMessages={unknownMessages}
+        projects={projects}
+        statusOptions={statusOptions}
+        workTypeOptions={workTypeOptions}
+        onBack={() => navigate('/')}
+        onDetailInput={onDetailInput}
+        onDetailSubmit={onDetailSubmit}
+        toProjectLabel={toProjectLabel}
+      />
     )
   }
 
@@ -1772,14 +1583,7 @@ function App() {
           <button
             type="button"
             className="secondary sidebarSearchIconBtn"
-            onClick={() => {
-              setSidebarCollapsed(false)
-              setQuickSearchOpen(true)
-              window.setTimeout(() => {
-                quickSearchInputRef.current?.focus()
-                quickSearchInputRef.current?.select()
-              }, 0)
-            }}
+            onClick={openQuickSearch}
             title="빠른 이동 / 검색"
             aria-label="빠른 이동 / 검색"
           >
@@ -2047,110 +1851,36 @@ function App() {
         {exportMessage ? <p className={exportMessage.includes('실패') ? 'error' : 'muted'}>{exportMessage}</p> : null}
 
       {activeView === 'tasks' ? (
-        <section className="filters">
-          <label>
-            프로젝트
-            <select name="projectId" value={filters.projectId} onChange={onChangeFilter}>
-              <option value="">전체</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.bindingValue}>
-                  {toProjectLabel(project)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            상태
-            <select name="status" value={filters.status} onChange={onChangeFilter}>
-              <option value="">전체</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            검색
-            <input name="q" value={filters.q} onChange={onChangeFilter} placeholder="업무/상세 검색" />
-          </label>
-
-          <label>
-            정렬
-            <select name="taskSort" value={taskSort} onChange={(event) => setTaskSort(event.target.value as TaskSort)}>
-              <option value="due_asc">마감일 빠른순</option>
-              <option value="due_desc">마감일 늦은순</option>
-              <option value="start_asc">시작일 빠른순</option>
-              <option value="start_desc">시작일 늦은순</option>
-              <option value="status_asc">상태 오름차순</option>
-              <option value="name_asc">업무명 오름차순</option>
-            </select>
-          </label>
-
-          <label>
-            업무구분
-            <select name="workType" value={taskViewFilters.workType} onChange={onTaskViewFilterChange}>
-              <option value="">전체</option>
-              {workTypeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            담당자
-            <select name="assignee" value={taskViewFilters.assignee} onChange={onTaskViewFilterChange}>
-              <option value="">전체</option>
-              {assigneeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            요청주체
-            <select name="requester" value={taskViewFilters.requester} onChange={onTaskViewFilterChange}>
-              <option value="">전체</option>
-              {requesterOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            마감일 시작
-            <input type="date" name="dueFrom" value={taskViewFilters.dueFrom} onChange={onTaskViewFilterChange} />
-          </label>
-
-          <label>
-            마감일 끝
-            <input type="date" name="dueTo" value={taskViewFilters.dueTo} onChange={onTaskViewFilterChange} />
-          </label>
-
-          <label className="checkboxLabel flat">
-            <input type="checkbox" name="urgentOnly" checked={taskViewFilters.urgentOnly} onChange={onTaskViewFilterChange} />
-            긴급만 보기
-          </label>
-
-          <label className="checkboxLabel flat">
-            <input type="checkbox" name="hideDone" checked={taskViewFilters.hideDone} onChange={onTaskViewFilterChange} />
-            완료/보관 숨기기
-          </label>
-
-          <div className="filtersActions">
-            <button type="button" className="secondary" onClick={onTaskViewFilterReset}>
-              업무 필터 초기화
-            </button>
-          </div>
-        </section>
+        <TasksView
+          taskLayout={taskLayout}
+          projects={projects}
+          filters={filters}
+          statusOptions={statusOptions}
+          taskSort={taskSort}
+          taskViewFilters={taskViewFilters}
+          workTypeOptions={workTypeOptions}
+          assigneeOptions={assigneeOptions}
+          requesterOptions={requesterOptions}
+          groupedTasks={groupedTasks}
+          boardColumns={boardColumns}
+          projectByName={projectByName}
+          openTaskGroups={openTaskGroups}
+          statusUpdatingIds={statusUpdatingIds}
+          loadingList={loadingList}
+          listError={listError}
+          unknownMessages={unknownMessages}
+          onChangeFilter={onChangeFilter}
+          onTaskSortChange={setTaskSort}
+          onTaskViewFilterChange={onTaskViewFilterChange}
+          onTaskViewFilterReset={onTaskViewFilterReset}
+          onToggleTaskGroup={onToggleTaskGroup}
+          onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
+          onQuickStatusChange={onQuickStatusChange}
+          toProjectLabel={toProjectLabel}
+          joinOrDash={joinOrDash}
+          unique={unique}
+          toStatusTone={toStatusTone}
+        />
       ) : null}
 
       {activeView === 'schedule' ? (
@@ -2160,530 +1890,73 @@ function App() {
       ) : null}
 
       {activeView === 'checklist' ? (
-        <section className="checklistPreview">
-          <div className="checklistPreviewHeader">
-            <h2>행사 체크리스트</h2>
-            <p>행사구분으로 항목을 고르고 결과를 확인합니다. 노션 체크리스트 DB의 계산용 오프셋을 사용합니다.</p>
-          </div>
-
-          <form className="checklistPreviewFilters" onSubmit={onChecklistSubmit}>
-            <label>
-              행사명
-              <select name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
-                <option value="">프로젝트 선택 안 함</option>
-                {projectDbOptions.map((project) => (
-                  <option key={project.id} value={project.name}>
-                    {toProjectLabel(project)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              행사구분
-              <select name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
-                <option value="">전체</option>
-                {checklistCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              배송일(해외 출고 기준)
-              <input
-                type="text"
-                name="shippingDate"
-                value={checklistFilters.shippingDate}
-                onChange={onChecklistInput}
-                placeholder="YYYY-MM-DD"
-                inputMode="numeric"
-                maxLength={10}
-              />
-            </label>
-
-            <label>
-              운영 방식
-              <select name="operationMode" value={checklistFilters.operationMode} onChange={onChecklistInput}>
-                <option value="">전체</option>
-                <option value="self">자체</option>
-                <option value="dealer">딜러</option>
-              </select>
-            </label>
-
-            <label>
-              배송 방식
-              <select name="fulfillmentMode" value={checklistFilters.fulfillmentMode} onChange={onChecklistInput}>
-                <option value="">전체</option>
-                <option value="domestic">국내</option>
-                <option value="overseas">해외</option>
-                <option value="dealer">딜러</option>
-              </select>
-            </label>
-
-            <label>
-              정렬
-              <select value={checklistSort} onChange={(event) => setChecklistSort(event.target.value as ChecklistSort)}>
-                <option value="due_asc">완료예정일 빠른순</option>
-                <option value="due_desc">완료예정일 늦은순</option>
-                <option value="name_asc">제작물 이름 오름차순</option>
-                <option value="name_desc">제작물 이름 내림차순</option>
-                <option value="lead_asc">총 소요일 짧은순</option>
-                <option value="lead_desc">총 소요일 긴순</option>
-              </select>
-            </label>
-
-            <div className="checklistPreviewActions">
-              <button type="submit" disabled={checklistLoading}>
-                {checklistLoading ? '조회 중...' : '체크리스트 보기'}
-              </button>
-              <button type="button" className="secondary" onClick={() => void onChecklistReset()} disabled={checklistLoading}>
-                초기화
-              </button>
-            </div>
-          </form>
-          <p className="muted small">
-            행사명은 프로젝트 DB에서 선택합니다. 영업일 역산은 주말/한국 공휴일을 제외해 계산하며, 오프셋은 DB에 숫자로 관리합니다.
-          </p>
-          <p className="muted small">할당은 프로젝트(행사) + 행사구분 + 제작물 기준으로 분리 저장됩니다.</p>
-          <p className="muted small">할당 저장소: {assignmentStorageMode === 'd1' ? 'D1(영구저장 + 로그)' : 'Cache(임시저장)'}</p>
-          {selectedChecklistProject ? (
-            <p className="muted small projectPreviewLine">
-              {toProjectThumbUrl(selectedChecklistProject) ? (
-                <img className="projectPreviewImage" src={toProjectThumbUrl(selectedChecklistProject)} alt="" />
-              ) : null}
-              선택 행사: {selectedChecklistProject.name}
-            </p>
-          ) : null}
-          {selectedChecklistProject?.eventDate ? (
-            <p className="muted small">
-              기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)} ({selectedChecklistProject.eventDate})
-            </p>
-          ) : null}
-
-          {checklistError ? <p className="error">{checklistError}</p> : null}
-          {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
-          {!checklistError ? <p className="muted">조회 결과: {sortedChecklistItems.length}건</p> : null}
-
-          {sortedChecklistItems.length > 0 ? (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>제작물</th>
-                    <th>작업분류</th>
-                    <th>디자인 소요(일)</th>
-                    <th>실물 제작 소요(일)</th>
-                    <th>총 소요(일)</th>
-                    <th>역산 완료 예정일</th>
-                    <th>최종 완료 시점</th>
-                    <th>작업할당여부</th>
-                    <th>할당 업무</th>
-                    <th>액션</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedChecklistItems.map((item) => {
-                    const assignedTaskId = getChecklistAssignmentTaskId(
-                      assignmentByChecklist,
-                      checklistFilters.eventCategory,
-                      item.id,
-                      selectedChecklistProject?.id,
-                    )
-                    const assignedTask = assignedTaskId ? taskById[assignedTaskId] : undefined
-                    const isAssigned = Boolean(assignedTaskId)
-                    const totalLeadDays = getChecklistTotalLeadDays(item)
-                    const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
-                    return (
-                      <tr key={item.id}>
-                        <td>{item.productName || '-'}</td>
-                        <td>{item.workCategory || '-'}</td>
-                        <td>{item.designLeadDays ?? '-'}</td>
-                        <td>{item.productionLeadDays ?? '-'}</td>
-                        <td>{totalLeadDays ?? '-'}</td>
-                        <td>{computedDueDate ? `${formatDateLabel(computedDueDate)} (${computedDueDate})` : '-'}</td>
-                        <td>{item.finalDueText || '-'}</td>
-                        <td>
-                          <span className={isAssigned ? 'assignmentBadge assigned' : 'assignmentBadge unassigned'}>
-                            {isAssigned ? '할당됨' : '미할당'}
-                          </span>
-                        </td>
-                        <td className="assignmentCell">
-                          {assignedTask ? `[${assignedTask.projectName}] ${assignedTask.taskName} (${joinOrDash(assignedTask.assignee)})` : '-'}
-                        </td>
-                        <td>
-                          <button type="button" className="secondary mini" onClick={() => onOpenAssignmentPicker(item)}>
-                            {isAssigned ? '변경' : '할당'}
-                          </button>
-                          {isAssigned ? (
-                            <button type="button" className="secondary mini" onClick={() => void setChecklistAssignment(item.id, '')}>
-                              해제
-                            </button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </section>
+        <ChecklistView
+          checklistFilters={checklistFilters}
+          checklistCategories={checklistCategories}
+          checklistSort={checklistSort}
+          checklistLoading={checklistLoading}
+          checklistError={checklistError}
+          assignmentSyncError={assignmentSyncError}
+          assignmentStorageMode={assignmentStorageMode}
+          projectDbOptions={projectDbOptions}
+          selectedChecklistProject={selectedChecklistProject}
+          rows={checklistRows}
+          onChecklistInput={onChecklistInput}
+          onChecklistSubmit={onChecklistSubmit}
+          onChecklistReset={onChecklistReset}
+          onChecklistSortChange={setChecklistSort}
+          onOpenAssignmentPicker={onOpenAssignmentPicker}
+          onClearAssignment={(itemId) => setChecklistAssignment(itemId, '')}
+          toProjectLabel={toProjectLabel}
+          toProjectThumbUrl={toProjectThumbUrl}
+          formatDateLabel={formatDateLabel}
+        />
       ) : null}
 
       {activeView === 'projects' ? (
-        <section className="projectSection">
-          <header className="projectHeader">
-            <h2>프로젝트 목록</h2>
-            <span>{sortedProjectDbOptions.length}건</span>
-          </header>
-          <section className="filters compact">
-            <label>
-              정렬
-              <select value={projectSort} onChange={(event) => setProjectSort(event.target.value as ProjectSort)}>
-                <option value="name_asc">이름 오름차순</option>
-                <option value="name_desc">이름 내림차순</option>
-                <option value="date_asc">행사일 빠른순</option>
-                <option value="date_desc">행사일 늦은순</option>
-              </select>
-            </label>
-            <label>
-              종속 업무 타임라인 대상
-              <select value={projectTimelineProjectId} onChange={(event) => setProjectTimelineProjectId(event.target.value)}>
-                {sortedProjectDbOptions.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {toProjectLabel(project)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </section>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>프로젝트</th>
-                  <th>행사일</th>
-                  <th>Notion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedProjectDbOptions.map((project) => (
-                  <tr key={project.id}>
-                    <td>
-                      <span className="projectTitle">
-                        {project.coverUrl ? <img className="projectCoverImage" src={project.coverUrl} alt="" /> : null}
-                        {project.iconUrl ? <img className="projectIconImage" src={project.iconUrl} alt="" /> : null}
-                        {project.iconEmoji ? <span className="projectIconEmoji">{project.iconEmoji}</span> : null}
-                        <span>{project.name}</span>
-                      </span>
-                    </td>
-                    <td>{project.eventDate ? `${formatDateLabel(project.eventDate)} (${project.eventDate})` : '-'}</td>
-                    <td>
-                      {toNotionUrlById(project.id) ? (
-                        <a className="linkButton secondary mini" href={toNotionUrlById(project.id) ?? undefined} target="_blank" rel="noreferrer">
-                          열기
-                        </a>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <section className="projectTimelineSection">
-            <header className="projectTimelineHeader">
-              <h3>종속 업무 타임라인</h3>
-              <span>{projectTimelineRows.length}건</span>
-            </header>
-
-            {selectedTimelineProject ? (
-              <p className="muted small">
-                대상 프로젝트: {toProjectLabel(selectedTimelineProject)} · 범위: {formatDateLabel(toIsoDate(projectTimelineRange.start))} ~{' '}
-                {formatDateLabel(toIsoDate(projectTimelineRange.end))}
-              </p>
-            ) : null}
-
-            {projectTimelineRows.length === 0 ? (
-              <p className="muted">선택한 프로젝트에 귀속된 업무가 없습니다.</p>
-            ) : (
-              <div className="projectTimelineList">
-                {projectTimelineRows.map(({ task, barStyle }) => (
-                  <article key={task.id} className="projectTimelineRow">
-                    <div className="projectTimelineTask">
-                      <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
-                        {task.taskName}
-                      </button>
-                      <span className="projectTimelineMeta">
-                        {task.projectName} · 담당: {joinOrDash(task.assignee)} · 상태: {task.status || '-'}
-                      </span>
-                    </div>
-
-                    <div className="projectTimelineTrack">
-                      <div className={`projectTimelineBar tone-${toStatusTone(task.status)}`} style={barStyle} />
-                    </div>
-
-                    <div className="projectTimelineDates">
-                      <span>{task.startDate || '-'}</span>
-                      <span>~</span>
-                      <span>{task.dueDate || '-'}</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </section>
+        <ProjectsView
+          sortedProjectDbOptions={sortedProjectDbOptions}
+          projectSort={projectSort}
+          projectTimelineProjectId={projectTimelineProjectId}
+          projectTimelineRows={projectTimelineRows}
+          selectedTimelineProject={selectedTimelineProject}
+          projectTimelineRange={projectTimelineRange}
+          onProjectSortChange={setProjectSort}
+          onProjectTimelineProjectIdChange={setProjectTimelineProjectId}
+          onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
+          toProjectLabel={toProjectLabel}
+          formatDateLabel={formatDateLabel}
+          toIsoDate={toIsoDate}
+          toNotionUrlById={toNotionUrlById}
+          joinOrDash={joinOrDash}
+          toStatusTone={toStatusTone}
+        />
       ) : null}
 
-      {activeView === 'tasks' && unknownMessages.length > 0 ? (
-        <section className="warningBox">
-          <strong>스키마 경고 ([UNKNOWN] fallback)</strong>
-          <ul>
-            {unknownMessages.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <AssignmentModal
+        assignmentTarget={assignmentTarget}
+        assignmentSearch={assignmentSearch}
+        assignmentProjectFilter={assignmentProjectFilter}
+        assignmentProjectOptions={assignmentProjectOptions}
+        assignmentCandidates={assignmentCandidates}
+        assignmentTargetCurrentTaskId={assignmentTargetCurrentTaskId}
+        onClose={() => setAssignmentTarget(null)}
+        onAssignmentSearchChange={setAssignmentSearch}
+        onAssignmentProjectFilterChange={setAssignmentProjectFilter}
+        onSelectAssignmentTask={onSelectAssignmentTask}
+        joinOrDash={joinOrDash}
+      />
 
-      {activeView === 'tasks' ? <>{loadingList ? <p className="muted">업무 목록 로딩 중...</p> : null}</> : null}
-      {activeView === 'tasks' ? <>{listError ? <p className="error">{listError}</p> : null}</> : null}
-
-      {activeView === 'tasks' ? (
-        taskLayout === 'list' ? (
-          <section className="projectGroups">
-            {groupedTasks.map((group) => {
-              const groupProject = projectByName.get(group.projectName)
-              return (
-              <article className="projectSection" key={group.projectName}>
-                <header className="projectHeader">
-                  <button type="button" className="taskGroupToggle" onClick={() => onToggleTaskGroup(group.projectName)}>
-                    {openTaskGroups[group.projectName] === false ? '펼치기' : '접기'}
-                  </button>
-                  <h2 className="projectTitle">
-                    {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
-                    {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
-                    {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
-                    <span>{group.projectName}</span>
-                  </h2>
-                  <span>{group.tasks.length}건</span>
-                </header>
-
-                {openTaskGroups[group.projectName] === false ? null : (
-                  <div className="tableWrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>요청주체</th>
-                          <th>업무구분</th>
-                          <th>업무</th>
-                          <th>상태</th>
-                          <th>담당자</th>
-                          <th>시작일</th>
-                          <th>마감일</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.tasks.map((task) => (
-                          <tr key={task.id}>
-                            <td>{joinOrDash(task.requester)}</td>
-                            <td>{task.workType || '-'}</td>
-                            <td>
-                              <button type="button" className="taskLink" onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}>
-                                {task.taskName}
-                              </button>
-                            </td>
-                            <td>
-                              <select
-                                value={task.status}
-                                disabled={Boolean(statusUpdatingIds[task.id])}
-                                onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
-                              >
-                                {unique([...statusOptions, task.status]).map((status) => (
-                                  <option key={status} value={status}>
-                                    {status}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td>{joinOrDash(task.assignee)}</td>
-                            <td>{task.startDate || '-'}</td>
-                            <td>{task.dueDate || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </article>
-              )
-            })}
-
-            {!loadingList && groupedTasks.length === 0 ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
-          </section>
-        ) : (
-          <section className="taskBoard">
-            {boardColumns.map((column) => (
-              <article key={column.key} className={`boardColumn boardColumn-${column.style}`}>
-                <header className="boardColumnHeader">
-                  <strong>{column.label}</strong>
-                  <span>{column.items.length}</span>
-                </header>
-                <div className="boardCards">
-                  {column.items.map((task) => (
-                    <button
-                      type="button"
-                      key={task.id}
-                      className="boardCard"
-                      onClick={() => navigate(`/task/${encodeURIComponent(task.id)}`)}
-                    >
-                      <span className={`statusPill tone-${toStatusTone(task.status)}`}>{task.status || '미분류'}</span>
-                      <span className="boardCardTitle">{task.taskName}</span>
-                      <span className="boardCardMeta">{task.projectName}</span>
-                      <span className="boardCardMeta">담당: {joinOrDash(task.assignee)}</span>
-                      <span className="boardCardMeta">마감: {task.dueDate || '-'}</span>
-                    </button>
-                  ))}
-                </div>
-              </article>
-            ))}
-            {!loadingList && boardColumns.every((column) => column.items.length === 0) ? <p className="muted">조건에 맞는 업무가 없습니다.</p> : null}
-          </section>
-        )
-      ) : null}
-
-      {assignmentTarget ? (
-        <div className="modalBackdrop" role="presentation" onClick={() => setAssignmentTarget(null)}>
-          <div className="modal assignmentModal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h3>할당 업무 선택</h3>
-            <p className="muted small">
-              대상 제작물: <strong>{assignmentTarget.productName || '-'}</strong> / 작업분류: {assignmentTarget.workCategory || '-'}
-            </p>
-
-            <label>
-              업무 검색
-              <input
-                value={assignmentSearch}
-                onChange={(event) => setAssignmentSearch(event.target.value)}
-                placeholder="프로젝트명, 업무명, 업무구분으로 검색"
-              />
-            </label>
-
-            <label>
-              프로젝트별 보기
-              <select value={assignmentProjectFilter} onChange={(event) => setAssignmentProjectFilter(event.target.value)}>
-                <option value="">전체 프로젝트</option>
-                {assignmentProjectOptions.map((projectName) => (
-                  <option key={projectName} value={projectName}>
-                    {projectName}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="assignmentModalActions">
-              <button type="button" className="secondary" onClick={() => void onSelectAssignmentTask('')}>
-                미할당 처리
-              </button>
-              <button type="button" className="secondary" onClick={() => setAssignmentTarget(null)}>
-                닫기
-              </button>
-            </div>
-
-            <div className="assignmentList">
-              {assignmentCandidates.length === 0 ? <p className="muted">검색 결과가 없습니다.</p> : null}
-              {assignmentCandidates.map((task) => {
-                const selected = assignmentTargetCurrentTaskId === task.id
-                return (
-                  <button
-                    key={task.id}
-                    type="button"
-                    className={selected ? 'assignmentItem selected' : 'assignmentItem'}
-                    onClick={() => void onSelectAssignmentTask(task.id)}
-                  >
-                    <strong>{task.taskName}</strong>
-                    <span>
-                      [{task.projectName}] · {task.workType || '-'} · {task.status}
-                    </span>
-                    <span>담당자: {joinOrDash(task.assignee)}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {createOpen ? (
-        <div className="modalBackdrop" role="presentation" onClick={() => setCreateOpen(false)}>
-          <div className="modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h3>새 업무 만들기</h3>
-            <form onSubmit={onCreateSubmit} className="createForm">
-              <label>
-                귀속 프로젝트
-                <select name="projectValue" value={createForm.projectValue} onChange={onCreateInput}>
-                  <option value="">선택 안 함</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.bindingValue}>
-                      {toProjectLabel(project)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                업무
-                <input name="taskName" value={createForm.taskName} onChange={onCreateInput} required />
-              </label>
-
-              <label>
-                업무구분
-                <input name="workType" list="workTypeOptions" value={createForm.workType} onChange={onCreateInput} />
-              </label>
-
-              <label>
-                상태
-                <input name="status" list="statusOptions" value={createForm.status} onChange={onCreateInput} />
-              </label>
-
-              <label>
-                담당자
-                <input name="assigneeText" value={createForm.assigneeText} onChange={onCreateInput} placeholder="쉼표로 구분" />
-              </label>
-
-              <label>
-                시작일
-                <input type="date" name="startDate" value={createForm.startDate} onChange={onCreateInput} />
-              </label>
-
-              <label>
-                마감일
-                <input type="date" name="dueDate" value={createForm.dueDate} onChange={onCreateInput} />
-              </label>
-
-              <label className="fullWidth">
-                업무상세
-                <textarea name="detail" rows={6} value={createForm.detail} onChange={onCreateInput} />
-              </label>
-
-              <div className="actions fullWidth">
-                <button type="button" className="secondary" onClick={() => setCreateOpen(false)}>
-                  취소
-                </button>
-                <button type="submit" disabled={createSubmitting}>
-                  {createSubmitting ? '생성 중...' : '생성'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <TaskCreateModal
+        createOpen={createOpen}
+        createSubmitting={createSubmitting}
+        createForm={createForm}
+        projects={projects}
+        onClose={() => setCreateOpen(false)}
+        onCreateSubmit={onCreateSubmit}
+        onCreateInput={onCreateInput}
+        toProjectLabel={toProjectLabel}
+      />
 
       <datalist id="statusOptions">
         {statusOptions.map((option) => (
