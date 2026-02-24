@@ -1,5 +1,7 @@
 ﻿import { mockApiRequest } from '../../mock/mockApi'
 
+const PAGES_FALLBACK_WORKER_API_BASE = 'https://izen-design-team.a98763969.workers.dev/api'
+
 declare global {
   interface Window {
     __APP_CONFIG__?: {
@@ -22,6 +24,17 @@ function normalizeApiBase(value: string): string {
   return `${trimmed}/api`
 }
 
+function isPagesHostname(hostname: string): boolean {
+  return hostname.toLowerCase().endsWith('.pages.dev')
+}
+
+function applyPagesApiFallback(normalizedBase: string): string {
+  if (typeof window === 'undefined') return normalizedBase
+  if (!isPagesHostname(window.location.hostname)) return normalizedBase
+  if (normalizedBase !== '/api') return normalizedBase
+  return normalizeApiBase(PAGES_FALLBACK_WORKER_API_BASE)
+}
+
 function getApiBaseFromRuntime(): string {
   const buildTimeBaseUrl =
     toNonEmpty(import.meta.env.VITE_API_BASE_URL as string | undefined) ??
@@ -35,21 +48,30 @@ function getApiBaseFromRuntime(): string {
   const queryValue = toNonEmpty(new URLSearchParams(window.location.search).get('apiBase'))
   if (queryValue) {
     const normalized = normalizeApiBase(queryValue)
-    window.localStorage.setItem('API_BASE_URL', normalized)
-    window.localStorage.setItem('FUNCTIONS_BASE_URL', normalized)
-    return normalized
+    const resolved = applyPagesApiFallback(normalized)
+    window.localStorage.setItem('API_BASE_URL', resolved)
+    window.localStorage.setItem('FUNCTIONS_BASE_URL', resolved)
+    return resolved
   }
 
   const runtimeBaseUrl =
     toNonEmpty(window.__APP_CONFIG__?.API_BASE_URL) ?? toNonEmpty(window.__APP_CONFIG__?.FUNCTIONS_BASE_URL)
-  if (runtimeBaseUrl) return normalizeApiBase(runtimeBaseUrl)
+  if (runtimeBaseUrl) return applyPagesApiFallback(normalizeApiBase(runtimeBaseUrl))
 
   const stored =
     toNonEmpty(window.localStorage.getItem('API_BASE_URL')) ??
     toNonEmpty(window.localStorage.getItem('FUNCTIONS_BASE_URL'))
-  if (stored) return normalizeApiBase(stored)
+  if (stored) {
+    const normalizedStored = normalizeApiBase(stored)
+    const resolvedStored = applyPagesApiFallback(normalizedStored)
+    if (resolvedStored !== normalizedStored) {
+      window.localStorage.setItem('API_BASE_URL', resolvedStored)
+      window.localStorage.setItem('FUNCTIONS_BASE_URL', resolvedStored)
+    }
+    return resolvedStored
+  }
 
-  return normalizeApiBase(buildTimeBaseUrl)
+  return applyPagesApiFallback(normalizeApiBase(buildTimeBaseUrl))
 }
 
 function getMockDataModeFromRuntime(): boolean {
@@ -116,3 +138,4 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   return JSON.parse(raw) as T
 }
+
