@@ -13,14 +13,17 @@ const DEFAULT_EXPORT_LOG_LIMIT = 1000
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000
 const DEFAULT_RATE_LIMIT_MAX_REQUESTS = 180
 const DEFAULT_RATE_LIMIT_BLOCK_MS = 30_000
+const DEFAULT_SESSION_TTL_SECONDS = 60 * 60 * 12
 const RATE_LIMIT_MAX_ENTRIES = 10_000
 const RATE_LIMIT_CLEANUP_INTERVAL_MS = 30_000
 const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
+const SESSION_COOKIE_NAME = 'izen_session'
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
 let checklistDbInitInFlight: Promise<void> | null = null
 let lastRateLimitCleanupAt = 0
+let sessionSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
 
 type RateLimitBucket = {
   count: number
@@ -30,8 +33,17 @@ type RateLimitBucket = {
 
 const rateLimitBuckets = new Map<string, RateLimitBucket>()
 
-function requiredEnv(env: Env): string | null {
-  if (!env.API_KEY) return 'API_KEY'
+type AuthSessionPayload = {
+  exp: number
+  iat: number
+}
+
+function requiredAuthEnv(env: Env): string | null {
+  if (!env.PAGE_PASSWORD) return 'PAGE_PASSWORD'
+  return null
+}
+
+function requiredNotionEnv(env: Env): string | null {
   if (!env.NOTION_TOKEN) return 'NOTION_TOKEN'
   if (!env.NOTION_TASK_DB_ID) return 'NOTION_TASK_DB_ID'
   if (!env.NOTION_PROJECT_DB_ID) return 'NOTION_PROJECT_DB_ID'
@@ -119,6 +131,154 @@ function parseBoundedInt(value: string | undefined, fallback: number, min: numbe
   return Math.max(min, Math.min(max, Math.floor(parsed)))
 }
 
+function getSessionSecret(env: Env): string {
+  return asString(env.SESSION_SECRET) ?? env.PAGE_PASSWORD
+}
+
+function getSessionTtlSec(env: Env): number {
+  return parseBoundedInt(asString(env.SESSION_TTL_SECONDS), DEFAULT_SESSION_TTL_SECONDS, 60, 7 * 24 * 60 * 60)
+}
+
+function utf8Encode(value: string): Uint8Array {
+  return new TextEncoder().encode(value)
+}
+
+function utf8Decode(value: Uint8Array): string {
+  return new TextDecoder().decode(value)
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = ''
+  for (let idx = 0; idx < bytes.length; idx += 1) {
+    binary += String.fromCharCode(bytes[idx])
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function base64UrlDecode(value: string): Uint8Array | null {
+  if (!value) return null
+  try {
+    let base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+    while (base64.length % 4 !== 0) base64 += '='
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let idx = 0; idx < binary.length; idx += 1) {
+      bytes[idx] = binary.charCodeAt(idx)
+    }
+    return bytes
+  } catch {
+    return null
+  }
+}
+
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let idx = 0; idx < a.length; idx += 1) {
+    diff |= a[idx] ^ b[idx]
+  }
+  return diff === 0
+}
+
+async function getSessionSigningKey(env: Env): Promise<CryptoKey> {
+  const secret = getSessionSecret(env)
+  if (sessionSigningKeyCache && sessionSigningKeyCache.secret === secret) {
+    return sessionSigningKeyCache.key
+  }
+
+  const keyPromise = crypto.subtle.importKey('raw', utf8Encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
+  sessionSigningKeyCache = {
+    secret,
+    key: keyPromise,
+  }
+  return keyPromise
+}
+
+async function signSessionPayload(payloadBase64: string, env: Env): Promise<string> {
+  const key = await getSessionSigningKey(env)
+  const signature = await crypto.subtle.sign('HMAC', key, utf8Encode(payloadBase64))
+  return base64UrlEncode(new Uint8Array(signature))
+}
+
+function parseCookieHeader(raw: string): Record<string, string> {
+  const pairs = raw.split(';')
+  const output: Record<string, string> = {}
+  for (const pair of pairs) {
+    const index = pair.indexOf('=')
+    if (index <= 0) continue
+    const name = pair.slice(0, index).trim()
+    const value = pair.slice(index + 1).trim()
+    if (!name) continue
+    output[name] = value
+  }
+  return output
+}
+
+function getCookieValue(request: Request, name: string): string | null {
+  const raw = request.headers.get('Cookie')
+  if (!raw) return null
+  const map = parseCookieHeader(raw)
+  return map[name] ?? null
+}
+
+function buildSessionCookieValue(token: string, request: Request, maxAgeSec: number): string {
+  const isSecure = new URL(request.url).protocol === 'https:'
+  const parts = [`${SESSION_COOKIE_NAME}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Lax', `Max-Age=${maxAgeSec}`]
+  if (isSecure) parts.push('Secure')
+  return parts.join('; ')
+}
+
+function buildSessionClearCookie(request: Request): string {
+  const isSecure = new URL(request.url).protocol === 'https:'
+  const parts = [`${SESSION_COOKIE_NAME}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0']
+  if (isSecure) parts.push('Secure')
+  return parts.join('; ')
+}
+
+async function createSessionToken(env: Env): Promise<{ token: string; exp: number }> {
+  const now = Date.now()
+  const ttlSec = getSessionTtlSec(env)
+  const payload: AuthSessionPayload = {
+    iat: now,
+    exp: now + ttlSec * 1000,
+  }
+  const payloadBase64 = base64UrlEncode(utf8Encode(JSON.stringify(payload)))
+  const signatureBase64 = await signSessionPayload(payloadBase64, env)
+  return {
+    token: `${payloadBase64}.${signatureBase64}`,
+    exp: payload.exp,
+  }
+}
+
+async function readSessionToken(request: Request, env: Env): Promise<AuthSessionPayload | null> {
+  const token = getCookieValue(request, SESSION_COOKIE_NAME)
+  if (!token) return null
+
+  const [payloadBase64, signatureBase64] = token.split('.')
+  if (!payloadBase64 || !signatureBase64) return null
+
+  const expectedSignature = await signSessionPayload(payloadBase64, env)
+  const expectedBytes = base64UrlDecode(expectedSignature)
+  const providedBytes = base64UrlDecode(signatureBase64)
+  if (!expectedBytes || !providedBytes) return null
+  if (!timingSafeEqual(expectedBytes, providedBytes)) return null
+
+  const payloadBytes = base64UrlDecode(payloadBase64)
+  if (!payloadBytes) return null
+
+  try {
+    const parsed = JSON.parse(utf8Decode(payloadBytes)) as Partial<AuthSessionPayload>
+    if (typeof parsed.exp !== 'number' || typeof parsed.iat !== 'number') return null
+    if (parsed.exp <= Date.now()) return null
+    return {
+      iat: parsed.iat,
+      exp: parsed.exp,
+    }
+  } catch {
+    return null
+  }
+}
+
 function getRateLimitConfig(env: Env): { windowMs: number; maxRequests: number; blockMs: number } {
   const windowSec = parseBoundedInt(asString(env.RATE_LIMIT_WINDOW_SECONDS), DEFAULT_RATE_LIMIT_WINDOW_MS / 1000, 1, 120)
   const maxRequests = parseBoundedInt(asString(env.RATE_LIMIT_MAX_REQUESTS), DEFAULT_RATE_LIMIT_MAX_REQUESTS, 30, 2_000)
@@ -182,11 +342,14 @@ function checkRateLimit(request: Request, env: Env): { allowed: true } | { allow
   return { allowed: true }
 }
 
-function isAuthenticated(request: Request, env: Env): boolean {
+function hasValidApiKey(request: Request, env: Env): boolean {
   const apiKey = asString(env.API_KEY)
   const provided = asString(request.headers.get('X-API-Key'))
-  if (!apiKey || !provided || provided !== apiKey) return false
+  if (!apiKey || !provided) return false
+  return provided === apiKey
+}
 
+function hasValidAccessIdentity(request: Request, env: Env): boolean {
   if (!isTruthy(asString(env.REQUIRE_CF_ACCESS))) return true
   const accessEmail = asString(request.headers.get('CF-Access-Authenticated-User-Email'))
   if (!accessEmail) return false
@@ -196,6 +359,16 @@ function isAuthenticated(request: Request, env: Env): boolean {
   const normalizedEmail = accessEmail.toLowerCase()
   const normalizedAllowlist = new Set(Array.from(allowedEmails).map((email) => email.toLowerCase()))
   return normalizedAllowlist.has(normalizedEmail)
+}
+
+async function isAuthenticated(request: Request, env: Env): Promise<boolean> {
+  if (hasValidApiKey(request, env)) {
+    return hasValidAccessIdentity(request, env)
+  }
+
+  const session = await readSessionToken(request, env)
+  if (!session) return false
+  return hasValidAccessIdentity(request, env)
 }
 
 function parsePageSize(value: unknown): number {
@@ -826,6 +999,7 @@ function buildResponseHeaders(context: ResponseContext): Headers {
     headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
     headers.set('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, CF-Access-Authenticated-User-Email')
     headers.set('Access-Control-Allow-Origin', context.corsOrigin ?? 'null')
+    headers.set('Access-Control-Allow-Credentials', 'true')
     headers.set('Vary', 'Origin')
   }
 
@@ -933,9 +1107,9 @@ export default {
       )
     }
 
-    const missing = requiredEnv(env)
-    if (missing) {
-      return json({ ok: false, error: 'config_missing', message: `Missing environment variable: ${missing}` }, 500, origin)
+    const missingAuth = requiredAuthEnv(env)
+    if (missingAuth) {
+      return json({ ok: false, error: 'config_missing', message: `Missing environment variable: ${missingAuth}` }, 500, origin)
     }
 
     const rateLimit = checkRateLimit(request, env)
@@ -955,7 +1129,74 @@ export default {
       return response
     }
 
-    if (!isAuthenticated(request, env)) {
+    if (request.method === 'GET' && path === '/auth/session') {
+      const authenticated = await isAuthenticated(request, env)
+      return ok(
+        {
+          ok: true,
+          authenticated,
+        },
+        origin,
+      )
+    }
+
+    if (request.method === 'POST' && path === '/auth/login') {
+      if (!hasValidAccessIdentity(request, env)) {
+        return json(
+          { ok: false, error: 'access_forbidden', message: 'Cloudflare Access policy check failed.' },
+          403,
+          origin,
+        )
+      }
+
+      let payload: Record<string, unknown>
+      try {
+        payload = parsePatchBody(await readJsonBody(request))
+      } catch (error: unknown) {
+        const message = error instanceof Error && error.message ? error.message : 'invalid_request'
+        return json({ ok: false, error: message }, 400, origin)
+      }
+
+      const providedPassword = asString(payload.password)
+      if (!providedPassword) {
+        return json({ ok: false, error: 'password_required' }, 400, origin)
+      }
+
+      if (providedPassword !== env.PAGE_PASSWORD) {
+        return json({ ok: false, error: 'invalid_password', message: 'Password is incorrect.' }, 401, origin)
+      }
+
+      const session = await createSessionToken(env)
+      const response = ok(
+        {
+          ok: true,
+          authenticated: true,
+          expiresAt: new Date(session.exp).toISOString(),
+        },
+        origin,
+      )
+      response.headers.append('Set-Cookie', buildSessionCookieValue(session.token, request, getSessionTtlSec(env)))
+      return response
+    }
+
+    if (request.method === 'POST' && path === '/auth/logout') {
+      const response = ok(
+        {
+          ok: true,
+          authenticated: false,
+        },
+        origin,
+      )
+      response.headers.append('Set-Cookie', buildSessionClearCookie(request))
+      return response
+    }
+
+    const missingNotion = requiredNotionEnv(env)
+    if (missingNotion) {
+      return json({ ok: false, error: 'config_missing', message: `Missing environment variable: ${missingNotion}` }, 500, origin)
+    }
+
+    if (!(await isAuthenticated(request, env))) {
       return json(
         { ok: false, error: 'unauthorized', message: 'Missing or invalid credentials.' },
         401,
@@ -1267,6 +1508,9 @@ export default {
           {
             ok: true,
             supported: [
+              'GET /api/auth/session',
+              'POST /api/auth/login',
+              'POST /api/auth/logout',
               'GET /api/projects',
               'GET /api/meta',
               'GET /api/checklists?eventName=...&eventCategory=...',

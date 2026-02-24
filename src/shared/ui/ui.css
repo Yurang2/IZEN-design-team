@@ -1252,6 +1252,52 @@ tr:hover td {
   margin-top: 0;
 }
 
+.authGateShell {
+  align-items: center;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.2), transparent 36%),
+    radial-gradient(circle at 84% 84%, rgba(59, 130, 246, 0.16), transparent 34%),
+    linear-gradient(180deg, #f6f9ff 0%, #eef3fb 100%);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.authGateCard {
+  background: #ffffff;
+  border: 1px solid #d9e2f1;
+  border-radius: 14px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.1);
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+  padding: 22px;
+  width: 100%;
+}
+
+.authGateCard h1 {
+  color: var(--text-main);
+  font-size: 20px;
+  margin: 0;
+}
+
+.authGateForm {
+  display: grid;
+  gap: 10px;
+}
+
+.authGateActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.authGateHint {
+  color: var(--text-sub);
+  font-size: 12px;
+  margin: 0;
+}
+
 .createForm,
 .detailForm {
   display: grid;

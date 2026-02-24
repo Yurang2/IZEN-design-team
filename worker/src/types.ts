@@ -13,7 +13,10 @@ export interface Env {
   NOTION_TASK_DB_ID: string
   NOTION_PROJECT_DB_ID: string
   NOTION_CHECKLIST_DB_ID?: string
-  API_KEY: string
+  PAGE_PASSWORD: string
+  SESSION_SECRET?: string
+  SESSION_TTL_SECONDS?: string
+  API_KEY?: string
   ALLOWED_ORIGINS?: string
   RATE_LIMIT_WINDOW_SECONDS?: string
   RATE_LIMIT_MAX_REQUESTS?: string

@@ -159,6 +159,17 @@ type MetaResponse = {
   }
 }
 
+type AuthSessionResponse = {
+  ok: boolean
+  authenticated: boolean
+}
+
+type AuthLoginResponse = {
+  ok: boolean
+  authenticated: boolean
+  expiresAt?: string
+}
+
 type Filters = {
   projectId: string
   status: string
@@ -671,6 +682,12 @@ function App() {
   const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
   const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>(initialListUiState.taskViewFilters)
   const debouncedFilterQ = useDebouncedValue(filters.q, 250)
+  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>(
+    USE_MOCK_DATA ? 'authenticated' : 'checking',
+  )
+  const [authPassword, setAuthPassword] = useState('')
+  const [authSubmitting, setAuthSubmitting] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   const [loadingList, setLoadingList] = useState(false)
   const [loadingProjects, setLoadingProjects] = useState(false)
@@ -752,6 +769,34 @@ function App() {
       for (const timerId of Object.values(toastTimers)) {
         window.clearTimeout(timerId)
       }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (USE_MOCK_DATA) {
+      setAuthState('authenticated')
+      return
+    }
+
+    let cancelled = false
+
+    const checkSession = async () => {
+      setAuthState('checking')
+      setAuthError(null)
+      try {
+        const response = await api<AuthSessionResponse>('/auth/session')
+        if (cancelled) return
+        setAuthState(response.authenticated ? 'authenticated' : 'unauthenticated')
+      } catch (error: unknown) {
+        if (cancelled) return
+        setAuthState('unauthenticated')
+        setAuthError(toErrorMessage(error, '인증 상태를 확인하지 못했습니다.'))
+      }
+    }
+
+    void checkSession()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -904,15 +949,18 @@ function App() {
   }, [debouncedFilterQ, filters.projectId, filters.status])
 
   useEffect(() => {
+    if (authState !== 'authenticated') return
     void fetchProjects()
-  }, [fetchProjects])
+  }, [authState, fetchProjects])
 
   useEffect(() => {
+    if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     void fetchMeta()
-  }, [fetchMeta, route.kind])
+  }, [authState, fetchMeta, route.kind])
 
   useEffect(() => {
+    if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
 
     void fetchTasks()
@@ -924,7 +972,7 @@ function App() {
     }, POLLING_MS)
 
     return () => window.clearInterval(timer)
-  }, [fetchTasks, route.kind])
+  }, [authState, fetchTasks, route.kind])
 
   const fetchChecklistPreview = useCallback(async (input: ChecklistPreviewFilters) => {
     setChecklistLoading(true)
@@ -1007,16 +1055,54 @@ function App() {
     }
   }, [pushToast])
 
+  const onAuthSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      if (USE_MOCK_DATA) {
+        setAuthState('authenticated')
+        return
+      }
+
+      const password = authPassword.trim()
+      if (!password) {
+        setAuthError('비밀번호를 입력해 주세요.')
+        return
+      }
+
+      setAuthSubmitting(true)
+      setAuthError(null)
+
+      try {
+        await api<AuthLoginResponse>('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ password }),
+        })
+        setAuthPassword('')
+        setAuthState('authenticated')
+        pushToast('success', '인증되었습니다.')
+      } catch (error: unknown) {
+        const message = toErrorMessage(error, '비밀번호가 올바르지 않습니다.')
+        setAuthError(message)
+        setAuthState('unauthenticated')
+      } finally {
+        setAuthSubmitting(false)
+      }
+    },
+    [authPassword, pushToast],
+  )
+
   useEffect(() => {
+    if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     void fetchChecklistPreview(checklistFilters)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchChecklistPreview, route.kind])
+  }, [authState, fetchChecklistPreview, route.kind])
 
   useEffect(() => {
+    if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     void fetchChecklistAssignments()
-  }, [fetchChecklistAssignments, route.kind])
+  }, [authState, fetchChecklistAssignments, route.kind])
 
   const refreshListAndProjects = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTasks()])
@@ -1672,9 +1758,10 @@ function App() {
   )
 
   useEffect(() => {
+    if (authState !== 'authenticated') return
     if (route.kind !== 'task') return
     void fetchTaskDetail(route.id)
-  }, [fetchTaskDetail, route])
+  }, [authState, fetchTaskDetail, route])
 
   const onDetailInput = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     if (!detailForm) return
@@ -1739,6 +1826,39 @@ function App() {
     } finally {
       setDetailSaving(false)
     }
+  }
+
+  if (authState !== 'authenticated') {
+    const checking = authState === 'checking'
+    return (
+      <div className="page authGateShell">
+        <section className="authGateCard">
+          <h1>보안 암호 확인</h1>
+          <p className="muted">워크스페이스 접근을 위해 메인페이지 암호를 입력해 주세요.</p>
+          <form className="authGateForm" onSubmit={onAuthSubmit}>
+            <label>
+              페이지 암호
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={authPassword}
+                disabled={checking || authSubmitting}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                placeholder="암호 입력"
+              />
+            </label>
+            <div className="authGateActions">
+              <button type="submit" disabled={checking || authSubmitting}>
+                {checking || authSubmitting ? '확인 중...' : '입장'}
+              </button>
+            </div>
+          </form>
+          {authError ? <p className="error">{authError}</p> : null}
+          <p className="authGateHint">API Base: {API_BASE_URL}</p>
+        </section>
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    )
   }
 
   if (route.kind === 'task') {

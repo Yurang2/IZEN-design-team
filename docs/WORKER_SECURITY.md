@@ -4,57 +4,63 @@
 
 The Worker API now enforces secure defaults:
 
-- Authentication required for all API endpoints (`X-API-Key`)
+- Password-based login endpoint (`POST /api/auth/login`)
+- Session cookie auth (HttpOnly cookie) for all protected API routes
+- Optional server-to-server `X-API-Key` auth (if `API_KEY` is configured)
 - Strict CORS allowlist from `ALLOWED_ORIGINS`
 - Security headers on all responses
 - `Cache-Control: no-store` on sensitive API paths (`/tasks`, `/tasks/:id`, `/projects`, `/meta`)
 - Basic in-memory per-IP burst throttle (429)
-- `/meta` is no longer publicly readable because auth is required globally
+- `/meta` is no longer publicly readable because protected routes require auth
 
 ## Required env vars
 
-- `API_KEY` (required): shared API key sent via `X-API-Key`
-- `ALLOWED_ORIGINS` (recommended): comma-separated exact origins for browsers
+- `PAGE_PASSWORD` (required): page password used by `POST /api/auth/login`
 
 ## Optional env vars
 
+- `SESSION_SECRET` (recommended): cookie signing secret (fallback: `PAGE_PASSWORD`)
+- `SESSION_TTL_SECONDS` (default: `43200`, 12h)
+- `API_KEY` (optional): for server-to-server requests via `X-API-Key`
+- `ALLOWED_ORIGINS` (recommended): comma-separated exact browser origins
 - `RATE_LIMIT_WINDOW_SECONDS` (default: `10`)
 - `RATE_LIMIT_MAX_REQUESTS` (default: `180`)
 - `RATE_LIMIT_BLOCK_SECONDS` (default: `30`)
 - `REQUIRE_CF_ACCESS` (default: `false`)
 - `ALLOWED_ACCESS_EMAILS` (optional CSV when `REQUIRE_CF_ACCESS=true`)
 
-## How to set API_KEY
+## How to set PAGE_PASSWORD
 
-### Recommended: secret (do this in production)
+### Recommended: secret (production)
 
 ```bash
-npx wrangler secret put API_KEY --config worker/wrangler.toml
+npx wrangler secret put PAGE_PASSWORD --config worker/wrangler.toml
 ```
 
-Then enter your key value when prompted.
+Then enter your value (example: `izenjsk_62988`).
 
 ### Possible but not recommended: plain text variable
 
-You can set it as plain text in `wrangler.toml` `[vars]`, for example:
+You can set plain text in `wrangler.toml` `[vars]`:
 
 ```toml
 [vars]
-API_KEY = "izenjsk_62988"
+PAGE_PASSWORD = "izenjsk_62988"
 ```
 
-This is technically supported, but unsafe because plain text vars are easier to leak and may end up in source control.
+This works technically, but is less secure because plain text values are easier to leak and may be committed by mistake.
 
 ## Cloudflare Dashboard setup
 
 Worker > Settings > Variables and Secrets:
 
-- Add `API_KEY`
+- Add `PAGE_PASSWORD`
   - Type: `Secret` (recommended)
-  - Type: `Text` works but is less secure
+  - Type: `Text` is possible, but less secure
+- Add `SESSION_SECRET` (recommended)
 - Add `ALLOWED_ORIGINS`
   - Example: `https://your-pages-domain.pages.dev,https://your-custom-domain.com`
-- Add rate-limit vars only if you need to tune defaults.
+- Tune rate-limit vars only if needed
 
 ## Local development note
 

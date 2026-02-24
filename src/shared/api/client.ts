@@ -83,6 +83,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
     ...init,
+    credentials: init?.credentials ?? 'include',
     headers,
   })
   const contentType = (response.headers.get('Content-Type') || '').toLowerCase()
