@@ -111,11 +111,14 @@ function parseWildcardOriginRule(value: string): WildcardOriginRule | null {
   if (!match) return null
 
   const protocol = (match[1] === 'http' ? 'http:' : 'https:') as 'http:' | 'https:'
-  const hostname = match[2].trim()
-  if (!hostname || hostname.includes('*')) return null
+  const hostCandidate = match[2].trim()
+  if (!hostCandidate || hostCandidate.includes('*')) return null
 
   try {
-    const parsed = new URL(`${protocol}//preview.${hostname}`)
+    const parsed = new URL(`${protocol}//${hostCandidate}`)
+    if (parsed.pathname !== '/' || parsed.search || parsed.hash || parsed.username || parsed.password || parsed.port) {
+      return null
+    }
     return {
       protocol,
       suffix: `.${parsed.hostname.toLowerCase()}`,
