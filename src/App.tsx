@@ -783,6 +783,8 @@ function App() {
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
   const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
+  const [checklistCreatingTaskIds, setChecklistCreatingTaskIds] = useState<Record<string, boolean>>({})
+  const [checklistTaskOverrides, setChecklistTaskOverrides] = useState<Record<string, TaskRecord>>({})
   const [prioritizeUnassignedChecklist, setPrioritizeUnassignedChecklist] = useState(true)
   const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({})
   const [openProjectTimelineGroups, setOpenProjectTimelineGroups] = useState<Record<string, boolean>>({})
@@ -1593,7 +1595,7 @@ function App() {
       const matrixRow = assignmentRowByChecklistId.get(item.id)
       const fallbackApplicable = checklistAppliesToProject(item, selectedChecklistProject)
       const assignedTaskId = matrixRow?.taskPageId ?? ''
-      const assignedTask = assignedTaskId ? taskById.get(assignedTaskId) : undefined
+      const assignedTask = assignedTaskId ? taskById.get(assignedTaskId) ?? checklistTaskOverrides[assignedTaskId] : undefined
       const totalLeadDays = getChecklistTotalLeadDays(item)
       const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
       const assignmentStatus: ChecklistAssignmentStatus = matrixRow?.assignmentStatus ?? (fallbackApplicable ? 'unassigned' : 'not_applicable')
@@ -1632,7 +1634,7 @@ function App() {
       delete (copy as { __sortIndex?: number }).__sortIndex
       return copy
     })
-  }, [assignmentRowByChecklistId, prioritizeUnassignedChecklist, selectedChecklistProject, sortedChecklistItems, taskById])
+  }, [assignmentRowByChecklistId, checklistTaskOverrides, prioritizeUnassignedChecklist, selectedChecklistProject, sortedChecklistItems, taskById])
 
   useEffect(() => {
     setOpenTaskGroups((prev) => {
@@ -1829,7 +1831,14 @@ function App() {
     }))
   }
 
-  const setChecklistAssignment = async (itemId: string, taskId: string) => {
+  const setChecklistAssignment = async (
+    itemId: string,
+    taskId: string,
+    options?: {
+      successMessage?: string
+      silentSuccess?: boolean
+    },
+  ) => {
     const projectPageId = selectedChecklistProject?.id
     if (!projectPageId) {
       const message = '체크리스트 할당 전에 프로젝트를 먼저 선택해주세요.'
@@ -1902,16 +1911,95 @@ function App() {
       }
 
       if (response.storageMode) setAssignmentStorageMode(response.storageMode)
-      if (taskId) {
-        pushToast('success', '체크리스트 할당이 저장되었습니다.')
-      } else {
-        pushToast('success', '체크리스트 할당을 해제했습니다.')
+      if (!options?.silentSuccess) {
+        if (options?.successMessage) {
+          pushToast('success', options.successMessage)
+        } else if (taskId) {
+          pushToast('success', '체크리스트 할당이 저장되었습니다.')
+        } else {
+          pushToast('success', '체크리스트 할당을 해제했습니다.')
+        }
       }
     } catch (error: unknown) {
       setAssignmentRows(previousRows)
       const message = toErrorMessage(error, '체크리스트 할당 저장에 실패했습니다.')
       setAssignmentSyncError(message)
       pushToast('error', message)
+    }
+  }
+
+  const onCreateTaskFromChecklist = async (row: {
+    item: ChecklistPreviewItem
+    computedDueDate?: string
+    isApplicable: boolean
+    isAssigned: boolean
+  }) => {
+    const project = selectedChecklistProject
+    if (!project) {
+      const message = '체크리스트에서 업무를 생성하려면 행사(프로젝트)를 먼저 선택해주세요.'
+      setAssignmentSyncError(message)
+      pushToast('error', message)
+      return
+    }
+    if (!row.isApplicable) {
+      const message = '현재 행사 조건에 해당하지 않는 체크리스트 항목입니다.'
+      setAssignmentSyncError(message)
+      pushToast('error', message)
+      return
+    }
+    if (row.isAssigned) {
+      const message = '이미 할당된 항목입니다. 필요 시 변경 버튼을 사용해주세요.'
+      pushToast('error', message)
+      return
+    }
+
+    const itemId = row.item.id
+    setChecklistCreatingTaskIds((prev) => ({ ...prev, [itemId]: true }))
+    setAssignmentSyncError(null)
+
+    try {
+      const detailLines = [
+        '[체크리스트 자동 생성]',
+        project.name ? `행사: ${project.name}` : '',
+        row.item.workCategory ? `작업분류: ${row.item.workCategory}` : '',
+        row.item.finalDueText ? `체크리스트 기준: ${row.item.finalDueText}` : '',
+      ].filter(Boolean)
+
+      const payload: Record<string, unknown> = {
+        taskName: row.item.productName?.trim() || row.item.workCategory?.trim() || '체크리스트 업무',
+        workType: row.item.workCategory?.trim() || undefined,
+        dueDate: row.computedDueDate || undefined,
+        detail: detailLines.join('\n') || undefined,
+      }
+
+      if (schema?.projectBindingMode === 'relation') {
+        payload.projectId = project.id
+      } else {
+        payload.projectName = project.name
+      }
+
+      const created = await api<TaskResponse>('/tasks', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+
+      setSchema(created.schema)
+      setChecklistTaskOverrides((prev) => ({ ...prev, [created.task.id]: created.task }))
+
+      await setChecklistAssignment(itemId, created.task.id, {
+        successMessage: '체크리스트 기반 업무를 생성하고 할당했습니다.',
+      })
+    } catch (error: unknown) {
+      const message = toErrorMessage(error, '체크리스트 기반 업무 생성에 실패했습니다.')
+      setAssignmentSyncError(message)
+      pushToast('error', message)
+    } finally {
+      setChecklistCreatingTaskIds((prev) => {
+        if (!prev[itemId]) return prev
+        const next = { ...prev }
+        delete next[itemId]
+        return next
+      })
     }
   }
 
@@ -2566,6 +2654,8 @@ function App() {
           onChecklistReset={onChecklistReset}
           onChecklistSortChange={setChecklistSort}
           onTogglePrioritizeUnassignedChecklist={setPrioritizeUnassignedChecklist}
+          creatingTaskByChecklistId={checklistCreatingTaskIds}
+          onCreateTaskFromChecklist={onCreateTaskFromChecklist}
           onOpenAssignmentPicker={onOpenAssignmentPicker}
           onClearAssignment={(itemId) => setChecklistAssignment(itemId, '')}
           toProjectLabel={toProjectLabel}

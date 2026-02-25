@@ -25,6 +25,8 @@ type ChecklistViewProps = {
   onChecklistReset: () => Promise<void>
   onChecklistSortChange: (nextSort: ChecklistSort) => void
   onTogglePrioritizeUnassignedChecklist: (nextValue: boolean) => void
+  creatingTaskByChecklistId: Record<string, boolean>
+  onCreateTaskFromChecklist: (row: ChecklistTableRow) => Promise<void>
   onOpenAssignmentPicker: (item: ChecklistPreviewItem) => void
   onClearAssignment: (itemId: string) => Promise<void>
   toProjectLabel: (project: ProjectRecord) => string
@@ -83,6 +85,8 @@ export function ChecklistView({
   onChecklistReset,
   onChecklistSortChange,
   onTogglePrioritizeUnassignedChecklist,
+  creatingTaskByChecklistId,
+  onCreateTaskFromChecklist,
   onOpenAssignmentPicker,
   onClearAssignment,
   toProjectLabel,
@@ -249,47 +253,55 @@ export function ChecklistView({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.item.id} className={row.assignmentStatus === 'not_applicable' ? 'checklistRow isNotApplicable' : 'checklistRow'}>
-                  <td>{row.item.productName || '-'}</td>
-                  <td>{row.item.workCategory || '-'}</td>
-                  <td>{row.item.designLeadDays ?? '-'}</td>
-                  <td>{row.item.productionLeadDays ?? '-'}</td>
-                  <td>{row.totalLeadDays ?? '-'}</td>
-                  <td>{row.computedDueDate ? `${formatDateLabel(row.computedDueDate)} (${row.computedDueDate})` : '-'}</td>
-                  <td>{row.item.finalDueText || '-'}</td>
-                  <td>
-                    <span
-                      className={`assignmentBadge ${
-                        row.assignmentStatus === 'not_applicable'
-                          ? 'notApplicable'
-                          : row.assignmentStatus === 'assigned'
-                            ? 'assigned'
-                            : 'unassigned'
-                      }`}
-                    >
-                      {row.assignmentStatusLabel}
-                    </span>
-                  </td>
-                  <td className="assignmentCell">{row.assignedTaskLabel || '-'}</td>
-                  <td>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="mini"
-                      disabled={!row.isApplicable}
-                      onClick={() => onOpenAssignmentPicker(row.item)}
-                    >
-                      {row.isApplicable ? (row.isAssigned ? '변경' : '할당') : '미해당'}
-                    </Button>
-                    {row.isApplicable && row.isAssigned ? (
-                      <Button type="button" variant="secondary" size="mini" onClick={() => void onClearAssignment(row.item.id)}>
-                        해제
+              {rows.map((row) => {
+                const creating = creatingTaskByChecklistId[row.item.id] === true
+                return (
+                  <tr key={row.item.id} className={row.assignmentStatus === 'not_applicable' ? 'checklistRow isNotApplicable' : 'checklistRow'}>
+                    <td>{row.item.productName || '-'}</td>
+                    <td>{row.item.workCategory || '-'}</td>
+                    <td>{row.item.designLeadDays ?? '-'}</td>
+                    <td>{row.item.productionLeadDays ?? '-'}</td>
+                    <td>{row.totalLeadDays ?? '-'}</td>
+                    <td>{row.computedDueDate ? `${formatDateLabel(row.computedDueDate)} (${row.computedDueDate})` : '-'}</td>
+                    <td>{row.item.finalDueText || '-'}</td>
+                    <td>
+                      <span
+                        className={`assignmentBadge ${
+                          row.assignmentStatus === 'not_applicable'
+                            ? 'notApplicable'
+                            : row.assignmentStatus === 'assigned'
+                              ? 'assigned'
+                              : 'unassigned'
+                        }`}
+                      >
+                        {row.assignmentStatusLabel}
+                      </span>
+                    </td>
+                    <td className="assignmentCell">{row.assignedTaskLabel || '-'}</td>
+                    <td>
+                      {row.isApplicable && !row.isAssigned ? (
+                        <Button type="button" variant="secondary" size="mini" disabled={creating} onClick={() => void onCreateTaskFromChecklist(row)}>
+                          {creating ? '생성 중...' : '생성'}
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="mini"
+                        disabled={!row.isApplicable || creating}
+                        onClick={() => onOpenAssignmentPicker(row.item)}
+                      >
+                        {row.isApplicable ? (row.isAssigned ? '변경' : '할당') : '미해당'}
                       </Button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+                      {row.isApplicable && row.isAssigned && !creating ? (
+                        <Button type="button" variant="secondary" size="mini" disabled={creating} onClick={() => void onClearAssignment(row.item.id)}>
+                          해제
+                        </Button>
+                      ) : null}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </TableWrap>
