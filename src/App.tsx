@@ -733,7 +733,11 @@ function includesChecklistValue(values: string[] | undefined, target: string | u
 function checklistAppliesToProject(item: ChecklistPreviewItem, project: ProjectRecord | undefined): boolean {
   if (!project) return false
   const byProjectType = !item.applicableProjectTypes?.length || includesChecklistValue(item.applicableProjectTypes, project.projectType)
-  const byEventCategory = !item.applicableEventCategories?.length || includesChecklistValue(item.applicableEventCategories, project.eventCategory)
+  const categoryCandidates = item.applicableEventCategories?.length ? item.applicableEventCategories : item.eventCategories
+  const byEventCategory =
+    normalizeChecklistValue(project.eventCategory) === ''
+      ? (categoryCandidates?.length ?? 0) === 0
+      : includesChecklistValue(categoryCandidates, project.eventCategory)
   return Boolean(byProjectType && byEventCategory)
 }
 

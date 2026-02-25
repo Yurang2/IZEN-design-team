@@ -1232,8 +1232,12 @@ export class NotionWorkService {
   private isChecklistApplicableToProject(item: ChecklistPreviewItem, project: ProjectRecord): boolean {
     const byProjectType =
       item.applicableProjectTypes.length === 0 || valuesInclude(item.applicableProjectTypes, project.projectType)
+    const categoryCandidates =
+      item.applicableEventCategories.length > 0 ? item.applicableEventCategories : item.eventCategories
     const byEventCategory =
-      item.applicableEventCategories.length === 0 || valuesInclude(item.applicableEventCategories, project.eventCategory)
+      normalizeText(project.eventCategory) === ''
+        ? categoryCandidates.length === 0
+        : valuesInclude(categoryCandidates, project.eventCategory)
     return byProjectType && byEventCategory
   }
 

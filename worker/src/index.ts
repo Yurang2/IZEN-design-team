@@ -1103,7 +1103,8 @@ function checklistAppliesToProject(item: ChecklistPreviewItem, project: ProjectR
   const projectType = normalizeChecklistValue(project.projectType)
   const eventCategory = normalizeChecklistValue(project.eventCategory)
   const applicableTypes = normalizedSet(item.applicableProjectTypes)
-  const applicableCategories = normalizedSet(item.applicableEventCategories)
+  const categoryCandidates = item.applicableEventCategories.length > 0 ? item.applicableEventCategories : item.eventCategories
+  const applicableCategories = normalizedSet(categoryCandidates)
 
   const byType = applicableTypes.size === 0 || (projectType && applicableTypes.has(projectType))
   const byCategory = eventCategory ? applicableCategories.has(eventCategory) : applicableCategories.size === 0
@@ -1560,7 +1561,7 @@ export default {
         const projectPageId = asString(url.searchParams.get('projectId')) ?? asString(url.searchParams.get('projectPageId'))
 
         if (projectPageId && env.NOTION_CHECKLIST_ASSIGNMENT_DB_ID) {
-          const rows = await service.ensureChecklistAssignmentsForProject(projectPageId)
+          const rows = await service.listChecklistAssignments(projectPageId)
           return ok(
             {
               ok: true,
@@ -1695,7 +1696,7 @@ export default {
             taskPageId: payload.taskPageId,
             assignmentStatus: payload.assignmentStatus,
           })
-          const rows = await service.ensureChecklistAssignmentsForProject(payload.projectPageId)
+          const rows = await service.listChecklistAssignments(payload.projectPageId)
           return ok(
             {
               ok: true,
