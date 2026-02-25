@@ -1283,6 +1283,23 @@ textarea {
   padding: 10px 12px;
 }
 
+button.timelineSummaryCard {
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+button.timelineSummaryCard.is-active {
+  border-color: #6ea0f6;
+  box-shadow: 0 0 0 2px rgba(80, 128, 212, 0.14);
+}
+
+button.timelineSummaryCard:focus-visible {
+  outline: 2px solid #4a7fd9;
+  outline-offset: 1px;
+}
+
 .timelineSummaryCard span {
   color: #5f7088;
   font-size: 11px;

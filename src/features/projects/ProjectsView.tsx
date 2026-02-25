@@ -63,6 +63,7 @@ type ProjectsViewProps = {
 }
 
 type TimelineMode = 'report' | 'manage' | 'work'
+type ManageSummaryFilter = 'all' | 'delayed' | 'todayDue' | 'conflict' | 'blocked'
 
 function parseIsoDate(value: string | undefined): Date | null {
   if (!value) return null
@@ -182,6 +183,13 @@ function isDelayExcludedStatus(status: string | undefined): boolean {
 function isInactiveStatus(status: string | undefined): boolean {
   const normalized = normalizeStatusKey(status)
   return normalized.includes('완료') || normalized.includes('보류') || normalized.includes('보관')
+}
+
+function isTaskDueToday(task: ProjectTimelineTask['task'], today: Date): boolean {
+  if (!task.dueDate) return false
+  const due = parseIsoDate(task.dueDate)
+  if (!due) return false
+  return diffUtcDays(today, due) === 0
 }
 
 function riskBandForTask(
@@ -426,6 +434,7 @@ export function ProjectsView({
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('manage')
   const [workerAssignee, setWorkerAssignee] = useState('')
   const [showCompletedTasks, setShowCompletedTasks] = useState(false)
+  const [manageSummaryFilter, setManageSummaryFilter] = useState<ManageSummaryFilter>('all')
 
   const timelineAssigneeOptions = useMemo(() => {
     const uniqueNames = new Set<string>()
@@ -440,6 +449,32 @@ export function ProjectsView({
   }, [projectTimelineGroups])
 
   const effectiveWorkerAssignee = timelineMode === 'work' ? workerAssignee || timelineAssigneeOptions[0] || '' : workerAssignee
+
+  const manageConflictTaskIds = useMemo(() => {
+    const conflictCounter = new Map<string, number>()
+    const conflictKeysByTaskId = new Map<string, string[]>()
+
+    for (const group of projectTimelineGroups) {
+      for (const item of group.tasks) {
+        if (isInactiveStatus(item.task.status)) continue
+        if (!item.task.dueDate) continue
+        const names = item.task.assignee.length > 0 ? item.task.assignee : ['담당 미지정']
+        const keys = names.map((name) => `${name}::${item.task.dueDate}`)
+        conflictKeysByTaskId.set(item.task.id, keys)
+        for (const key of keys) {
+          conflictCounter.set(key, (conflictCounter.get(key) ?? 0) + 1)
+        }
+      }
+    }
+
+    const conflictTaskIds = new Set<string>()
+    for (const [taskId, keys] of conflictKeysByTaskId) {
+      if (keys.some((key) => (conflictCounter.get(key) ?? 0) > 1)) {
+        conflictTaskIds.add(taskId)
+      }
+    }
+    return conflictTaskIds
+  }, [projectTimelineGroups])
 
   const timelineGroupsByMode = useMemo(() => {
     const today = todayUtcDate()
@@ -533,12 +568,7 @@ export function ProjectsView({
     const progressCount = activeRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
     const doneCount = allRows.filter((row) => row.tone === 'green').length
     const blockedCount = activeRows.filter((row) => row.blockedByPredecessor).length
-    const todayDueCount = activeRows.filter((row) => {
-      if (!row.item.task.dueDate) return false
-      const due = parseIsoDate(row.item.task.dueDate)
-      if (!due) return false
-      return diffUtcDays(today, due) === 0
-    }).length
+    const todayDueCount = activeRows.filter((row) => isTaskDueToday(row.item.task, today)).length
     const totalCount = allRows.length
     const doneRate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
@@ -612,12 +642,7 @@ export function ProjectsView({
     const visibleRows = Array.from(timelineModels.values()).flatMap((model) => model.rows)
     const activeRows = visibleRows.filter((row) => !isInactiveStatus(row.item.task.status))
     const overdue = activeRows.filter((row) => row.risk === 'delayed').length
-    const todayDue = activeRows.filter((row) => {
-      if (!row.item.task.dueDate) return false
-      const due = parseIsoDate(row.item.task.dueDate)
-      if (!due) return false
-      return diffUtcDays(today, due) === 0
-    }).length
+    const todayDue = activeRows.filter((row) => isTaskDueToday(row.item.task, today)).length
     const weekDue = activeRows.filter((row) => {
       if (!row.item.task.dueDate) return false
       const due = parseIsoDate(row.item.task.dueDate)
@@ -627,6 +652,29 @@ export function ProjectsView({
     }).length
     return { overdue, todayDue, weekDue, total: activeRows.length }
   }, [timelineMode, timelineModels])
+
+  const isManageSummaryFiltered = timelineMode === 'manage' && manageSummaryFilter !== 'all'
+  const manageFilterToday = todayUtcDate()
+  const matchesManageFilter = (row: TimelineRow): boolean => {
+    if (isInactiveStatus(row.item.task.status)) return false
+    if (manageSummaryFilter === 'delayed') return row.risk === 'delayed'
+    if (manageSummaryFilter === 'todayDue') return isTaskDueToday(row.item.task, manageFilterToday)
+    if (manageSummaryFilter === 'conflict') return manageConflictTaskIds.has(row.item.task.id)
+    if (manageSummaryFilter === 'blocked') return row.blockedByPredecessor === true
+    return true
+  }
+
+  const onManageSummaryCardClick = (nextFilter: ManageSummaryFilter) => {
+    setManageSummaryFilter((prev) => (prev === nextFilter ? 'all' : nextFilter))
+  }
+
+  const hasVisibleTimelineGroup =
+    !isManageSummaryFiltered ||
+    timelineGroupsByMode.some((group) => {
+      const model = timelineModels.get(group.project.id)
+      if (!model) return false
+      return model.rows.some((row) => matchesManageFilter(row))
+    })
 
   return (
     <section className="projectSection">
@@ -730,24 +778,45 @@ export function ProjectsView({
           ) : null}
           {timelineMode === 'manage' ? (
             <section className="timelineSummary">
-              <article className="timelineSummaryCard danger">
+              <button
+                type="button"
+                className={`timelineSummaryCard danger ${manageSummaryFilter === 'delayed' ? 'is-active' : ''}`.trim()}
+                onClick={() => onManageSummaryCardClick('delayed')}
+                aria-pressed={manageSummaryFilter === 'delayed'}
+              >
                 <span>지연</span>
                 <strong>{timelineSummary.delayedCount}</strong>
-              </article>
-              <article className="timelineSummaryCard warning">
-                <span>당일마감</span>
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard warning ${manageSummaryFilter === 'todayDue' ? 'is-active' : ''}`.trim()}
+                onClick={() => onManageSummaryCardClick('todayDue')}
+                aria-pressed={manageSummaryFilter === 'todayDue'}
+              >
+                <span>오늘 마감</span>
                 <strong>{timelineSummary.todayDueCount}</strong>
-              </article>
-              <article className="timelineSummaryCard info">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard info ${manageSummaryFilter === 'conflict' ? 'is-active' : ''}`.trim()}
+                onClick={() => onManageSummaryCardClick('conflict')}
+                aria-pressed={manageSummaryFilter === 'conflict'}
+              >
                 <span>일정 충돌</span>
                 <strong>{timelineSummary.conflictCount}</strong>
-              </article>
-              <article className="timelineSummaryCard">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard ${manageSummaryFilter === 'blocked' ? 'is-active' : ''}`.trim()}
+                onClick={() => onManageSummaryCardClick('blocked')}
+                aria-pressed={manageSummaryFilter === 'blocked'}
+              >
                 <span>선행대기</span>
                 <strong>{timelineSummary.blockedCount}</strong>
-              </article>
+              </button>
             </section>
           ) : null}
+          {timelineMode === 'manage' ? <p className="muted small">요약 카드를 누르면 해당 항목만 표시됩니다. 같은 카드를 다시 누르면 해제됩니다.</p> : null}
           {timelineMode === 'manage' ? (
             <section className="timelineMilestoneList">
               <h4>담당자 과부하 TOP</h4>
@@ -789,17 +858,19 @@ export function ProjectsView({
             </section>
           ) : null}
 
-          {timelineGroupsByMode.length === 0 ? (
-            <EmptyState message="프로젝트 데이터가 없습니다." />
+          {timelineGroupsByMode.length === 0 || !hasVisibleTimelineGroup ? (
+            <EmptyState message={isManageSummaryFiltered ? '해당 요약 조건의 업무가 없습니다.' : '프로젝트 데이터가 없습니다.'} />
           ) : (
             <div className="projectTimelineGroupList">
               {timelineGroupsByMode.map((group) => {
                 const model = timelineModels.get(group.project.id)
                 if (!model) return null
-                const isOpen = openProjectTimelineGroups[group.project.id] !== false
-                const scheduledCount = model.rows.filter((row) => row.tone === 'gray').length
-                const progressCount = model.rows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
-                const doneCount = model.rows.filter((row) => row.tone === 'green').length
+                const visibleRows = isManageSummaryFiltered ? model.rows.filter((row) => matchesManageFilter(row)) : model.rows
+                if (isManageSummaryFiltered && visibleRows.length === 0) return null
+                const isOpen = isManageSummaryFiltered || openProjectTimelineGroups[group.project.id] !== false
+                const scheduledCount = visibleRows.filter((row) => row.tone === 'gray').length
+                const progressCount = visibleRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
+                const doneCount = visibleRows.filter((row) => row.tone === 'green').length
 
                 return (
                   <article key={group.project.id} className={isOpen ? 'projectTimelineGroup' : 'projectTimelineGroup is-collapsed'}>
@@ -816,7 +887,7 @@ export function ProjectsView({
                           <span>예정 {scheduledCount}</span>
                           <span>진행 {progressCount}</span>
                           <span>완료 {doneCount}</span>
-                          <span>종속 {group.tasks.length}건</span>
+                          <span>종속 {visibleRows.length}건</span>
                           {toNotionUrlById(group.project.id) ? (
                             <a className="linkButton secondary mini" href={toNotionUrlById(group.project.id) ?? undefined} target="_blank" rel="noreferrer">
                               Notion
@@ -826,9 +897,10 @@ export function ProjectsView({
                             type="button"
                             className="timelineToggleButton"
                             aria-expanded={isOpen}
+                            disabled={isManageSummaryFiltered}
                             onClick={() => onToggleProjectTimelineGroup(group.project.id)}
                           >
-                            {isOpen ? '종속업무 접기' : '종속업무 펼치기'}
+                            {isManageSummaryFiltered ? '필터 적용 중' : isOpen ? '종속업무 접기' : '종속업무 펼치기'}
                           </button>
                         </div>
                       </div>
@@ -836,7 +908,7 @@ export function ProjectsView({
                       <div className="projectTimelineTrack projectTimelineProjectTrack">
                         <div className="projectTimelineTrackGrid" aria-hidden="true" />
                         {model.eventMarkerStyle ? <span className="projectTimelineEventBand" style={model.eventMarkerStyle} aria-hidden="true" /> : null}
-                        {model.rows.slice(0, 14).map((row) => (
+                        {visibleRows.slice(0, 14).map((row) => (
                           <span key={`${row.item.task.id}-mini`} className={`projectTimelineMiniBar tone-${row.tone}`} style={row.barStyle} />
                         ))}
                         {model.eventMarkerStyle ? (
@@ -874,10 +946,10 @@ export function ProjectsView({
                           </div>
                         </div>
 
-                        {model.rows.length === 0 ? (
+                        {visibleRows.length === 0 ? (
                           <div className="projectTimelineGroupRow projectTimelineTaskRow is-empty">
                             <div className="projectTimelineTask">
-                              <span className="projectTimelineMeta">종속 업무가 없습니다.</span>
+                              <span className="projectTimelineMeta">해당 필터의 종속 업무가 없습니다.</span>
                             </div>
                             <div className="projectTimelineTrack">
                               <div className="projectTimelineTrackGrid" aria-hidden="true" />
@@ -890,7 +962,7 @@ export function ProjectsView({
                             </div>
                           </div>
                         ) : (
-                          model.rows.map((row) => {
+                          visibleRows.map((row) => {
                             const task = row.item.task
                             const riskClass =
                               row.risk === 'delayed' ? 'risk-delayed' : row.risk === 'urgent' ? 'risk-urgent' : row.risk === 'done' ? 'risk-done' : ''
