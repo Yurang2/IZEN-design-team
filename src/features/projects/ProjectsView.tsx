@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { ProjectRecord, ProjectSort, ProjectTimelineGroup, ProjectTimelineTask } from '../../shared/types'
 import { EmptyState, Skeleton } from '../../shared/ui'
 
@@ -63,7 +63,7 @@ type ProjectsViewProps = {
 }
 
 type TimelineMode = 'report' | 'manage' | 'work'
-type ManageSummaryFilter = 'all' | 'delayed' | 'todayDue' | 'conflict' | 'blocked'
+type SummaryFilter = 'all' | 'delayed' | 'todayDue' | 'weekDue' | 'urgent' | 'progress' | 'done' | 'active' | 'conflict' | 'blocked'
 
 function parseIsoDate(value: string | undefined): Date | null {
   if (!value) return null
@@ -190,6 +190,14 @@ function isTaskDueToday(task: ProjectTimelineTask['task'], today: Date): boolean
   const due = parseIsoDate(task.dueDate)
   if (!due) return false
   return diffUtcDays(today, due) === 0
+}
+
+function isTaskDueWithinWeek(task: ProjectTimelineTask['task'], today: Date): boolean {
+  if (!task.dueDate) return false
+  const due = parseIsoDate(task.dueDate)
+  if (!due) return false
+  const days = diffUtcDays(today, due)
+  return days >= 1 && days <= 7
 }
 
 function riskBandForTask(
@@ -434,7 +442,7 @@ export function ProjectsView({
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('manage')
   const [workerAssignee, setWorkerAssignee] = useState('')
   const [showCompletedTasks, setShowCompletedTasks] = useState(false)
-  const [manageSummaryFilter, setManageSummaryFilter] = useState<ManageSummaryFilter>('all')
+  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('all')
 
   const timelineAssigneeOptions = useMemo(() => {
     const uniqueNames = new Set<string>()
@@ -449,6 +457,10 @@ export function ProjectsView({
   }, [projectTimelineGroups])
 
   const effectiveWorkerAssignee = timelineMode === 'work' ? workerAssignee || timelineAssigneeOptions[0] || '' : workerAssignee
+
+  useEffect(() => {
+    setSummaryFilter('all')
+  }, [timelineMode])
 
   const manageConflictTaskIds = useMemo(() => {
     const conflictCounter = new Map<string, number>()
@@ -488,7 +500,8 @@ export function ProjectsView({
 
         let tasks = [...group.tasks].filter((item) => {
           const tone = toStatusTone(item.task.status)
-          if (!showCompletedTasks && tone === 'green') return false
+          const allowCompletedByFilter = summaryFilter === 'done'
+          if (!showCompletedTasks && !allowCompletedByFilter && tone === 'green') return false
           if (timelineMode !== 'work') return true
           if (!effectiveWorkerAssignee) return true
           return item.task.assignee.includes(effectiveWorkerAssignee)
@@ -517,7 +530,7 @@ export function ProjectsView({
           return sortTaskByDue(a.task, b.task)
         })
 
-        if (timelineMode === 'report') {
+        if (timelineMode === 'report' && summaryFilter === 'all') {
           const reportFocused = tasks.filter((item) => {
             const tone = toStatusTone(item.task.status)
             const risk = riskBandForTask(item.task, tone, today)
@@ -536,7 +549,7 @@ export function ProjectsView({
         if (timelineMode === 'work') return group.tasks.length > 0
         return true
       })
-  }, [effectiveWorkerAssignee, projectTimelineGroups, showCompletedTasks, timelineMode, toStatusTone])
+  }, [effectiveWorkerAssignee, projectTimelineGroups, showCompletedTasks, summaryFilter, timelineMode, toStatusTone])
 
   const allTimelineModels = useMemo(() => {
     const map = new Map<string, ProjectTimelineModel>()
@@ -643,37 +656,37 @@ export function ProjectsView({
     const activeRows = visibleRows.filter((row) => !isInactiveStatus(row.item.task.status))
     const overdue = activeRows.filter((row) => row.risk === 'delayed').length
     const todayDue = activeRows.filter((row) => isTaskDueToday(row.item.task, today)).length
-    const weekDue = activeRows.filter((row) => {
-      if (!row.item.task.dueDate) return false
-      const due = parseIsoDate(row.item.task.dueDate)
-      if (!due) return false
-      const days = diffUtcDays(today, due)
-      return days >= 1 && days <= 7
-    }).length
+    const weekDue = activeRows.filter((row) => isTaskDueWithinWeek(row.item.task, today)).length
     return { overdue, todayDue, weekDue, total: activeRows.length }
   }, [timelineMode, timelineModels])
 
-  const isManageSummaryFiltered = timelineMode === 'manage' && manageSummaryFilter !== 'all'
-  const manageFilterToday = todayUtcDate()
-  const matchesManageFilter = (row: TimelineRow): boolean => {
+  const isSummaryFiltered = summaryFilter !== 'all'
+  const summaryFilterToday = todayUtcDate()
+  const matchesSummaryFilter = (row: TimelineRow): boolean => {
+    if (summaryFilter === 'all') return true
+    if (summaryFilter === 'done') return row.tone === 'green'
     if (isInactiveStatus(row.item.task.status)) return false
-    if (manageSummaryFilter === 'delayed') return row.risk === 'delayed'
-    if (manageSummaryFilter === 'todayDue') return isTaskDueToday(row.item.task, manageFilterToday)
-    if (manageSummaryFilter === 'conflict') return manageConflictTaskIds.has(row.item.task.id)
-    if (manageSummaryFilter === 'blocked') return row.blockedByPredecessor === true
+    if (summaryFilter === 'delayed') return row.risk === 'delayed'
+    if (summaryFilter === 'urgent') return row.risk === 'urgent'
+    if (summaryFilter === 'todayDue') return isTaskDueToday(row.item.task, summaryFilterToday)
+    if (summaryFilter === 'weekDue') return isTaskDueWithinWeek(row.item.task, summaryFilterToday)
+    if (summaryFilter === 'progress') return row.tone === 'blue' || row.tone === 'red'
+    if (summaryFilter === 'active') return true
+    if (summaryFilter === 'conflict') return manageConflictTaskIds.has(row.item.task.id)
+    if (summaryFilter === 'blocked') return row.blockedByPredecessor === true
     return true
   }
 
-  const onManageSummaryCardClick = (nextFilter: ManageSummaryFilter) => {
-    setManageSummaryFilter((prev) => (prev === nextFilter ? 'all' : nextFilter))
+  const onSummaryCardClick = (nextFilter: SummaryFilter) => {
+    setSummaryFilter((prev) => (prev === nextFilter ? 'all' : nextFilter))
   }
 
   const hasVisibleTimelineGroup =
-    !isManageSummaryFiltered ||
+    !isSummaryFiltered ||
     timelineGroupsByMode.some((group) => {
       const model = timelineModels.get(group.project.id)
       if (!model) return false
-      return model.rows.some((row) => matchesManageFilter(row))
+      return model.rows.some((row) => matchesSummaryFilter(row))
     })
 
   return (
@@ -742,22 +755,42 @@ export function ProjectsView({
           </header>
           {timelineMode === 'report' ? (
             <section className="timelineSummary">
-              <article className="timelineSummaryCard danger">
+              <button
+                type="button"
+                className={`timelineSummaryCard danger ${summaryFilter === 'delayed' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('delayed')}
+                aria-pressed={summaryFilter === 'delayed'}
+              >
                 <span>지연</span>
                 <strong>{timelineSummary.delayedCount}</strong>
-              </article>
-              <article className="timelineSummaryCard warning">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard warning ${summaryFilter === 'urgent' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('urgent')}
+                aria-pressed={summaryFilter === 'urgent'}
+              >
                 <span>임박(7일)</span>
                 <strong>{timelineSummary.urgentCount}</strong>
-              </article>
-              <article className="timelineSummaryCard info">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard info ${summaryFilter === 'progress' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('progress')}
+                aria-pressed={summaryFilter === 'progress'}
+              >
                 <span>진행</span>
                 <strong>{timelineSummary.progressCount}</strong>
-              </article>
-              <article className="timelineSummaryCard ok">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard ok ${summaryFilter === 'done' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('done')}
+                aria-pressed={summaryFilter === 'done'}
+              >
                 <span>완료율</span>
                 <strong>{timelineSummary.doneRate}%</strong>
-              </article>
+              </button>
             </section>
           ) : null}
           {timelineMode === 'report' ? (
@@ -780,43 +813,43 @@ export function ProjectsView({
             <section className="timelineSummary">
               <button
                 type="button"
-                className={`timelineSummaryCard danger ${manageSummaryFilter === 'delayed' ? 'is-active' : ''}`.trim()}
-                onClick={() => onManageSummaryCardClick('delayed')}
-                aria-pressed={manageSummaryFilter === 'delayed'}
+                className={`timelineSummaryCard danger ${summaryFilter === 'delayed' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('delayed')}
+                aria-pressed={summaryFilter === 'delayed'}
               >
                 <span>지연</span>
                 <strong>{timelineSummary.delayedCount}</strong>
               </button>
               <button
                 type="button"
-                className={`timelineSummaryCard warning ${manageSummaryFilter === 'todayDue' ? 'is-active' : ''}`.trim()}
-                onClick={() => onManageSummaryCardClick('todayDue')}
-                aria-pressed={manageSummaryFilter === 'todayDue'}
+                className={`timelineSummaryCard warning ${summaryFilter === 'todayDue' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('todayDue')}
+                aria-pressed={summaryFilter === 'todayDue'}
               >
                 <span>오늘 마감</span>
                 <strong>{timelineSummary.todayDueCount}</strong>
               </button>
               <button
                 type="button"
-                className={`timelineSummaryCard info ${manageSummaryFilter === 'conflict' ? 'is-active' : ''}`.trim()}
-                onClick={() => onManageSummaryCardClick('conflict')}
-                aria-pressed={manageSummaryFilter === 'conflict'}
+                className={`timelineSummaryCard info ${summaryFilter === 'conflict' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('conflict')}
+                aria-pressed={summaryFilter === 'conflict'}
               >
                 <span>일정 충돌</span>
                 <strong>{timelineSummary.conflictCount}</strong>
               </button>
               <button
                 type="button"
-                className={`timelineSummaryCard ${manageSummaryFilter === 'blocked' ? 'is-active' : ''}`.trim()}
-                onClick={() => onManageSummaryCardClick('blocked')}
-                aria-pressed={manageSummaryFilter === 'blocked'}
+                className={`timelineSummaryCard ${summaryFilter === 'blocked' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('blocked')}
+                aria-pressed={summaryFilter === 'blocked'}
               >
                 <span>선행대기</span>
                 <strong>{timelineSummary.blockedCount}</strong>
               </button>
             </section>
           ) : null}
-          {timelineMode === 'manage' ? <p className="muted small">요약 카드를 누르면 해당 항목만 표시됩니다. 같은 카드를 다시 누르면 해제됩니다.</p> : null}
+          <p className="muted small">요약 카드를 누르면 해당 항목만 표시됩니다. 같은 카드를 다시 누르면 해제됩니다.</p>
           {timelineMode === 'manage' ? (
             <section className="timelineMilestoneList">
               <h4>담당자 과부하 TOP</h4>
@@ -839,35 +872,55 @@ export function ProjectsView({
           ) : null}
           {timelineMode === 'work' && workSummary ? (
             <section className="timelineSummary">
-              <article className="timelineSummaryCard danger">
+              <button
+                type="button"
+                className={`timelineSummaryCard danger ${summaryFilter === 'delayed' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('delayed')}
+                aria-pressed={summaryFilter === 'delayed'}
+              >
                 <span>지연</span>
                 <strong>{workSummary.overdue}</strong>
-              </article>
-              <article className="timelineSummaryCard warning">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard warning ${summaryFilter === 'todayDue' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('todayDue')}
+                aria-pressed={summaryFilter === 'todayDue'}
+              >
                 <span>오늘 마감</span>
                 <strong>{workSummary.todayDue}</strong>
-              </article>
-              <article className="timelineSummaryCard info">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard info ${summaryFilter === 'weekDue' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('weekDue')}
+                aria-pressed={summaryFilter === 'weekDue'}
+              >
                 <span>이번 주 마감</span>
                 <strong>{workSummary.weekDue}</strong>
-              </article>
-              <article className="timelineSummaryCard">
+              </button>
+              <button
+                type="button"
+                className={`timelineSummaryCard ${summaryFilter === 'active' ? 'is-active' : ''}`.trim()}
+                onClick={() => onSummaryCardClick('active')}
+                aria-pressed={summaryFilter === 'active'}
+              >
                 <span>내 활성 업무</span>
                 <strong>{workSummary.total}</strong>
-              </article>
+              </button>
             </section>
           ) : null}
 
           {timelineGroupsByMode.length === 0 || !hasVisibleTimelineGroup ? (
-            <EmptyState message={isManageSummaryFiltered ? '해당 요약 조건의 업무가 없습니다.' : '프로젝트 데이터가 없습니다.'} />
+            <EmptyState message={isSummaryFiltered ? '해당 요약 조건의 업무가 없습니다.' : '프로젝트 데이터가 없습니다.'} />
           ) : (
             <div className="projectTimelineGroupList">
               {timelineGroupsByMode.map((group) => {
                 const model = timelineModels.get(group.project.id)
                 if (!model) return null
-                const visibleRows = isManageSummaryFiltered ? model.rows.filter((row) => matchesManageFilter(row)) : model.rows
-                if (isManageSummaryFiltered && visibleRows.length === 0) return null
-                const isOpen = isManageSummaryFiltered || openProjectTimelineGroups[group.project.id] !== false
+                const visibleRows = isSummaryFiltered ? model.rows.filter((row) => matchesSummaryFilter(row)) : model.rows
+                if (isSummaryFiltered && visibleRows.length === 0) return null
+                const isOpen = isSummaryFiltered || openProjectTimelineGroups[group.project.id] !== false
                 const scheduledCount = visibleRows.filter((row) => row.tone === 'gray').length
                 const progressCount = visibleRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
                 const doneCount = visibleRows.filter((row) => row.tone === 'green').length
@@ -897,10 +950,10 @@ export function ProjectsView({
                             type="button"
                             className="timelineToggleButton"
                             aria-expanded={isOpen}
-                            disabled={isManageSummaryFiltered}
+                            disabled={isSummaryFiltered}
                             onClick={() => onToggleProjectTimelineGroup(group.project.id)}
                           >
-                            {isManageSummaryFiltered ? '필터 적용 중' : isOpen ? '종속업무 접기' : '종속업무 펼치기'}
+                            {isSummaryFiltered ? '필터 적용 중' : isOpen ? '종속업무 접기' : '종속업무 펼치기'}
                           </button>
                         </div>
                       </div>

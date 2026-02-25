@@ -2656,6 +2656,7 @@ function App() {
           onTogglePrioritizeUnassignedChecklist={setPrioritizeUnassignedChecklist}
           creatingTaskByChecklistId={checklistCreatingTaskIds}
           onCreateTaskFromChecklist={onCreateTaskFromChecklist}
+          onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
           onOpenAssignmentPicker={onOpenAssignmentPicker}
           onClearAssignment={(itemId) => setChecklistAssignment(itemId, '')}
           toProjectLabel={toProjectLabel}

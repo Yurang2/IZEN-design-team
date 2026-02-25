@@ -27,6 +27,7 @@ type ChecklistViewProps = {
   onTogglePrioritizeUnassignedChecklist: (nextValue: boolean) => void
   creatingTaskByChecklistId: Record<string, boolean>
   onCreateTaskFromChecklist: (row: ChecklistTableRow) => Promise<void>
+  onTaskOpen: (taskId: string) => void
   onOpenAssignmentPicker: (item: ChecklistPreviewItem) => void
   onClearAssignment: (itemId: string) => Promise<void>
   toProjectLabel: (project: ProjectRecord) => string
@@ -87,6 +88,7 @@ export function ChecklistView({
   onTogglePrioritizeUnassignedChecklist,
   creatingTaskByChecklistId,
   onCreateTaskFromChecklist,
+  onTaskOpen,
   onOpenAssignmentPicker,
   onClearAssignment,
   toProjectLabel,
@@ -277,7 +279,15 @@ export function ChecklistView({
                         {row.assignmentStatusLabel}
                       </span>
                     </td>
-                    <td className="assignmentCell">{row.assignedTaskLabel || '-'}</td>
+                    <td className="assignmentCell">
+                      {row.assignedTaskId ? (
+                        <button type="button" className="taskLink" onClick={() => onTaskOpen(row.assignedTaskId)}>
+                          {row.assignedTaskLabel || row.assignedTaskId}
+                        </button>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                     <td>
                       {row.isApplicable && !row.isAssigned ? (
                         <Button type="button" variant="secondary" size="mini" disabled={creating} onClick={() => void onCreateTaskFromChecklist(row)}>
