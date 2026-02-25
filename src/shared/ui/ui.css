@@ -1094,9 +1094,20 @@ textarea {
 }
 
 .projectIconEmoji {
+  align-items: center;
+  display: inline-flex;
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', sans-serif;
   font-size: 18px;
+  justify-content: center;
   line-height: 1;
+  min-height: 18px;
+  min-width: 18px;
+}
+
+.projectIconEmojiImage {
+  display: block;
+  height: 18px;
+  width: 18px;
 }
 
 .projectIconImage {

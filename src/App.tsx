@@ -6,6 +6,7 @@ import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 import { TasksView } from './features/tasks/TasksView'
 import { api, API_BASE_URL, USE_MOCK_DATA } from './shared/api/client'
+import { formatProjectIconLabel } from './shared/emoji'
 import { useDebouncedValue } from './shared/hooks/useDebouncedValue'
 import { useKeybinding } from './shared/hooks/useKeybinding'
 import { ToastStack, type ToastItem, type ToastTone } from './shared/ui'
@@ -552,7 +553,8 @@ function splitByComma(value: string): string[] {
 }
 
 function toProjectLabel(project: ProjectRecord): string {
-  if (project.iconEmoji) return `${project.iconEmoji} ${project.name}`
+  const iconLabel = formatProjectIconLabel(project.iconEmoji)
+  if (iconLabel) return `${iconLabel} ${project.name}`
   return project.name
 }
 

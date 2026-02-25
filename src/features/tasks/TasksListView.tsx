@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { emojiToTwemojiUrl, formatProjectIconLabel } from '../../shared/emoji'
 import type { ProjectRecord, TaskGroup, TaskQuickGroupBy } from '../../shared/types'
 import { Skeleton, TableWrap } from '../../shared/ui'
 
@@ -113,6 +114,8 @@ export function TasksListView({
 
   const renderGroup = (group: TaskGroup) => {
     const groupProject = taskQuickGroupBy === 'project' ? projectByName.get(group.label) : undefined
+    const groupProjectIconEmojiUrl = emojiToTwemojiUrl(groupProject?.iconEmoji)
+    const groupProjectIconLabel = formatProjectIconLabel(groupProject?.iconEmoji)
     return (
       <article className="projectSection" key={group.key}>
         <header className="projectHeader">
@@ -122,7 +125,15 @@ export function TasksListView({
           <h2 className="projectTitle">
             {groupProject?.coverUrl ? <img className="projectCoverImage" src={groupProject.coverUrl} alt="" /> : null}
             {groupProject?.iconUrl ? <img className="projectIconImage" src={groupProject.iconUrl} alt="" /> : null}
-            {groupProject?.iconEmoji ? <span className="projectIconEmoji">{groupProject.iconEmoji}</span> : null}
+            {groupProject?.iconEmoji ? (
+              <span className="projectIconEmoji" title={groupProjectIconLabel || groupProject.iconEmoji}>
+                {groupProjectIconEmojiUrl ? (
+                  <img className="projectIconEmojiImage" src={groupProjectIconEmojiUrl} alt={groupProject.iconEmoji} />
+                ) : (
+                  groupProject.iconEmoji
+                )}
+              </span>
+            ) : null}
             <span>{group.label}</span>
           </h2>
           <span>{group.tasks.length}건</span>

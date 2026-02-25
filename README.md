@@ -432,6 +432,9 @@ npm run deploy:worker
   - 타임라인 마커 라벨 정리:
     - `행사 진행일` 표기를 `진행일`로 축약
     - `오늘/진행일` 마커 아래 날짜를 `M.D` 형식(예: `2.25`)으로 표시
+  - 프로젝트 아이콘 가시성 보강:
+    - 프로젝트 이모지 아이콘을 Twemoji SVG로 렌더링해 OS 폰트 의존도를 낮춤
+    - 국기 이모지에는 텍스트 fallback(`🇦🇪 AE`)을 함께 제공
 - 2026-02-23: Firebase -> Cloudflare Workers 전환
   - Firebase Functions/Hosting 관련 코드 및 설정 제거
   - Worker 백엔드(`worker/src`) 신설

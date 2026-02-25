@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { emojiToTwemojiUrl, formatProjectIconLabel } from '../../shared/emoji'
 import type { ProjectRecord, ProjectSort, ProjectTimelineGroup, ProjectTimelineTask } from '../../shared/types'
 import { EmptyState, Skeleton } from '../../shared/ui'
 
@@ -990,6 +991,8 @@ export function ProjectsView({
                         const undatedCount = visibleRows.filter((row) => !parseIsoDate(row.item.task.dueDate)).length
                         const projectTypeLabel = normalizeProjectType(group.project.projectType)
                         const eventMarkerDate = formatMonthDotDay(parseIsoDate(group.project.eventDate))
+                        const projectIconEmojiUrl = emojiToTwemojiUrl(group.project.iconEmoji)
+                        const projectIconLabel = formatProjectIconLabel(group.project.iconEmoji)
 
                         return (
                           <article key={group.project.id} className={isOpen ? 'projectTimelineGroup' : 'projectTimelineGroup is-collapsed'}>
@@ -998,7 +1001,15 @@ export function ProjectsView({
                                 <span className="projectTitle">
                                   {group.project.coverUrl ? <img className="projectCoverImage" src={group.project.coverUrl} alt="" /> : null}
                                   {group.project.iconUrl ? <img className="projectIconImage" src={group.project.iconUrl} alt="" /> : null}
-                                  {group.project.iconEmoji ? <span className="projectIconEmoji">{group.project.iconEmoji}</span> : null}
+                                  {group.project.iconEmoji ? (
+                                    <span className="projectIconEmoji" title={projectIconLabel || group.project.iconEmoji}>
+                                      {projectIconEmojiUrl ? (
+                                        <img className="projectIconEmojiImage" src={projectIconEmojiUrl} alt={group.project.iconEmoji} />
+                                      ) : (
+                                        group.project.iconEmoji
+                                      )}
+                                    </span>
+                                  ) : null}
                                   <span>{group.project.name}</span>
                                 </span>
                                 <div className="projectTimelineProjectMeta">
