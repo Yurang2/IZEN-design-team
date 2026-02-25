@@ -67,22 +67,28 @@ type ProjectsViewProps = {
 type TimelineMode = 'report' | 'manage' | 'work'
 type SummaryFilter = 'all' | 'delayed' | 'todayDue' | 'weekDue' | 'urgent' | 'progress' | 'done' | 'active' | 'conflict' | 'blocked'
 
-const PROJECT_CATEGORY_PRIORITY = ['행사', '전시회', '교육', '내부업무', '제품개발', '기타', '미분류']
+const PROJECT_ATTRIBUTE_PRIORITY = ['행사', '전시회', '제품개발', '교육', '내부업무', '기타', '미분류']
 
 function normalizeCategoryValue(value: string | undefined): string {
   const normalized = (value ?? '').trim()
   return normalized || '미분류'
 }
 
-function normalizeProjectCategory(project: ProjectRecord): string {
+function normalizeProjectAttribute(project: ProjectRecord): string {
+  const projectType = normalizeCategoryValue(project.projectType)
+  if (projectType !== '미분류') return projectType
+
   const eventCategory = normalizeCategoryValue(project.eventCategory)
-  if (eventCategory !== '미분류') return eventCategory
-  return normalizeCategoryValue(project.projectType)
+  if (PROJECT_ATTRIBUTE_PRIORITY.includes(eventCategory) && eventCategory !== '미분류') {
+    return eventCategory
+  }
+
+  return '미분류'
 }
 
 function compareProjectCategory(a: string, b: string): number {
-  const aIndex = PROJECT_CATEGORY_PRIORITY.indexOf(a)
-  const bIndex = PROJECT_CATEGORY_PRIORITY.indexOf(b)
+  const aIndex = PROJECT_ATTRIBUTE_PRIORITY.indexOf(a)
+  const bIndex = PROJECT_ATTRIBUTE_PRIORITY.indexOf(b)
   const aRank = aIndex >= 0 ? aIndex : 999
   const bRank = bIndex >= 0 ? bIndex : 999
   if (aRank !== bRank) return aRank - bRank
@@ -588,7 +594,7 @@ export function ProjectsView({
   const timelineGroupsByType = useMemo(() => {
     const byType = new Map<string, typeof timelineGroupsByMode>()
     for (const group of timelineGroupsByMode) {
-      const projectCategory = normalizeProjectCategory(group.project)
+      const projectCategory = normalizeProjectAttribute(group.project)
       const current = byType.get(projectCategory)
       if (current) current.push(group)
       else byType.set(projectCategory, [group])
@@ -1063,7 +1069,7 @@ export function ProjectsView({
                         const progressCount = visibleRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
                         const doneCount = visibleRows.filter((row) => row.tone === 'green').length
                         const undatedCount = visibleRows.filter((row) => !parseIsoDate(row.item.task.dueDate)).length
-                        const projectCategoryLabel = normalizeProjectCategory(group.project)
+                        const projectCategoryLabel = normalizeProjectAttribute(group.project)
                         const eventMarkerDate = formatMonthDotDay(parseIsoDate(group.project.eventDate))
                         const projectIconEmojiUrl = emojiToTwemojiUrl(group.project.iconEmoji)
                         const projectIconLabel = formatProjectIconLabel(group.project.iconEmoji)
