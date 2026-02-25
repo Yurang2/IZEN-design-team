@@ -171,6 +171,10 @@ function extractTextFromProperty(prop: any): string | undefined {
   if (!prop || typeof prop !== 'object') return undefined
   if (prop.type === 'rich_text') return normalizeText(joinRichText(prop.rich_text ?? [])) || undefined
   if (prop.type === 'select') return normalizeText(prop.select?.name) || undefined
+  if (prop.type === 'multi_select') {
+    const firstValue = normalizeText((prop.multi_select ?? [])[0]?.name)
+    return firstValue || undefined
+  }
   if (prop.type === 'status') return normalizeText(prop.status?.name) || undefined
   if (prop.type === 'title') return normalizeText(joinRichText(prop.title ?? [])) || undefined
   if (prop.type === 'formula' && prop.formula?.type === 'string') return normalizeText(prop.formula.string) || undefined
@@ -860,6 +864,12 @@ export class NotionWorkService {
         const props = (page.properties ?? {}) as AnyMap
         const projectTypeProp = pickPropertyByNames(props, ['프로젝트 유형', '프로젝트유형', '프로젝트 타입', '유형', 'project type'])
         const projectEventCategoryProp = pickPropertyByNames(props, [
+          '행사속성',
+          '행사 속성',
+          '행사속성(상세)',
+          '행사 속성(상세)',
+          '행사분류상세',
+          '행사 분류 상세',
           '행사속성',
           '행사 속성',
           '행사분류',
