@@ -551,6 +551,13 @@ function hasOwn(obj: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key)
 }
 
+function isActiveNotionPage(page: any): boolean {
+  if (!page || page.object !== 'page') return false
+  if (page.archived === true) return false
+  if (page.in_trash === true) return false
+  return true
+}
+
 export class NotionWorkService {
   constructor(
     private readonly api: NotionApi,
@@ -567,7 +574,8 @@ export class NotionWorkService {
         page_size: 100,
       })
 
-      pages.push(...(result.results ?? []))
+      const activeResults = (result.results ?? []).filter((entry: any) => isActiveNotionPage(entry))
+      pages.push(...activeResults)
 
       if (!result.has_more || !result.next_cursor) {
         break

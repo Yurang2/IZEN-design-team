@@ -416,6 +416,7 @@ npm run deploy:worker
   - 체크리스트 할당 업무를 클릭하면 해당 업무 상세 화면으로 바로 이동
   - 업무용 `내 활성 업무` 카운트를 `완료/보류/보관` 제외 기준으로 조정
   - 체크리스트 탭에 `생성` 버튼 추가: 항목 기반으로 업무를 만들고 할당까지 자동 처리
+  - Worker 노션 조회 시 `archived/in_trash` 페이지를 제외하도록 보강 (삭제/휴지통 항목 노출 방지)
 - 2026-02-23: Firebase -> Cloudflare Workers 전환
   - Firebase Functions/Hosting 관련 코드 및 설정 제거
   - Worker 백엔드(`worker/src`) 신설
