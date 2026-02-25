@@ -131,7 +131,7 @@ export function ChecklistView({
         </label>
 
         <label>
-          배송일(해외 출고 기준)
+          배송마감일(해외 출고 기준)
           <input
             type="text"
             name="shippingDate"

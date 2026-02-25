@@ -254,7 +254,7 @@ function parseDueBasis(value: string | undefined): 'event_start' | 'event_end' |
   if (!normalized) return undefined
   if (['행사시작일', '시작일', 'eventstart', 'event_start', 'start'].includes(normalized)) return 'event_start'
   if (['행사종료일', '종료일', 'eventend', 'event_end', 'end'].includes(normalized)) return 'event_end'
-  if (['배송일', '배송', 'shipping', 'ship'].includes(normalized)) return 'shipping'
+  if (['배송마감일', '배송마감', '배송일', '배송', 'shipping', 'ship'].includes(normalized)) return 'shipping'
   return undefined
 }
 
@@ -664,7 +664,7 @@ export class NotionWorkService {
 
       // Keep exact names stable because checklist UI reads these property names directly.
       ensurePropertyExact('행사구분', { select: {} })
-      ensurePropertyExact('배송일', { date: {} })
+      ensurePropertyExact('배송마감일', { date: {} })
       ensurePropertyExact('운영방식', { select: {} })
       ensurePropertyExact('배송방식', { select: {} })
 
@@ -827,7 +827,7 @@ export class NotionWorkService {
         const projectEventCategoryProp = pickPropertyByNames(props, ['행사구분', '행사 구분', '행사분류', '행사 분류', 'event category'])
         const titleProp = pickPropertyByNames(props, ['프로젝트명', '프로젝트 이름', '이름', 'name'])
         const eventDateProp = pickPropertyByNames(props, ['행사 진행일', '행사진행일', '진행일', 'event date'])
-        const shippingDateProp = pickPropertyByNames(props, ['배송일', '배송 일', '출고일', 'shipping date'])
+        const shippingDateProp = pickPropertyByNames(props, ['배송마감일', '배송 마감일', '배송일', '배송 일', '출고일', 'shipping date'])
         const operationModeProp = pickPropertyByNames(props, ['운영방식', '운영 방식', '운영모드', 'operation mode'])
         const fulfillmentModeProp = pickPropertyByNames(props, ['배송방식', '배송 방식', '배송모드', 'fulfillment mode'])
 

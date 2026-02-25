@@ -453,9 +453,9 @@ npm run deploy:worker
 - 2026-02-25: Additional current updates
   - Project timeline marker labels (오늘, 진행일) and M.D dates are now rendered outside, directly below the project bar.
   - Task view status visibility improved with a status badge that reflects Notion status/select color.
-  - Worker now auto-ensures Project DB properties (행사구분, 배송일, 운영방식, 배송방식) and checklist filters auto-fill from the selected project.
+  - Worker now auto-ensures Project DB properties (행사구분, 배송마감일, 운영방식, 배송방식) and checklist filters auto-fill from the selected project.
 
 - 2026-02-25: Follow-up hotfix
   - Task status select width in task list reduced to about 60% for better compact layout.
-  - Added force-sync endpoint POST /api/admin/notion/project-schema/sync to create exact Project DB properties (행사구분, 배송일, 운영방식, 배송방식) when missing.
+  - Added force-sync endpoint POST /api/admin/notion/project-schema/sync to create exact Project DB properties (행사구분, 배송마감일, 운영방식, 배송방식) when missing.
   - Frontend now calls this sync endpoint automatically before loading projects, so property creation is attempted immediately after login.
