@@ -102,7 +102,7 @@ export function ChecklistView({
     <section className="checklistPreview">
       <div className="checklistPreviewHeader">
         <h2>행사 체크리스트</h2>
-        <p>행사구분으로 항목을 고르고 결과를 확인합니다. 노션 체크리스트 DB의 계산용 오프셋을 사용합니다.</p>
+        <p>행사분류로 항목을 고르고 결과를 확인합니다. 노션 체크리스트 DB의 계산용 오프셋을 사용합니다.</p>
       </div>
 
       <form className="checklistPreviewFilters" onSubmit={(event) => void onChecklistSubmit(event)}>
@@ -119,7 +119,7 @@ export function ChecklistView({
         </label>
 
         <label>
-          행사구분
+          행사분류
           <select ref={eventCategoryRef} name="eventCategory" value={checklistFilters.eventCategory} onChange={onChecklistInput}>
             <option value="">전체</option>
             {checklistCategories.map((category) => (
@@ -221,7 +221,7 @@ export function ChecklistView({
       {!checklistLoading && !checklistError && rows.length === 0 ? (
         <EmptyState
           title="체크리스트 항목이 없습니다"
-          message="행사명 또는 행사구분을 선택해 조건을 좁혀보세요."
+          message="행사명 또는 행사분류를 선택해 조건을 좁혀보세요."
           actions={[
             {
               label: '행사명 선택',
@@ -229,7 +229,7 @@ export function ChecklistView({
               onClick: () => eventNameRef.current?.focus(),
             },
             {
-              label: '행사구분 선택',
+              label: '행사분류 선택',
               variant: 'secondary',
               onClick: () => eventCategoryRef.current?.focus(),
             },

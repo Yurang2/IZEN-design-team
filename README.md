@@ -28,8 +28,8 @@ Firebase는 제거되었고, 백엔드는 Workers만 사용합니다.
   - 할당된 업무 텍스트 클릭 시 해당 업무 상세로 바로 이동
   - 분류 기준:
     - 프로젝트 유형: `전시회 | 행사 | 교육 | 내부업무 | 기타 | 제품개발`
-    - 행사구분: 노션 운영 기준값을 그대로 사용 (코드에 고정 카테고리 하드코딩 금지)
-    - 현재 운영 행사구분(예시):
+    - 행사분류: 노션 운영 기준값을 그대로 사용 (코드에 고정 카테고리 하드코딩 금지)
+    - 현재 운영 행사분류(예시):
       - 이젠 자체 행사(국내)
       - 이젠 자체 행사(해외)
       - 전시회 참가(자사/국내)
@@ -420,17 +420,17 @@ npm run deploy:worker
   - 체크리스트 할당 매트릭스 스키마 호환성 보강:
     - `이름/프로젝트/체크리스트 항목/할당 업무` 최소 컬럼 구성에서도 자동 생성/업서트 동작
     - 관계형 컬럼은 이름뿐 아니라 연결 DB ID 우선으로 매칭해 오인식 방지
-    - `할당상태/적용여부`는 명시 컬럼이 있을 때만 사용 (예: `행사구분` 오인식 방지)
+    - `할당상태/적용여부`는 명시 컬럼이 있을 때만 사용 (예: `행사분류` 오인식 방지)
   - 날짜 표기/UI 정돈:
     - 프로젝트/체크리스트 표시 날짜를 `yyyy-mm-dd` 형식으로 통일
     - 타임라인/테이블 줄바꿈 규칙을 `break-word/keep-all` 중심으로 조정해 가독성 개선
     - 프로젝트 타임라인 요약에 `집계 기준일`과 `마감일 미정 건수`를 추가해 운영 판단 기준을 명확화
   - 프로젝트 타임라인 전 모드(보고/운영/업무)에 `오늘` 기준 마커(라벨/라인/밴드) 추가
   - 프로젝트 타임라인 구조 개선:
-    - 프로젝트 요약 트랙 높이를 조정해 `행사 진행일`/`오늘` 라벨이 동시에 안정적으로 노출되도록 보강
+    - 프로젝트 요약 트랙 높이를 조정해 `행사진행일`/`오늘` 라벨이 동시에 안정적으로 노출되도록 보강
     - 프로젝트를 `프로젝트 구분`(예: 행사/전시회/교육 등) 섹션으로 그룹화해 탐색성을 개선
   - 타임라인 마커 라벨 정리:
-    - `행사 진행일` 표기를 `진행일`로 축약
+    - `행사진행일` 표기를 `진행일`로 축약
     - `오늘/진행일` 마커 아래 날짜를 `M.D` 형식(예: `2.25`)으로 표시
   - 프로젝트 아이콘 가시성 보강:
     - 프로젝트 이모지 아이콘을 Twemoji SVG로 렌더링해 OS 폰트 의존도를 낮춤
@@ -453,9 +453,9 @@ npm run deploy:worker
 - 2026-02-25: Additional current updates
   - Project timeline marker labels (오늘, 진행일) and M.D dates are now rendered outside, directly below the project bar.
   - Task view status visibility improved with a status badge that reflects Notion status/select color.
-  - Worker now auto-ensures Project DB properties (행사구분, 배송마감일, 운영방식, 배송방식) and checklist filters auto-fill from the selected project.
+  - Worker now auto-ensures Project DB properties (행사분류, 배송마감일, 운영방식, 배송방식) and checklist filters auto-fill from the selected project.
 
 - 2026-02-25: Follow-up hotfix
   - Task status select width in task list reduced to about 60% for better compact layout.
-  - Added force-sync endpoint POST /api/admin/notion/project-schema/sync to create exact Project DB properties (행사구분, 배송마감일, 운영방식, 배송방식) when missing.
+  - Added force-sync endpoint POST /api/admin/notion/project-schema/sync to create exact Project DB properties (행사분류, 배송마감일, 운영방식, 배송방식) when missing.
   - Frontend now calls this sync endpoint automatically before loading projects, so property creation is attempted immediately after login.

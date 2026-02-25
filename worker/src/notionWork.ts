@@ -258,8 +258,13 @@ function parseDueBasis(value: string | undefined): 'event_start' | 'event_end' |
   return undefined
 }
 
-function extractCategoryValues(props: AnyMap, name: string): string[] {
-  const prop = props[name]
+function extractCategoryValues(props: AnyMap, ...names: string[]): string[] {
+  const targetNames = names.length > 0 ? names : []
+  let prop: any | undefined
+  for (const name of targetNames) {
+    prop = props[name]
+    if (prop) break
+  }
   if (!prop) return []
 
   if (prop.type === 'multi_select') {
@@ -663,7 +668,7 @@ export class NotionWorkService {
       }
 
       // Keep exact names stable because checklist UI reads these property names directly.
-      ensurePropertyExact('행사구분', { select: {} })
+      ensurePropertyExact('행사분류', { select: {} })
       ensurePropertyExact('배송마감일', { date: {} })
       ensurePropertyExact('운영방식', { select: {} })
       ensurePropertyExact('배송방식', { select: {} })
@@ -824,9 +829,9 @@ export class NotionWorkService {
       .map((page) => {
         const props = (page.properties ?? {}) as AnyMap
         const projectTypeProp = pickPropertyByNames(props, ['프로젝트 유형', '프로젝트유형', '프로젝트 타입', '유형', 'project type'])
-        const projectEventCategoryProp = pickPropertyByNames(props, ['행사구분', '행사 구분', '행사분류', '행사 분류', 'event category'])
+        const projectEventCategoryProp = pickPropertyByNames(props, ['행사분류', '행사 분류', '행사구분', '행사 구분', 'event category'])
         const titleProp = pickPropertyByNames(props, ['프로젝트명', '프로젝트 이름', '이름', 'name'])
-        const eventDateProp = pickPropertyByNames(props, ['행사 진행일', '행사진행일', '진행일', 'event date'])
+        const eventDateProp = pickPropertyByNames(props, ['행사진행일', '행사 진행일', '진행일', 'event date'])
         const shippingDateProp = pickPropertyByNames(props, ['배송마감일', '배송 마감일', '배송일', '배송 일', '출고일', 'shipping date'])
         const operationModeProp = pickPropertyByNames(props, ['운영방식', '운영 방식', '운영모드', 'operation mode'])
         const fulfillmentModeProp = pickPropertyByNames(props, ['배송방식', '배송 방식', '배송모드', 'fulfillment mode'])
@@ -899,7 +904,7 @@ export class NotionWorkService {
       const workCategoryProp = props['작업 분류']
       const finalDueProp = props['최종 완료 시점']
       const applicableProjectTypesProp = pickPropertyByNames(props, ['적용 프로젝트 유형', '적용유형', '적용 프로젝트타입'])
-      const applicableEventCategoriesProp = pickPropertyByNames(props, ['적용 행사구분', '적용 행사 분류', '적용행사구분'])
+      const applicableEventCategoriesProp = pickPropertyByNames(props, ['적용 행사분류', '적용 행사 분류', '적용행사분류', '적용 행사구분', '적용행사구분'])
       const designLeadProp = pickPropertyByNames(props, ['디자인 소요 기간', '디자인 소요 기간(일)', '디자인소요기간'])
       const productionLeadProp = pickPropertyByNames(props, ['실물 제작 소요 기간', '실물 제작 소요 기간(일)', '실물제작소요기간'])
       const bufferProp = pickPropertyByNames(props, ['버퍼', '버퍼(일)', '버퍼 기간', '버퍼기간'])
@@ -974,7 +979,7 @@ export class NotionWorkService {
         productName,
         workCategory,
         finalDueText,
-        eventCategories: extractCategoryValues(props, '행사 분류'),
+        eventCategories: extractCategoryValues(props, '행사분류', '행사 분류', '행사구분', '행사 구분'),
         applicableProjectTypes,
         applicableEventCategories,
         designLeadDays,
