@@ -82,6 +82,11 @@ function compareProjectType(a: string, b: string): number {
   return a.localeCompare(b, 'ko')
 }
 
+function formatMonthDotDay(date: Date | null): string {
+  if (!date) return ''
+  return `${date.getUTCMonth() + 1}.${date.getUTCDate()}`
+}
+
 function parseIsoDate(value: string | undefined): Date | null {
   if (!value) return null
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
@@ -700,6 +705,7 @@ export function ProjectsView({
   const isSummaryFiltered = summaryFilter !== 'all'
   const summaryFilterToday = todayUtcDate()
   const summaryReferenceDate = toIsoDate(summaryFilterToday)
+  const summaryReferenceMonthDay = formatMonthDotDay(summaryFilterToday)
   const summaryUndatedCount = timelineMode === 'work' && workSummary ? workSummary.undated : timelineSummary.undatedCount
   const matchesSummaryFilter = (row: TimelineRow): boolean => {
     if (summaryFilter === 'all') return true
@@ -983,6 +989,7 @@ export function ProjectsView({
                         const doneCount = visibleRows.filter((row) => row.tone === 'green').length
                         const undatedCount = visibleRows.filter((row) => !parseIsoDate(row.item.task.dueDate)).length
                         const projectTypeLabel = normalizeProjectType(group.project.projectType)
+                        const eventMarkerDate = formatMonthDotDay(parseIsoDate(group.project.eventDate))
 
                         return (
                           <article key={group.project.id} className={isOpen ? 'projectTimelineGroup' : 'projectTimelineGroup is-collapsed'}>
@@ -1037,7 +1044,17 @@ export function ProjectsView({
                                 ) : null}
                                 {model.eventMarkerStyle ? (
                                   <span className="projectTimelineEventLabel" style={model.eventMarkerStyle}>
-                                    행사 진행일
+                                    진행일
+                                  </span>
+                                ) : null}
+                                {model.todayMarkerStyle ? (
+                                  <span className="projectTimelineMarkerDate projectTimelineTodayDate" style={model.todayMarkerStyle}>
+                                    {summaryReferenceMonthDay}
+                                  </span>
+                                ) : null}
+                                {model.eventMarkerStyle && eventMarkerDate ? (
+                                  <span className="projectTimelineMarkerDate projectTimelineEventDate" style={model.eventMarkerStyle}>
+                                    {eventMarkerDate}
                                   </span>
                                 ) : null}
                                 {model.todayMarkerStyle ? (

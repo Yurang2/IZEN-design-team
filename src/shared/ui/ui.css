@@ -1811,6 +1811,28 @@ button.timelineSummaryCard:focus-visible {
   z-index: 5;
 }
 
+.projectTimelineMarkerDate {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  left: 0;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  position: absolute;
+  text-shadow: 0 1px 0 #ffffffcc;
+  top: 37px;
+  transform: translateX(-50%);
+  z-index: 6;
+}
+
+.projectTimelineEventDate {
+  color: #6b21a8;
+}
+
+.projectTimelineTodayDate {
+  color: #9a4a00;
+}
+
 .projectTimelineEventMarker::before {
   background: #8b5cf6;
   content: '';
@@ -2332,7 +2354,8 @@ tr:hover td {
   }
 
   .projectTimelineEventLabel,
-  .projectTimelineTodayLabel {
+  .projectTimelineTodayLabel,
+  .projectTimelineMarkerDate {
     display: none;
   }
 
