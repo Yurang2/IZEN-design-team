@@ -1476,6 +1476,7 @@ export default {
       if (request.method === 'GET' && path === '/checklists') {
         const eventName = asString(url.searchParams.get('eventName')) ?? ''
         const eventCategory = asString(url.searchParams.get('eventCategory')) ?? ''
+        const normalizedEventCategory = normalizeChecklistValue(eventCategory)
         const eventDate = asString(url.searchParams.get('eventDate'))
         const shippingDate = asString(url.searchParams.get('shippingDate'))
         const operationModeRaw = asString(url.searchParams.get('operationMode'))
@@ -1492,13 +1493,20 @@ export default {
 
         const allItems = await service.listChecklists()
         const holidaySet = await getKoreanHolidaySet()
-        const availableCategories = unique(allItems.flatMap((item) => item.eventCategories)).sort((a, b) =>
-          a.localeCompare(b, 'ko'),
-        )
+        const availableCategories = unique(
+          allItems.flatMap((item) => [...(item.eventCategories ?? []), ...(item.applicableEventCategories ?? [])].filter(Boolean)),
+        ).sort((a, b) => a.localeCompare(b, 'ko'))
 
         const items = allItems
           .filter((item) => {
-            const byCategory = eventCategory ? item.eventCategories.includes(eventCategory) : true
+            const normalizedItemCategories = new Set(
+              [...(item.eventCategories ?? []), ...(item.applicableEventCategories ?? [])]
+                .map((value) => normalizeChecklistValue(value))
+                .filter(Boolean),
+            )
+            const byCategory = normalizedEventCategory
+              ? normalizedItemCategories.size === 0 || normalizedItemCategories.has(normalizedEventCategory)
+              : true
             if (!byCategory) return false
             return true
           })
