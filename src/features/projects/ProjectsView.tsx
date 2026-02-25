@@ -939,10 +939,10 @@ export function ProjectsView({
           </p>
           {timelineMode === 'manage' ? (
             <section className="timelineMilestoneList">
-              <h4>담당자 과부하 TOP</h4>
+              <h4>활성 업무 TOP</h4>
               <p className="muted small">기준: 활성 6건 이상 또는 지연 2건 이상 또는 임박 4건 이상. 완료/보류/보관은 제외합니다.</p>
               {timelineSummary.overloadedAssignees.length === 0 ? (
-                <p className="muted small">현재 기준에 해당하는 과부하 담당자가 없습니다.</p>
+                <p className="muted small">현재 기준에 해당하는 활성 업무 담당자가 없습니다.</p>
               ) : null}
               <ul>
                 {timelineSummary.overloadedAssignees.map((entry) => (

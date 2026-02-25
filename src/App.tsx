@@ -705,7 +705,10 @@ function toChecklistAssignmentLabel(status: ChecklistAssignmentStatus): string {
 }
 
 function normalizeChecklistValue(value: string | undefined): string {
-  return (value ?? '').replace(/\s+/g, '').toLowerCase()
+  return (value ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, '')
 }
 
 function includesChecklistValue(values: string[] | undefined, target: string | undefined): boolean {

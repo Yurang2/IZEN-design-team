@@ -1068,7 +1068,10 @@ function checklistMatrixKey(projectPageId: string, checklistItemPageId: string):
 }
 
 function normalizeChecklistValue(value: string | undefined): string {
-  return (value ?? '').replace(/\s+/g, '').toLowerCase()
+  return (value ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, '')
 }
 
 function normalizedSet(values: string[] | undefined): Set<string> {
