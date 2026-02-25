@@ -176,7 +176,12 @@ function normalizeStatusKey(status: string | undefined): string {
 
 function isDelayExcludedStatus(status: string | undefined): boolean {
   const normalized = normalizeStatusKey(status)
-  return normalized === '보류' || normalized === '보관'
+  return normalized.includes('보류') || normalized.includes('보관')
+}
+
+function isInactiveStatus(status: string | undefined): boolean {
+  const normalized = normalizeStatusKey(status)
+  return normalized.includes('완료') || normalized.includes('보류') || normalized.includes('보관')
 }
 
 function riskBandForTask(
@@ -520,12 +525,20 @@ export function ProjectsView({
   )
 
   const timelineSummary = useMemo(() => {
+    const today = todayUtcDate()
     const allRows = Array.from(allTimelineModels.values()).flatMap((model) => model.rows)
-    const delayedCount = allRows.filter((row) => row.risk === 'delayed').length
-    const urgentCount = allRows.filter((row) => row.risk === 'urgent').length
-    const progressCount = allRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
+    const activeRows = allRows.filter((row) => !isInactiveStatus(row.item.task.status))
+    const delayedCount = activeRows.filter((row) => row.risk === 'delayed').length
+    const urgentCount = activeRows.filter((row) => row.risk === 'urgent').length
+    const progressCount = activeRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
     const doneCount = allRows.filter((row) => row.tone === 'green').length
-    const blockedCount = allRows.filter((row) => row.blockedByPredecessor).length
+    const blockedCount = activeRows.filter((row) => row.blockedByPredecessor).length
+    const todayDueCount = activeRows.filter((row) => {
+      if (!row.item.task.dueDate) return false
+      const due = parseIsoDate(row.item.task.dueDate)
+      if (!due) return false
+      return diffUtcDays(today, due) === 0
+    }).length
     const totalCount = allRows.length
     const doneRate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
@@ -534,8 +547,8 @@ export function ProjectsView({
     for (const group of projectTimelineGroups) {
       for (const item of group.tasks) {
         const tone = toStatusTone(item.task.status)
-        if (tone === 'green' || isDelayExcludedStatus(item.task.status)) continue
-        const risk = riskBandForTask(item.task, tone, todayUtcDate())
+        if (isInactiveStatus(item.task.status)) continue
+        const risk = riskBandForTask(item.task, tone, today)
         const names = item.task.assignee.length > 0 ? item.task.assignee : ['담당 미지정']
         for (const name of names) {
           const current = assigneeStats.get(name) ?? { name, active: 0, delayed: 0, urgent: 0 }
@@ -568,7 +581,7 @@ export function ProjectsView({
           return {
             item,
             projectName: group.project.name,
-            risk: riskBandForTask(item.task, tone, todayUtcDate()),
+            risk: riskBandForTask(item.task, tone, today),
           }
         }),
       )
@@ -586,6 +599,7 @@ export function ProjectsView({
       doneCount,
       doneRate,
       blockedCount,
+      todayDueCount,
       overloadedAssignees,
       conflictCount,
       reportMilestones,
@@ -596,21 +610,22 @@ export function ProjectsView({
     if (timelineMode !== 'work') return null
     const today = todayUtcDate()
     const visibleRows = Array.from(timelineModels.values()).flatMap((model) => model.rows)
-    const overdue = visibleRows.filter((row) => row.risk === 'delayed').length
-    const todayDue = visibleRows.filter((row) => {
+    const activeRows = visibleRows.filter((row) => !isInactiveStatus(row.item.task.status))
+    const overdue = activeRows.filter((row) => row.risk === 'delayed').length
+    const todayDue = activeRows.filter((row) => {
       if (!row.item.task.dueDate) return false
       const due = parseIsoDate(row.item.task.dueDate)
       if (!due) return false
       return diffUtcDays(today, due) === 0
     }).length
-    const weekDue = visibleRows.filter((row) => {
+    const weekDue = activeRows.filter((row) => {
       if (!row.item.task.dueDate) return false
       const due = parseIsoDate(row.item.task.dueDate)
       if (!due) return false
       const days = diffUtcDays(today, due)
       return days >= 1 && days <= 7
     }).length
-    return { overdue, todayDue, weekDue, total: visibleRows.length }
+    return { overdue, todayDue, weekDue, total: activeRows.length }
   }, [timelineMode, timelineModels])
 
   return (
@@ -720,16 +735,16 @@ export function ProjectsView({
                 <strong>{timelineSummary.delayedCount}</strong>
               </article>
               <article className="timelineSummaryCard warning">
-                <span>선행 대기</span>
-                <strong>{timelineSummary.blockedCount}</strong>
+                <span>당일마감</span>
+                <strong>{timelineSummary.todayDueCount}</strong>
               </article>
               <article className="timelineSummaryCard info">
                 <span>일정 충돌</span>
                 <strong>{timelineSummary.conflictCount}</strong>
               </article>
               <article className="timelineSummaryCard">
-                <span>과부하 담당자</span>
-                <strong>{timelineSummary.overloadedAssignees.length}</strong>
+                <span>선행대기</span>
+                <strong>{timelineSummary.blockedCount}</strong>
               </article>
             </section>
           ) : null}
