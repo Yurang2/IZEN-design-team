@@ -815,6 +815,66 @@ button.boardCard:hover {
   color: #166534;
 }
 
+.statusPill.notion-default {
+  background: #f1f1ef;
+  border-color: #dddcd8;
+  color: #37352f;
+}
+
+.statusPill.notion-gray {
+  background: #f1f1ef;
+  border-color: #dddcd8;
+  color: #5f5c56;
+}
+
+.statusPill.notion-brown {
+  background: #f4eeee;
+  border-color: #e4d6cf;
+  color: #8f6042;
+}
+
+.statusPill.notion-orange {
+  background: #fdf3eb;
+  border-color: #f6d8c2;
+  color: #c45511;
+}
+
+.statusPill.notion-yellow {
+  background: #fef9e7;
+  border-color: #f5e8a4;
+  color: #9f6b00;
+}
+
+.statusPill.notion-green {
+  background: #edf7ee;
+  border-color: #cfe8d3;
+  color: #216d45;
+}
+
+.statusPill.notion-blue {
+  background: #edf3ff;
+  border-color: #ccdafb;
+  color: #255ab2;
+}
+
+.statusPill.notion-purple {
+  background: #f6f0ff;
+  border-color: #dfcffb;
+  color: #6f45c7;
+}
+
+.statusPill.notion-pink {
+  background: #fff0f6;
+  border-color: #f5cbe1;
+  color: #b9377f;
+}
+
+.statusPill.notion-red {
+  background: #ffefef;
+  border-color: #f4c6c6;
+  color: #c63434;
+}
+
 .boardCardTitle {
   color: var(--text-main);
   font-size: 13px;
@@ -1680,12 +1740,23 @@ button.timelineSummaryCard:focus-visible {
 
 .projectTimelineProjectTrack {
   background: #f2f7ff;
-  height: 52px;
-  overflow: visible;
+  height: 28px;
+  overflow: hidden;
+}
+
+.projectTimelineProjectTrackWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.projectTimelineProjectMarkerStrip {
+  min-height: 38px;
+  position: relative;
 }
 
 .projectTimelineProjectTrack .projectTimelineMiniBar {
-  top: 21px;
+  top: 10px;
 }
 
 .projectTimelineMiniBar {
@@ -1790,50 +1861,44 @@ button.timelineSummaryCard:focus-visible {
   opacity: 0.86;
 }
 
-.projectTimelineEventLabel {
-  background: #f3ebff;
-  border: 1px solid #d7c3ff;
-  border-radius: 999px;
-  color: #6b21a8;
-  font-size: 10px;
-  font-weight: 700;
+.projectTimelineMarkerInfo {
+  align-items: center;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
   left: 0;
-  line-height: 1;
-  padding: 3px 8px;
   position: absolute;
-  top: 3px;
   transform: translateX(-50%);
-  z-index: 3;
+  width: max-content;
 }
 
-.projectTimelineTodayLabel {
+.projectTimelineMarkerLabel {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 9px;
+}
+
+.projectTimelineTodayInfo .projectTimelineMarkerLabel {
   background: #fff4de;
   border: 1px solid #f5c990;
-  border-radius: 999px;
   color: #9a4a00;
-  font-size: 10px;
-  font-weight: 700;
-  left: 0;
-  line-height: 1;
-  padding: 3px 8px;
-  position: absolute;
-  top: 24px;
-  transform: translateX(-50%);
-  z-index: 5;
+}
+
+.projectTimelineEventInfo .projectTimelineMarkerLabel {
+  background: #f3ebff;
+  border: 1px solid #d7c3ff;
+  color: #6b21a8;
 }
 
 .projectTimelineMarkerDate {
-  font-size: 13px;
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
-  left: 0;
   letter-spacing: 0.01em;
   line-height: 1;
-  position: absolute;
   text-shadow: 0 1px 0 #ffffffcc;
-  top: 37px;
-  transform: translateX(-50%);
-  z-index: 6;
 }
 
 .projectTimelineEventDate {
@@ -1995,6 +2060,23 @@ tr:hover td {
   overflow-wrap: normal;
   white-space: nowrap;
   word-break: normal;
+}
+
+.taskStatusCell {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.taskStatusCell .statusPill {
+  margin-bottom: 0;
+}
+
+.taskStatusSelect {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 120px;
 }
 
 .actionCell {
@@ -2344,12 +2426,16 @@ tr:hover td {
   }
 
   .projectTimelineProjectTrack {
-    height: 34px;
+    height: 24px;
     overflow: hidden;
   }
 
   .projectTimelineProjectTrack .projectTimelineMiniBar {
-    top: 12px;
+    top: 8px;
+  }
+
+  .projectTimelineProjectMarkerStrip {
+    min-height: 32px;
   }
 
   .timelineToggleButton {
@@ -2364,10 +2450,13 @@ tr:hover td {
     display: none;
   }
 
-  .projectTimelineEventLabel,
-  .projectTimelineTodayLabel,
+  .projectTimelineMarkerLabel {
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+
   .projectTimelineMarkerDate {
-    display: none;
+    font-size: 15px;
   }
 
   .projectTimelineMeta,

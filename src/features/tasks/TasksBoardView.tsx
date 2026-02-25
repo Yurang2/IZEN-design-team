@@ -59,7 +59,9 @@ function BoardSkeleton() {
 function BoardCardButton({ task, onTaskOpen, joinOrDash, toStatusTone }: BoardCardButtonProps) {
   return (
     <button type="button" className="boardCard" onClick={() => onTaskOpen(task.id)}>
-      <Badge tone={toStatusTone(task.status)}>{task.status || '미분류'}</Badge>
+      <Badge tone={toStatusTone(task.status)} notionColor={task.statusColor}>
+        {task.status || '미분류'}
+      </Badge>
       <span className="boardCardTitle">{task.taskName}</span>
       <span className="boardCardMeta">{task.projectName}</span>
       <span className="boardCardMeta">담당: {joinOrDash(task.assignee)}</span>

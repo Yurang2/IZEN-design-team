@@ -449,3 +449,8 @@ npm run deploy:worker
   - 체크리스트 할당 저장소를 노션 `행사-체크리스트 할당 매트릭스` DB 기반 업서트로 전환 (`projectPageId::checklistItemPageId`)
   - Worker 배포 스크립트(run-worker.sh) 경로 이슈 수정
   - Firebase Studio/Web Preview용 mock 데이터 모드(`src/mock/mockApi.ts`) 추가
+
+- 2026-02-25: Additional current updates
+  - Project timeline marker labels (오늘, 진행일) and M.D dates are now rendered outside, directly below the project bar.
+  - Task view status visibility improved with a status badge that reflects Notion status/select color.
+  - Worker now auto-ensures Project DB properties (행사구분, 배송일, 운영방식, 배송방식) and checklist filters auto-fill from the selected project.

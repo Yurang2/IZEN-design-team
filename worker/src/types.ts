@@ -84,6 +84,9 @@ export type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
+  shippingDate?: string
+  operationMode?: 'self' | 'dealer'
+  fulfillmentMode?: 'domestic' | 'overseas' | 'dealer'
   projectType?: string
   eventCategory?: string
   iconEmoji?: string
@@ -102,6 +105,7 @@ export type TaskRecord = {
   workType: string
   taskName: string
   status: string
+  statusColor?: string
   assignee: string[]
   startDate?: string
   dueDate?: string

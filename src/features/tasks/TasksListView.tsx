@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { emojiToTwemojiUrl, formatProjectIconLabel } from '../../shared/emoji'
 import type { ProjectRecord, TaskGroup, TaskQuickGroupBy } from '../../shared/types'
-import { Skeleton, TableWrap } from '../../shared/ui'
+import { Badge, Skeleton, TableWrap } from '../../shared/ui'
 
 const GROUP_VIRTUALIZATION_THRESHOLD = 18
 const GROUP_VIRTUAL_OVERSCAN = 3
@@ -24,6 +24,7 @@ type TasksListViewProps = {
   onQuickStatusChange: (taskId: string, nextStatus: string) => Promise<void>
   unique: (values: string[]) => string[]
   joinOrDash: (values: string[]) => string
+  toStatusTone: (status: string | undefined) => 'gray' | 'red' | 'blue' | 'green'
 }
 
 function ListSkeleton() {
@@ -86,6 +87,7 @@ export function TasksListView({
   onQuickStatusChange,
   unique,
   joinOrDash,
+  toStatusTone,
 }: TasksListViewProps) {
   const [groupsElement, setGroupsElement] = useState<HTMLElement | null>(null)
   const setGroupsRef = useCallback((element: HTMLElement | null) => {
@@ -164,17 +166,23 @@ export function TasksListView({
                       </button>
                     </td>
                     <td>
-                      <select
-                        value={task.status}
-                        disabled={Boolean(statusUpdatingIds[task.id])}
-                        onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
-                      >
-                        {unique([...statusOptions, task.status]).map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="taskStatusCell">
+                        <Badge tone={toStatusTone(task.status)} notionColor={task.statusColor}>
+                          {task.status || '미분류'}
+                        </Badge>
+                        <select
+                          className="taskStatusSelect"
+                          value={task.status}
+                          disabled={Boolean(statusUpdatingIds[task.id])}
+                          onChange={(event) => void onQuickStatusChange(task.id, event.target.value)}
+                        >
+                          {unique([...statusOptions, task.status]).map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </td>
                     <td>{joinOrDash(task.assignee)}</td>
                     <td className="dateCell">{task.startDate || '-'}</td>

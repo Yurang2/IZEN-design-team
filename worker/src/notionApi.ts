@@ -48,6 +48,13 @@ export class NotionApi {
     })
   }
 
+  async updateDatabase(databaseId: string, input: JsonMap): Promise<any> {
+    return this.request(`/databases/${databaseId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    })
+  }
+
   async retrievePage(pageId: string): Promise<any> {
     return this.request(`/pages/${pageId}`)
   }

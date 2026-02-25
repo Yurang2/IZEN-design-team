@@ -36,6 +36,9 @@ type ChecklistAssignmentSchema = {
 
 const SCHEMA_TTL_MS = 5 * 60 * 1000
 let schemaCache: SchemaCache | undefined
+const PROJECT_DB_SCHEMA_TTL_MS = 10 * 60 * 1000
+let projectDbSchemaCheckedAt = 0
+let projectDbSchemaPromise: Promise<void> | null = null
 
 function unique(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
@@ -156,6 +159,45 @@ function extractTextFromProperty(prop: any): string | undefined {
   if (prop.type === 'title') return normalizeText(joinRichText(prop.title ?? [])) || undefined
   if (prop.type === 'formula' && prop.formula?.type === 'string') return normalizeText(prop.formula.string) || undefined
   return undefined
+}
+
+function normalizeCompactText(value: string | undefined): string {
+  return normalizeText(value).replace(/\s+/g, '').toLowerCase()
+}
+
+function parseOperationMode(value: string | undefined): 'self' | 'dealer' | undefined {
+  const normalized = normalizeCompactText(value)
+  if (!normalized) return undefined
+  if (normalized.includes('딜러') || normalized === 'dealer') return 'dealer'
+  if (normalized.includes('자체') || normalized.includes('직영') || normalized === 'self') return 'self'
+  return undefined
+}
+
+function parseFulfillmentMode(value: string | undefined): 'domestic' | 'overseas' | 'dealer' | undefined {
+  const normalized = normalizeCompactText(value)
+  if (!normalized) return undefined
+  if (normalized.includes('딜러') || normalized === 'dealer') return 'dealer'
+  if (normalized.includes('해외') || normalized.includes('국외') || normalized === 'overseas') return 'overseas'
+  if (normalized.includes('국내') || normalized === 'domestic') return 'domestic'
+  return undefined
+}
+
+function extractSelectOrStatusColor(prop: any): string | undefined {
+  if (!prop || typeof prop !== 'object') return undefined
+  const color =
+    prop.type === 'status'
+      ? normalizeText(prop.status?.color)
+      : prop.type === 'select'
+        ? normalizeText(prop.select?.color)
+        : ''
+  return color || undefined
+}
+
+function toIsoDateOnly(value: string | undefined): string | undefined {
+  const normalized = normalizeText(value)
+  if (!normalized) return undefined
+  const match = normalized.match(/^\d{4}-\d{2}-\d{2}/)
+  return match ? match[0] : undefined
 }
 
 function extractBooleanFromProperty(prop: any): boolean | undefined {
@@ -587,6 +629,47 @@ export class NotionWorkService {
     return pages
   }
 
+  private async ensureProjectDatabaseProperties(): Promise<void> {
+    const now = Date.now()
+    if (projectDbSchemaCheckedAt > 0 && now - projectDbSchemaCheckedAt < PROJECT_DB_SCHEMA_TTL_MS) {
+      return
+    }
+
+    if (projectDbSchemaPromise) {
+      await projectDbSchemaPromise
+      return
+    }
+
+    projectDbSchemaPromise = (async () => {
+      const db: any = await this.api.retrieveDatabase(this.env.NOTION_PROJECT_DB_ID)
+      const properties = (db.properties ?? {}) as AnyMap
+      const updates: AnyMap = {}
+
+      const ensureProperty = (name: string, aliases: string[], definition: AnyMap) => {
+        const found = pickPropertyByNames(properties, [name, ...aliases])
+        if (found) return
+        updates[name] = definition
+      }
+
+      ensureProperty('행사구분', ['행사 구분', '행사분류', 'event category'], { select: {} })
+      ensureProperty('배송일', ['배송 일', '출고일', 'shipping date'], { date: {} })
+      ensureProperty('운영방식', ['운영 방식', '운영모드', 'operation mode'], { select: {} })
+      ensureProperty('배송방식', ['배송 방식', '배송모드', 'fulfillment mode'], { select: {} })
+
+      if (Object.keys(updates).length > 0) {
+        await this.api.updateDatabase(this.env.NOTION_PROJECT_DB_ID, { properties: updates })
+      }
+
+      projectDbSchemaCheckedAt = Date.now()
+    })()
+
+    try {
+      await projectDbSchemaPromise
+    } finally {
+      projectDbSchemaPromise = null
+    }
+  }
+
   private buildTaskSchema(properties: Record<string, any>): TaskSchema {
     const relationFallback = (entries: Array<[string, any]>) => {
       const byTargetDb = entries.find(
@@ -715,22 +798,36 @@ export class NotionWorkService {
   }
 
   async listProjects(): Promise<ProjectRecord[]> {
+    await this.ensureProjectDatabaseProperties()
     const projectPages = await this.queryAll(this.env.NOTION_PROJECT_DB_ID)
 
     return projectPages
       .map((page) => {
         const props = (page.properties ?? {}) as AnyMap
-        const projectTypeProp = pickPropertyByNames(props, ['프로젝트 유형', '프로젝트유형', '프로젝트 타입', '유형'])
-        const projectEventCategoryProp = pickPropertyByNames(props, ['행사구분', '행사 구분', '행사분류', '행사 분류'])
-        const titleProp = props['프로젝트명']
-        const eventDateProp = props['행사 진행일']
+        const projectTypeProp = pickPropertyByNames(props, ['프로젝트 유형', '프로젝트유형', '프로젝트 타입', '유형', 'project type'])
+        const projectEventCategoryProp = pickPropertyByNames(props, ['행사구분', '행사 구분', '행사분류', '행사 분류', 'event category'])
+        const titleProp = pickPropertyByNames(props, ['프로젝트명', '프로젝트 이름', '이름', 'name'])
+        const eventDateProp = pickPropertyByNames(props, ['행사 진행일', '행사진행일', '진행일', 'event date'])
+        const shippingDateProp = pickPropertyByNames(props, ['배송일', '배송 일', '출고일', 'shipping date'])
+        const operationModeProp = pickPropertyByNames(props, ['운영방식', '운영 방식', '운영모드', 'operation mode'])
+        const fulfillmentModeProp = pickPropertyByNames(props, ['배송방식', '배송 방식', '배송모드', 'fulfillment mode'])
+
         const name =
           titleProp?.type === 'title'
             ? joinRichText(titleProp.title ?? []) || '(이름 없음 프로젝트)'
             : parseDbTitle(page) || '(이름 없음 프로젝트)'
-        const eventDate = eventDateProp?.type === 'date' ? eventDateProp.date?.start ?? undefined : undefined
+
+        const eventDateRaw =
+          eventDateProp?.type === 'date' ? eventDateProp.date?.start ?? undefined : extractTextFromProperty(eventDateProp)
+        const shippingDateRaw =
+          shippingDateProp?.type === 'date' ? shippingDateProp.date?.start ?? undefined : extractTextFromProperty(shippingDateProp)
+
+        const eventDate = toIsoDateOnly(eventDateRaw)
+        const shippingDate = toIsoDateOnly(shippingDateRaw)
         const projectType = extractTextFromProperty(projectTypeProp)
         const eventCategory = extractTextFromProperty(projectEventCategoryProp)
+        const operationMode = parseOperationMode(extractTextFromProperty(operationModeProp))
+        const fulfillmentMode = parseFulfillmentMode(extractTextFromProperty(fulfillmentModeProp))
         const icon = page.icon
         const cover = page.cover
         const iconEmoji = icon?.type === 'emoji' ? icon.emoji ?? undefined : undefined
@@ -753,6 +850,9 @@ export class NotionWorkService {
           bindingValue: page.id,
           name,
           eventDate,
+          shippingDate,
+          operationMode,
+          fulfillmentMode,
           projectType,
           eventCategory,
           iconEmoji,
@@ -1178,6 +1278,7 @@ export class NotionWorkService {
     const taskName = extractTitle(props, schema.fields.taskName)
     const workType = extractTextLike(props, schema.fields.workType, '[UNKNOWN]') || '[UNKNOWN]'
     const status = extractTextLike(props, schema.fields.status, '[UNKNOWN]') || '[UNKNOWN]'
+    const statusColor = extractSelectOrStatusColor(props[schema.fields.status.actualName])
     const assignee = unique(extractStringArray(props, schema.fields.assignee))
     const requester = unique(extractStringArray(props, schema.fields.requester))
     const detail = extractTextLike(props, schema.fields.detail, '')
@@ -1194,6 +1295,7 @@ export class NotionWorkService {
       workType,
       taskName,
       status,
+      statusColor,
       assignee,
       startDate: extractDate(props, schema.fields.startDate),
       dueDate: extractDate(props, schema.fields.dueDate),

@@ -49,6 +49,7 @@ type TaskRecord = {
   workType: string
   taskName: string
   status: string
+  statusColor?: string
   assignee: string[]
   startDate?: string
   dueDate?: string
@@ -65,6 +66,9 @@ type ProjectRecord = {
   bindingValue: string
   name: string
   eventDate?: string
+  shippingDate?: string
+  operationMode?: 'self' | 'dealer'
+  fulfillmentMode?: 'domestic' | 'overseas' | 'dealer'
   projectType?: string
   eventCategory?: string
   iconEmoji?: string
@@ -1537,6 +1541,50 @@ function App() {
     () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
     [checklistFilters.eventName, projectDbOptions],
   )
+
+  useEffect(() => {
+    setChecklistFilters((prev) => {
+      if (!selectedChecklistProject) {
+        if (prev.eventName.trim()) return prev
+        if (!prev.eventCategory && !prev.shippingDate && !prev.operationMode && !prev.fulfillmentMode) return prev
+        return {
+          ...prev,
+          eventCategory: '',
+          shippingDate: '',
+          operationMode: '',
+          fulfillmentMode: '',
+        }
+      }
+
+      const nextEventCategory = selectedChecklistProject.eventCategory ?? ''
+      const nextShippingDate = selectedChecklistProject.shippingDate ?? ''
+      const nextOperationMode = selectedChecklistProject.operationMode ?? ''
+      const nextFulfillmentMode = selectedChecklistProject.fulfillmentMode ?? ''
+
+      if (
+        prev.eventCategory === nextEventCategory &&
+        prev.shippingDate === nextShippingDate &&
+        prev.operationMode === nextOperationMode &&
+        prev.fulfillmentMode === nextFulfillmentMode
+      ) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        eventCategory: nextEventCategory,
+        shippingDate: nextShippingDate,
+        operationMode: nextOperationMode,
+        fulfillmentMode: nextFulfillmentMode,
+      }
+    })
+  }, [
+    selectedChecklistProject?.id,
+    selectedChecklistProject?.eventCategory,
+    selectedChecklistProject?.shippingDate,
+    selectedChecklistProject?.operationMode,
+    selectedChecklistProject?.fulfillmentMode,
+  ])
 
   useEffect(() => {
     if (authState !== 'authenticated') return

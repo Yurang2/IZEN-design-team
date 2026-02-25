@@ -142,6 +142,7 @@ export function TasksView({
           onQuickStatusChange={onQuickStatusChange}
           unique={unique}
           joinOrDash={joinOrDash}
+          toStatusTone={toStatusTone}
         />
       ) : (
         <TasksBoardView

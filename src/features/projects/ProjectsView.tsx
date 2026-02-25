@@ -1041,46 +1041,44 @@ export function ProjectsView({
                                 </div>
                               </div>
 
-                              <div className="projectTimelineTrack projectTimelineProjectTrack">
-                                <div className="projectTimelineTrackGrid" aria-hidden="true" />
-                                {model.todayMarkerStyle ? <span className="projectTimelineTodayBand" style={model.todayMarkerStyle} aria-hidden="true" /> : null}
-                                {model.eventMarkerStyle ? <span className="projectTimelineEventBand" style={model.eventMarkerStyle} aria-hidden="true" /> : null}
-                                {visibleRows.slice(0, 14).map((row) => (
-                                  <span key={`${row.item.task.id}-mini`} className={`projectTimelineMiniBar tone-${row.tone}`} style={row.barStyle} />
-                                ))}
-                                {model.todayMarkerStyle ? (
-                                  <span className="projectTimelineTodayLabel" style={model.todayMarkerStyle}>
-                                    오늘
-                                  </span>
-                                ) : null}
-                                {model.eventMarkerStyle ? (
-                                  <span className="projectTimelineEventLabel" style={model.eventMarkerStyle}>
-                                    진행일
-                                  </span>
-                                ) : null}
-                                {model.todayMarkerStyle ? (
-                                  <span className="projectTimelineMarkerDate projectTimelineTodayDate" style={model.todayMarkerStyle}>
-                                    {summaryReferenceMonthDay}
-                                  </span>
-                                ) : null}
-                                {model.eventMarkerStyle && eventMarkerDate ? (
-                                  <span className="projectTimelineMarkerDate projectTimelineEventDate" style={model.eventMarkerStyle}>
-                                    {eventMarkerDate}
-                                  </span>
-                                ) : null}
-                                {model.todayMarkerStyle ? (
-                                  <span className="projectTimelineTodayMarker" style={model.todayMarkerStyle} title={`오늘 ${summaryReferenceDate}`}>
-                                    <span className="projectTimelineTodayDot" />
-                                  </span>
-                                ) : null}
-                                {model.eventMarkerStyle ? (
-                                  <span
-                                    className="projectTimelineEventMarker"
-                                    style={model.eventMarkerStyle}
-                                    title={group.project.eventDate ? formatDateLabel(group.project.eventDate) : ''}
-                                  >
-                                    <span className="projectTimelineEventDot" />
-                                  </span>
+                              <div className="projectTimelineProjectTrackWrap">
+                                <div className="projectTimelineTrack projectTimelineProjectTrack">
+                                  <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                                  {model.todayMarkerStyle ? <span className="projectTimelineTodayBand" style={model.todayMarkerStyle} aria-hidden="true" /> : null}
+                                  {model.eventMarkerStyle ? <span className="projectTimelineEventBand" style={model.eventMarkerStyle} aria-hidden="true" /> : null}
+                                  {visibleRows.slice(0, 14).map((row) => (
+                                    <span key={`${row.item.task.id}-mini`} className={`projectTimelineMiniBar tone-${row.tone}`} style={row.barStyle} />
+                                  ))}
+                                  {model.todayMarkerStyle ? (
+                                    <span className="projectTimelineTodayMarker" style={model.todayMarkerStyle} title={`오늘 ${summaryReferenceDate}`}>
+                                      <span className="projectTimelineTodayDot" />
+                                    </span>
+                                  ) : null}
+                                  {model.eventMarkerStyle ? (
+                                    <span
+                                      className="projectTimelineEventMarker"
+                                      style={model.eventMarkerStyle}
+                                      title={group.project.eventDate ? formatDateLabel(group.project.eventDate) : ''}
+                                    >
+                                      <span className="projectTimelineEventDot" />
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {model.todayMarkerStyle || (model.eventMarkerStyle && eventMarkerDate) ? (
+                                  <div className="projectTimelineProjectMarkerStrip" aria-hidden="true">
+                                    {model.todayMarkerStyle ? (
+                                      <span className="projectTimelineMarkerInfo projectTimelineTodayInfo" style={model.todayMarkerStyle}>
+                                        <span className="projectTimelineMarkerLabel">오늘</span>
+                                        <span className="projectTimelineMarkerDate projectTimelineTodayDate">{summaryReferenceMonthDay}</span>
+                                      </span>
+                                    ) : null}
+                                    {model.eventMarkerStyle && eventMarkerDate ? (
+                                      <span className="projectTimelineMarkerInfo projectTimelineEventInfo" style={model.eventMarkerStyle}>
+                                        <span className="projectTimelineMarkerLabel">진행일</span>
+                                        <span className="projectTimelineMarkerDate projectTimelineEventDate">{eventMarkerDate}</span>
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 ) : null}
                               </div>
                             </div>
