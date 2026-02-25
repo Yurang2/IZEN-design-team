@@ -166,8 +166,8 @@ export function TasksListView({
                       </select>
                     </td>
                     <td>{joinOrDash(task.assignee)}</td>
-                    <td>{task.startDate || '-'}</td>
-                    <td>{task.dueDate || '-'}</td>
+                    <td className="dateCell">{task.startDate || '-'}</td>
+                    <td className="dateCell">{task.dueDate || '-'}</td>
                   </tr>
                 ))}
               </tbody>

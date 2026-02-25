@@ -208,7 +208,7 @@ export function ChecklistView({
       ) : null}
       {selectedChecklistProject?.eventDate ? (
         <p className="muted small">
-          기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)} ({selectedChecklistProject.eventDate})
+          기준 행사일: {formatDateLabel(selectedChecklistProject.eventDate)}
         </p>
       ) : null}
 
@@ -264,7 +264,7 @@ export function ChecklistView({
                     <td>{row.item.designLeadDays ?? '-'}</td>
                     <td>{row.item.productionLeadDays ?? '-'}</td>
                     <td>{row.totalLeadDays ?? '-'}</td>
-                    <td>{row.computedDueDate ? `${formatDateLabel(row.computedDueDate)} (${row.computedDueDate})` : '-'}</td>
+                    <td className="dateCell">{row.computedDueDate ? formatDateLabel(row.computedDueDate) : '-'}</td>
                     <td>{row.item.finalDueText || '-'}</td>
                     <td>
                       <span
@@ -288,7 +288,7 @@ export function ChecklistView({
                         '-'
                       )}
                     </td>
-                    <td>
+                    <td className="actionCell">
                       {row.isApplicable && !row.isAssigned ? (
                         <Button type="button" variant="secondary" size="mini" disabled={creating} onClick={() => void onCreateTaskFromChecklist(row)}>
                           {creating ? '생성 중...' : '생성'}

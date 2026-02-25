@@ -668,7 +668,7 @@ function toIsoDate(date: Date): string {
 function formatDateLabel(value: string): string {
   const parsed = parseIsoDate(value)
   if (!parsed) return value
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(parsed)
+  return toIsoDate(parsed)
 }
 
 function getChecklistTotalLeadDays(item: ChecklistPreviewItem): number | undefined {

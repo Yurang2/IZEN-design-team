@@ -582,6 +582,7 @@ export function ProjectsView({
     const doneCount = allRows.filter((row) => row.tone === 'green').length
     const blockedCount = activeRows.filter((row) => row.blockedByPredecessor).length
     const todayDueCount = activeRows.filter((row) => isTaskDueToday(row.item.task, today)).length
+    const undatedCount = activeRows.filter((row) => !parseIsoDate(row.item.task.dueDate)).length
     const totalCount = allRows.length
     const doneRate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
@@ -643,6 +644,7 @@ export function ProjectsView({
       doneRate,
       blockedCount,
       todayDueCount,
+      undatedCount,
       overloadedAssignees,
       conflictCount,
       reportMilestones,
@@ -657,11 +659,14 @@ export function ProjectsView({
     const overdue = activeRows.filter((row) => row.risk === 'delayed').length
     const todayDue = activeRows.filter((row) => isTaskDueToday(row.item.task, today)).length
     const weekDue = activeRows.filter((row) => isTaskDueWithinWeek(row.item.task, today)).length
-    return { overdue, todayDue, weekDue, total: activeRows.length }
+    const undated = activeRows.filter((row) => !parseIsoDate(row.item.task.dueDate)).length
+    return { overdue, todayDue, weekDue, undated, total: activeRows.length }
   }, [timelineMode, timelineModels])
 
   const isSummaryFiltered = summaryFilter !== 'all'
   const summaryFilterToday = todayUtcDate()
+  const summaryReferenceDate = toIsoDate(summaryFilterToday)
+  const summaryUndatedCount = timelineMode === 'work' && workSummary ? workSummary.undated : timelineSummary.undatedCount
   const matchesSummaryFilter = (row: TimelineRow): boolean => {
     if (summaryFilter === 'all') return true
     if (summaryFilter === 'done') return row.tone === 'green'
@@ -803,7 +808,7 @@ export function ProjectsView({
                       [{entry.projectName}] {entry.item.task.taskName}
                     </button>
                     <span className={`timelineSummaryTag risk-${entry.risk}`}>{entry.risk === 'delayed' ? '지연' : entry.risk === 'urgent' ? '임박' : '일반'}</span>
-                    <span>{entry.item.task.dueDate || '마감일 미정'}</span>
+                    <span className="timelineMilestoneDue">{entry.item.task.dueDate ? formatDateLabel(entry.item.task.dueDate) : '마감일 미정'}</span>
                   </li>
                 ))}
               </ul>
@@ -849,7 +854,9 @@ export function ProjectsView({
               </button>
             </section>
           ) : null}
-          <p className="muted small">요약 카드를 누르면 해당 항목만 표시됩니다. 같은 카드를 다시 누르면 해제됩니다.</p>
+          <p className="muted small timelineSummaryGuide">
+            집계 기준일: {summaryReferenceDate} · 마감일 미정 {summaryUndatedCount}건 · 요약 카드를 누르면 해당 항목만 표시됩니다.
+          </p>
           {timelineMode === 'manage' ? (
             <section className="timelineMilestoneList">
               <h4>담당자 과부하 TOP</h4>
@@ -924,6 +931,7 @@ export function ProjectsView({
                 const scheduledCount = visibleRows.filter((row) => row.tone === 'gray').length
                 const progressCount = visibleRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
                 const doneCount = visibleRows.filter((row) => row.tone === 'green').length
+                const undatedCount = visibleRows.filter((row) => !parseIsoDate(row.item.task.dueDate)).length
 
                 return (
                   <article key={group.project.id} className={isOpen ? 'projectTimelineGroup' : 'projectTimelineGroup is-collapsed'}>
@@ -936,25 +944,30 @@ export function ProjectsView({
                           <span>{group.project.name}</span>
                         </span>
                         <div className="projectTimelineProjectMeta">
-                          <span>{group.project.eventDate ? `행사일 ${group.project.eventDate}` : '행사일 미정'}</span>
-                          <span>예정 {scheduledCount}</span>
-                          <span>진행 {progressCount}</span>
-                          <span>완료 {doneCount}</span>
-                          <span>종속 {visibleRows.length}건</span>
-                          {toNotionUrlById(group.project.id) ? (
-                            <a className="linkButton secondary mini" href={toNotionUrlById(group.project.id) ?? undefined} target="_blank" rel="noreferrer">
-                              Notion
-                            </a>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="timelineToggleButton"
-                            aria-expanded={isOpen}
-                            disabled={isSummaryFiltered}
-                            onClick={() => onToggleProjectTimelineGroup(group.project.id)}
-                          >
-                            {isSummaryFiltered ? '필터 적용 중' : isOpen ? '종속업무 접기' : '종속업무 펼치기'}
-                          </button>
+                          <div className="projectTimelineProjectStats">
+                            <span>{group.project.eventDate ? `행사일 ${formatDateLabel(group.project.eventDate)}` : '행사일 미정'}</span>
+                            <span>예정 {scheduledCount}</span>
+                            <span>진행 {progressCount}</span>
+                            <span>완료 {doneCount}</span>
+                            <span>마감 미정 {undatedCount}</span>
+                            <span>종속 {visibleRows.length}건</span>
+                          </div>
+                          <div className="projectTimelineProjectActions">
+                            {toNotionUrlById(group.project.id) ? (
+                              <a className="linkButton secondary mini" href={toNotionUrlById(group.project.id) ?? undefined} target="_blank" rel="noreferrer">
+                                Notion
+                              </a>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="timelineToggleButton"
+                              aria-expanded={isOpen}
+                              disabled={isSummaryFiltered}
+                              onClick={() => onToggleProjectTimelineGroup(group.project.id)}
+                            >
+                              {isSummaryFiltered ? '필터 적용 중' : isOpen ? '종속업무 접기' : '종속업무 펼치기'}
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -970,7 +983,11 @@ export function ProjectsView({
                           </span>
                         ) : null}
                         {model.eventMarkerStyle ? (
-                          <span className="projectTimelineEventMarker" style={model.eventMarkerStyle} title={group.project.eventDate ?? ''}>
+                          <span
+                            className="projectTimelineEventMarker"
+                            style={model.eventMarkerStyle}
+                            title={group.project.eventDate ? formatDateLabel(group.project.eventDate) : ''}
+                          >
                             <span className="projectTimelineEventDot" />
                           </span>
                         ) : null}
@@ -1020,6 +1037,9 @@ export function ProjectsView({
                             const riskClass =
                               row.risk === 'delayed' ? 'risk-delayed' : row.risk === 'urgent' ? 'risk-urgent' : row.risk === 'done' ? 'risk-done' : ''
                             const focusClass = timelineMode === 'work' && (row.risk === 'delayed' || row.risk === 'urgent') ? 'is-focus' : ''
+                            const startDateLabel = task.startDate ? formatDateLabel(task.startDate) : '-'
+                            const dueDateLabel = task.dueDate ? formatDateLabel(task.dueDate) : '-'
+                            const actualEndDateLabel = task.actualEndDate ? formatDateLabel(task.actualEndDate) : '-'
 
                             return (
                               <div
@@ -1035,9 +1055,13 @@ export function ProjectsView({
                                     <span className={`timelineStatusBadge tone-${row.tone}`}>{task.status || '상태 미정'}</span>
                                     {renderAssigneeBadges(task.assignee)}
                                   </div>
-                                  <span className="projectTimelineMeta">
-                                    기간 {task.startDate || '-'} ~ {task.dueDate || '-'} · 실제 종료 {task.actualEndDate || '-'} · 담당 {joinOrDash(task.assignee)}
-                                  </span>
+                                  <div className="projectTimelineMetaList">
+                                    <span className="projectTimelineMetaItem">
+                                      기간 {startDateLabel} ~ {dueDateLabel}
+                                    </span>
+                                    <span className="projectTimelineMetaItem">실제 종료 {actualEndDateLabel}</span>
+                                    <span className="projectTimelineMetaItem">담당 {joinOrDash(task.assignee)}</span>
+                                  </div>
                                   {row.predecessor ? (
                                     <a className="timelineDependencyLink" href={`#timeline-task-${row.predecessor.id}`}>
                                       ↖ 선행작업: {row.predecessor.label}
