@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { emojiToTwemojiUrl, formatProjectIconLabel } from '../../shared/emoji'
 import type { ProjectRecord, ProjectSort, ProjectTimelineGroup, ProjectTimelineTask } from '../../shared/types'
 import { EmptyState, Skeleton } from '../../shared/ui'
@@ -476,6 +476,7 @@ export function ProjectsView({
   const [showCompletedTasks, setShowCompletedTasks] = useState(false)
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('all')
   const [openProjectCategorySections, setOpenProjectCategorySections] = useState<Record<string, boolean>>({})
+  const timelineBoardRef = useRef<HTMLElement | null>(null)
 
   const timelineAssigneeOptions = useMemo(() => {
     const uniqueNames = new Set<string>()
@@ -773,6 +774,14 @@ export function ProjectsView({
       return model.rows.some((row) => matchesSummaryFilter(row))
     })
 
+  const onFocusTodayMarker = () => {
+    const board = timelineBoardRef.current
+    if (!board) return
+    const todayMarker = board.querySelector<HTMLElement>('.projectTimelineTodayMarker')
+    if (!todayMarker) return
+    todayMarker.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+  }
+
   return (
     <section className="projectSection">
       <header className="projectHeader projectHeaderWithControls">
@@ -807,7 +816,11 @@ export function ProjectsView({
               {showCompletedTasks ? '완료업무 접기' : '완료업무 펼치기'}
             </button>
             {timelineMode === 'work' ? (
-              <label className="timelineModeAssignee">
+              <>
+                <button type="button" className="secondary timelineTodayJump" onClick={onFocusTodayMarker}>
+                  Today
+                </button>
+                <label className="timelineModeAssignee">
                 담당자
                 <select value={effectiveWorkerAssignee} onChange={(event) => setWorkerAssignee(event.target.value)}>
                   <option value="">전체</option>
@@ -818,6 +831,7 @@ export function ProjectsView({
                   ))}
                 </select>
               </label>
+              </>
             ) : null}
           </section>
         </div>
@@ -826,7 +840,7 @@ export function ProjectsView({
       {loadingProjects ? (
         <ProjectsSkeleton />
       ) : (
-        <section className="projectTimelineBoard">
+        <section ref={timelineBoardRef} className={timelineMode === 'work' ? 'projectTimelineBoard is-work' : 'projectTimelineBoard'}>
           <header className="projectTimelineBoardHeader">
             <div className="projectTimelineBoardTitle">
               <h3>종속 업무 타임라인</h3>

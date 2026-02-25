@@ -1299,6 +1299,10 @@ textarea {
   padding: 12px;
 }
 
+.projectTimelineBoard.is-work {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+}
+
 .projectTimelineBoardHeader {
   align-items: flex-start;
   display: flex;
@@ -1483,6 +1487,10 @@ textarea {
 }
 
 .timelineDoneToggle {
+  min-height: 34px;
+}
+
+.timelineTodayJump {
   min-height: 34px;
 }
 
@@ -1723,6 +1731,19 @@ button.timelineSummaryCard:focus-visible {
 
 .projectTimelineTaskRow.is-focus {
   box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.projectTimelineBoard.is-work .projectTimelineTaskRow {
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  padding: 8px 10px;
+}
+
+.projectTimelineBoard.is-work .projectTimelineTask {
+  gap: 3px;
+}
+
+.projectTimelineBoard.is-work .projectTimelineMetaList {
+  gap: 2px 8px;
 }
 
 .projectTimelineTask {
@@ -2497,7 +2518,8 @@ tr:hover td {
     width: 100%;
   }
 
-  .timelineDoneToggle {
+  .timelineDoneToggle,
+  .timelineTodayJump {
     width: 100%;
   }
 

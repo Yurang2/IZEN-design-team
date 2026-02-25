@@ -1074,8 +1074,29 @@ function normalizeChecklistValue(value: string | undefined): string {
     .replace(/[\s\p{P}\p{S}]+/gu, '')
 }
 
+function splitChecklistCandidates(value: string | undefined): string[] {
+  const raw = (value ?? '').normalize('NFKC')
+  return raw
+    .split(/[,\n\r/|;]+/g)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function expandChecklistValues(values: string[] | undefined): Set<string> {
+  const expanded = new Set<string>()
+  for (const value of values ?? []) {
+    const normalized = normalizeChecklistValue(value)
+    if (normalized) expanded.add(normalized)
+    for (const candidate of splitChecklistCandidates(value)) {
+      const normalizedCandidate = normalizeChecklistValue(candidate)
+      if (normalizedCandidate) expanded.add(normalizedCandidate)
+    }
+  }
+  return expanded
+}
+
 function normalizedSet(values: string[] | undefined): Set<string> {
-  return new Set((values ?? []).map((value) => normalizeChecklistValue(value)).filter(Boolean))
+  return expandChecklistValues(values)
 }
 
 function checklistAppliesToProject(item: ChecklistPreviewItem, project: ProjectRecord): boolean {
@@ -1502,13 +1523,13 @@ export default {
 
         const items = allItems
           .filter((item) => {
-            const normalizedItemCategories = new Set(
-              [...(item.eventCategories ?? []), ...(item.applicableEventCategories ?? [])]
-                .map((value) => normalizeChecklistValue(value))
-                .filter(Boolean),
-            )
+            const normalizedItemCategories = expandChecklistValues([...(item.eventCategories ?? []), ...(item.applicableEventCategories ?? [])])
             const byCategory = normalizedEventCategory
-              ? normalizedItemCategories.size === 0 || normalizedItemCategories.has(normalizedEventCategory)
+              ? normalizedItemCategories.size === 0 ||
+                normalizedItemCategories.has(normalizedEventCategory) ||
+                Array.from(normalizedItemCategories).some(
+                  (candidate) => candidate.includes(normalizedEventCategory) || normalizedEventCategory.includes(candidate),
+                )
               : true
             if (!byCategory) return false
             return true

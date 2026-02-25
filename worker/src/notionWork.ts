@@ -76,6 +76,13 @@ function parseCsvText(value: string): string[] {
     .filter(Boolean)
 }
 
+function parseCategoryText(value: string): string[] {
+  return value
+    .split(/[,\n\r/|;]+/g)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
 function normalizeFieldName(value: string): string {
   return value.replace(/\s+/g, '').toLowerCase()
 }
@@ -261,14 +268,8 @@ function parseDueBasis(value: string | undefined): 'event_start' | 'event_end' |
   return undefined
 }
 
-function extractCategoryValues(props: AnyMap, ...names: string[]): string[] {
-  const targetNames = names.length > 0 ? names : []
-  let prop: any | undefined
-  for (const name of targetNames) {
-    prop = props[name]
-    if (prop) break
-  }
-  if (!prop) return []
+function extractCategoryValuesFromProp(prop: any): string[] {
+  if (!prop || typeof prop !== 'object') return []
 
   if (prop.type === 'multi_select') {
     return (prop.multi_select ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean)
@@ -278,11 +279,37 @@ function extractCategoryValues(props: AnyMap, ...names: string[]): string[] {
     return prop.select?.name ? [normalizeText(prop.select.name)] : []
   }
 
+  if (prop.type === 'status') {
+    return prop.status?.name ? [normalizeText(prop.status.name)] : []
+  }
+
   if (prop.type === 'rich_text') {
-    return parseCsvText(joinRichText(prop.rich_text ?? []))
+    return parseCategoryText(joinRichText(prop.rich_text ?? []))
+  }
+
+  if (prop.type === 'title') {
+    return parseCategoryText(joinRichText(prop.title ?? []))
+  }
+
+  if (prop.type === 'formula' && prop.formula?.type === 'string') {
+    return parseCategoryText(prop.formula.string ?? '')
+  }
+
+  if (prop.type === 'rollup') {
+    if (prop.rollup?.type === 'array') {
+      return unique((prop.rollup.array ?? []).flatMap((entry: any) => extractCategoryValuesFromProp(entry)))
+    }
+    if (prop.rollup?.type === 'string') {
+      return parseCategoryText(prop.rollup.string ?? '')
+    }
   }
 
   return []
+}
+
+function extractCategoryValues(props: AnyMap, ...names: string[]): string[] {
+  const prop = pickPropertyByNames(props, names)
+  return unique(extractCategoryValuesFromProp(prop))
 }
 
 function pickOptions(property: any): string[] {

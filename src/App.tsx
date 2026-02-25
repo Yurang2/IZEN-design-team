@@ -711,10 +711,24 @@ function normalizeChecklistValue(value: string | undefined): string {
     .replace(/[\s\p{P}\p{S}]+/gu, '')
 }
 
+function splitChecklistCandidates(value: string | undefined): string[] {
+  const raw = (value ?? '').normalize('NFKC')
+  return raw
+    .split(/[,\n\r/|;]+/g)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
 function includesChecklistValue(values: string[] | undefined, target: string | undefined): boolean {
   const normalizedTarget = normalizeChecklistValue(target)
   if (!normalizedTarget) return false
-  return (values ?? []).some((entry) => normalizeChecklistValue(entry) === normalizedTarget)
+  return (values ?? []).some((entry) => {
+    const normalizedEntry = normalizeChecklistValue(entry)
+    if (!normalizedEntry) return false
+    if (normalizedEntry === normalizedTarget) return true
+    if (normalizedEntry.includes(normalizedTarget) || normalizedTarget.includes(normalizedEntry)) return true
+    return splitChecklistCandidates(entry).some((candidate) => normalizeChecklistValue(candidate) === normalizedTarget)
+  })
 }
 
 function checklistAppliesToProject(item: ChecklistPreviewItem, project: ProjectRecord | undefined): boolean {
