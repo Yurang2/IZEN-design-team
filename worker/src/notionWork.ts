@@ -875,6 +875,22 @@ export class NotionWorkService {
     return `${normalizeText(projectPageId)}::${normalizeText(checklistItemPageId)}`
   }
 
+  private isChecklistAssignmentExplicitKeyField(field: FieldSchema): boolean {
+    if (!isKnownField(field)) return false
+    const normalized = normalizeFieldName(field.actualName)
+    return normalized === 'key' || normalized.includes('키')
+  }
+
+  private resolveChecklistAssignmentTitle(
+    schema: ChecklistAssignmentSchema,
+    key: string,
+    preferredLabel: string | undefined,
+  ): string {
+    if (!isKnownField(schema.fields.key)) return key
+    if (this.isChecklistAssignmentExplicitKeyField(schema.fields.key)) return key
+    return normalizeText(preferredLabel) || key
+  }
+
   private getChecklistAssignmentDbId(): string {
     const dbId = normalizeText(this.env.NOTION_CHECKLIST_ASSIGNMENT_DB_ID)
     if (!dbId) throw new Error('checklist_assignment_db_not_configured')
@@ -882,6 +898,14 @@ export class NotionWorkService {
   }
 
   private buildChecklistAssignmentSchema(properties: Record<string, any>): ChecklistAssignmentSchema {
+    const relationByTargetDbId = (entries: Array<[string, any]>, targetDbId: string | undefined) => {
+      const normalizedTarget = normalizeNotionId(targetDbId)
+      if (!normalizedTarget) return undefined
+      return entries.find(
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizedTarget,
+      )
+    }
+
     const relationByName = (entries: Array<[string, any]>, keywords: string[]) =>
       entries.find(
         ([name, prop]) =>
@@ -892,42 +916,57 @@ export class NotionWorkService {
     return {
       fields: {
         key: pickField('key', properties, '키', ['title', 'rich_text'], false, (entries) => {
-          const byName = entries.find(([name, prop]) => normalizeFieldName(name).includes('키') && ['title', 'rich_text'].includes(prop?.type))
+          const byName = entries.find(
+            ([name, prop]) =>
+              ['title', 'rich_text'].includes(prop?.type) &&
+              (normalizeFieldName(name).includes('키') ||
+                normalizeFieldName(name).includes('이름') ||
+                normalizeFieldName(name).includes('name')),
+          )
           if (byName) return byName
           return findFirstByTypes(entries, ['title', 'rich_text'])
         }),
         project: pickField('project', properties, '프로젝트', ['relation'], false, (entries) => {
+          const byTarget = relationByTargetDbId(entries, this.env.NOTION_PROJECT_DB_ID)
+          if (byTarget) return byTarget
           const byName = relationByName(entries, ['프로젝트'])
           if (byName) return byName
           return findFirstByTypes(entries, ['relation'])
         }),
         checklistItem: pickField('checklistItem', properties, '체크리스트 항목', ['relation'], false, (entries) => {
+          const byTarget = relationByTargetDbId(entries, this.env.NOTION_CHECKLIST_DB_ID)
+          if (byTarget) return byTarget
           const byName = relationByName(entries, ['체크리스트', '항목'])
           if (byName) return byName
           return findFirstByTypes(entries, ['relation'])
         }),
         task: pickField('task', properties, '할당 업무', ['relation'], true, (entries) => {
+          const byTarget = relationByTargetDbId(entries, this.env.NOTION_TASK_DB_ID)
+          if (byTarget) return byTarget
           return relationByName(entries, ['할당', '업무'])
         }),
         applicable: pickField('applicable', properties, '적용여부', ['checkbox', 'formula'], true, (entries) => {
+          // Optional field: only bind when the name clearly indicates applicability.
           const byName = entries.find(
             ([name, prop]) =>
-              normalizeFieldName(name).includes('적용') &&
-              normalizeFieldName(name).includes('여부') &&
-              ['checkbox', 'formula'].includes(prop?.type),
+              ['checkbox', 'formula'].includes(prop?.type) &&
+              (normalizeFieldName(name).includes('적용여부') ||
+                normalizeFieldName(name).includes('해당여부') ||
+                (normalizeFieldName(name).includes('적용') && normalizeFieldName(name).includes('여부')) ||
+                (normalizeFieldName(name).includes('해당') && normalizeFieldName(name).includes('여부'))),
           )
-          if (byName) return byName
-          return findFirstByTypes(entries, ['checkbox', 'formula'])
+          return byName
         }),
         assignmentStatus: pickField('assignmentStatus', properties, '할당상태', ['formula', 'rich_text', 'select', 'status'], true, (entries) => {
+          // Optional field: avoid falling back to unrelated select/rich_text columns.
           const byName = entries.find(
             ([name, prop]) =>
-              normalizeFieldName(name).includes('할당') &&
-              normalizeFieldName(name).includes('상태') &&
-              ['formula', 'rich_text', 'select', 'status'].includes(prop?.type),
+              ['formula', 'rich_text', 'select', 'status'].includes(prop?.type) &&
+              (normalizeFieldName(name).includes('할당상태') ||
+                (normalizeFieldName(name).includes('할당') && normalizeFieldName(name).includes('상태')) ||
+                (normalizeFieldName(name).includes('assignment') && normalizeFieldName(name).includes('status'))),
           )
-          if (byName) return byName
-          return findFirstByTypes(entries, ['formula', 'rich_text', 'select', 'status'])
+          return byName
         }),
       },
     }
@@ -945,15 +984,25 @@ export class NotionWorkService {
     const projectPageId = first(extractRelationIds(props, schema.fields.project)) ?? ''
     const checklistItemPageId = first(extractRelationIds(props, schema.fields.checklistItem)) ?? ''
     const taskPageId = first(extractRelationIds(props, schema.fields.task)) ?? null
-    const keyText = extractTextLike(props, schema.fields.key, '')
-    const assignmentStatusTextRaw = extractTextLike(props, schema.fields.assignmentStatus, '')
+    const keyText = isKnownField(schema.fields.key) ? extractTextLike(props, schema.fields.key, '') : ''
+    const assignmentStatusTextRaw = isKnownField(schema.fields.assignmentStatus)
+      ? extractTextLike(props, schema.fields.assignmentStatus, '')
+      : ''
     const applicableRaw =
       isKnownField(schema.fields.applicable) && schema.fields.applicable.actualName !== '[UNKNOWN]'
         ? extractBooleanFromProperty(props[schema.fields.applicable.actualName])
         : undefined
     const assignmentStatus = checklistStatusFromValues(assignmentStatusTextRaw, applicableRaw, taskPageId)
-    const assignmentStatusText = normalizeText(assignmentStatusTextRaw) || toChecklistStatusText(assignmentStatus)
-    const key = normalizeText(keyText) || this.checklistAssignmentKey(projectPageId, checklistItemPageId)
+    const normalizedAssignmentStatusText = normalizeText(assignmentStatusTextRaw)
+    const assignmentStatusText =
+      normalizedAssignmentStatusText && normalizedAssignmentStatusText !== '[UNKNOWN]'
+        ? normalizedAssignmentStatusText
+        : toChecklistStatusText(assignmentStatus)
+    const normalizedKeyText = normalizeText(keyText)
+    const key =
+      normalizedKeyText && normalizedKeyText !== '[UNKNOWN]'
+        ? normalizedKeyText
+        : this.checklistAssignmentKey(projectPageId, checklistItemPageId)
 
     return {
       id: page.id,
@@ -1004,7 +1053,7 @@ export class NotionWorkService {
       this.listChecklists(),
     ])
 
-    if (!isKnownField(schema.fields.key) || !isKnownField(schema.fields.project) || !isKnownField(schema.fields.checklistItem)) {
+    if (!isKnownField(schema.fields.project) || !isKnownField(schema.fields.checklistItem)) {
       throw new Error('checklist_assignment_schema_invalid')
     }
 
@@ -1026,8 +1075,14 @@ export class NotionWorkService {
       if (existingChecklistIdSet.has(normalizeNotionId(checklistItemId))) continue
 
       const key = this.checklistAssignmentKey(project.id, checklistItemId)
+      const checklistItem = checklists.find((entry) => normalizeNotionId(entry.id) === normalizeNotionId(checklistItemId))
+      const titleValue = this.resolveChecklistAssignmentTitle(
+        schema,
+        key,
+        checklistItem?.productName || checklistItem?.workCategory,
+      )
       const properties: AnyMap = {}
-      applyTitleLike(properties, schema.fields.key, key)
+      applyTitleLike(properties, schema.fields.key, titleValue)
       applyRelationIds(properties, schema.fields.project, [project.id])
       applyRelationIds(properties, schema.fields.checklistItem, [checklistItemId])
       if (isKnownField(schema.fields.task)) {
@@ -1052,7 +1107,7 @@ export class NotionWorkService {
     taskPageId?: string | null
   }): Promise<ChecklistAssignmentRow> {
     const schema = await this.getChecklistAssignmentSchema()
-    if (!isKnownField(schema.fields.key) || !isKnownField(schema.fields.project) || !isKnownField(schema.fields.checklistItem)) {
+    if (!isKnownField(schema.fields.project) || !isKnownField(schema.fields.checklistItem)) {
       throw new Error('checklist_assignment_schema_invalid')
     }
     if (params.taskPageId && !isKnownField(schema.fields.task)) {
@@ -1074,18 +1129,28 @@ export class NotionWorkService {
       )
     })
 
+    if (existingPage?.id) {
+      const properties: AnyMap = {}
+      if (this.isChecklistAssignmentExplicitKeyField(schema.fields.key)) {
+        applyTitleLike(properties, schema.fields.key, key)
+      }
+      applyRelationIds(properties, schema.fields.project, [projectPageId])
+      applyRelationIds(properties, schema.fields.checklistItem, [checklistItemPageId])
+      if (isKnownField(schema.fields.task)) {
+        applyRelationIds(properties, schema.fields.task, taskPageId ? [taskPageId] : [])
+      }
+      await this.api.updatePage(existingPage.id, { properties })
+      const refreshed = await this.api.retrievePage(existingPage.id)
+      return this.mapChecklistAssignmentPage(refreshed, schema)
+    }
+
     const properties: AnyMap = {}
-    applyTitleLike(properties, schema.fields.key, key)
+    const titleValue = this.resolveChecklistAssignmentTitle(schema, key, undefined)
+    applyTitleLike(properties, schema.fields.key, titleValue)
     applyRelationIds(properties, schema.fields.project, [projectPageId])
     applyRelationIds(properties, schema.fields.checklistItem, [checklistItemPageId])
     if (isKnownField(schema.fields.task)) {
       applyRelationIds(properties, schema.fields.task, taskPageId ? [taskPageId] : [])
-    }
-
-    if (existingPage?.id) {
-      await this.api.updatePage(existingPage.id, { properties })
-      const refreshed = await this.api.retrievePage(existingPage.id)
-      return this.mapChecklistAssignmentPage(refreshed, schema)
     }
 
     const created = await this.api.createPage({
