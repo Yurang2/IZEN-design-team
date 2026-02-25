@@ -1687,6 +1687,16 @@ button.timelineSummaryCard:focus-visible {
   z-index: 2;
 }
 
+.projectTimelineTodayMarker {
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: 0;
+  z-index: 4;
+}
+
 .projectTimelineEventBand {
   background:
     repeating-linear-gradient(
@@ -1705,8 +1715,30 @@ button.timelineSummaryCard:focus-visible {
   z-index: 1;
 }
 
+.projectTimelineTodayBand {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(254, 215, 170, 0.45) 0 6px,
+      rgba(255, 237, 213, 0.24) 6px 12px
+    );
+  border-left: 1px solid rgba(249, 115, 22, 0.22);
+  border-right: 1px solid rgba(249, 115, 22, 0.22);
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: clamp(8px, 2.8%, 24px);
+  z-index: 1;
+}
+
 .projectTimelineEventBand.event-inline {
   opacity: 0.84;
+}
+
+.projectTimelineTodayBand.event-inline {
+  opacity: 0.86;
 }
 
 .projectTimelineEventLabel {
@@ -1725,8 +1757,33 @@ button.timelineSummaryCard:focus-visible {
   z-index: 3;
 }
 
+.projectTimelineTodayLabel {
+  background: #fff4de;
+  border: 1px solid #f5c990;
+  border-radius: 999px;
+  color: #9a4a00;
+  font-size: 10px;
+  font-weight: 700;
+  left: 0;
+  line-height: 1;
+  padding: 3px 8px;
+  position: absolute;
+  top: 24px;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
 .projectTimelineEventMarker::before {
   background: #8b5cf6;
+  content: '';
+  height: 100%;
+  left: -1px;
+  position: absolute;
+  width: 2px;
+}
+
+.projectTimelineTodayMarker::before {
+  background: #f97316;
   content: '';
   height: 100%;
   left: -1px;
@@ -1746,9 +1803,26 @@ button.timelineSummaryCard:focus-visible {
   width: 9px;
 }
 
+.projectTimelineTodayDot {
+  background: #f97316;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.36);
+  height: 9px;
+  left: -4px;
+  position: absolute;
+  top: calc(50% - 4.5px);
+  width: 9px;
+}
+
 .projectTimelineEventMarker.event-inline::before {
   background: #7c3aed;
   opacity: 0.55;
+}
+
+.projectTimelineTodayMarker.event-inline::before {
+  background: #ea580c;
+  opacity: 0.6;
 }
 
 .projectTimelineBar {
@@ -2206,7 +2280,8 @@ tr:hover td {
     display: none;
   }
 
-  .projectTimelineEventLabel {
+  .projectTimelineEventLabel,
+  .projectTimelineTodayLabel {
     display: none;
   }
 

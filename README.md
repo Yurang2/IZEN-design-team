@@ -425,6 +425,7 @@ npm run deploy:worker
     - 프로젝트/체크리스트 표시 날짜를 `yyyy-mm-dd` 형식으로 통일
     - 타임라인/테이블 줄바꿈 규칙을 `break-word/keep-all` 중심으로 조정해 가독성 개선
     - 프로젝트 타임라인 요약에 `집계 기준일`과 `마감일 미정 건수`를 추가해 운영 판단 기준을 명확화
+  - 프로젝트 타임라인 전 모드(보고/운영/업무)에 `오늘` 기준 마커(라벨/라인/밴드) 추가
 - 2026-02-23: Firebase -> Cloudflare Workers 전환
   - Firebase Functions/Hosting 관련 코드 및 설정 제거
   - Worker 백엔드(`worker/src`) 신설

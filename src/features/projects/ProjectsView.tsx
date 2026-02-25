@@ -39,6 +39,7 @@ type ProjectTimelineModel = {
   unitSegments: AxisSegment[]
   rows: TimelineRow[]
   eventMarkerStyle: CSSProperties | null
+  todayMarkerStyle: CSSProperties | null
 }
 
 type ProjectsViewProps = {
@@ -274,6 +275,12 @@ function buildTimelineRange(group: ProjectTimelineGroup): TimelineRange {
   }
 }
 
+function markerStyleForDate(range: TimelineRange, date: Date | null): CSSProperties | null {
+  if (date === null) return null
+  const left = Math.max(0, Math.min(100, (diffUtcDays(range.start, date) / range.totalDays) * 100))
+  return { left: `${left}%` }
+}
+
 function buildProjectTimelineModel(
   group: ProjectTimelineGroup,
   toStatusTone: (status: string | undefined) => 'gray' | 'red' | 'blue' | 'green',
@@ -357,12 +364,8 @@ function buildProjectTimelineModel(
   }
 
   const eventDate = parseIsoDate(group.project.eventDate)
-  const eventMarkerStyle =
-    eventDate !== null
-      ? {
-          left: `${Math.max(0, Math.min(100, (diffUtcDays(range.start, eventDate) / range.totalDays) * 100))}%`,
-        }
-      : null
+  const eventMarkerStyle = markerStyleForDate(range, eventDate)
+  const todayMarkerStyle = markerStyleForDate(range, today)
 
   return {
     range,
@@ -371,6 +374,7 @@ function buildProjectTimelineModel(
     unitSegments,
     rows,
     eventMarkerStyle,
+    todayMarkerStyle,
   }
 }
 
@@ -973,13 +977,24 @@ export function ProjectsView({
 
                       <div className="projectTimelineTrack projectTimelineProjectTrack">
                         <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                        {model.todayMarkerStyle ? <span className="projectTimelineTodayBand" style={model.todayMarkerStyle} aria-hidden="true" /> : null}
                         {model.eventMarkerStyle ? <span className="projectTimelineEventBand" style={model.eventMarkerStyle} aria-hidden="true" /> : null}
                         {visibleRows.slice(0, 14).map((row) => (
                           <span key={`${row.item.task.id}-mini`} className={`projectTimelineMiniBar tone-${row.tone}`} style={row.barStyle} />
                         ))}
+                        {model.todayMarkerStyle ? (
+                          <span className="projectTimelineTodayLabel" style={model.todayMarkerStyle}>
+                            오늘
+                          </span>
+                        ) : null}
                         {model.eventMarkerStyle ? (
                           <span className="projectTimelineEventLabel" style={model.eventMarkerStyle}>
                             행사 진행일
+                          </span>
+                        ) : null}
+                        {model.todayMarkerStyle ? (
+                          <span className="projectTimelineTodayMarker" style={model.todayMarkerStyle} title={`오늘 ${summaryReferenceDate}`}>
+                            <span className="projectTimelineTodayDot" />
                           </span>
                         ) : null}
                         {model.eventMarkerStyle ? (
@@ -1023,6 +1038,12 @@ export function ProjectsView({
                             </div>
                             <div className="projectTimelineTrack">
                               <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                              {model.todayMarkerStyle ? (
+                                <>
+                                  <span className="projectTimelineTodayBand event-inline" style={model.todayMarkerStyle} aria-hidden="true" />
+                                  <span className="projectTimelineTodayMarker event-inline" style={model.todayMarkerStyle} aria-hidden="true" />
+                                </>
+                              ) : null}
                               {model.eventMarkerStyle ? (
                                 <>
                                   <span className="projectTimelineEventBand event-inline" style={model.eventMarkerStyle} aria-hidden="true" />
@@ -1071,6 +1092,12 @@ export function ProjectsView({
 
                                 <div className="projectTimelineTrack">
                                   <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                                  {model.todayMarkerStyle ? (
+                                    <>
+                                      <span className="projectTimelineTodayBand event-inline" style={model.todayMarkerStyle} aria-hidden="true" />
+                                      <span className="projectTimelineTodayMarker event-inline" style={model.todayMarkerStyle} aria-hidden="true" />
+                                    </>
+                                  ) : null}
                                   {model.eventMarkerStyle ? (
                                     <>
                                       <span className="projectTimelineEventBand event-inline" style={model.eventMarkerStyle} aria-hidden="true" />
