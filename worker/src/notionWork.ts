@@ -23,6 +23,11 @@ type SchemaCache = {
   updatedAt: number
 }
 
+type ProjectSchemaSyncResult = {
+  created: string[]
+  existing: string[]
+}
+
 type ChecklistAssignmentSchema = {
   fields: {
     key: FieldSchema
@@ -38,7 +43,8 @@ const SCHEMA_TTL_MS = 5 * 60 * 1000
 let schemaCache: SchemaCache | undefined
 const PROJECT_DB_SCHEMA_TTL_MS = 10 * 60 * 1000
 let projectDbSchemaCheckedAt = 0
-let projectDbSchemaPromise: Promise<void> | null = null
+let projectDbSchemaPromise: Promise<ProjectSchemaSyncResult> | null = null
+let projectDbSchemaLastResult: ProjectSchemaSyncResult | null = null
 
 function unique(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
@@ -629,45 +635,58 @@ export class NotionWorkService {
     return pages
   }
 
-  private async ensureProjectDatabaseProperties(): Promise<void> {
+  private async ensureProjectDatabaseProperties(options?: { force?: boolean }): Promise<ProjectSchemaSyncResult> {
+    const force = options?.force === true
     const now = Date.now()
-    if (projectDbSchemaCheckedAt > 0 && now - projectDbSchemaCheckedAt < PROJECT_DB_SCHEMA_TTL_MS) {
-      return
+    if (!force && projectDbSchemaCheckedAt > 0 && now - projectDbSchemaCheckedAt < PROJECT_DB_SCHEMA_TTL_MS && projectDbSchemaLastResult) {
+      return projectDbSchemaLastResult
     }
 
     if (projectDbSchemaPromise) {
-      await projectDbSchemaPromise
-      return
+      return projectDbSchemaPromise
     }
 
     projectDbSchemaPromise = (async () => {
       const db: any = await this.api.retrieveDatabase(this.env.NOTION_PROJECT_DB_ID)
       const properties = (db.properties ?? {}) as AnyMap
       const updates: AnyMap = {}
+      const created: string[] = []
+      const existing: string[] = []
 
-      const ensureProperty = (name: string, aliases: string[], definition: AnyMap) => {
-        const found = pickPropertyByNames(properties, [name, ...aliases])
-        if (found) return
+      const ensurePropertyExact = (name: string, definition: AnyMap) => {
+        if (hasOwn(properties, name)) {
+          existing.push(name)
+          return
+        }
         updates[name] = definition
+        created.push(name)
       }
 
-      ensureProperty('행사구분', ['행사 구분', '행사분류', 'event category'], { select: {} })
-      ensureProperty('배송일', ['배송 일', '출고일', 'shipping date'], { date: {} })
-      ensureProperty('운영방식', ['운영 방식', '운영모드', 'operation mode'], { select: {} })
-      ensureProperty('배송방식', ['배송 방식', '배송모드', 'fulfillment mode'], { select: {} })
+      // Keep exact names stable because checklist UI reads these property names directly.
+      ensurePropertyExact('행사구분', { select: {} })
+      ensurePropertyExact('배송일', { date: {} })
+      ensurePropertyExact('운영방식', { select: {} })
+      ensurePropertyExact('배송방식', { select: {} })
 
       if (Object.keys(updates).length > 0) {
         await this.api.updateDatabase(this.env.NOTION_PROJECT_DB_ID, { properties: updates })
       }
 
+      const result: ProjectSchemaSyncResult = { created, existing }
       projectDbSchemaCheckedAt = Date.now()
+      projectDbSchemaLastResult = result
+      return result
     })()
 
     try {
-      await projectDbSchemaPromise
+      return await projectDbSchemaPromise
     } finally {
       projectDbSchemaPromise = null
     }
+  }
+
+  async syncProjectDatabaseProperties(force = true): Promise<ProjectSchemaSyncResult> {
+    return this.ensureProjectDatabaseProperties({ force })
   }
 
   private buildTaskSchema(properties: Record<string, any>): TaskSchema {

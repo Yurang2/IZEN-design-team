@@ -803,6 +803,7 @@ function App() {
   const [exportMessage, setExportMessage] = useState<string>('')
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastTimerRef = useRef<Record<number, number>>({})
+  const projectSchemaSyncDoneRef = useRef(false)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -976,13 +977,22 @@ function App() {
   const fetchProjects = useCallback(async () => {
     setLoadingProjects(true)
     try {
+      if (!projectSchemaSyncDoneRef.current) {
+        try {
+          await api('/admin/notion/project-schema/sync', { method: 'POST' })
+          projectSchemaSyncDoneRef.current = true
+        } catch (error: unknown) {
+          pushToast('error', toErrorMessage(error, '프로젝트 DB 속성 동기화에 실패했습니다. 노션 통합 권한을 확인해 주세요.'))
+        }
+      }
+
       const response = await api<ProjectsResponse>('/projects')
       setProjects(response.projects)
       setSchema(response.schema)
     } finally {
       setLoadingProjects(false)
     }
-  }, [])
+  }, [pushToast])
 
   const fetchMeta = useCallback(async () => {
     try {

@@ -1127,7 +1127,13 @@ type ResponseContext = {
 }
 
 function isSensitivePath(path: string): boolean {
-  return path === '/projects' || path === '/meta' || path === '/tasks' || /^\/tasks\/[^/]+$/.test(path)
+  return (
+    path === '/projects' ||
+    path === '/meta' ||
+    path === '/tasks' ||
+    path === '/admin/notion/project-schema/sync' ||
+    /^\/tasks\/[^/]+$/.test(path)
+  )
 }
 
 function buildResponseHeaders(context: ResponseContext): Headers {
@@ -1388,6 +1394,20 @@ export default {
                 url: notionDatabaseUrl(env.NOTION_CHECKLIST_DB_ID),
               },
             },
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/admin/notion/project-schema/sync') {
+        const sync = await service.syncProjectDatabaseProperties(true)
+        invalidateSnapshotCache(ctx)
+        return ok(
+          {
+            ok: true,
+            projectDatabaseId: env.NOTION_PROJECT_DB_ID,
+            created: sync.created,
+            existing: sync.existing,
           },
           origin,
         )

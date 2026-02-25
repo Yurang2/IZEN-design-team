@@ -2076,7 +2076,9 @@ tr:hover td {
 .taskStatusSelect {
   font-size: 12px;
   font-weight: 700;
-  min-width: 120px;
+  width: 60%;
+  max-width: 180px;
+  min-width: 72px;
 }
 
 .actionCell {
