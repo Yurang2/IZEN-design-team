@@ -511,8 +511,8 @@ function UiGlyph({ name }: { name: UiGlyphName }) {
 function toTopViewPath(view: TopView): string {
   if (view === 'projects') return 'Projects'
   if (view === 'tasks') return 'Tasks'
-  if (view === 'schedule') return 'Schedule Share'
-  return 'Assignment'
+  if (view === 'schedule') return 'Schedule'
+  return 'Event Checklist'
 }
 
 function normalizeStatus(status: string | undefined): string {
@@ -744,6 +744,7 @@ function App() {
   const [taskQuickGroupBy, setTaskQuickGroupBy] = useState<TaskQuickGroupBy>(initialListUiState.taskQuickGroupBy)
   const [showTaskFilters, setShowTaskFilters] = useState(initialListUiState.showTaskFilters)
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
+  const [checklistMode, setChecklistMode] = useState<'schedule_share' | 'assignment'>('assignment')
   const [quickSearch, setQuickSearch] = useState('')
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
   const debouncedQuickSearch = useDebouncedValue(quickSearch, 250)
@@ -1761,7 +1762,6 @@ function App() {
   const selectedViewDbUrl = useMemo(() => {
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
-    if (activeView === 'schedule') return dbLinks.checklist
     if (activeView === 'checklist') return dbLinks.checklist
     return null
   }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.task])
@@ -2480,26 +2480,26 @@ function App() {
                 type="button"
                 className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('schedule')}
-                title="일정공유용"
+                title="일정"
               >
                 <span className="iconLabel">
                   <span className="uiIcon">
                     <UiGlyph name="calendar" />
                   </span>
-                  <span>일정공유용</span>
+                  <span>일정</span>
                 </span>
               </button>
               <button
                 type="button"
                 className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('checklist')}
-                title="할당용"
+                title="행사 체크리스트"
               >
                 <span className="iconLabel">
                   <span className="uiIcon">
                     <UiGlyph name="checksquare" />
                   </span>
-                  <span>할당용</span>
+                  <span>행사 체크리스트</span>
                 </span>
               </button>
               {selectedViewDbUrl ? (
@@ -2542,8 +2542,8 @@ function App() {
                 : activeView === 'tasks'
                   ? '업무'
                   : activeView === 'schedule'
-                    ? '일정공유용'
-                    : '할당용'}
+                    ? '일정'
+                    : '행사 체크리스트'}
             </h1>
           </div>
           {activeView === 'tasks' ? (
@@ -2619,6 +2619,29 @@ function App() {
                     마감일
                   </button>
                 </div>
+              </section>
+            </div>
+          ) : null}
+          {activeView === 'checklist' ? (
+            <div className="taskViewControls">
+              <section className="taskViewMode">
+                <button
+                  type="button"
+                  className={checklistMode === 'schedule_share' ? 'viewTab active' : 'viewTab'}
+                  onClick={() => {
+                    setChecklistMode('schedule_share')
+                    setAssignmentTarget(null)
+                  }}
+                >
+                  일정공유용
+                </button>
+                <button
+                  type="button"
+                  className={checklistMode === 'assignment' ? 'viewTab active' : 'viewTab'}
+                  onClick={() => setChecklistMode('assignment')}
+                >
+                  할당용
+                </button>
               </section>
             </div>
           ) : null}
@@ -2706,37 +2729,14 @@ function App() {
       ) : null}
 
       {activeView === 'schedule' ? (
-        <ChecklistView
-          mode="schedule_share"
-          checklistFilters={checklistFilters}
-          checklistSort={checklistSort}
-          checklistLoading={checklistLoading}
-          checklistError={checklistError}
-          assignmentSyncError={assignmentSyncError}
-          assignmentStorageMode={assignmentStorageMode}
-          prioritizeUnassignedChecklist={prioritizeUnassignedChecklist}
-          projectDbOptions={projectDbOptions}
-          selectedChecklistProject={selectedChecklistProject}
-          rows={checklistRows}
-          onChecklistInput={onChecklistInput}
-          onChecklistSubmit={onChecklistSubmit}
-          onChecklistReset={onChecklistReset}
-          onChecklistSortChange={setChecklistSort}
-          onTogglePrioritizeUnassignedChecklist={setPrioritizeUnassignedChecklist}
-          creatingTaskByChecklistId={checklistCreatingTaskIds}
-          onCreateTaskFromChecklist={onCreateTaskFromChecklist}
-          onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
-          onOpenAssignmentPicker={onOpenAssignmentPicker}
-          onSetNotApplicable={onSetChecklistNotApplicable}
-          toProjectLabel={toProjectLabel}
-          toProjectThumbUrl={toProjectThumbUrl}
-          formatDateLabel={formatDateLabel}
-        />
+        <section className="checklistPreview">
+          <div className="timelineWipBadge">일정 화면은 준비 중입니다.</div>
+        </section>
       ) : null}
 
       {activeView === 'checklist' ? (
         <ChecklistView
-          mode="assignment"
+          mode={checklistMode}
           checklistFilters={checklistFilters}
           checklistSort={checklistSort}
           checklistLoading={checklistLoading}
