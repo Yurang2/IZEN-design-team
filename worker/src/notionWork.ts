@@ -862,7 +862,16 @@ export class NotionWorkService {
     return projectPages
       .map((page) => {
         const props = (page.properties ?? {}) as AnyMap
-        const projectTypeProp = pickPropertyByNames(props, ['프로젝트 유형', '프로젝트유형', '프로젝트 타입', '유형', 'project type'])
+        const projectTypeProp = pickPropertyByNames(props, [
+          '프로젝트 유형',
+          '프로젝트유형',
+          '프로젝트 타입',
+          '유형',
+          '행사속성',
+          '행사 속성',
+          'event type',
+          'project type',
+        ])
         const projectEventCategoryDetailedProp = pickPropertyByNames(props, [
           '행사분류',
           '행사 분류',

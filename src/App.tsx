@@ -730,6 +730,11 @@ function includesChecklistValue(values: string[] | undefined, target: string | u
   })
 }
 
+function isChecklistSelectableProject(project: ProjectRecord): boolean {
+  const normalizedType = normalizeChecklistValue(project.projectType)
+  return normalizedType === normalizeChecklistValue('행사') || normalizedType === normalizeChecklistValue('전시회')
+}
+
 function checklistAppliesToProject(item: ChecklistPreviewItem, project: ProjectRecord | undefined): boolean {
   if (!project) return false
   const byProjectType = !item.applicableProjectTypes?.length || includesChecklistValue(item.applicableProjectTypes, project.projectType)
@@ -1105,7 +1110,9 @@ function App() {
 
     try {
       const params = new URLSearchParams()
-      const selectedProject = projects.find((project) => project.source === 'project_db' && project.name === input.eventName)
+      const selectedProject = projects.find(
+        (project) => project.source === 'project_db' && project.name === input.eventName && isChecklistSelectableProject(project),
+      )
       if (input.eventName.trim()) params.set('eventName', input.eventName.trim())
       if (input.eventCategory.trim()) params.set('eventCategory', input.eventCategory.trim())
       if (selectedProject?.eventDate) params.set('eventDate', selectedProject.eventDate)
@@ -1397,6 +1404,11 @@ function App() {
     [projects],
   )
 
+  const checklistProjectOptions = useMemo(
+    () => projectDbOptions.filter((project) => isChecklistSelectableProject(project)),
+    [projectDbOptions],
+  )
+
   const sortedProjectDbOptions = useMemo(() => {
     const copy = [...projectDbOptions]
     copy.sort((a, b) => {
@@ -1567,8 +1579,8 @@ function App() {
   }, [debouncedQuickSearch, projectDbOptions, tasks])
 
   const selectedChecklistProject = useMemo(
-    () => projectDbOptions.find((project) => project.name === checklistFilters.eventName),
-    [checklistFilters.eventName, projectDbOptions],
+    () => checklistProjectOptions.find((project) => project.name === checklistFilters.eventName),
+    [checklistFilters.eventName, checklistProjectOptions],
   )
 
   useEffect(() => {
@@ -2764,7 +2776,7 @@ function App() {
           assignmentSyncError={assignmentSyncError}
           assignmentStorageMode={assignmentStorageMode}
           prioritizeUnassignedChecklist={prioritizeUnassignedChecklist}
-          projectDbOptions={projectDbOptions}
+          projectDbOptions={checklistProjectOptions}
           selectedChecklistProject={selectedChecklistProject}
           rows={checklistRows}
           onChecklistInput={onChecklistInput}
