@@ -67,16 +67,22 @@ type ProjectsViewProps = {
 type TimelineMode = 'report' | 'manage' | 'work'
 type SummaryFilter = 'all' | 'delayed' | 'todayDue' | 'weekDue' | 'urgent' | 'progress' | 'done' | 'active' | 'conflict' | 'blocked'
 
-const PROJECT_TYPE_PRIORITY = ['행사', '전시회', '교육', '내부업무', '제품개발', '기타', '미분류']
+const PROJECT_CATEGORY_PRIORITY = ['행사', '전시회', '교육', '내부업무', '제품개발', '기타', '미분류']
 
-function normalizeProjectType(value: string | undefined): string {
+function normalizeCategoryValue(value: string | undefined): string {
   const normalized = (value ?? '').trim()
   return normalized || '미분류'
 }
 
-function compareProjectType(a: string, b: string): number {
-  const aIndex = PROJECT_TYPE_PRIORITY.indexOf(a)
-  const bIndex = PROJECT_TYPE_PRIORITY.indexOf(b)
+function normalizeProjectCategory(project: ProjectRecord): string {
+  const eventCategory = normalizeCategoryValue(project.eventCategory)
+  if (eventCategory !== '미분류') return eventCategory
+  return normalizeCategoryValue(project.projectType)
+}
+
+function compareProjectCategory(a: string, b: string): number {
+  const aIndex = PROJECT_CATEGORY_PRIORITY.indexOf(a)
+  const bIndex = PROJECT_CATEGORY_PRIORITY.indexOf(b)
   const aRank = aIndex >= 0 ? aIndex : 999
   const bRank = bIndex >= 0 ? bIndex : 999
   if (aRank !== bRank) return aRank - bRank
@@ -469,6 +475,7 @@ export function ProjectsView({
   const [workerAssignee, setWorkerAssignee] = useState('')
   const [showCompletedTasks, setShowCompletedTasks] = useState(false)
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('all')
+  const [openProjectCategorySections, setOpenProjectCategorySections] = useState<Record<string, boolean>>({})
 
   const timelineAssigneeOptions = useMemo(() => {
     const uniqueNames = new Set<string>()
@@ -580,16 +587,40 @@ export function ProjectsView({
   const timelineGroupsByType = useMemo(() => {
     const byType = new Map<string, typeof timelineGroupsByMode>()
     for (const group of timelineGroupsByMode) {
-      const projectType = normalizeProjectType(group.project.projectType)
-      const current = byType.get(projectType)
+      const projectCategory = normalizeProjectCategory(group.project)
+      const current = byType.get(projectCategory)
       if (current) current.push(group)
-      else byType.set(projectType, [group])
+      else byType.set(projectCategory, [group])
     }
 
     return Array.from(byType.entries())
-      .sort(([a], [b]) => compareProjectType(a, b))
-      .map(([projectType, groups]) => ({ projectType, groups }))
+      .sort(([a], [b]) => compareProjectCategory(a, b))
+      .map(([projectCategory, groups]) => ({ projectCategory, groups }))
   }, [timelineGroupsByMode])
+
+  useEffect(() => {
+    setOpenProjectCategorySections((prev) => {
+      let changed = false
+      const next: Record<string, boolean> = { ...prev }
+      const activeKeys = new Set(timelineGroupsByType.map((section) => section.projectCategory))
+
+      for (const section of timelineGroupsByType) {
+        if (next[section.projectCategory] === undefined) {
+          next[section.projectCategory] = true
+          changed = true
+        }
+      }
+
+      for (const key of Object.keys(next)) {
+        if (!activeKeys.has(key)) {
+          delete next[key]
+          changed = true
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [timelineGroupsByType])
 
   const allTimelineModels = useMemo(() => {
     const map = new Map<string, ProjectTimelineModel>()
@@ -727,6 +758,13 @@ export function ProjectsView({
     setSummaryFilter((prev) => (prev === nextFilter ? 'all' : nextFilter))
   }
 
+  const onToggleProjectCategorySection = (projectCategory: string) => {
+    setOpenProjectCategorySections((prev) => ({
+      ...prev,
+      [projectCategory]: prev[projectCategory] === false ? true : false,
+    }))
+  }
+
   const hasVisibleTimelineGroup =
     !isSummaryFiltered ||
     timelineGroupsByMode.some((group) => {
@@ -737,52 +775,53 @@ export function ProjectsView({
 
   return (
     <section className="projectSection">
-      <header className="projectHeader">
-        <h2>프로젝트 타임라인</h2>
-        <span>{sortedProjectDbOptions.length}건</span>
-      </header>
-
-      <section className="filters compact">
-        <label>
-          정렬
-          <select value={projectSort} onChange={(event) => onProjectSortChange(event.target.value as ProjectSort)}>
-            <option value="name_asc">이름 오름차순</option>
-            <option value="name_desc">이름 내림차순</option>
-            <option value="date_asc">행사일 빠른순</option>
-            <option value="date_desc">행사일 늦은순</option>
-          </select>
-        </label>
-      </section>
-      <section className="timelineModeBar">
-        <strong>모드</strong>
-        <div className="timelineModeButtons">
-          <button type="button" className={timelineMode === 'report' ? 'viewTab active' : 'viewTab'} onClick={() => setTimelineMode('report')}>
-            보고용
-          </button>
-          <button type="button" className={timelineMode === 'manage' ? 'viewTab active' : 'viewTab'} onClick={() => setTimelineMode('manage')}>
-            운영용
-          </button>
-          <button type="button" className={timelineMode === 'work' ? 'viewTab active' : 'viewTab'} onClick={() => setTimelineMode('work')}>
-            업무용
-          </button>
+      <header className="projectHeader projectHeaderWithControls">
+        <div className="projectHeaderTitleBlock">
+          <h2>프로젝트 타임라인</h2>
+          <span>{sortedProjectDbOptions.length}건</span>
         </div>
-        <button type="button" className="secondary timelineDoneToggle" onClick={() => setShowCompletedTasks((prev) => !prev)}>
-          {showCompletedTasks ? '완료업무 접기' : '완료업무 펼치기'}
-        </button>
-        {timelineMode === 'work' ? (
-          <label className="timelineModeAssignee">
-            담당자
-            <select value={effectiveWorkerAssignee} onChange={(event) => setWorkerAssignee(event.target.value)}>
-              <option value="">전체</option>
-              {timelineAssigneeOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
+        <div className="projectHeaderControls">
+          <label className="projectSortInline">
+            <span>정렬</span>
+            <select value={projectSort} onChange={(event) => onProjectSortChange(event.target.value as ProjectSort)}>
+              <option value="name_asc">이름 오름차순</option>
+              <option value="name_desc">이름 내림차순</option>
+              <option value="date_asc">행사일 빠른순</option>
+              <option value="date_desc">행사일 늦은순</option>
             </select>
           </label>
-        ) : null}
-      </section>
+          <section className="timelineModeBar timelineModeBarInline">
+            <strong>보기</strong>
+            <div className="timelineModeButtons">
+              <button type="button" className={timelineMode === 'report' ? 'viewTab active' : 'viewTab'} onClick={() => setTimelineMode('report')}>
+                보고용
+              </button>
+              <button type="button" className={timelineMode === 'manage' ? 'viewTab active' : 'viewTab'} onClick={() => setTimelineMode('manage')}>
+                운영용
+              </button>
+              <button type="button" className={timelineMode === 'work' ? 'viewTab active' : 'viewTab'} onClick={() => setTimelineMode('work')}>
+                업무용
+              </button>
+            </div>
+            <button type="button" className="secondary timelineDoneToggle" onClick={() => setShowCompletedTasks((prev) => !prev)}>
+              {showCompletedTasks ? '완료업무 접기' : '완료업무 펼치기'}
+            </button>
+            {timelineMode === 'work' ? (
+              <label className="timelineModeAssignee">
+                담당자
+                <select value={effectiveWorkerAssignee} onChange={(event) => setWorkerAssignee(event.target.value)}>
+                  <option value="">전체</option>
+                  {timelineAssigneeOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </section>
+        </div>
+      </header>
 
       {loadingProjects ? (
         <ProjectsSkeleton />
@@ -971,15 +1010,36 @@ export function ProjectsView({
                   return model.rows.some((row) => matchesSummaryFilter(row))
                 })
                 if (visibleGroups.length === 0) return null
+                const sectionTaskCount = visibleGroups.reduce((sum, group) => {
+                  const model = timelineModels.get(group.project.id)
+                  if (!model) return sum
+                  if (!isSummaryFiltered) return sum + model.rows.length
+                  return sum + model.rows.filter((row) => matchesSummaryFilter(row)).length
+                }, 0)
+                const isSectionOpen = isSummaryFiltered || openProjectCategorySections[section.projectCategory] !== false
 
                 return (
-                  <section key={section.projectType} className="projectTimelineTypeSection">
+                  <section key={section.projectCategory} className="projectTimelineTypeSection">
                     <header className="projectTimelineTypeHeader">
-                      <h4>{section.projectType}</h4>
-                      <span>프로젝트 {visibleGroups.length}건</span>
+                      <h4>{section.projectCategory}</h4>
+                      <div className="projectTimelineTypeHeaderActions">
+                        <span>
+                          프로젝트 {visibleGroups.length}건 · 업무 {sectionTaskCount}건
+                        </span>
+                        <button
+                          type="button"
+                          className="timelineToggleButton projectTypeToggleButton"
+                          aria-expanded={isSectionOpen}
+                          disabled={isSummaryFiltered}
+                          onClick={() => onToggleProjectCategorySection(section.projectCategory)}
+                        >
+                          {isSummaryFiltered ? '필터 적용 중' : isSectionOpen ? '섹션 접기' : '섹션 펼치기'}
+                        </button>
+                      </div>
                     </header>
-                    <div className="projectTimelineGroupList">
-                      {visibleGroups.map((group) => {
+                    {isSectionOpen ? (
+                      <div className="projectTimelineGroupList">
+                        {visibleGroups.map((group) => {
                         const model = timelineModels.get(group.project.id)
                         if (!model) return null
                         const visibleRows = isSummaryFiltered ? model.rows.filter((row) => matchesSummaryFilter(row)) : model.rows
@@ -989,7 +1049,7 @@ export function ProjectsView({
                         const progressCount = visibleRows.filter((row) => row.tone === 'blue' || row.tone === 'red').length
                         const doneCount = visibleRows.filter((row) => row.tone === 'green').length
                         const undatedCount = visibleRows.filter((row) => !parseIsoDate(row.item.task.dueDate)).length
-                        const projectTypeLabel = normalizeProjectType(group.project.projectType)
+                        const projectCategoryLabel = normalizeProjectCategory(group.project)
                         const eventMarkerDate = formatMonthDotDay(parseIsoDate(group.project.eventDate))
                         const projectIconEmojiUrl = emojiToTwemojiUrl(group.project.iconEmoji)
                         const projectIconLabel = formatProjectIconLabel(group.project.iconEmoji)
@@ -1014,7 +1074,7 @@ export function ProjectsView({
                                 </span>
                                 <div className="projectTimelineProjectMeta">
                                   <div className="projectTimelineProjectStats">
-                                    <span>구분 {projectTypeLabel}</span>
+                                    <span>행사속성 {projectCategoryLabel}</span>
                                     <span>{group.project.eventDate ? `행사일 ${formatDateLabel(group.project.eventDate)}` : '행사일 미정'}</span>
                                     <span>예정 {scheduledCount}</span>
                                     <span>진행 {progressCount}</span>
@@ -1196,8 +1256,9 @@ export function ProjectsView({
                             ) : null}
                           </article>
                         )
-                      })}
-                    </div>
+                        })}
+                      </div>
+                    ) : null}
                   </section>
                 )
               })}

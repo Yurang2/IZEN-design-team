@@ -472,3 +472,7 @@ npm run deploy:worker
   - 할당용 액션을 `생성/할당/해당없음` 3버튼으로 통일.
   - Worker `/api/checklist-assignments`가 `assignmentStatus`를 받아 `not_applicable` 저장을 지원.
   - 노션 체크리스트 할당 매트릭스 DB에 `할당상태(select)`, `적용여부(checkbox)` 속성이 없으면 자동 생성 후 사용.
+- 2026-02-25: Project timeline UX/category update
+  - 프로젝트 탭 보기(보고용/운영용/업무용) 컨트롤을 상단 우측으로 재배치.
+  - 타임라인 섹션 분류를 프로젝트 DB `행사속성(행사분류)` 우선 기준으로 변경(없으면 프로젝트 유형 fallback).
+  - 분류 섹션 단위 접기/펼치기 토글을 추가.

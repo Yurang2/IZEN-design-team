@@ -832,7 +832,15 @@ export class NotionWorkService {
       .map((page) => {
         const props = (page.properties ?? {}) as AnyMap
         const projectTypeProp = pickPropertyByNames(props, ['프로젝트 유형', '프로젝트유형', '프로젝트 타입', '유형', 'project type'])
-        const projectEventCategoryProp = pickPropertyByNames(props, ['행사분류', '행사 분류', '행사구분', '행사 구분', 'event category'])
+        const projectEventCategoryProp = pickPropertyByNames(props, [
+          '행사속성',
+          '행사 속성',
+          '행사분류',
+          '행사 분류',
+          '행사구분',
+          '행사 구분',
+          'event category',
+        ])
         const titleProp = pickPropertyByNames(props, ['프로젝트명', '프로젝트 이름', '이름', 'name'])
         const eventDateProp = pickPropertyByNames(props, ['행사진행일', '행사 진행일', '진행일', 'event date'])
         const shippingDateProp = pickPropertyByNames(props, ['배송마감일', '배송 마감일', '배송일', '배송 일', '출고일', 'shipping date'])

@@ -1203,6 +1203,16 @@ textarea {
   margin: 0;
 }
 
+.projectHeaderWithControls {
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.projectHeaderTitleBlock {
+  display: grid;
+  gap: 4px;
+}
+
 .projectTitle {
   align-items: center;
   display: flex;
@@ -1254,10 +1264,31 @@ textarea {
   width: 34px;
 }
 
-.projectHeader span {
+.projectHeaderTitleBlock span {
   color: var(--text-sub);
   font-size: 12px;
   font-weight: 600;
+}
+
+.projectHeaderControls {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  margin-left: auto;
+}
+
+.projectSortInline {
+  align-items: center;
+  display: inline-flex;
+  flex-direction: row;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.projectSortInline select {
+  min-height: 34px;
+  min-width: 180px;
 }
 
 .projectTimelineBoard {
@@ -1330,6 +1361,17 @@ textarea {
   color: #5f7088;
   font-size: 11px;
   font-weight: 700;
+}
+
+.projectTimelineTypeHeaderActions {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.projectTypeToggleButton {
+  min-height: 26px;
+  padding: 3px 10px;
 }
 
 .projectTimelineGroup {
@@ -1421,6 +1463,11 @@ textarea {
   flex-wrap: wrap;
   gap: 8px;
   margin: 10px 0 0;
+}
+
+.timelineModeBarInline {
+  justify-content: flex-end;
+  margin: 0;
 }
 
 .timelineModeBar strong {
@@ -2439,6 +2486,10 @@ tr:hover td {
     flex-direction: column;
   }
 
+  .timelineModeBarInline {
+    justify-content: stretch;
+  }
+
   .timelineModeButtons {
     display: grid;
     gap: 8px;
@@ -2488,7 +2539,39 @@ tr:hover td {
   }
 
   .projectTimelineTypeHeader {
+    align-items: flex-start;
+    flex-direction: column;
     padding: 8px;
+  }
+
+  .projectTimelineTypeHeaderActions {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .projectTypeToggleButton {
+    width: auto;
+  }
+
+  .projectHeaderWithControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .projectHeaderControls {
+    justify-items: stretch;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .projectSortInline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .projectSortInline select {
+    min-width: 0;
+    width: 100%;
   }
 
   .projectTimelineProjectTrack {
