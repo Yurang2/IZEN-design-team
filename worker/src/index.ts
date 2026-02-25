@@ -560,6 +560,31 @@ function normalizeNotionId(value: string | undefined | null): string {
   return (value ?? '').replace(/-/g, '').toLowerCase()
 }
 
+function isLikelyNotionPageId(value: string | undefined | null): boolean {
+  return /^[0-9a-f]{32}$/.test(normalizeNotionId(value))
+}
+
+function resolveChecklistAssignedTaskId(taskPageId: string | null, validTaskIds?: Set<string>): string | null {
+  if (!taskPageId) return null
+
+  if (isLikelyNotionPageId(taskPageId)) {
+    const normalized = normalizeNotionId(taskPageId)
+    if (!validTaskIds || validTaskIds.has(normalized)) return taskPageId
+  }
+
+  if (!taskPageId.includes('::')) return null
+
+  const matched = taskPageId
+    .split('::')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .filter((entry) => isLikelyNotionPageId(entry))
+    .filter((entry) => (validTaskIds ? validTaskIds.has(normalizeNotionId(entry)) : true))
+
+  if (matched.length === 1) return matched[0]
+  return null
+}
+
 function containsText(source: string, keyword?: string): boolean {
   if (!keyword) return true
   return source.toLowerCase().includes(keyword.toLowerCase())
@@ -701,6 +726,9 @@ function parseChecklistAssignmentBody(body: unknown): {
   }
   if (assignmentStatus === 'assigned' && !taskPageId) {
     throw new Error('assignmentStatus_requires_taskPageId')
+  }
+  if (taskPageId && !isLikelyNotionPageId(taskPageId)) {
+    throw new Error('taskPageId_invalid')
   }
 
   return {
@@ -1578,10 +1606,11 @@ export default {
         }
 
         if (projectPageId) {
-          const [loaded, projects, checklists] = await Promise.all([
+          const [loaded, projects, checklists, snapshot] = await Promise.all([
             loadChecklistAssignments(env),
             service.listProjects(),
             service.listChecklists(),
+            getSnapshot(service, env, ctx),
           ])
           const normalizedProjectId = normalizeNotionId(projectPageId)
           const project = projects.find((entry) => normalizeNotionId(entry.id) === normalizedProjectId)
@@ -1589,30 +1618,32 @@ export default {
             return json({ ok: false, error: 'project_not_found' }, 404, origin)
           }
 
+          const knownTaskIds = new Set(snapshot.tasks.map((task) => normalizeNotionId(task.id)))
           const assignmentEntries = Object.entries(loaded.assignments)
           const rows: ChecklistAssignmentRow[] = checklists.map((item) => {
             const key = checklistMatrixKey(project.id, item.id)
-            const storedValue = assignmentEntries.find(([entryKey]) => {
+            const storedEntry = assignmentEntries.find(([entryKey]) => {
               const parts = entryKey.split('::')
               if (parts.length < 2) return false
               const itemId = parts[parts.length - 1]
               const projectKey = (parts[0] ?? '').toLowerCase()
               if (itemId !== item.id) return false
               return projectKey === normalizeNotionId(project.id) || projectKey === 'all_project'
-            })?.[1]
-            const decoded = decodeChecklistAssignmentValue(storedValue)
+            })
+            const decoded = decodeChecklistAssignmentValue(storedEntry?.[1])
+            const resolvedTaskPageId = resolveChecklistAssignedTaskId(decoded.taskPageId, knownTaskIds)
             const fallbackApplicable = checklistAppliesToProject(item, project)
             const applicable = decoded.explicitNotApplicable ? false : fallbackApplicable
             const status = decoded.explicitNotApplicable
               ? { assignmentStatus: 'not_applicable' as const, assignmentStatusText: '해당없음' }
-              : toChecklistAssignmentStatus(applicable, decoded.taskPageId)
+              : toChecklistAssignmentStatus(applicable, resolvedTaskPageId)
 
             return {
               id: key,
               key,
               projectPageId: project.id,
               checklistItemPageId: item.id,
-              taskPageId: decoded.taskPageId,
+              taskPageId: resolvedTaskPageId,
               applicable,
               assignmentStatus: status.assignmentStatus,
               assignmentStatusText: status.assignmentStatusText,
@@ -1694,6 +1725,13 @@ export default {
         }
 
         if (env.NOTION_CHECKLIST_ASSIGNMENT_DB_ID) {
+          if (payload.taskPageId) {
+            try {
+              await service.getTask(payload.taskPageId)
+            } catch {
+              return json({ ok: false, error: 'task_not_found' }, 404, origin)
+            }
+          }
           const row = await service.upsertChecklistAssignment({
             projectPageId: payload.projectPageId,
             checklistItemPageId: payload.checklistItemPageId,
@@ -1720,6 +1758,17 @@ export default {
         const eventCategory = ''
         const loaded = await loadChecklistAssignments(env)
         const assignments = loaded.assignments
+        if (taskId) {
+          const snapshot = await getSnapshot(service, env, ctx)
+          const existsInSnapshot = snapshot.tasks.some((task) => normalizeNotionId(task.id) === normalizeNotionId(taskId))
+          if (!existsInSnapshot) {
+            try {
+              await service.getTask(taskId)
+            } catch {
+              return json({ ok: false, error: 'task_not_found' }, 404, origin)
+            }
+          }
+        }
         const key = checklistAssignmentKey(eventCategory, itemId, projectId)
         const legacyKey = `${(eventCategory ?? '').trim() || 'ALL'}::${itemId}`
         const previousRaw = assignments[key] ?? assignments[legacyKey]

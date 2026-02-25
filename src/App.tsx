@@ -593,6 +593,13 @@ function normalizeNotionId(value: string | undefined | null): string {
   return (value ?? '').replace(/-/g, '').trim().toLowerCase()
 }
 
+function sanitizeChecklistTaskPageId(value: string | undefined | null): string {
+  const taskPageId = (value ?? '').trim()
+  if (!taskPageId) return ''
+  if (taskPageId.includes('::')) return ''
+  return taskPageId
+}
+
 function toTimelineStatusRank(status: string | undefined): number {
   const tone = toStatusTone(status)
   if (tone === 'gray') return 0
@@ -1685,12 +1692,18 @@ function App() {
     const rows = sortedChecklistItems.map((item, index) => {
       const matrixRow = assignmentRowByChecklistId.get(item.id)
       const fallbackApplicable = checklistAppliesToProject(item, selectedChecklistProject)
-      const assignedTaskId = matrixRow?.taskPageId ?? ''
+      const assignedTaskIdRaw = matrixRow?.taskPageId ?? ''
+      const assignedTaskId = sanitizeChecklistTaskPageId(assignedTaskIdRaw)
+      const hasInvalidAssignedTaskId = Boolean(assignedTaskIdRaw && !assignedTaskId)
       const assignedTask = assignedTaskId ? taskById.get(assignedTaskId) ?? checklistTaskOverrides[assignedTaskId] : undefined
       const totalLeadDays = getChecklistTotalLeadDays(item)
       const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
-      const assignmentStatus: ChecklistAssignmentStatus = matrixRow?.assignmentStatus ?? (fallbackApplicable ? 'unassigned' : 'not_applicable')
-      const assignmentStatusLabel = matrixRow?.assignmentStatusText?.trim() || toChecklistAssignmentLabel(assignmentStatus)
+      const assignmentStatusBase: ChecklistAssignmentStatus = matrixRow?.assignmentStatus ?? (fallbackApplicable ? 'unassigned' : 'not_applicable')
+      const assignmentStatus: ChecklistAssignmentStatus =
+        hasInvalidAssignedTaskId && assignmentStatusBase === 'assigned' ? 'unassigned' : assignmentStatusBase
+      const assignmentStatusLabel = hasInvalidAssignedTaskId
+        ? toChecklistAssignmentLabel('unassigned')
+        : matrixRow?.assignmentStatusText?.trim() || toChecklistAssignmentLabel(assignmentStatus)
 
       return {
         item,
@@ -2113,12 +2126,13 @@ function App() {
   }
 
   const onSelectAssignmentTask = async (taskId: string) => {
-    if (!assignmentTarget) return
-    await setChecklistAssignment(assignmentTarget.itemId, taskId, {
-      assignmentStatus: taskId ? 'assigned' : 'unassigned',
-    })
+    const target = assignmentTarget
+    if (!target) return
     setAssignmentTarget(null)
     setAssignmentSearch('')
+    await setChecklistAssignment(target.itemId, taskId, {
+      assignmentStatus: taskId ? 'assigned' : 'unassigned',
+    })
   }
 
   const onSetChecklistNotApplicable = async (itemId: string) => {
