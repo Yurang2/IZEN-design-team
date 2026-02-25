@@ -726,7 +726,6 @@ function includesChecklistValue(values: string[] | undefined, target: string | u
     const normalizedEntry = normalizeChecklistValue(entry)
     if (!normalizedEntry) return false
     if (normalizedEntry === normalizedTarget) return true
-    if (normalizedEntry.includes(normalizedTarget) || normalizedTarget.includes(normalizedEntry)) return true
     return splitChecklistCandidates(entry).some((candidate) => normalizeChecklistValue(candidate) === normalizedTarget)
   })
 }
