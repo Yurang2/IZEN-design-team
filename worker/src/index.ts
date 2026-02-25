@@ -15,6 +15,7 @@ import type {
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const SNAPSHOT_CACHE_URL = 'https://cache.internal/notion-task-snapshot-v1'
 const CHECKLIST_ASSIGNMENT_CACHE_URL = 'https://cache.internal/checklist-assignment-v1'
+const CHECKLIST_NOT_APPLICABLE_SENTINEL = '__NOT_APPLICABLE__'
 const DEFAULT_CACHE_TTL_MS = 60_000
 const KR_HOLIDAY_JSON_URL = 'https://holidays.hyunbin.page/basic.json'
 const KR_HOLIDAY_CACHE_MS = 12 * 60 * 60 * 1000
@@ -677,21 +678,36 @@ function parseChecklistAssignmentBody(body: unknown): {
   projectPageId: string
   checklistItemPageId: string
   taskPageId: string | null
+  assignmentStatus?: ChecklistAssignmentStatus
   actor?: string
 } {
   const payload = parsePatchBody(body)
   const projectPageId = asString(payload.projectPageId) ?? asString(payload.projectId)
   const checklistItemPageId = asString(payload.checklistItemPageId) ?? asString(payload.itemId)
   const taskPageId = asString(payload.taskPageId) ?? asString(payload.taskId) ?? null
+  const assignmentStatusRaw = asString(payload.assignmentStatus)
   const actor = asString(payload.actor)
 
   if (!projectPageId) throw new Error('projectPageId_required')
   if (!checklistItemPageId) throw new Error('checklistItemPageId_required')
 
+  let assignmentStatus: ChecklistAssignmentStatus | undefined
+  if (assignmentStatusRaw) {
+    if (assignmentStatusRaw === 'assigned' || assignmentStatusRaw === 'unassigned' || assignmentStatusRaw === 'not_applicable') {
+      assignmentStatus = assignmentStatusRaw
+    } else {
+      throw new Error('assignmentStatus_invalid')
+    }
+  }
+  if (assignmentStatus === 'assigned' && !taskPageId) {
+    throw new Error('assignmentStatus_requires_taskPageId')
+  }
+
   return {
     projectPageId,
     checklistItemPageId,
     taskPageId,
+    assignmentStatus,
     actor,
   }
 }
@@ -1092,6 +1108,26 @@ function toChecklistAssignmentStatus(
   }
 }
 
+function decodeChecklistAssignmentValue(rawValue: string | undefined): { taskPageId: string | null; explicitNotApplicable: boolean } {
+  const value = asString(rawValue)
+  if (!value) {
+    return {
+      taskPageId: null,
+      explicitNotApplicable: false,
+    }
+  }
+  if (value === CHECKLIST_NOT_APPLICABLE_SENTINEL) {
+    return {
+      taskPageId: null,
+      explicitNotApplicable: true,
+    }
+  }
+  return {
+    taskPageId: value,
+    explicitNotApplicable: false,
+  }
+}
+
 function notionDatabaseUrl(databaseId: string | undefined): string | null {
   const normalized = normalizeNotionId(databaseId)
   if (!normalized) return null
@@ -1467,7 +1503,7 @@ export default {
             return true
           })
           .map((item) => {
-            const baseDate = pickChecklistBaseDate(item, eventDate, undefined, shippingDate)
+            const baseDate = pickChecklistBaseDate(item, eventDate, shippingDate)
             const offsetDays = pickChecklistOffset(item, operationMode, fulfillmentMode)
             if (!baseDate || typeof offsetDays !== 'number') return item
             return {
@@ -1525,24 +1561,27 @@ export default {
           const assignmentEntries = Object.entries(loaded.assignments)
           const rows: ChecklistAssignmentRow[] = checklists.map((item) => {
             const key = checklistMatrixKey(project.id, item.id)
-            const taskPageId =
-              assignmentEntries.find(([entryKey]) => {
-                const parts = entryKey.split('::')
-                if (parts.length < 2) return false
-                const itemId = parts[parts.length - 1]
-                const projectKey = (parts[0] ?? '').toLowerCase()
-                if (itemId !== item.id) return false
-                return projectKey === normalizeNotionId(project.id) || projectKey === 'all_project'
-              })?.[1] ?? null
-            const applicable = checklistAppliesToProject(item, project)
-            const status = toChecklistAssignmentStatus(applicable, taskPageId)
+            const storedValue = assignmentEntries.find(([entryKey]) => {
+              const parts = entryKey.split('::')
+              if (parts.length < 2) return false
+              const itemId = parts[parts.length - 1]
+              const projectKey = (parts[0] ?? '').toLowerCase()
+              if (itemId !== item.id) return false
+              return projectKey === normalizeNotionId(project.id) || projectKey === 'all_project'
+            })?.[1]
+            const decoded = decodeChecklistAssignmentValue(storedValue)
+            const fallbackApplicable = checklistAppliesToProject(item, project)
+            const applicable = decoded.explicitNotApplicable ? false : fallbackApplicable
+            const status = decoded.explicitNotApplicable
+              ? { assignmentStatus: 'not_applicable' as const, assignmentStatusText: '해당없음' }
+              : toChecklistAssignmentStatus(applicable, decoded.taskPageId)
 
             return {
               id: key,
               key,
               projectPageId: project.id,
               checklistItemPageId: item.id,
-              taskPageId,
+              taskPageId: decoded.taskPageId,
               applicable,
               assignmentStatus: status.assignmentStatus,
               assignmentStatusText: status.assignmentStatusText,
@@ -1613,6 +1652,7 @@ export default {
           projectPageId: string
           checklistItemPageId: string
           taskPageId: string | null
+          assignmentStatus?: ChecklistAssignmentStatus
           actor?: string
         }
         try {
@@ -1627,6 +1667,7 @@ export default {
             projectPageId: payload.projectPageId,
             checklistItemPageId: payload.checklistItemPageId,
             taskPageId: payload.taskPageId,
+            assignmentStatus: payload.assignmentStatus,
           })
           const rows = await service.ensureChecklistAssignmentsForProject(payload.projectPageId)
           return ok(
@@ -1644,17 +1685,25 @@ export default {
         const itemId = payload.checklistItemPageId
         const projectId = payload.projectPageId
         const taskId = payload.taskPageId ?? undefined
+        const assignmentStatus: ChecklistAssignmentStatus = payload.assignmentStatus ?? (taskId ? 'assigned' : 'unassigned')
         const eventCategory = ''
         const loaded = await loadChecklistAssignments(env)
         const assignments = loaded.assignments
         const key = checklistAssignmentKey(eventCategory, itemId, projectId)
         const legacyKey = `${(eventCategory ?? '').trim() || 'ALL'}::${itemId}`
-        const previousTaskId = assignments[key] ?? assignments[legacyKey]
+        const previousRaw = assignments[key] ?? assignments[legacyKey]
+        const previousDecoded = decodeChecklistAssignmentValue(previousRaw)
+        const previousTaskId = previousDecoded.taskPageId
         if (key !== legacyKey) {
           delete assignments[legacyKey]
         }
-        if (taskId) assignments[key] = taskId
-        else delete assignments[key]
+        if (assignmentStatus === 'not_applicable') {
+          assignments[key] = CHECKLIST_NOT_APPLICABLE_SENTINEL
+        } else if (taskId) {
+          assignments[key] = taskId
+        } else {
+          delete assignments[key]
+        }
 
         if (loaded.mode === 'd1') {
           await writeChecklistAssignmentToD1(env, request, {
@@ -1662,7 +1711,7 @@ export default {
             projectId: normalizeNotionId(projectId),
             eventCategory: eventCategory ?? '',
             itemId,
-            taskId,
+            taskId: assignmentStatus === 'assigned' ? taskId : undefined,
             previousTaskId,
             actor: payload.actor,
           })
@@ -1675,14 +1724,18 @@ export default {
           const [projects, checklists] = await Promise.all([service.listProjects(), service.listChecklists()])
           const project = projects.find((entry) => normalizeNotionId(entry.id) === normalizeNotionId(projectId))
           const checklist = checklists.find((entry) => entry.id === itemId)
-          const applicable = project && checklist ? checklistAppliesToProject(checklist, project) : true
-          const status = toChecklistAssignmentStatus(applicable, assignments[key] ?? null)
+          const decoded = decodeChecklistAssignmentValue(assignments[key])
+          const fallbackApplicable = project && checklist ? checklistAppliesToProject(checklist, project) : true
+          const applicable = decoded.explicitNotApplicable ? false : fallbackApplicable
+          const status = decoded.explicitNotApplicable
+            ? { assignmentStatus: 'not_applicable' as const, assignmentStatusText: '해당없음' }
+            : toChecklistAssignmentStatus(applicable, decoded.taskPageId)
           row = {
             id: key,
             key: checklistMatrixKey(projectId, itemId),
             projectPageId: projectId,
             checklistItemPageId: itemId,
-            taskPageId: assignments[key] ?? null,
+            taskPageId: decoded.taskPageId,
             applicable,
             assignmentStatus: status.assignmentStatus,
             assignmentStatusText: status.assignmentStatusText,
@@ -1695,7 +1748,7 @@ export default {
           {
             ok: true,
             key,
-            taskId: assignments[key] ?? null,
+            taskId: decodeChecklistAssignmentValue(assignments[key]).taskPageId,
             row,
             assignments,
             storageMode: loaded.mode,

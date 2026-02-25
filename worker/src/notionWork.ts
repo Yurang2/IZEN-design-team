@@ -45,6 +45,9 @@ const PROJECT_DB_SCHEMA_TTL_MS = 10 * 60 * 1000
 let projectDbSchemaCheckedAt = 0
 let projectDbSchemaPromise: Promise<ProjectSchemaSyncResult> | null = null
 let projectDbSchemaLastResult: ProjectSchemaSyncResult | null = null
+const CHECKLIST_ASSIGNMENT_SCHEMA_TTL_MS = 10 * 60 * 1000
+let checklistAssignmentSchemaCheckedAt = 0
+let checklistAssignmentSchemaPromise: Promise<void> | null = null
 
 function unique(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
@@ -1021,6 +1024,42 @@ export class NotionWorkService {
     return dbId
   }
 
+  private async ensureChecklistAssignmentDatabaseProperties(options?: { force?: boolean }): Promise<void> {
+    const force = options?.force === true
+    const now = Date.now()
+    if (!force && checklistAssignmentSchemaCheckedAt > 0 && now - checklistAssignmentSchemaCheckedAt < CHECKLIST_ASSIGNMENT_SCHEMA_TTL_MS) {
+      return
+    }
+
+    if (checklistAssignmentSchemaPromise) {
+      return checklistAssignmentSchemaPromise
+    }
+
+    checklistAssignmentSchemaPromise = (async () => {
+      const databaseId = this.getChecklistAssignmentDbId()
+      const db: any = await this.api.retrieveDatabase(databaseId)
+      const properties = (db.properties ?? {}) as AnyMap
+      const updates: AnyMap = {}
+
+      if (!hasOwn(properties, '적용여부')) {
+        updates['적용여부'] = { checkbox: {} }
+      }
+      if (!hasOwn(properties, '할당상태')) {
+        updates['할당상태'] = { select: {} }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await this.api.updateDatabase(databaseId, { properties: updates })
+      }
+
+      checklistAssignmentSchemaCheckedAt = Date.now()
+    })().finally(() => {
+      checklistAssignmentSchemaPromise = null
+    })
+
+    return checklistAssignmentSchemaPromise
+  }
+
   private buildChecklistAssignmentSchema(properties: Record<string, any>): ChecklistAssignmentSchema {
     const relationByTargetDbId = (entries: Array<[string, any]>, targetDbId: string | undefined) => {
       const normalizedTarget = normalizeNotionId(targetDbId)
@@ -1097,6 +1136,7 @@ export class NotionWorkService {
   }
 
   private async getChecklistAssignmentSchema(): Promise<ChecklistAssignmentSchema> {
+    await this.ensureChecklistAssignmentDatabaseProperties()
     const databaseId = this.getChecklistAssignmentDbId()
     const db: any = await this.api.retrieveDatabase(databaseId)
     const properties = (db.properties ?? {}) as Record<string, any>
@@ -1212,6 +1252,8 @@ export class NotionWorkService {
       if (isKnownField(schema.fields.task)) {
         applyRelationIds(properties, schema.fields.task, [])
       }
+      applyCheckbox(properties, schema.fields.applicable, true)
+      applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText('unassigned'))
 
       await this.api.createPage({
         parent: { database_id: this.getChecklistAssignmentDbId() },
@@ -1229,6 +1271,7 @@ export class NotionWorkService {
     projectPageId: string
     checklistItemPageId: string
     taskPageId?: string | null
+    assignmentStatus?: ChecklistAssignmentStatus
   }): Promise<ChecklistAssignmentRow> {
     const schema = await this.getChecklistAssignmentSchema()
     if (!isKnownField(schema.fields.project) || !isKnownField(schema.fields.checklistItem)) {
@@ -1241,7 +1284,12 @@ export class NotionWorkService {
     const projectPageId = normalizeText(params.projectPageId)
     const checklistItemPageId = normalizeText(params.checklistItemPageId)
     const key = this.checklistAssignmentKey(projectPageId, checklistItemPageId)
-    const taskPageId = normalizeText(params.taskPageId ?? '') || null
+    const taskPageIdInput = normalizeText(params.taskPageId ?? '') || null
+    const assignmentStatus: ChecklistAssignmentStatus = params.assignmentStatus ?? (taskPageIdInput ? 'assigned' : 'unassigned')
+    if (assignmentStatus === 'assigned' && !taskPageIdInput) {
+      throw new Error('checklist_assignment_status_requires_task')
+    }
+    const taskPageId = assignmentStatus === 'assigned' ? taskPageIdInput : null
 
     const pages = await this.listChecklistAssignmentPagesByProject(schema, projectPageId)
     const existingPage = pages.find((page) => {
@@ -1263,6 +1311,8 @@ export class NotionWorkService {
       if (isKnownField(schema.fields.task)) {
         applyRelationIds(properties, schema.fields.task, taskPageId ? [taskPageId] : [])
       }
+      applyCheckbox(properties, schema.fields.applicable, assignmentStatus !== 'not_applicable')
+      applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText(assignmentStatus))
       await this.api.updatePage(existingPage.id, { properties })
       const refreshed = await this.api.retrievePage(existingPage.id)
       return this.mapChecklistAssignmentPage(refreshed, schema)
@@ -1276,6 +1326,8 @@ export class NotionWorkService {
     if (isKnownField(schema.fields.task)) {
       applyRelationIds(properties, schema.fields.task, taskPageId ? [taskPageId] : [])
     }
+    applyCheckbox(properties, schema.fields.applicable, assignmentStatus !== 'not_applicable')
+    applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText(assignmentStatus))
 
     const created = await this.api.createPage({
       parent: { database_id: this.getChecklistAssignmentDbId() },

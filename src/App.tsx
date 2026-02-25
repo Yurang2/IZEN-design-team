@@ -511,8 +511,8 @@ function UiGlyph({ name }: { name: UiGlyphName }) {
 function toTopViewPath(view: TopView): string {
   if (view === 'projects') return 'Projects'
   if (view === 'tasks') return 'Tasks'
-  if (view === 'schedule') return 'Schedule'
-  return 'Event Checklist'
+  if (view === 'schedule') return 'Schedule Share'
+  return 'Assignment'
 }
 
 function normalizeStatus(status: string | undefined): string {
@@ -783,7 +783,6 @@ function App() {
     fulfillmentMode: '',
   })
   const [checklistItems, setChecklistItems] = useState<ChecklistPreviewItem[]>([])
-  const [checklistCategories, setChecklistCategories] = useState<string[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState<string | null>(null)
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
@@ -1096,7 +1095,6 @@ function App() {
       const path = params.size > 0 ? `/checklists?${params.toString()}` : '/checklists'
       const response = await api<ChecklistPreviewResponse>(path)
       setChecklistItems(response.items)
-      setChecklistCategories(response.availableCategories)
     } catch (error: unknown) {
       setChecklistError(toErrorMessage(error, '체크리스트 미리보기를 불러오지 못했습니다.'))
     } finally {
@@ -1763,6 +1761,7 @@ function App() {
   const selectedViewDbUrl = useMemo(() => {
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
+    if (activeView === 'schedule') return dbLinks.checklist
     if (activeView === 'checklist') return dbLinks.checklist
     return null
   }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.task])
@@ -1895,6 +1894,7 @@ function App() {
     itemId: string,
     taskId: string,
     options?: {
+      assignmentStatus?: ChecklistAssignmentStatus
       successMessage?: string
       silentSuccess?: boolean
     },
@@ -1909,6 +1909,15 @@ function App() {
 
     const previousRows = assignmentRows
     const key = checklistMatrixKey(projectPageId, itemId)
+    const nextTaskId = taskId.trim()
+    const nextStatus: ChecklistAssignmentStatus = options?.assignmentStatus ?? (nextTaskId ? 'assigned' : 'unassigned')
+    if (nextStatus === 'assigned' && !nextTaskId) {
+      const message = '할당 상태를 저장하려면 업무를 선택해주세요.'
+      setAssignmentSyncError(message)
+      pushToast('error', message)
+      return
+    }
+
     setAssignmentRows((prev) => {
       const index = prev.findIndex(
         (row) =>
@@ -1928,10 +1937,10 @@ function App() {
       }
 
       const current = index >= 0 ? prev[index] : fallback
-      const nextStatus: ChecklistAssignmentStatus = current.assignmentStatus === 'not_applicable' ? 'not_applicable' : taskId ? 'assigned' : 'unassigned'
       const nextRow: ChecklistAssignmentRow = {
         ...current,
-        taskPageId: taskId || null,
+        taskPageId: nextStatus === 'assigned' ? nextTaskId : null,
+        applicable: nextStatus !== 'not_applicable',
         assignmentStatus: nextStatus,
         assignmentStatusText: toChecklistAssignmentLabel(nextStatus),
       }
@@ -1952,7 +1961,8 @@ function App() {
         body: JSON.stringify({
           projectPageId,
           checklistItemPageId: itemId,
-          taskPageId: taskId || null,
+          taskPageId: nextStatus === 'assigned' ? nextTaskId : null,
+          assignmentStatus: nextStatus,
         }),
       })
 
@@ -1974,8 +1984,10 @@ function App() {
       if (!options?.silentSuccess) {
         if (options?.successMessage) {
           pushToast('success', options.successMessage)
-        } else if (taskId) {
+        } else if (nextStatus === 'assigned') {
           pushToast('success', '체크리스트 할당이 저장되었습니다.')
+        } else if (nextStatus === 'not_applicable') {
+          pushToast('success', '체크리스트 항목을 해당없음으로 처리했습니다.')
         } else {
           pushToast('success', '체크리스트 할당을 해제했습니다.')
         }
@@ -1997,12 +2009,6 @@ function App() {
     const project = selectedChecklistProject
     if (!project) {
       const message = '체크리스트에서 업무를 생성하려면 행사(프로젝트)를 먼저 선택해주세요.'
-      setAssignmentSyncError(message)
-      pushToast('error', message)
-      return
-    }
-    if (!row.isApplicable) {
-      const message = '현재 행사 조건에 해당하지 않는 체크리스트 항목입니다.'
       setAssignmentSyncError(message)
       pushToast('error', message)
       return
@@ -2047,6 +2053,7 @@ function App() {
       setChecklistTaskOverrides((prev) => ({ ...prev, [created.task.id]: created.task }))
 
       await setChecklistAssignment(itemId, created.task.id, {
+        assignmentStatus: 'assigned',
         successMessage: '체크리스트 기반 업무를 생성하고 할당했습니다.',
       })
     } catch (error: unknown) {
@@ -2075,9 +2082,17 @@ function App() {
 
   const onSelectAssignmentTask = async (taskId: string) => {
     if (!assignmentTarget) return
-    await setChecklistAssignment(assignmentTarget.itemId, taskId)
+    await setChecklistAssignment(assignmentTarget.itemId, taskId, {
+      assignmentStatus: taskId ? 'assigned' : 'unassigned',
+    })
     setAssignmentTarget(null)
     setAssignmentSearch('')
+  }
+
+  const onSetChecklistNotApplicable = async (itemId: string) => {
+    await setChecklistAssignment(itemId, '', {
+      assignmentStatus: 'not_applicable',
+    })
   }
 
   const onQuickStatusChange = async (taskId: string, nextStatus: string) => {
@@ -2465,26 +2480,26 @@ function App() {
                 type="button"
                 className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('schedule')}
-                title="일정"
+                title="일정공유용"
               >
                 <span className="iconLabel">
                   <span className="uiIcon">
                     <UiGlyph name="calendar" />
                   </span>
-                  <span>일정</span>
+                  <span>일정공유용</span>
                 </span>
               </button>
               <button
                 type="button"
                 className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('checklist')}
-                title="행사 체크리스트"
+                title="할당용"
               >
                 <span className="iconLabel">
                   <span className="uiIcon">
                     <UiGlyph name="checksquare" />
                   </span>
-                  <span>행사 체크리스트</span>
+                  <span>할당용</span>
                 </span>
               </button>
               {selectedViewDbUrl ? (
@@ -2527,8 +2542,8 @@ function App() {
                 : activeView === 'tasks'
                   ? '업무'
                   : activeView === 'schedule'
-                    ? '일정'
-                    : '행사 체크리스트'}
+                    ? '일정공유용'
+                    : '할당용'}
             </h1>
           </div>
           {activeView === 'tasks' ? (
@@ -2691,15 +2706,9 @@ function App() {
       ) : null}
 
       {activeView === 'schedule' ? (
-        <section className="checklistPreview">
-          <div className="timelineWipBadge">일정 화면은 준비 중입니다.</div>
-        </section>
-      ) : null}
-
-      {activeView === 'checklist' ? (
         <ChecklistView
+          mode="schedule_share"
           checklistFilters={checklistFilters}
-          checklistCategories={checklistCategories}
           checklistSort={checklistSort}
           checklistLoading={checklistLoading}
           checklistError={checklistError}
@@ -2718,7 +2727,36 @@ function App() {
           onCreateTaskFromChecklist={onCreateTaskFromChecklist}
           onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
           onOpenAssignmentPicker={onOpenAssignmentPicker}
-          onClearAssignment={(itemId) => setChecklistAssignment(itemId, '')}
+          onSetNotApplicable={onSetChecklistNotApplicable}
+          toProjectLabel={toProjectLabel}
+          toProjectThumbUrl={toProjectThumbUrl}
+          formatDateLabel={formatDateLabel}
+        />
+      ) : null}
+
+      {activeView === 'checklist' ? (
+        <ChecklistView
+          mode="assignment"
+          checklistFilters={checklistFilters}
+          checklistSort={checklistSort}
+          checklistLoading={checklistLoading}
+          checklistError={checklistError}
+          assignmentSyncError={assignmentSyncError}
+          assignmentStorageMode={assignmentStorageMode}
+          prioritizeUnassignedChecklist={prioritizeUnassignedChecklist}
+          projectDbOptions={projectDbOptions}
+          selectedChecklistProject={selectedChecklistProject}
+          rows={checklistRows}
+          onChecklistInput={onChecklistInput}
+          onChecklistSubmit={onChecklistSubmit}
+          onChecklistReset={onChecklistReset}
+          onChecklistSortChange={setChecklistSort}
+          onTogglePrioritizeUnassignedChecklist={setPrioritizeUnassignedChecklist}
+          creatingTaskByChecklistId={checklistCreatingTaskIds}
+          onCreateTaskFromChecklist={onCreateTaskFromChecklist}
+          onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
+          onOpenAssignmentPicker={onOpenAssignmentPicker}
+          onSetNotApplicable={onSetChecklistNotApplicable}
           toProjectLabel={toProjectLabel}
           toProjectThumbUrl={toProjectThumbUrl}
           formatDateLabel={formatDateLabel}

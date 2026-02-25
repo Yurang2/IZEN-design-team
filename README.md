@@ -22,7 +22,10 @@ Firebase는 제거되었고, 백엔드는 Workers만 사용합니다.
   - 보고용/업무용 상단 요약 카드도 동일하게 클릭 필터 동작 지원
   - 업무용 상단 `내 활성 업무`: 현재 선택 담당자 기준 `완료/보류/보관` 제외 업무 수
 - 체크리스트:
-  - 행사 체크리스트 조회/역산
+  - 목적 기반 2모드:
+    - `일정공유용`: 행사진행일 기준 `D-day` 역산 일정 공유(즉답용)
+    - `할당용`: 체크리스트 항목별 `생성/할당/해당없음` 운영
+  - 프로젝트 속성(`행사분류/배송마감일/운영방식/배송방식/행사진행일`)은 노션 Project DB를 단일 입력원장으로 사용하고, 화면에서는 읽기전용으로 표시
   - 할당 소스: 노션 `행사-체크리스트 할당 매트릭스` DB (업서트 키: `projectPageId::checklistItemPageId`)
   - 미할당 항목은 액션의 `생성` 버튼으로 업무를 자동 생성하고 즉시 할당 가능
   - 할당된 업무 텍스트 클릭 시 해당 업무 상세로 바로 이동
@@ -262,8 +265,12 @@ GET /api/projects
 ### 8) POST `/api/checklist-assignments`
 
 - 설명: `projectPageId + checklistItemPageId` 기준 업서트, `taskPageId` relation 저장/해제
-
-- 설명: 체크리스트 항목을 업무(Task ID)에 할당/해제
+- 요청 필드:
+  - `projectPageId` (required)
+  - `checklistItemPageId` (required)
+  - `taskPageId` (optional, `assignmentStatus=assigned`일 때 required)
+  - `assignmentStatus` (optional: `assigned | unassigned | not_applicable`)
+- 설명: 체크리스트 항목을 업무에 할당/해제하거나 `해당없음`으로 명시 처리
 
 ### 9) GET `/api/checklist-assignment-logs?limit=100`
 
@@ -459,3 +466,9 @@ npm run deploy:worker
   - Task status select width in task list reduced to about 60% for better compact layout.
   - Added force-sync endpoint POST /api/admin/notion/project-schema/sync to create exact Project DB properties (행사분류, 배송마감일, 운영방식, 배송방식) when missing.
   - Frontend now calls this sync endpoint automatically before loading projects, so property creation is attempted immediately after login.
+- 2026-02-25: Checklist workflow refinement
+  - Checklist 화면을 `일정공유용 / 할당용` 목적 기반으로 분리.
+  - 행사 선택 시 프로젝트 속성(`행사분류/배송마감일/운영방식/배송방식/행사진행일`)을 읽기전용으로 표시하도록 변경.
+  - 할당용 액션을 `생성/할당/해당없음` 3버튼으로 통일.
+  - Worker `/api/checklist-assignments`가 `assignmentStatus`를 받아 `not_applicable` 저장을 지원.
+  - 노션 체크리스트 할당 매트릭스 DB에 `할당상태(select)`, `적용여부(checkbox)` 속성이 없으면 자동 생성 후 사용.
