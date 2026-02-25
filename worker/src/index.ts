@@ -1106,7 +1106,7 @@ function checklistAppliesToProject(item: ChecklistPreviewItem, project: ProjectR
   const applicableCategories = normalizedSet(item.applicableEventCategories)
 
   const byType = applicableTypes.size === 0 || (projectType && applicableTypes.has(projectType))
-  const byCategory = applicableCategories.size === 0 || (eventCategory && applicableCategories.has(eventCategory))
+  const byCategory = eventCategory ? applicableCategories.has(eventCategory) : applicableCategories.size === 0
   return Boolean(byType && byCategory)
 }
 
@@ -1524,13 +1524,7 @@ export default {
         const items = allItems
           .filter((item) => {
             const normalizedItemCategories = expandChecklistValues([...(item.eventCategories ?? []), ...(item.applicableEventCategories ?? [])])
-            const byCategory = normalizedEventCategory
-              ? normalizedItemCategories.size === 0 ||
-                normalizedItemCategories.has(normalizedEventCategory) ||
-                Array.from(normalizedItemCategories).some(
-                  (candidate) => candidate.includes(normalizedEventCategory) || normalizedEventCategory.includes(candidate),
-                )
-              : true
+            const byCategory = normalizedEventCategory ? normalizedItemCategories.has(normalizedEventCategory) : true
             if (!byCategory) return false
             return true
           })
