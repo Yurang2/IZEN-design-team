@@ -1161,7 +1161,40 @@ textarea {
 .projectTimelineGroupList {
   display: grid;
   gap: 12px;
+  margin-top: 0;
+}
+
+.projectTimelineTypeSections {
+  display: grid;
+  gap: 14px;
   margin-top: 12px;
+}
+
+.projectTimelineTypeSection {
+  display: grid;
+  gap: 10px;
+}
+
+.projectTimelineTypeHeader {
+  align-items: center;
+  background: #f4f8ff;
+  border: 1px solid #dce7f6;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.projectTimelineTypeHeader h4 {
+  color: #24364f;
+  font-size: 13px;
+  margin: 0;
+}
+
+.projectTimelineTypeHeader span {
+  color: #5f7088;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .projectTimelineGroup {
@@ -1636,7 +1669,12 @@ button.timelineSummaryCard:focus-visible {
 
 .projectTimelineProjectTrack {
   background: #f2f7ff;
-  height: 28px;
+  height: 52px;
+  overflow: visible;
+}
+
+.projectTimelineProjectTrack .projectTimelineMiniBar {
+  top: 21px;
 }
 
 .projectTimelineMiniBar {
@@ -2266,6 +2304,19 @@ tr:hover td {
 
   .projectTimelineProjectActions {
     margin-left: 0;
+  }
+
+  .projectTimelineTypeHeader {
+    padding: 8px;
+  }
+
+  .projectTimelineProjectTrack {
+    height: 34px;
+    overflow: hidden;
+  }
+
+  .projectTimelineProjectTrack .projectTimelineMiniBar {
+    top: 12px;
   }
 
   .timelineToggleButton {
