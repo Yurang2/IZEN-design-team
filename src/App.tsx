@@ -721,6 +721,25 @@ function addDays(date: Date, days: number): Date {
   return copied
 }
 
+function isBusinessDay(date: Date): boolean {
+  const day = date.getUTCDay()
+  return day !== 0 && day !== 6
+}
+
+function shiftBusinessDays(date: Date, offsetDays: number): Date {
+  if (offsetDays === 0) return new Date(date.getTime())
+  const direction = offsetDays > 0 ? 1 : -1
+  let remaining = Math.abs(offsetDays)
+  let current = new Date(date.getTime())
+  while (remaining > 0) {
+    current = addDays(current, direction)
+    if (isBusinessDay(current)) {
+      remaining -= 1
+    }
+  }
+  return current
+}
+
 function toIsoDate(date: Date): string {
   const y = date.getUTCFullYear()
   const m = String(date.getUTCMonth() + 1).padStart(2, '0')
@@ -748,7 +767,7 @@ function computeChecklistDueDate(eventDate: string | undefined, item: ChecklistP
   if (!base) return undefined
   const totalLead = getChecklistTotalLeadDays(item)
   if (typeof totalLead !== 'number') return undefined
-  return toIsoDate(addDays(base, -totalLead))
+  return toIsoDate(shiftBusinessDays(base, -Math.abs(totalLead)))
 }
 
 function checklistMatrixKey(projectPageId: string, checklistItemPageId: string): string {

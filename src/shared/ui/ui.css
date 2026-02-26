@@ -337,6 +337,18 @@
   color: #e2e8f0;
 }
 
+[data-theme='v2'] .assignmentAsanaMarkerTag.is-today {
+  background: rgba(146, 64, 14, 0.9);
+  border-color: rgba(251, 191, 36, 0.65);
+  color: #ffedd5;
+}
+
+[data-theme='v2'] .assignmentAsanaMarkerTag.is-event {
+  background: rgba(30, 58, 138, 0.9);
+  border-color: rgba(96, 165, 250, 0.68);
+  color: #dbeafe;
+}
+
 [data-theme='v2'] .assignmentAsanaBar.is-unassigned {
   background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
   border-color: #475569;
@@ -1510,6 +1522,11 @@ button.boardCard:hover {
   display: none;
 }
 
+.assignmentAsanaAxisRow-day .assignmentAsanaAxisFillLabel {
+  font-size: 9px;
+  font-weight: 600;
+}
+
 .assignmentAsanaTick {
   position: absolute;
   top: 0;
@@ -1554,6 +1571,41 @@ button.boardCard:hover {
   position: relative;
 }
 
+.assignmentAsanaMarkerStrip {
+  height: 18px;
+  inset: 2px 0 auto;
+  pointer-events: none;
+  position: absolute;
+  z-index: 4;
+}
+
+.assignmentAsanaMarkerTag {
+  background: #ffffffee;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 9px;
+  font-weight: 700;
+  left: 0;
+  line-height: 1;
+  padding: 2px 6px;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.assignmentAsanaMarkerTag.is-today {
+  background: #fff4de;
+  border-color: #f5c990;
+  color: #9a4a00;
+}
+
+.assignmentAsanaMarkerTag.is-event {
+  background: #edf3ff;
+  border-color: #bfd4ff;
+  color: #1d4ed8;
+}
+
 .assignmentAsanaTrackRow {
   align-items: flex-start;
   display: grid;
@@ -1582,12 +1634,13 @@ button.boardCard:hover {
 
 .assignmentAsanaTrack .projectTimelineTrackGrid {
   background-size: 28px 100%;
-  z-index: 2;
+  z-index: 1;
 }
 
 .assignmentAsanaTrack .projectTimelineTodayMarker,
 .assignmentAsanaTrack .projectTimelineEventMarker {
   bottom: 0;
+  z-index: 2;
   top: 0;
 }
 

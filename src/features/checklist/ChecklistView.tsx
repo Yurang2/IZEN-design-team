@@ -383,9 +383,10 @@ export function ChecklistView({
     [assignmentTimelineRange, selectedChecklistProject?.eventDate],
   )
   const assignmentTimelineLaneHeight = 48
+  const assignmentTimelineMarkerGutter = 20
   const assignmentTimelineTrackHeight = useMemo(
-    () => Math.max(72, assignmentTimelineModel.laneCount * assignmentTimelineLaneHeight + 16),
-    [assignmentTimelineModel.laneCount],
+    () => Math.max(72, assignmentTimelineMarkerGutter + assignmentTimelineModel.laneCount * assignmentTimelineLaneHeight + 16),
+    [assignmentTimelineMarkerGutter, assignmentTimelineModel.laneCount],
   )
   const assignmentTimelineAxisRows = useMemo(() => {
     if (!assignmentTimelineRange) return [] as Array<{ key: string; label: string; ticks: Array<{ key: string; label: string; left: string; isStart: boolean; isEnd: boolean }> }>
@@ -678,12 +679,13 @@ export function ChecklistView({
                               const next = nextTick ? toPercentNumber(nextTick.left) : 100
                               const width = Math.max(0, next - left)
                               if (width <= 0.25) return null
+                              const hideLabelThreshold = row.key === 'day' ? 1.2 : 4.5
                               return {
                                 key: tick.key,
                                 label: tick.label,
                                 left: `${left}%`,
                                 width: `${width}%`,
-                                narrow: width < 4.5,
+                                narrow: width < hideLabelThreshold,
                               }
                             })
                             .filter((entry): entry is { key: string; label: string; left: string; width: string; narrow: boolean } => entry !== null)
@@ -705,6 +707,18 @@ export function ChecklistView({
                       바
                     </span>
                     <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
+                      <div className="assignmentAsanaMarkerStrip" aria-hidden="true">
+                        {assignmentTodayMarkerStyle ? (
+                          <span className="assignmentAsanaMarkerTag is-today" style={assignmentTodayMarkerStyle}>
+                            오늘 {formatDateLabel(todayIso)}
+                          </span>
+                        ) : null}
+                        {assignmentEventMarkerStyle && selectedChecklistProject.eventDate ? (
+                          <span className="assignmentAsanaMarkerTag is-event" style={assignmentEventMarkerStyle}>
+                            진행일 {formatDateLabel(selectedChecklistProject.eventDate)}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="assignmentAsanaWeekBands" aria-hidden="true">
                         {assignmentTimelineWeekBands.map((band) => (
                           <span key={band.key} className={`assignmentAsanaWeekBand ${band.alt ? 'is-alt' : ''}`.trim()} style={{ left: band.left, width: band.width }} />
@@ -712,10 +726,18 @@ export function ChecklistView({
                       </div>
                       <div className="projectTimelineTrackGrid" aria-hidden="true" />
                       {assignmentTodayMarkerStyle ? (
-                        <span className="projectTimelineTodayMarker event-inline" style={assignmentTodayMarkerStyle} aria-hidden="true" />
+                        <span
+                          className="projectTimelineTodayMarker event-inline"
+                          style={{ ...assignmentTodayMarkerStyle, top: `${assignmentTimelineMarkerGutter}px` }}
+                          aria-hidden="true"
+                        />
                       ) : null}
                       {assignmentEventMarkerStyle ? (
-                        <span className="projectTimelineEventMarker event-inline" style={assignmentEventMarkerStyle} aria-hidden="true" />
+                        <span
+                          className="projectTimelineEventMarker event-inline"
+                          style={{ ...assignmentEventMarkerStyle, top: `${assignmentTimelineMarkerGutter}px` }}
+                          aria-hidden="true"
+                        />
                       ) : null}
                       {assignmentTimelineModel.bars.map((entry) => {
                         const position = barStyleForDateRange(assignmentTimelineRange, entry.startDate, entry.dueDate)
@@ -736,7 +758,7 @@ export function ChecklistView({
                           .join(' ')
                         const style: CSSProperties = {
                           ...position,
-                          top: `${8 + entry.lane * assignmentTimelineLaneHeight}px`,
+                          top: `${assignmentTimelineMarkerGutter + 8 + entry.lane * assignmentTimelineLaneHeight}px`,
                         }
                         const title = `${entry.label} (${entry.assignmentStatusLabel}) | ${entry.startDateIso} ~ ${entry.dueDateIso} | ${toTodayLeadLabel(entry.dueDateIso, todayDate)}`
                         return (

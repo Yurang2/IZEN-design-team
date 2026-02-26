@@ -522,24 +522,43 @@ function pickChecklistOffset(
   operationMode: 'self' | 'dealer' | undefined,
   fulfillmentMode: 'domestic' | 'overseas' | 'dealer' | undefined,
 ): number | undefined {
-  if (fulfillmentMode === 'dealer' && typeof item.dealerOffsetBusinessDays === 'number') {
-    return item.dealerOffsetBusinessDays
+  const normalizeOffset = (value: unknown): number | undefined => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+    // Positive lead-day input from checklist DB means "N business days before base date".
+    return value > 0 ? -value : value
   }
-  if (fulfillmentMode === 'overseas' && typeof item.overseasOffsetBusinessDays === 'number') {
-    return item.overseasOffsetBusinessDays
+
+  const defaultOffset = normalizeOffset(item.defaultOffsetBusinessDays)
+  const pickPreferredOffset = (specific: unknown): number | undefined => {
+    const normalizedSpecific = normalizeOffset(specific)
+    // Treat zero specific offset as fallback to default when default is configured.
+    if (normalizedSpecific === 0 && typeof defaultOffset === 'number' && defaultOffset !== 0) {
+      return defaultOffset
+    }
+    return normalizedSpecific
   }
-  if (fulfillmentMode === 'domestic' && typeof item.domesticOffsetBusinessDays === 'number') {
-    return item.domesticOffsetBusinessDays
+
+  if (fulfillmentMode === 'dealer') {
+    const picked = pickPreferredOffset(item.dealerOffsetBusinessDays)
+    if (typeof picked === 'number') return picked
   }
-  if (operationMode === 'dealer' && typeof item.dealerOffsetBusinessDays === 'number') {
-    return item.dealerOffsetBusinessDays
+  if (fulfillmentMode === 'overseas') {
+    const picked = pickPreferredOffset(item.overseasOffsetBusinessDays)
+    if (typeof picked === 'number') return picked
   }
-  if (typeof item.defaultOffsetBusinessDays === 'number') {
-    return item.defaultOffsetBusinessDays
+  if (fulfillmentMode === 'domestic') {
+    const picked = pickPreferredOffset(item.domesticOffsetBusinessDays)
+    if (typeof picked === 'number') return picked
   }
-  if (typeof item.totalLeadDays === 'number') {
-    return -item.totalLeadDays
+  if (operationMode === 'dealer') {
+    const picked = pickPreferredOffset(item.dealerOffsetBusinessDays)
+    if (typeof picked === 'number') return picked
   }
+  if (typeof defaultOffset === 'number') return defaultOffset
+
+  const totalLeadDays = normalizeOffset(item.totalLeadDays)
+  if (typeof totalLeadDays === 'number') return totalLeadDays
+
   return undefined
 }
 
