@@ -728,13 +728,12 @@ export function ChecklistView({
                               if (width <= 0.25) return null
                               const labelText = String(tick.label ?? '')
                               const isDayRow = row.key === 'day'
-                              const hideLabelThreshold = isDayRow ? (labelText.length >= 2 ? 2.25 : 1.1) : 4.5
                               return {
                                 key: tick.key,
                                 label: labelText,
                                 left: `${left}%`,
                                 width: `${width}%`,
-                                narrow: width < hideLabelThreshold,
+                                narrow: isDayRow ? false : width < 4.5,
                               }
                             })
                             .filter((entry): entry is { key: string; label: string; left: string; width: string; narrow: boolean } => entry !== null)
