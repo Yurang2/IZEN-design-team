@@ -1126,6 +1126,43 @@ export class NotionWorkService {
       )
     }
 
+    const relationByTaskPriority = (entries: Array<[string, any]>, targetDbId: string | undefined) => {
+      const normalizedTarget = normalizeNotionId(targetDbId)
+      let best: [string, any] | undefined
+      let bestScore = -1
+
+      for (const entry of entries) {
+        const [name, prop] = entry
+        if (prop?.type !== 'relation') continue
+
+        const normalizedName = normalizeFieldName(name)
+        let score = 0
+
+        if (normalizedName === normalizeFieldName('할당 업무') || normalizedName === normalizeFieldName('assignment task')) {
+          score += 120
+        }
+        if (
+          (normalizedName.includes('할당') && normalizedName.includes('업무')) ||
+          (normalizedName.includes('assignment') && normalizedName.includes('task'))
+        ) {
+          score += 80
+        }
+        if (normalizedName.includes('업무') || normalizedName.includes('task')) score += 35
+        if (normalizedName.includes('할당') || normalizedName.includes('assignment')) score += 25
+
+        if (normalizedTarget && normalizeNotionId(prop?.relation?.database_id) === normalizedTarget) {
+          score += 20
+        }
+
+        if (score > bestScore) {
+          bestScore = score
+          best = entry
+        }
+      }
+
+      return bestScore > 0 ? best : undefined
+    }
+
     const relationByName = (entries: Array<[string, any]>, keywords: string[]) =>
       entries.find(
         ([name, prop]) =>
@@ -1161,9 +1198,11 @@ export class NotionWorkService {
           return findFirstByTypes(entries, ['relation'])
         }),
         task: pickField('task', properties, '할당 업무', ['relation'], true, (entries) => {
-          const byTarget = relationByTargetDbId(entries, this.env.NOTION_TASK_DB_ID)
-          if (byTarget) return byTarget
-          return relationByName(entries, ['할당', '업무'])
+          const byPriority = relationByTaskPriority(entries, this.env.NOTION_TASK_DB_ID)
+          if (byPriority) return byPriority
+          const byName = relationByName(entries, ['할당', '업무', 'task', 'assignment'])
+          if (byName) return byName
+          return relationByTargetDbId(entries, this.env.NOTION_TASK_DB_ID)
         }),
         applicable: pickField('applicable', properties, '적용여부', ['checkbox', 'formula'], true, (entries) => {
           // Optional field: only bind when the name clearly indicates applicability.
@@ -1351,6 +1390,12 @@ export class NotionWorkService {
       throw new Error('checklist_assignment_status_requires_task')
     }
     const taskPageId = assignmentStatus === 'assigned' ? taskPageIdInput : null
+    const shouldUseKeyAsTitle = this.isChecklistAssignmentExplicitKeyField(schema.fields.key)
+    let preferredLabel: string | undefined
+    if (!shouldUseKeyAsTitle) {
+      const checklists = await this.listChecklists()
+      preferredLabel = checklists.find((entry) => normalizeNotionId(entry.id) === normalizeNotionId(checklistItemPageId))?.productName
+    }
 
     const pages = await this.listChecklistAssignmentPagesByProject(schema, projectPageId)
     const existingPage = pages.find((page) => {
@@ -1361,11 +1406,24 @@ export class NotionWorkService {
         normalizeNotionId(row.checklistItemPageId) === normalizeNotionId(checklistItemPageId)
       )
     })
+    let targetPage = existingPage
 
-    if (existingPage?.id) {
+    if (!targetPage && isKnownField(schema.fields.key)) {
+      const databaseId = this.getChecklistAssignmentDbId()
+      const allPages = await this.queryAll(databaseId)
+      targetPage = allPages.find((page) => {
+        const props = (page.properties ?? {}) as AnyMap
+        const keyText = extractTextLike(props, schema.fields.key, '')
+        return normalizeText(keyText) === key
+      })
+    }
+
+    if (targetPage?.id) {
       const properties: AnyMap = {}
-      if (this.isChecklistAssignmentExplicitKeyField(schema.fields.key)) {
+      if (shouldUseKeyAsTitle) {
         applyTitleLike(properties, schema.fields.key, key)
+      } else if (preferredLabel) {
+        applyTitleLike(properties, schema.fields.key, preferredLabel)
       }
       applyRelationIds(properties, schema.fields.project, [projectPageId])
       applyRelationIds(properties, schema.fields.checklistItem, [checklistItemPageId])
@@ -1374,13 +1432,13 @@ export class NotionWorkService {
       }
       applyCheckbox(properties, schema.fields.applicable, assignmentStatus !== 'not_applicable')
       applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText(assignmentStatus))
-      await this.api.updatePage(existingPage.id, { properties })
-      const refreshed = await this.api.retrievePage(existingPage.id)
+      await this.api.updatePage(targetPage.id, { properties })
+      const refreshed = await this.api.retrievePage(targetPage.id)
       return this.mapChecklistAssignmentPage(refreshed, schema)
     }
 
     const properties: AnyMap = {}
-    const titleValue = this.resolveChecklistAssignmentTitle(schema, key, undefined)
+    const titleValue = this.resolveChecklistAssignmentTitle(schema, key, preferredLabel)
     applyTitleLike(properties, schema.fields.key, titleValue)
     applyRelationIds(properties, schema.fields.project, [projectPageId])
     applyRelationIds(properties, schema.fields.checklistItem, [checklistItemPageId])
