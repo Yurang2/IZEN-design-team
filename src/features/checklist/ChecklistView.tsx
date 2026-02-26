@@ -70,8 +70,18 @@ function toEventLeadLabel(dueDate: string | undefined, eventDate: string | undef
   return `D+${Math.abs(leadDays)}`
 }
 
+function toTodayLeadLabel(targetDate: string | undefined, todayDate: Date | null): string {
+  const target = parseIsoDate(targetDate)
+  if (!target || !todayDate) return '-'
+
+  const leadDays = diffDays(todayDate, target)
+  if (leadDays === 0) return 'D-Day'
+  if (leadDays > 0) return `D-${leadDays}`
+  return `D+${Math.abs(leadDays)}`
+}
+
 function ChecklistSkeletonTable({ isAssignmentMode }: { isAssignmentMode: boolean }) {
-  const columnCount = isAssignmentMode ? 10 : 8
+  const columnCount = isAssignmentMode ? 11 : 8
   return (
     <TableWrap>
       <table>
@@ -85,6 +95,7 @@ function ChecklistSkeletonTable({ isAssignmentMode }: { isAssignmentMode: boolea
             <th>역산 완료 예정일</th>
             <th>최종 완료 시점</th>
             {!isAssignmentMode ? <th>행사일 기준</th> : null}
+            {isAssignmentMode ? <th>오늘 기준</th> : null}
             {isAssignmentMode ? <th>작업할당여부</th> : null}
             {isAssignmentMode ? <th>할당 업무</th> : null}
             {isAssignmentMode ? <th>액션</th> : null}
@@ -134,18 +145,20 @@ export function ChecklistView({
 }: ChecklistViewProps) {
   const eventNameRef = useRef<HTMLSelectElement | null>(null)
   const isAssignmentMode = mode === 'assignment'
+  const todayIso = useMemo(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  }, [])
+  const todayDate = useMemo(() => parseIsoDate(todayIso), [todayIso])
 
   const scheduleSummary = useMemo(() => {
-    const now = new Date()
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
     let overdue = 0
     let dueToday = 0
     let upcoming = 0
     for (const row of rows) {
       if (!row.computedDueDate) continue
-      if (row.computedDueDate < today) overdue += 1
-      else if (row.computedDueDate === today) dueToday += 1
+      if (row.computedDueDate < todayIso) overdue += 1
+      else if (row.computedDueDate === todayIso) dueToday += 1
       else upcoming += 1
     }
 
@@ -155,7 +168,7 @@ export function ChecklistView({
       dueToday,
       upcoming,
     }
-  }, [rows])
+  }, [rows, todayIso])
 
   return (
     <section className="checklistPreview">
@@ -277,6 +290,26 @@ export function ChecklistView({
           </article>
         </section>
       ) : null}
+      {isAssignmentMode && selectedChecklistProject ? (
+        <section className="scheduleSummary" aria-label="할당 기준 요약">
+          <article>
+            <span>오늘</span>
+            <strong>{formatDateLabel(todayIso)}</strong>
+          </article>
+          <article>
+            <span>행사진행일</span>
+            <strong>{selectedChecklistProject.eventDate ? formatDateLabel(selectedChecklistProject.eventDate) : '-'}</strong>
+          </article>
+          <article>
+            <span>행사일까지</span>
+            <strong>{toTodayLeadLabel(selectedChecklistProject.eventDate, todayDate)}</strong>
+          </article>
+          <article>
+            <span>배송마감일까지</span>
+            <strong>{toTodayLeadLabel(selectedChecklistProject.shippingDate, todayDate)}</strong>
+          </article>
+        </section>
+      ) : null}
 
       {checklistError ? <p className="error">{checklistError}</p> : null}
       {assignmentSyncError ? <p className="error">{assignmentSyncError}</p> : null}
@@ -311,6 +344,7 @@ export function ChecklistView({
                 <th>역산 완료 예정일</th>
                 <th>최종 완료 시점</th>
                 {!isAssignmentMode ? <th>행사일 기준</th> : null}
+                {isAssignmentMode ? <th>오늘 기준</th> : null}
                 {isAssignmentMode ? <th>작업할당여부</th> : null}
                 {isAssignmentMode ? <th>할당 업무</th> : null}
                 {isAssignmentMode ? <th>액션</th> : null}
@@ -329,6 +363,7 @@ export function ChecklistView({
                     <td className="dateCell">{row.computedDueDate ? formatDateLabel(row.computedDueDate) : '-'}</td>
                     <td>{row.item.finalDueText || '-'}</td>
                     {!isAssignmentMode ? <td>{toEventLeadLabel(row.computedDueDate, selectedChecklistProject?.eventDate)}</td> : null}
+                    {isAssignmentMode ? <td>{toTodayLeadLabel(row.computedDueDate, todayDate)}</td> : null}
 
                     {isAssignmentMode ? (
                       <td>
