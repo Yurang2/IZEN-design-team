@@ -181,6 +181,15 @@ function toTodayLeadLabel(targetDate: string | undefined, todayDate: Date | null
   return `D+${Math.abs(leadDays)}`
 }
 
+function isCompletedTaskStatus(status: string | undefined): boolean {
+  if (!status) return false
+  const normalized = status
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+  return normalized.includes('완료') || normalized.includes('done')
+}
+
 type AssignmentTimelineBar = {
   id: string
   label: string
@@ -191,6 +200,7 @@ type AssignmentTimelineBar = {
   dueDateIso: string
   lane: number
   assignmentStatus: ChecklistTableRow['assignmentStatus']
+  isCompleted: boolean
   isOverdue: boolean
   isDueToday: boolean
 }
@@ -312,6 +322,7 @@ export function ChecklistView({
       const leadDaysRaw = typeof row.totalLeadDays === 'number' ? Math.round(row.totalLeadDays) : 1
       const leadDays = Math.max(1, leadDaysRaw)
       const startDate = shiftBusinessDays(dueDate, -(leadDays - 1))
+      const isCompleted = row.assignmentStatus === 'assigned' && isCompletedTaskStatus(row.assignedTaskStatus)
       preparedBars.push({
         id: row.item.id,
         label: row.item.productName || row.item.workCategory || '-',
@@ -321,8 +332,9 @@ export function ChecklistView({
         startDateIso: toIsoDate(startDate),
         dueDateIso: row.computedDueDate,
         assignmentStatus: row.assignmentStatus,
-        isOverdue: row.computedDueDate < todayIso,
-        isDueToday: row.computedDueDate === todayIso,
+        isCompleted,
+        isOverdue: !isCompleted && row.computedDueDate < todayIso,
+        isDueToday: !isCompleted && row.computedDueDate === todayIso,
       })
     }
 
@@ -799,6 +811,7 @@ export function ChecklistView({
                         const className = [
                           'assignmentAsanaBar',
                           entry.assignmentStatus === 'unassigned' ? 'is-unassigned' : '',
+                          entry.isCompleted ? 'is-completed' : '',
                           entry.isDueToday ? 'is-due-today' : '',
                           entry.isOverdue ? 'is-overdue' : '',
                           isCompact ? 'is-compact' : '',

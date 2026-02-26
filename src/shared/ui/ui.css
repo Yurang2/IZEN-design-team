@@ -368,10 +368,23 @@
   color: #fee2e2;
 }
 
+[data-theme='v2'] .assignmentAsanaBar.is-completed {
+  background: linear-gradient(180deg, #166534 0%, #15803d 100%);
+  border-color: #4ade80;
+  color: #dcfce7;
+  box-shadow: 0 5px 12px rgba(22, 101, 52, 0.35);
+}
+
 [data-theme='v2'] .assignmentAsanaBarStatus {
   background: rgba(15, 23, 42, 0.48);
   border-color: rgba(147, 197, 253, 0.4);
   color: #dbeafe;
+}
+
+[data-theme='v2'] .assignmentAsanaBar.is-completed .assignmentAsanaBarStatus {
+  background: rgba(20, 83, 45, 0.5);
+  border-color: rgba(134, 239, 172, 0.45);
+  color: #dcfce7;
 }
 
 [data-theme='v2'] .assignmentAsanaBarOutsideLabel {
@@ -1811,6 +1824,13 @@ button.boardCard:hover {
   color: #b91c1c;
 }
 
+.assignmentAsanaBar.is-completed {
+  background: linear-gradient(180deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #4ade80;
+  box-shadow: 0 0 0 1px #bbf7d0, 0 4px 10px rgba(22, 163, 74, 0.22);
+  color: #166534;
+}
+
 .assignmentAsanaBarName {
   min-width: 0;
   overflow: hidden;
@@ -1894,6 +1914,11 @@ button.boardCard:hover {
 .assignmentAsanaBar.is-overdue .assignmentAsanaBarStatus {
   border-color: #fca5a5;
   color: #991b1b;
+}
+
+.assignmentAsanaBar.is-completed .assignmentAsanaBarStatus {
+  border-color: #86efac;
+  color: #166534;
 }
 
 .assignmentAsanaBar::after {

@@ -2001,6 +2001,12 @@ function App() {
   const onChecklistInput = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
     const nextValue = name === 'shippingDate' ? normalizeIsoDateInput(value) : value
+    if (name === 'eventName') {
+      // Prevent stale timeline rows from previous event before the next checklist query.
+      setChecklistItems([])
+      setAssignmentRows([])
+      setAssignmentSyncError(null)
+    }
     setChecklistFilters((prev) => ({
       ...prev,
       [name]: nextValue,
