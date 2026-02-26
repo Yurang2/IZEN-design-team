@@ -154,19 +154,31 @@ export function MeetingsView() {
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingTranscripts, setLoadingTranscripts] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [creatingKeywordSet, setCreatingKeywordSet] = useState(false)
+  const [creatingKeyword, setCreatingKeyword] = useState(false)
 
   const loadKeywordSets = useCallback(async () => {
-    const response = await api<{ ok: boolean; sets: KeywordSetRow[] }>('/keyword-sets')
-    setKeywordSets(response.sets ?? [])
-    if (!selectedKeywordSetId && response.sets.length > 0) {
-      setSelectedKeywordSetId(response.sets[0].id)
+    try {
+      const response = await api<{ ok: boolean; sets: KeywordSetRow[] }>('/keyword-sets')
+      setKeywordSets(response.sets ?? [])
+      if (!selectedKeywordSetId && response.sets.length > 0) {
+        setSelectedKeywordSetId(response.sets[0].id)
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '키워드 세트를 불러오지 못했습니다.'
+      setErrorMessage(message)
     }
   }, [selectedKeywordSetId])
 
   const loadKeywords = useCallback(async (setId?: string) => {
-    const query = setId ? `?setId=${encodeURIComponent(setId)}` : ''
-    const response = await api<{ ok: boolean; keywords: KeywordRow[] }>(`/keywords${query}`)
-    setKeywords(response.keywords ?? [])
+    try {
+      const query = setId ? `?setId=${encodeURIComponent(setId)}` : ''
+      const response = await api<{ ok: boolean; keywords: KeywordRow[] }>(`/keywords${query}`)
+      setKeywords(response.keywords ?? [])
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '키워드를 불러오지 못했습니다.'
+      setErrorMessage(message)
+    }
   }, [])
 
   const loadTranscripts = useCallback(async () => {
@@ -324,7 +336,12 @@ export function MeetingsView() {
 
   const onCreateKeywordSet = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!keywordSetName.trim()) return
+    if (!keywordSetName.trim()) {
+      setErrorMessage('키워드 세트 이름을 입력해 주세요.')
+      return
+    }
+    setCreatingKeywordSet(true)
+    setErrorMessage('')
     try {
       await api('/keyword-sets', {
         method: 'POST',
@@ -335,12 +352,23 @@ export function MeetingsView() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '키워드 세트를 생성하지 못했습니다.'
       setErrorMessage(message)
+    } finally {
+      setCreatingKeywordSet(false)
     }
   }
 
   const onCreateKeyword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedKeywordSetId || !keywordPhrase.trim()) return
+    if (!selectedKeywordSetId) {
+      setErrorMessage('키워드 세트를 먼저 선택해 주세요.')
+      return
+    }
+    if (!keywordPhrase.trim()) {
+      setErrorMessage('키워드 문구를 입력해 주세요.')
+      return
+    }
+    setCreatingKeyword(true)
+    setErrorMessage('')
     try {
       await api('/keywords', {
         method: 'POST',
@@ -359,6 +387,8 @@ export function MeetingsView() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '키워드를 추가하지 못했습니다.'
       setErrorMessage(message)
+    } finally {
+      setCreatingKeyword(false)
     }
   }
 
@@ -555,8 +585,8 @@ export function MeetingsView() {
           </div>
           <form className="meetingsInlineForm" onSubmit={onCreateKeywordSet}>
             <input value={keywordSetName} onChange={(event) => setKeywordSetName(event.target.value)} placeholder="새 키워드 세트 이름" />
-            <Button type="submit" size="mini">
-              세트 추가
+            <Button type="submit" size="mini" disabled={creatingKeywordSet}>
+              {creatingKeywordSet ? '추가 중...' : '세트 추가'}
             </Button>
           </form>
           <div className="meetingsKeywordSets">
@@ -583,10 +613,11 @@ export function MeetingsView() {
             <input value={keywordPhrase} onChange={(event) => setKeywordPhrase(event.target.value)} placeholder="키워드 문구" />
             <input value={keywordWeight} onChange={(event) => setKeywordWeight(event.target.value)} placeholder="weight(선택)" />
             <input value={keywordTags} onChange={(event) => setKeywordTags(event.target.value)} placeholder="tags(선택)" />
-            <Button type="submit" size="mini" disabled={!selectedKeywordSetId}>
-              키워드 추가
+            <Button type="submit" size="mini" disabled={!selectedKeywordSetId || creatingKeyword}>
+              {creatingKeyword ? '추가 중...' : '키워드 추가'}
             </Button>
           </form>
+          {!selectedKeywordSetId ? <p className="muted small">먼저 키워드 세트를 생성하거나 선택해야 키워드 추가가 가능합니다.</p> : null}
           <div className="meetingsKeywordList">
             {keywords.map((keyword) => (
               <div key={keyword.id} className="meetingsKeywordItem">
