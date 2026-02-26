@@ -1612,13 +1612,34 @@ export default {
         const projectPageId = asString(url.searchParams.get('projectId')) ?? asString(url.searchParams.get('projectPageId'))
 
         if (projectPageId && env.NOTION_CHECKLIST_ASSIGNMENT_DB_ID) {
-          const rows = await service.ensureChecklistAssignmentsForProject(projectPageId)
+          const ensureModeRaw = (asString(url.searchParams.get('ensure')) ?? '').toLowerCase()
+          const shouldEnsureSync = ensureModeRaw === 'sync' || ensureModeRaw === '1' || ensureModeRaw === 'true'
+          const shouldEnsureBackground = !(
+            ensureModeRaw === 'none' ||
+            ensureModeRaw === 'off' ||
+            ensureModeRaw === '0' ||
+            ensureModeRaw === 'false'
+          )
+
+          const rows = shouldEnsureSync
+            ? await service.ensureChecklistAssignmentsForProject(projectPageId)
+            : await service.listChecklistAssignments(projectPageId)
+
+          if (!shouldEnsureSync && shouldEnsureBackground) {
+            ctx.waitUntil(
+              service.ensureChecklistAssignmentsForProject(projectPageId).catch(() => {
+                // Non-blocking best effort sync.
+              }),
+            )
+          }
+
           return ok(
             {
               ok: true,
               projectPageId,
               rows,
               storageMode: 'notion_matrix',
+              syncing: !shouldEnsureSync && shouldEnsureBackground,
             },
             origin,
           )

@@ -144,6 +144,7 @@ type ChecklistAssignmentsResponse = {
   row?: ChecklistAssignmentRow
   assignments?: Record<string, string>
   storageMode?: 'notion_matrix' | 'd1' | 'cache'
+  syncing?: boolean
 }
 
 type ChecklistAssignmentsExportResponse = {
@@ -907,8 +908,8 @@ function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
 
-  const [loadingList, setLoadingList] = useState(false)
-  const [loadingProjects, setLoadingProjects] = useState(false)
+  const [loadingList, setLoadingList] = useState(true)
+  const [loadingProjects, setLoadingProjects] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
   const [lastSyncedAt, setLastSyncedAt] = useState<string>('')
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<Record<string, boolean>>({})
@@ -925,6 +926,8 @@ function App() {
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
   const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
+  const [assignmentLoading, setAssignmentLoading] = useState(false)
+  const [assignmentSyncing, setAssignmentSyncing] = useState(false)
   const [checklistCreatingTaskIds, setChecklistCreatingTaskIds] = useState<Record<string, boolean>>({})
   const [checklistTaskOverrides, setChecklistTaskOverrides] = useState<Record<string, TaskRecord>>({})
   const [prioritizeUnassignedChecklist, setPrioritizeUnassignedChecklist] = useState(true)
@@ -1258,20 +1261,31 @@ function App() {
     }
   }, [projects])
 
-  const fetchChecklistAssignments = useCallback(async (projectPageId?: string) => {
+  const fetchChecklistAssignments = useCallback(async (projectPageId?: string, options?: { ensure?: 'background' | 'sync' | 'none' }) => {
     if (!projectPageId) {
       setAssignmentRows([])
+      setAssignmentLoading(false)
+      setAssignmentSyncing(false)
       return
     }
 
+    setAssignmentLoading(true)
     try {
-      const response = await api<ChecklistAssignmentsResponse>(`/checklist-assignments?projectId=${encodeURIComponent(projectPageId)}`)
+      const params = new URLSearchParams()
+      params.set('projectId', projectPageId)
+      if (options?.ensure === 'sync') params.set('ensure', 'sync')
+      if (options?.ensure === 'none') params.set('ensure', 'none')
+      const response = await api<ChecklistAssignmentsResponse>(`/checklist-assignments?${params.toString()}`)
       setAssignmentRows(response.rows ?? [])
       if (response.storageMode) setAssignmentStorageMode(response.storageMode)
+      setAssignmentSyncing(Boolean(response.syncing))
       setAssignmentSyncError(null)
     } catch (error: unknown) {
       setAssignmentRows([])
+      setAssignmentSyncing(false)
       setAssignmentSyncError(toErrorMessage(error, '체크리스트 할당 상태를 불러오지 못했습니다.'))
+    } finally {
+      setAssignmentLoading(false)
     }
   }, [])
 
@@ -1760,7 +1774,7 @@ function App() {
     if (route.kind !== 'list') return
     if (activeView !== 'checklist') return
     if (checklistMode !== 'assignment') return
-    void fetchChecklistAssignments(selectedChecklistProject?.id)
+    void fetchChecklistAssignments(selectedChecklistProject?.id, { ensure: 'background' })
   }, [activeView, authState, checklistMode, fetchChecklistAssignments, route.kind, selectedChecklistProject?.id])
 
   const sortedChecklistItems = useMemo(() => {
@@ -2028,6 +2042,8 @@ function App() {
   const assignmentTargetCurrentTaskId = assignmentTarget
     ? assignmentRowByChecklistId.get(checklistItemLookupKey(assignmentTarget.itemId))?.taskPageId ?? ''
     : ''
+  const projectTabCountLabel = loadingProjects ? '...' : String(projects.length)
+  const taskTabCountLabel = loadingList ? '...' : String(tasks.length)
   const hasQuickSearchResults = quickSearchSections.projects.length > 0 || quickSearchSections.tasks.length > 0
 
   const onQuickSearchPick = (scope: QuickSearchScope, id: string) => {
@@ -2125,6 +2141,13 @@ function App() {
 
   const onChecklistSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (checklistMode === 'assignment' && selectedChecklistProject?.id) {
+      await Promise.all([
+        fetchChecklistPreview(checklistFilters),
+        fetchChecklistAssignments(selectedChecklistProject.id, { ensure: 'background' }),
+      ])
+      return
+    }
     await fetchChecklistPreview(checklistFilters)
   }
 
@@ -2725,7 +2748,7 @@ function App() {
                   </span>
                   <span>프로젝트</span>
                 </span>
-                <span className="viewTabCount">{projects.length}</span>
+                <span className="viewTabCount">{projectTabCountLabel}</span>
               </button>
               <button
                 type="button"
@@ -2739,7 +2762,7 @@ function App() {
                   </span>
                   <span>업무</span>
                 </span>
-                <span className="viewTabCount">{tasks.length}</span>
+                <span className="viewTabCount">{taskTabCountLabel}</span>
               </button>
               <button
                 type="button"
@@ -3092,6 +3115,9 @@ function App() {
           checklistFilters={checklistFilters}
           checklistSort={checklistSort}
           checklistLoading={checklistLoading}
+          loadingProjects={loadingProjects}
+          assignmentLoading={assignmentLoading}
+          assignmentSyncing={assignmentSyncing}
           checklistError={checklistError}
           assignmentSyncError={assignmentSyncError}
           assignmentStorageMode={assignmentStorageMode}

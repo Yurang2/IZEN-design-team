@@ -14,6 +14,9 @@ type ChecklistViewProps = {
   checklistFilters: ChecklistPreviewFilters
   checklistSort: ChecklistSort
   checklistLoading: boolean
+  loadingProjects: boolean
+  assignmentLoading: boolean
+  assignmentSyncing: boolean
   checklistError: string | null
   assignmentSyncError: string | null
   assignmentStorageMode: 'notion_matrix' | 'd1' | 'cache'
@@ -247,6 +250,9 @@ export function ChecklistView({
   checklistFilters,
   checklistSort,
   checklistLoading,
+  loadingProjects,
+  assignmentLoading,
+  assignmentSyncing,
   checklistError,
   assignmentSyncError,
   assignmentStorageMode,
@@ -581,6 +587,11 @@ export function ChecklistView({
           행사명
           <select ref={eventNameRef} name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
             <option value="">프로젝트 선택 안 함</option>
+            {loadingProjects ? (
+              <option value="" disabled>
+                행사 목록 불러오는 중...
+              </option>
+            ) : null}
             {filteredProjectOptions.map((project) => (
               <option key={project.id} value={project.name}>
                 {toProjectLabel(project)}
@@ -634,6 +645,8 @@ export function ChecklistView({
                 ? 'D1(레거시 보조)'
                 : 'Cache(레거시 보조)'}
           </p>
+          {assignmentLoading ? <p className="muted small">할당 상태 확인 중...</p> : null}
+          {!assignmentLoading && assignmentSyncing ? <p className="muted small">할당 매트릭스 동기화가 백그라운드에서 진행 중입니다.</p> : null}
         </>
       ) : null}
 
@@ -940,21 +953,25 @@ export function ChecklistView({
                       <td>
                         <span
                           className={`assignmentBadge ${
-                            row.assignmentStatus === 'not_applicable'
-                              ? 'notApplicable'
-                              : row.assignmentStatus === 'assigned'
-                                ? 'assigned'
-                                : 'unassigned'
+                            assignmentLoading
+                              ? 'unassigned'
+                              : row.assignmentStatus === 'not_applicable'
+                                ? 'notApplicable'
+                                : row.assignmentStatus === 'assigned'
+                                  ? 'assigned'
+                                  : 'unassigned'
                           }`}
                         >
-                          {row.assignmentStatusLabel}
+                          {assignmentLoading ? '확인 중' : row.assignmentStatusLabel}
                         </span>
                       </td>
                     ) : null}
 
                     {isAssignmentMode ? (
                       <td className="assignmentCell">
-                        {row.assignedTaskId ? (
+                        {assignmentLoading ? (
+                          '-'
+                        ) : row.assignedTaskId ? (
                           <button type="button" className="taskLink" onClick={() => onTaskOpen(row.assignedTaskId)}>
                             {row.assignedTaskLabel || row.assignedTaskId}
                           </button>
@@ -966,10 +983,10 @@ export function ChecklistView({
 
                     {isAssignmentMode ? (
                       <td className="actionCell">
-                        <Button type="button" variant="secondary" size="mini" disabled={creating || row.isAssigned} onClick={() => void onCreateTaskFromChecklist(row)}>
+                        <Button type="button" variant="secondary" size="mini" disabled={assignmentLoading || creating || row.isAssigned} onClick={() => void onCreateTaskFromChecklist(row)}>
                           {creating ? '생성 중...' : '생성'}
                         </Button>
-                        <Button type="button" variant="secondary" size="mini" disabled={creating} onClick={() => onOpenAssignmentPicker(row.item)}>
+                        <Button type="button" variant="secondary" size="mini" disabled={assignmentLoading || creating} onClick={() => onOpenAssignmentPicker(row.item)}>
                           {row.isAssigned ? '재할당' : '할당'}
                         </Button>
                         <Button
@@ -977,7 +994,7 @@ export function ChecklistView({
                           variant="secondary"
                           size="mini"
                           className={row.assignmentStatus === 'not_applicable' ? 'is-active' : ''}
-                          disabled={creating || row.assignmentStatus === 'not_applicable'}
+                          disabled={assignmentLoading || creating || row.assignmentStatus === 'not_applicable'}
                           onClick={() => void onSetNotApplicable(row.item.id)}
                         >
                           해당없음

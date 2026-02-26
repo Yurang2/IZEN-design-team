@@ -652,15 +652,25 @@ export class NotionWorkService {
     private readonly env: Env,
   ) {}
 
-  private async queryAll(databaseId: string): Promise<any[]> {
+  private async queryAll(
+    databaseId: string,
+    options?: {
+      filter?: AnyMap
+    },
+  ): Promise<any[]> {
     const pages: any[] = []
     let cursor: string | undefined
 
     while (true) {
-      const result: any = await this.api.queryDatabase(databaseId, {
+      const queryInput: AnyMap = {
         start_cursor: cursor,
         page_size: 100,
-      })
+      }
+      if (options?.filter) {
+        queryInput.filter = options.filter
+      }
+
+      const result: any = await this.api.queryDatabase(databaseId, queryInput)
 
       const activeResults = (result.results ?? []).filter((entry: any) => isActiveNotionPage(entry))
       pages.push(...activeResults)
@@ -1283,6 +1293,21 @@ export class NotionWorkService {
     projectPageId: string,
   ): Promise<any[]> {
     const databaseId = this.getChecklistAssignmentDbId()
+    if (isKnownField(schema.fields.project) && schema.fields.project.actualType === 'relation') {
+      try {
+        return await this.queryAll(databaseId, {
+          filter: {
+            property: schema.fields.project.actualName,
+            relation: {
+              contains: projectPageId,
+            },
+          },
+        })
+      } catch {
+        // Fall back to full scan when relation filter is not usable.
+      }
+    }
+
     const projectId = normalizeNotionId(projectPageId)
     const pages = await this.queryAll(databaseId)
     return pages.filter((page) => {

@@ -129,6 +129,7 @@ export type ChecklistAssignmentsResponse = {
   row?: ChecklistAssignmentRow
   assignments?: Record<string, string>
   storageMode?: 'notion_matrix' | 'd1' | 'cache'
+  syncing?: boolean
 }
 
 export type ChecklistAssignmentsExportResponse = {
