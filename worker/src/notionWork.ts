@@ -247,6 +247,8 @@ function checklistStatusFromValues(
   if (normalized.includes('해당없음')) return 'not_applicable'
   if (applicable === false) return 'not_applicable'
   if (taskPageId) return 'assigned'
+  if (normalized.includes('unassigned') || normalized.includes('미할당')) return 'unassigned'
+  if (normalized.includes('assigned') || normalized.includes('할당')) return 'assigned'
   return 'unassigned'
 }
 
