@@ -38,7 +38,7 @@ function ListSkeleton() {
             <Skeleton width="36px" height="18px" />
           </header>
           <TableWrap>
-            <table>
+            <table className="tasksListTable">
               <thead>
                 <tr>
                   <th>요청주체</th>
@@ -143,7 +143,7 @@ export function TasksListView({
 
         {openTaskGroups[group.key] === false ? null : (
           <TableWrap>
-            <table>
+            <table className="tasksListTable">
               <thead>
                 <tr>
                   <th>요청주체</th>

@@ -60,6 +60,14 @@ function toIsoDate(value: Date): string {
   return `${year}-${month}-${day}`
 }
 
+function getIsoWeekNumber(value: Date): number {
+  const copy = new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
+  const dayNum = copy.getUTCDay() || 7
+  copy.setUTCDate(copy.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1))
+  return Math.ceil((((copy.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7)
+}
+
 type AssignmentTimelineRange = {
   start: Date
   end: Date
@@ -349,28 +357,87 @@ export function ChecklistView({
     () => markerStyleForDate(assignmentTimelineRange, parseIsoDate(selectedChecklistProject?.eventDate)),
     [assignmentTimelineRange, selectedChecklistProject?.eventDate],
   )
+  const assignmentTimelineLaneHeight = 48
   const assignmentTimelineTrackHeight = useMemo(
-    () => Math.max(56, assignmentTimelineModel.laneCount * 30 + 16),
+    () => Math.max(72, assignmentTimelineModel.laneCount * assignmentTimelineLaneHeight + 16),
     [assignmentTimelineModel.laneCount],
   )
-  const assignmentTimelineTicks = useMemo(() => {
-    if (!assignmentTimelineRange) return [] as Array<{ iso: string; left: string }>
+  const assignmentTimelineAxisRows = useMemo(() => {
+    if (!assignmentTimelineRange) return [] as Array<{ key: string; label: string; ticks: Array<{ key: string; label: string; left: string; isStart: boolean; isEnd: boolean }> }>
+
+    const rows = {
+      year: [] as Array<{ key: string; label: string; left: string; isStart: boolean; isEnd: boolean }>,
+      month: [] as Array<{ key: string; label: string; left: string; isStart: boolean; isEnd: boolean }>,
+      week: [] as Array<{ key: string; label: string; left: string; isStart: boolean; isEnd: boolean }>,
+      day: [] as Array<{ key: string; label: string; left: string; isStart: boolean; isEnd: boolean }>,
+    }
+
     const dayMs = 86_400_000
     const totalDays = Math.max(1, Math.round((assignmentTimelineRange.end.getTime() - assignmentTimelineRange.start.getTime()) / dayMs))
-    const stepDays = totalDays <= 24 ? 3 : totalDays <= 72 ? 7 : totalDays <= 160 ? 14 : 30
-    const ticks: Array<{ iso: string; left: string }> = []
-    let cursor = new Date(assignmentTimelineRange.start.getTime())
-    while (cursor.getTime() <= assignmentTimelineRange.end.getTime()) {
-      const style = markerStyleForDate(assignmentTimelineRange, cursor)
-      ticks.push({ iso: toIsoDate(cursor), left: String(style?.left ?? '0%') })
-      cursor = addDays(cursor, stepDays)
-    }
+    const dayStep = totalDays <= 45 ? 1 : totalDays <= 120 ? 2 : 3
+    const startIso = toIsoDate(assignmentTimelineRange.start)
     const endIso = toIsoDate(assignmentTimelineRange.end)
-    if (!ticks.some((entry) => entry.iso === endIso)) {
-      const style = markerStyleForDate(assignmentTimelineRange, assignmentTimelineRange.end)
-      ticks.push({ iso: endIso, left: String(style?.left ?? '100%') })
+
+    let cursor = new Date(assignmentTimelineRange.start.getTime())
+    let dayIndex = 0
+    while (cursor.getTime() <= assignmentTimelineRange.end.getTime()) {
+      const iso = toIsoDate(cursor)
+      const left = String(markerStyleForDate(assignmentTimelineRange, cursor)?.left ?? '0%')
+      const isStart = iso === startIso
+      const isEnd = iso === endIso
+      const month = cursor.getUTCMonth() + 1
+      const day = cursor.getUTCDate()
+      const dayOfWeek = cursor.getUTCDay()
+
+      if (isStart || (month === 1 && day === 1)) {
+        rows.year.push({ key: `year-${iso}`, label: `${cursor.getUTCFullYear()}년`, left, isStart, isEnd })
+      }
+      if (isStart || day === 1) {
+        rows.month.push({ key: `month-${iso}`, label: `${month}월`, left, isStart, isEnd })
+      }
+      if (isStart || dayOfWeek === 1) {
+        rows.week.push({ key: `week-${iso}`, label: `${getIsoWeekNumber(cursor)}주차`, left, isStart, isEnd })
+      }
+      if (isStart || dayIndex % dayStep === 0) {
+        rows.day.push({
+          key: `day-${iso}`,
+          label: `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`,
+          left,
+          isStart,
+          isEnd,
+        })
+      }
+
+      cursor = addDays(cursor, 1)
+      dayIndex += 1
     }
-    return ticks
+
+    const ensureEndTick = (list: Array<{ key: string; label: string; left: string; isStart: boolean; isEnd: boolean }>, label: string, prefix: string) => {
+      if (list.some((entry) => entry.isEnd)) return
+      list.push({
+        key: `${prefix}-${endIso}`,
+        label,
+        left: String(markerStyleForDate(assignmentTimelineRange, assignmentTimelineRange.end)?.left ?? '100%'),
+        isStart: false,
+        isEnd: true,
+      })
+    }
+
+    ensureEndTick(rows.year, `${assignmentTimelineRange.end.getUTCFullYear()}년`, 'year')
+    ensureEndTick(rows.month, `${assignmentTimelineRange.end.getUTCMonth() + 1}월`, 'month')
+    ensureEndTick(rows.week, `${getIsoWeekNumber(assignmentTimelineRange.end)}주차`, 'week')
+    ensureEndTick(
+      rows.day,
+      `${String(assignmentTimelineRange.end.getUTCMonth() + 1).padStart(2, '0')}/${String(assignmentTimelineRange.end.getUTCDate()).padStart(2, '0')}`,
+      'day',
+    )
+
+    return [
+      { key: 'year', label: '연도', ticks: rows.year },
+      { key: 'month', label: '월', ticks: rows.month },
+      { key: 'week', label: '주차', ticks: rows.week },
+      { key: 'day', label: '일', ticks: rows.day },
+    ]
   }, [assignmentTimelineRange])
 
   return (
@@ -535,63 +602,73 @@ export function ChecklistView({
               ) : (
                 <div className="assignmentAsanaBoard">
                   <div className="assignmentAsanaAxis">
-                    {assignmentTimelineTicks.map((tick, index) => (
-                      <span
-                        key={`${tick.iso}-${index}`}
-                        className={`assignmentAsanaTick ${
-                          index === 0 ? 'is-start' : index === assignmentTimelineTicks.length - 1 ? 'is-end' : ''
-                        }`.trim()}
-                        style={{ left: tick.left }}
-                      >
-                        {formatDateLabel(tick.iso)}
-                      </span>
+                    {assignmentTimelineAxisRows.map((row) => (
+                      <div key={row.key} className="assignmentAsanaAxisRow">
+                        <span className="assignmentAsanaAxisLabel">{row.label}</span>
+                        <div className="assignmentAsanaAxisTrack">
+                          {row.ticks.map((tick) => (
+                            <span
+                              key={tick.key}
+                              className={`assignmentAsanaTick ${tick.isStart ? 'is-start' : tick.isEnd ? 'is-end' : ''}`.trim()}
+                              style={{ left: tick.left }}
+                            >
+                              {tick.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                  <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
-                    <div className="projectTimelineTrackGrid" aria-hidden="true" />
-                    {assignmentTodayMarkerStyle ? (
-                      <span className="projectTimelineTodayMarker event-inline" style={assignmentTodayMarkerStyle} aria-hidden="true" />
-                    ) : null}
-                    {assignmentEventMarkerStyle ? (
-                      <span className="projectTimelineEventMarker event-inline" style={assignmentEventMarkerStyle} aria-hidden="true" />
-                    ) : null}
-                    {assignmentTimelineModel.bars.map((entry) => {
-                      const position = barStyleForDateRange(assignmentTimelineRange, entry.startDate, entry.dueDate)
-                      if (!position) return null
-                      const className = [
-                        'assignmentAsanaBar',
-                        entry.assignmentStatus === 'unassigned' ? 'is-unassigned' : '',
-                        entry.isDueToday ? 'is-due-today' : '',
-                        entry.isOverdue ? 'is-overdue' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')
-                      const style: CSSProperties = {
-                        ...position,
-                        top: `${8 + entry.lane * 30}px`,
-                      }
-                      const title = `${entry.label} (${entry.assignmentStatusLabel}) | ${entry.startDateIso} ~ ${entry.dueDateIso} | ${toTodayLeadLabel(entry.dueDateIso, todayDate)}`
-                      return (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          className={className}
-                          style={style}
-                          title={title}
-                          onClick={() => {
-                            const target = document.getElementById(`checklist-assignment-row-${entry.id}`)
-                            if (!target) return
-                            target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                            setTimelineFocusedRowId(entry.id)
-                            window.setTimeout(() => {
-                              setTimelineFocusedRowId((current) => (current === entry.id ? null : current))
-                            }, 1800)
-                          }}
-                        >
-                          {entry.label} · {entry.assignmentStatusLabel}
-                        </button>
-                      )
-                    })}
+                  <div className="assignmentAsanaTrackRow">
+                    <span className="assignmentAsanaAxisLabel" aria-hidden="true">
+                      바
+                    </span>
+                    <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
+                      <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                      {assignmentTodayMarkerStyle ? (
+                        <span className="projectTimelineTodayMarker event-inline" style={assignmentTodayMarkerStyle} aria-hidden="true" />
+                      ) : null}
+                      {assignmentEventMarkerStyle ? (
+                        <span className="projectTimelineEventMarker event-inline" style={assignmentEventMarkerStyle} aria-hidden="true" />
+                      ) : null}
+                      {assignmentTimelineModel.bars.map((entry) => {
+                        const position = barStyleForDateRange(assignmentTimelineRange, entry.startDate, entry.dueDate)
+                        if (!position) return null
+                        const className = [
+                          'assignmentAsanaBar',
+                          entry.assignmentStatus === 'unassigned' ? 'is-unassigned' : '',
+                          entry.isDueToday ? 'is-due-today' : '',
+                          entry.isOverdue ? 'is-overdue' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')
+                        const style: CSSProperties = {
+                          ...position,
+                          top: `${8 + entry.lane * assignmentTimelineLaneHeight}px`,
+                        }
+                        const title = `${entry.label} (${entry.assignmentStatusLabel}) | ${entry.startDateIso} ~ ${entry.dueDateIso} | ${toTodayLeadLabel(entry.dueDateIso, todayDate)}`
+                        return (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            className={className}
+                            style={style}
+                            title={title}
+                            onClick={() => {
+                              const target = document.getElementById(`checklist-assignment-row-${entry.id}`)
+                              if (!target) return
+                              target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                              setTimelineFocusedRowId(entry.id)
+                              window.setTimeout(() => {
+                                setTimelineFocusedRowId((current) => (current === entry.id ? null : current))
+                              }, 1800)
+                            }}
+                          >
+                            {entry.label} · {entry.assignmentStatusLabel}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
