@@ -433,7 +433,7 @@ export function ChecklistView({
       if (isStart || dayIndex % dayStep === 0) {
         rows.day.push({
           key: `day-${iso}`,
-          label: `${day}일`,
+          label: `${day}`,
           left,
           isStart,
           isEnd,
@@ -464,7 +464,7 @@ export function ChecklistView({
     )
     ensureEndTick(
       rows.day,
-      `${assignmentTimelineRange.end.getUTCDate()}일`,
+      `${assignmentTimelineRange.end.getUTCDate()}`,
       'day',
     )
 
@@ -505,6 +505,53 @@ export function ChecklistView({
 
     return segments
   }, [assignmentTimelineRange])
+  const assignmentCompactLabelPlacement = useMemo(() => {
+    const placements = new Map<string, { side: 'left' | 'right'; raised: boolean }>()
+    if (!assignmentTimelineRange) return placements
+
+    const compactByLane = new Map<number, Array<{ id: string; left: number }>>()
+    for (const entry of assignmentTimelineModel.bars) {
+      const position = barStyleForDateRange(assignmentTimelineRange, entry.startDate, entry.dueDate)
+      if (!position) continue
+      const widthPercent =
+        typeof position.width === 'number'
+          ? position.width
+          : Number.parseFloat(typeof position.width === 'string' ? position.width : '0')
+      const isCompact = Number.isFinite(widthPercent) && widthPercent < 7
+      if (!isCompact) continue
+      const leftPercent =
+        typeof position.left === 'number'
+          ? position.left
+          : Number.parseFloat(typeof position.left === 'string' ? position.left : '0')
+      if (!Number.isFinite(leftPercent)) continue
+      const list = compactByLane.get(entry.lane) ?? []
+      list.push({ id: entry.id, left: leftPercent })
+      compactByLane.set(entry.lane, list)
+    }
+
+    for (const laneEntries of compactByLane.values()) {
+      laneEntries.sort((a, b) => a.left - b.left)
+      for (let index = 0; index < laneEntries.length; index += 1) {
+        const current = laneEntries[index]
+        const prev = index > 0 ? laneEntries[index - 1] : null
+        const next = index < laneEntries.length - 1 ? laneEntries[index + 1] : null
+        const gapPrev = prev ? current.left - prev.left : Number.POSITIVE_INFINITY
+        const gapNext = next ? next.left - current.left : Number.POSITIVE_INFINITY
+        const dense = gapPrev < 9 || gapNext < 9
+
+        let side: 'left' | 'right' = 'right'
+        if (current.left > 84) side = 'left'
+        else if (current.left < 8) side = 'right'
+        else if (gapNext < 9) side = 'left'
+        else if (gapPrev < 7 && prev && placements.get(prev.id)?.side === 'right') side = 'left'
+
+        const raised = dense && index % 2 === 1
+        placements.set(current.id, { side, raised })
+      }
+    }
+
+    return placements
+  }, [assignmentTimelineModel.bars, assignmentTimelineRange])
   return (
     <section className="checklistPreview">
       <div className="checklistPreviewHeader">
@@ -747,6 +794,7 @@ export function ChecklistView({
                             ? position.width
                             : Number.parseFloat(typeof position.width === 'string' ? position.width : '0')
                         const isCompact = Number.isFinite(widthPercent) && widthPercent < 7
+                        const compactLabel = assignmentCompactLabelPlacement.get(entry.id)
                         const className = [
                           'assignmentAsanaBar',
                           entry.assignmentStatus === 'unassigned' ? 'is-unassigned' : '',
@@ -783,7 +831,15 @@ export function ChecklistView({
                             <span className="assignmentAsanaBarName">{entry.label}</span>
                             <span className="assignmentAsanaBarStatus">{entry.assignmentStatusLabel}</span>
                             {isCompact ? (
-                              <span className="assignmentAsanaBarOutsideLabel">
+                              <span
+                                className={[
+                                  'assignmentAsanaBarOutsideLabel',
+                                  compactLabel?.side === 'left' ? 'is-left' : '',
+                                  compactLabel?.raised ? 'is-raised' : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                              >
                                 <span className="assignmentAsanaBarOutsideName">{entry.label}</span>
                                 <span className="assignmentAsanaBarOutsideState">{entry.assignmentStatusLabel}</span>
                               </span>
