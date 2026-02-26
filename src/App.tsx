@@ -915,6 +915,7 @@ function App() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastTimerRef = useRef<Record<number, number>>({})
   const projectSchemaSyncDoneRef = useRef(false)
+  const checklistTaskFetchInFlightRef = useRef<Set<string>>(new Set())
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
@@ -1770,6 +1771,13 @@ function App() {
     }
     return map
   }, [tasks])
+  const taskByNormalizedId = useMemo(() => {
+    const map = new Map<string, TaskRecord>()
+    for (const task of tasks) {
+      map.set(normalizeNotionId(task.id), task)
+    }
+    return map
+  }, [tasks])
 
   const assignmentRowByChecklistId = useMemo(() => {
     const map = new Map<string, ChecklistAssignmentRow>()
@@ -1791,8 +1799,14 @@ function App() {
       const fallbackApplicable = checklistAppliesToProject(item, selectedChecklistProject)
       const assignedTaskIdRaw = matrixRow?.taskPageId ?? ''
       const assignedTaskId = sanitizeChecklistTaskPageId(assignedTaskIdRaw)
+      const normalizedAssignedTaskId = normalizeNotionId(assignedTaskId)
       const hasInvalidAssignedTaskId = Boolean(assignedTaskIdRaw && !assignedTaskId)
-      const assignedTask = assignedTaskId ? taskById.get(assignedTaskId) ?? checklistTaskOverrides[assignedTaskId] : undefined
+      const assignedTask = assignedTaskId
+        ? taskById.get(assignedTaskId) ??
+          taskByNormalizedId.get(normalizedAssignedTaskId) ??
+          checklistTaskOverrides[assignedTaskId] ??
+          checklistTaskOverrides[normalizedAssignedTaskId]
+        : undefined
       const totalLeadDays = getChecklistTotalLeadDays(item)
       const computedDueDate = item.computedDueDate ?? computeChecklistDueDate(selectedChecklistProject?.eventDate, item)
       const assignmentStatusBase: ChecklistAssignmentStatus = matrixRow?.assignmentStatus ?? (fallbackApplicable ? 'unassigned' : 'not_applicable')
@@ -1841,7 +1855,73 @@ function App() {
       delete (copy as { __sortIndex?: number }).__sortIndex
       return copy
     })
-  }, [assignmentRowByChecklistId, checklistTaskOverrides, prioritizeUnassignedChecklist, selectedChecklistProject, sortedChecklistItems, taskById])
+  }, [assignmentRowByChecklistId, checklistTaskOverrides, prioritizeUnassignedChecklist, selectedChecklistProject, sortedChecklistItems, taskById, taskByNormalizedId])
+
+  useEffect(() => {
+    if (authState !== 'authenticated') return
+    if (route.kind !== 'list') return
+    if (activeView !== 'checklist' || checklistMode !== 'assignment') return
+    if (!selectedChecklistProject) return
+
+    const selectedProjectId = normalizeNotionId(selectedChecklistProject.id)
+    const missingTaskIds: string[] = []
+    const queued = new Set<string>()
+    for (const row of assignmentRows) {
+      if (normalizeNotionId(row.projectPageId) !== selectedProjectId) continue
+      const taskId = sanitizeChecklistTaskPageId(row.taskPageId ?? '')
+      if (!taskId) continue
+      const normalizedTaskId = normalizeNotionId(taskId)
+      const alreadyKnown =
+        taskById.has(taskId) ||
+        taskByNormalizedId.has(normalizedTaskId) ||
+        Boolean(checklistTaskOverrides[taskId]) ||
+        Boolean(checklistTaskOverrides[normalizedTaskId])
+      if (alreadyKnown) continue
+      if (checklistTaskFetchInFlightRef.current.has(normalizedTaskId)) continue
+      if (queued.has(normalizedTaskId)) continue
+      queued.add(normalizedTaskId)
+      missingTaskIds.push(taskId)
+    }
+
+    if (missingTaskIds.length === 0) return
+
+    let cancelled = false
+    void Promise.allSettled(
+      missingTaskIds.map(async (taskId) => {
+        const normalizedTaskId = normalizeNotionId(taskId)
+        checklistTaskFetchInFlightRef.current.add(normalizedTaskId)
+        try {
+          const response = await api<TaskResponse>(`/tasks/${encodeURIComponent(taskId)}`)
+          if (cancelled) return
+          setChecklistTaskOverrides((prev) => ({
+            ...prev,
+            [taskId]: response.task,
+            [normalizedTaskId]: response.task,
+            [response.task.id]: response.task,
+            [normalizeNotionId(response.task.id)]: response.task,
+          }))
+        } catch {
+          // Ignore missing/forbidden tasks and keep current timeline fallback.
+        } finally {
+          checklistTaskFetchInFlightRef.current.delete(normalizedTaskId)
+        }
+      }),
+    )
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    activeView,
+    assignmentRows,
+    authState,
+    checklistMode,
+    checklistTaskOverrides,
+    route.kind,
+    selectedChecklistProject,
+    taskById,
+    taskByNormalizedId,
+  ])
 
   useEffect(() => {
     setOpenTaskGroups((prev) => {

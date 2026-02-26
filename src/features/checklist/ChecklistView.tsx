@@ -322,7 +322,9 @@ export function ChecklistView({
       const leadDaysRaw = typeof row.totalLeadDays === 'number' ? Math.round(row.totalLeadDays) : 1
       const leadDays = Math.max(1, leadDaysRaw)
       const startDate = shiftBusinessDays(dueDate, -(leadDays - 1))
-      const isCompleted = row.assignmentStatus === 'assigned' && isCompletedTaskStatus(row.assignedTaskStatus)
+      const isCompleted =
+        row.assignmentStatus === 'assigned' &&
+        (isCompletedTaskStatus(row.assignedTaskStatus) || Boolean(row.assignedTaskActualEndDate))
       preparedBars.push({
         id: row.item.id,
         label: row.item.productName || row.item.workCategory || '-',
