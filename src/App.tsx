@@ -659,6 +659,31 @@ function sanitizeChecklistTaskPageId(value: string | undefined | null): string {
   return taskPageId
 }
 
+function checklistItemLookupKey(value: string | undefined | null): string {
+  return normalizeNotionId(value)
+}
+
+function checklistItemKeyFromAssignmentRow(row: ChecklistAssignmentRow): string {
+  const fromRelation = checklistItemLookupKey(row.checklistItemPageId)
+  if (fromRelation) return fromRelation
+  const rawKey = (row.key ?? '').trim()
+  if (!rawKey) return ''
+  const parts = rawKey.split('::')
+  if (parts.length < 2) return ''
+  return checklistItemLookupKey(parts[parts.length - 1] ?? '')
+}
+
+function checklistAssignmentRowPriority(row: ChecklistAssignmentRow): number {
+  const taskId = sanitizeChecklistTaskPageId(row.taskPageId)
+  let score = 0
+  if (row.assignmentStatus === 'assigned') score += taskId ? 300 : 160
+  else if (row.assignmentStatus === 'unassigned') score += 100
+  const statusText = (row.assignmentStatusText ?? '').trim().toLowerCase()
+  if (statusText.includes('assigned') || statusText.includes('할당')) score += 10
+  if (statusText.includes('unassigned') || statusText.includes('미할당')) score += 5
+  return score
+}
+
 function toTimelineStatusRank(status: string | undefined): number {
   const tone = toStatusTone(status)
   if (tone === 'gray') return 0
@@ -1788,14 +1813,19 @@ function App() {
       ) {
         continue
       }
-      map.set(row.checklistItemPageId, row)
+      const key = checklistItemKeyFromAssignmentRow(row)
+      if (!key) continue
+      const previous = map.get(key)
+      if (!previous || checklistAssignmentRowPriority(row) >= checklistAssignmentRowPriority(previous)) {
+        map.set(key, row)
+      }
     }
     return map
   }, [assignmentRows, selectedChecklistProject])
 
   const checklistRows = useMemo(() => {
     const rows = sortedChecklistItems.map((item, index) => {
-      const matrixRow = assignmentRowByChecklistId.get(item.id)
+      const matrixRow = assignmentRowByChecklistId.get(checklistItemLookupKey(item.id))
       const fallbackApplicable = checklistAppliesToProject(item, selectedChecklistProject)
       const assignedTaskIdRaw = matrixRow?.taskPageId ?? ''
       const assignedTaskId = sanitizeChecklistTaskPageId(assignedTaskIdRaw)
@@ -1996,7 +2026,7 @@ function App() {
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
-    ? assignmentRowByChecklistId.get(assignmentTarget.itemId)?.taskPageId ?? ''
+    ? assignmentRowByChecklistId.get(checklistItemLookupKey(assignmentTarget.itemId))?.taskPageId ?? ''
     : ''
   const hasQuickSearchResults = quickSearchSections.projects.length > 0 || quickSearchSections.tasks.length > 0
 
