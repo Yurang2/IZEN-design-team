@@ -1567,14 +1567,12 @@ button.boardCard:hover {
 }
 
 .meetingsKeywordSets,
-.meetingsKeywordList,
 .meetingsUtterances {
   display: grid;
   gap: 8px;
 }
 
-.meetingsKeywordSetItem,
-.meetingsKeywordItem {
+.meetingsKeywordSetItem {
   align-items: center;
   background: var(--surface-soft);
   border: 1px solid var(--border);
@@ -1585,8 +1583,37 @@ button.boardCard:hover {
   padding: 8px 10px;
 }
 
+.meetingsKeywordList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .meetingsKeywordItem {
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  flex: 1 1 240px;
+  gap: 8px;
+  max-width: 360px;
+  min-width: 220px;
+  padding: 8px 10px;
+}
+
+.meetingsKeywordItemHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.meetingsKeywordPhrase {
+  color: var(--text-main);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .meetingsKeywordSetItem.is-active {
@@ -1654,7 +1681,8 @@ button.boardCard:hover {
   }
 
   .meetingsKeywordItem {
-    grid-template-columns: minmax(0, 1fr) auto;
+    flex: 1 1 100%;
+    max-width: 100%;
   }
 }
 

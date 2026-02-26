@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import { api } from '../../shared/api/client'
 import { Button, TableWrap } from '../../shared/ui'
 
@@ -590,16 +590,20 @@ export function MeetingsView() {
           <div className="meetingsKeywordList">
             {keywords.map((keyword) => (
               <div key={keyword.id} className="meetingsKeywordItem">
-                <span>{keyword.phrase}</span>
-                <span className="muted small">
-                  {keyword.weight != null ? `w:${keyword.weight}` : '-'} / {keyword.tags || '-'}
-                </span>
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onEditKeyword(keyword)}>
-                  수정
-                </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeyword(keyword.id)}>
-                  삭제
-                </Button>
+                <div className="meetingsKeywordItemHeader">
+                  <strong className="meetingsKeywordPhrase">{keyword.phrase}</strong>
+                  <span className="muted small">
+                    {keyword.weight != null ? `w:${keyword.weight}` : '-'} / {keyword.tags || '-'}
+                  </span>
+                </div>
+                <div className="meetingsKeywordSetActions">
+                  <Button type="button" variant="secondary" size="mini" onClick={() => void onEditKeyword(keyword)}>
+                    수정
+                  </Button>
+                  <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeyword(keyword.id)}>
+                    삭제
+                  </Button>
+                </div>
               </div>
             ))}
             {selectedKeywordSetId && keywords.length === 0 ? <p className="muted small">등록된 키워드가 없습니다.</p> : null}
@@ -705,3 +709,4 @@ export function MeetingsView() {
     </section>
   )
 }
+
