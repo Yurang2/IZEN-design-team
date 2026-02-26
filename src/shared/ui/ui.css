@@ -1404,6 +1404,10 @@ button.boardCard:hover {
   padding: 12px;
 }
 
+.guideCardTabs {
+  gap: 10px;
+}
+
 .guideCard h3 {
   color: var(--text-main);
   font-size: 14px;
@@ -1420,6 +1424,34 @@ button.boardCard:hover {
 .guideCard ol {
   margin: 0;
   padding-left: 18px;
+}
+
+.guideTabGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.guideTabItem {
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.guideTabItem h4 {
+  color: var(--text-main);
+  font-size: 13px;
+  margin: 0;
+}
+
+.guideTabItem p {
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .guideDbLinks {
@@ -1457,6 +1489,11 @@ button.boardCard:hover {
 
 [data-theme='v2'] .guideDbLink.is-muted {
   color: #94a3b8;
+}
+
+[data-theme='v2'] .guideTabItem {
+  background: var(--surface2);
+  border-color: var(--border);
 }
 
 .checklistPreviewFilters {

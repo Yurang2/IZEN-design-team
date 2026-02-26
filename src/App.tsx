@@ -3053,6 +3053,44 @@ function App() {
             </p>
           </article>
 
+          <article className="guideCard guideCardTabs">
+            <h3>탭별 기능 안내</h3>
+            <div className="guideTabGrid">
+              <section className="guideTabItem">
+                <h4>프로젝트</h4>
+                <p>행사/전시회 전체를 조망하는 탭입니다. 진행일, 분류, 대표 업무 타임라인을 확인합니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('projects')}>
+                  프로젝트 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>업무</h4>
+                <p>실제 작업 단위를 관리하는 탭입니다. 상태, 담당자, 시작일/마감일, 상세 내용을 수정합니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('tasks')}>
+                  업무 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>일정</h4>
+                <p>프로젝트별 일정 화면입니다. 현재는 준비 중이며, 이후 통합 일정 시야를 강화할 예정입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('schedule')}>
+                  일정 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>행사 체크리스트</h4>
+                <p>행사 기준으로 제작물 체크리스트와 할당 상태를 확인/수정하는 탭입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('checklist')}>
+                  체크리스트 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>사용법</h4>
+                <p>현재 페이지입니다. 데이터 흐름, 동기화 규칙, DB 위치를 빠르게 참고할 수 있습니다.</p>
+              </section>
+            </div>
+          </article>
+
           <div className="guideGrid">
             <article className="guideCard">
               <h3>1) 데이터가 들어오는 순서</h3>
@@ -3104,6 +3142,15 @@ function App() {
                   <span className="guideDbLink is-muted">체크리스트 DB: 연결 안 됨</span>
                 )}
               </div>
+            </article>
+            <article className="guideCard">
+              <h3>5) 권장 사용 순서</h3>
+              <ol>
+                <li>프로젝트 탭에서 행사명/행사구분/행사진행일을 먼저 확인합니다.</li>
+                <li>행사 체크리스트 탭에서 미할당 항목을 우선 정리합니다.</li>
+                <li>업무 탭에서 담당자와 일정(시작/마감)을 실제 운영 기준으로 보정합니다.</li>
+                <li>완료 처리 후 다시 행사 체크리스트 타임라인에서 위험 구간(빨간색)을 재확인합니다.</li>
+              </ol>
             </article>
           </div>
         </section>
@@ -3203,3 +3250,4 @@ function App() {
 }
 
 export default App
+
