@@ -271,7 +271,7 @@ export function ChecklistView({
   const eventNameRef = useRef<HTMLSelectElement | null>(null)
   const isAssignmentMode = mode === 'assignment'
   const [showAssignmentTimeline, setShowAssignmentTimeline] = useState(true)
-  const [hidePastEvents, setHidePastEvents] = useState(false)
+  const [hidePastEvents, setHidePastEvents] = useState(true)
   const [timelineFocusedRowId, setTimelineFocusedRowId] = useState<string | null>(null)
   const todayIso = useMemo(() => {
     const now = new Date()
