@@ -151,6 +151,7 @@ function toTodayLeadLabel(targetDate: string | undefined, todayDate: Date | null
 type AssignmentTimelineBar = {
   id: string
   label: string
+  assignmentStatusLabel: string
   startDate: Date
   dueDate: Date
   startDateIso: string
@@ -227,6 +228,7 @@ export function ChecklistView({
   const eventNameRef = useRef<HTMLSelectElement | null>(null)
   const isAssignmentMode = mode === 'assignment'
   const [showAssignmentTimeline, setShowAssignmentTimeline] = useState(true)
+  const [timelineFocusedRowId, setTimelineFocusedRowId] = useState<string | null>(null)
   const todayIso = useMemo(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -280,6 +282,7 @@ export function ChecklistView({
       preparedBars.push({
         id: row.item.id,
         label: row.item.productName || row.item.workCategory || '-',
+        assignmentStatusLabel: row.assignmentStatusLabel || (row.assignmentStatus === 'assigned' ? '할당' : '미할당'),
         startDate,
         dueDate,
         startDateIso: toIsoDate(startDate),
@@ -350,6 +353,25 @@ export function ChecklistView({
     () => Math.max(56, assignmentTimelineModel.laneCount * 30 + 16),
     [assignmentTimelineModel.laneCount],
   )
+  const assignmentTimelineTicks = useMemo(() => {
+    if (!assignmentTimelineRange) return [] as Array<{ iso: string; left: string }>
+    const dayMs = 86_400_000
+    const totalDays = Math.max(1, Math.round((assignmentTimelineRange.end.getTime() - assignmentTimelineRange.start.getTime()) / dayMs))
+    const stepDays = totalDays <= 24 ? 3 : totalDays <= 72 ? 7 : totalDays <= 160 ? 14 : 30
+    const ticks: Array<{ iso: string; left: string }> = []
+    let cursor = new Date(assignmentTimelineRange.start.getTime())
+    while (cursor.getTime() <= assignmentTimelineRange.end.getTime()) {
+      const style = markerStyleForDate(assignmentTimelineRange, cursor)
+      ticks.push({ iso: toIsoDate(cursor), left: String(style?.left ?? '0%') })
+      cursor = addDays(cursor, stepDays)
+    }
+    const endIso = toIsoDate(assignmentTimelineRange.end)
+    if (!ticks.some((entry) => entry.iso === endIso)) {
+      const style = markerStyleForDate(assignmentTimelineRange, assignmentTimelineRange.end)
+      ticks.push({ iso: endIso, left: String(style?.left ?? '100%') })
+    }
+    return ticks
+  }, [assignmentTimelineRange])
 
   return (
     <section className="checklistPreview">
@@ -513,8 +535,17 @@ export function ChecklistView({
               ) : (
                 <div className="assignmentAsanaBoard">
                   <div className="assignmentAsanaAxis">
-                    <span>{formatDateLabel(toIsoDate(assignmentTimelineRange.start))}</span>
-                    <span>{formatDateLabel(toIsoDate(assignmentTimelineRange.end))}</span>
+                    {assignmentTimelineTicks.map((tick, index) => (
+                      <span
+                        key={`${tick.iso}-${index}`}
+                        className={`assignmentAsanaTick ${
+                          index === 0 ? 'is-start' : index === assignmentTimelineTicks.length - 1 ? 'is-end' : ''
+                        }`.trim()}
+                        style={{ left: tick.left }}
+                      >
+                        {formatDateLabel(tick.iso)}
+                      </span>
+                    ))}
                   </div>
                   <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
                     <div className="projectTimelineTrackGrid" aria-hidden="true" />
@@ -539,11 +570,26 @@ export function ChecklistView({
                         ...position,
                         top: `${8 + entry.lane * 30}px`,
                       }
-                      const title = `${entry.label} | ${entry.startDateIso} ~ ${entry.dueDateIso} | ${toTodayLeadLabel(entry.dueDateIso, todayDate)}`
+                      const title = `${entry.label} (${entry.assignmentStatusLabel}) | ${entry.startDateIso} ~ ${entry.dueDateIso} | ${toTodayLeadLabel(entry.dueDateIso, todayDate)}`
                       return (
-                        <div key={entry.id} className={className} style={style} title={title}>
-                          {entry.label}
-                        </div>
+                        <button
+                          key={entry.id}
+                          type="button"
+                          className={className}
+                          style={style}
+                          title={title}
+                          onClick={() => {
+                            const target = document.getElementById(`checklist-assignment-row-${entry.id}`)
+                            if (!target) return
+                            target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            setTimelineFocusedRowId(entry.id)
+                            window.setTimeout(() => {
+                              setTimelineFocusedRowId((current) => (current === entry.id ? null : current))
+                            }, 1800)
+                          }}
+                        >
+                          {entry.label} · {entry.assignmentStatusLabel}
+                        </button>
                       )
                     })}
                   </div>
@@ -596,8 +642,15 @@ export function ChecklistView({
             <tbody>
               {rows.map((row) => {
                 const creating = creatingTaskByChecklistId[row.item.id] === true
+                const rowClassName = [
+                  'checklistRow',
+                  row.assignmentStatus === 'not_applicable' ? 'isNotApplicable' : '',
+                  timelineFocusedRowId === row.item.id ? 'isTimelineFocus' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
                 return (
-                  <tr key={row.item.id} className={row.assignmentStatus === 'not_applicable' ? 'checklistRow isNotApplicable' : 'checklistRow'}>
+                  <tr id={`checklist-assignment-row-${row.item.id}`} key={row.item.id} className={rowClassName}>
                     <td>{row.item.productName || '-'}</td>
                     <td>{row.item.workCategory || '-'}</td>
                     <td>{row.item.designLeadDays ?? '-'}</td>

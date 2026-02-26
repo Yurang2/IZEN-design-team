@@ -321,6 +321,14 @@
   color: #fee2e2;
 }
 
+[data-theme='v2'] .assignmentAsanaTick::after {
+  background: #476285;
+}
+
+[data-theme='v2'] .checklistRow.isTimelineFocus td {
+  background: #3a2b13;
+}
+
 [data-theme='v2'] th,
 [data-theme='v2'] td {
   border-bottom-color: var(--border);
@@ -1378,10 +1386,46 @@ button.boardCard:hover {
 
 .assignmentAsanaAxis {
   color: var(--text-sub);
-  display: flex;
+  height: 28px;
+  position: relative;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  justify-content: space-between;
+}
+
+.assignmentAsanaTick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.assignmentAsanaTick::after {
+  background: #bfd4ff;
+  content: '';
+  height: 8px;
+  left: 50%;
+  position: absolute;
+  top: 15px;
+  transform: translateX(-50%);
+  width: 1px;
+}
+
+.assignmentAsanaTick.is-start {
+  transform: translateX(0);
+}
+
+.assignmentAsanaTick.is-start::after {
+  left: 0;
+  transform: translateX(0);
+}
+
+.assignmentAsanaTick.is-end {
+  transform: translateX(-100%);
+}
+
+.assignmentAsanaTick.is-end::after {
+  left: 100%;
+  transform: translateX(0);
 }
 
 .assignmentAsanaTrack {
@@ -1389,7 +1433,7 @@ button.boardCard:hover {
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-top: 6px;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 
@@ -1408,15 +1452,16 @@ button.boardCard:hover {
   background: #dbeafe;
   border: 1px solid #93c5fd;
   border-radius: 999px;
+  cursor: pointer;
   color: #1e40af;
   display: flex;
   font-size: 11px;
   font-weight: 700;
   height: 22px;
-  overflow: hidden;
+  overflow: visible;
   padding: 0 8px;
   position: absolute;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
   z-index: 3;
 }
@@ -1439,6 +1484,10 @@ button.boardCard:hover {
   border-color: #fca5a5;
   box-shadow: 0 0 0 1px #fecaca;
   color: #b91c1c;
+}
+
+.checklistRow.isTimelineFocus td {
+  background: #fff7ed;
 }
 
 .small {
