@@ -53,6 +53,13 @@ function addDays(date: Date, days: number): Date {
   return copied
 }
 
+function toIsoDate(value: Date): string {
+  const year = value.getUTCFullYear()
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(value.getUTCDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 type AssignmentTimelineRange = {
   start: Date
   end: Date
@@ -107,15 +114,6 @@ function barStyleForDateRange(range: AssignmentTimelineRange | null, startDate: 
   }
 }
 
-function toTimelineTone(status: string | undefined): 'gray' | 'red' | 'blue' | 'green' {
-  const normalized = (status ?? '').replace(/\s+/g, '').toLowerCase()
-  if (!normalized) return 'gray'
-  if (normalized.includes('완료') || normalized.includes('done')) return 'green'
-  if (normalized.includes('보류') || normalized.includes('지연') || normalized.includes('hold') || normalized.includes('delay')) return 'red'
-  if (normalized.includes('진행') || normalized.includes('검수') || normalized.includes('수정') || normalized.includes('progress')) return 'blue'
-  return 'gray'
-}
-
 function toOperationModeLabel(value: ProjectRecord['operationMode']): string {
   if (value === 'self') return '자체'
   if (value === 'dealer') return '딜러'
@@ -148,6 +146,19 @@ function toTodayLeadLabel(targetDate: string | undefined, todayDate: Date | null
   if (leadDays === 0) return 'D-Day'
   if (leadDays > 0) return `D-${leadDays}`
   return `D+${Math.abs(leadDays)}`
+}
+
+type AssignmentTimelineBar = {
+  id: string
+  label: string
+  startDate: Date
+  dueDate: Date
+  startDateIso: string
+  dueDateIso: string
+  lane: number
+  assignmentStatus: ChecklistTableRow['assignmentStatus']
+  isOverdue: boolean
+  isDueToday: boolean
 }
 
 function ChecklistSkeletonTable({ isAssignmentMode }: { isAssignmentMode: boolean }) {
@@ -241,79 +252,91 @@ export function ChecklistView({
     }
   }, [rows, todayIso])
 
-  const assignmentTimelineItems = useMemo(() => {
-    if (!isAssignmentMode) return []
-
-    const byTaskId = new Map<
-      string,
-      {
-        taskId: string
-        taskName: string
-        status: string
-        assigneeText: string
-        startDate?: string
-        dueDate?: string
-        actualEndDate?: string
-        checklistNames: string[]
+  const assignmentTimelineModel = useMemo(() => {
+    if (!isAssignmentMode) {
+      return {
+        bars: [] as AssignmentTimelineBar[],
+        laneCount: 0,
+        totalCount: 0,
+        unscheduledCount: 0,
+        overdueCount: 0,
       }
-    >()
+    }
 
-    for (const row of rows) {
-      if (!row.assignedTaskId) continue
+    const targetRows = rows.filter((row) => row.assignmentStatus !== 'not_applicable')
+    const preparedBars: Array<Omit<AssignmentTimelineBar, 'lane'>> = []
+    let unscheduledCount = 0
 
-      const checklistName = row.item.productName || row.item.workCategory || '-'
-      const existing = byTaskId.get(row.assignedTaskId)
-      if (existing) {
-        if (!existing.checklistNames.includes(checklistName)) {
-          existing.checklistNames.push(checklistName)
-        }
-        if (!existing.startDate && row.assignedTaskStartDate) existing.startDate = row.assignedTaskStartDate
-        if (!existing.dueDate && row.assignedTaskDueDate) existing.dueDate = row.assignedTaskDueDate
-        if (!existing.actualEndDate && row.assignedTaskActualEndDate) existing.actualEndDate = row.assignedTaskActualEndDate
-        if (!existing.status && row.assignedTaskStatus) existing.status = row.assignedTaskStatus
-        if ((!existing.assigneeText || existing.assigneeText === '-') && row.assignedTaskAssigneeText) {
-          existing.assigneeText = row.assignedTaskAssigneeText
-        }
+    for (const row of targetRows) {
+      const dueDate = parseIsoDate(row.computedDueDate)
+      if (!dueDate || !row.computedDueDate) {
+        unscheduledCount += 1
         continue
       }
 
-      byTaskId.set(row.assignedTaskId, {
-        taskId: row.assignedTaskId,
-        taskName: row.assignedTaskName || row.assignedTaskId,
-        status: row.assignedTaskStatus || '',
-        assigneeText: row.assignedTaskAssigneeText || '-',
-        startDate: row.assignedTaskStartDate,
-        dueDate: row.assignedTaskDueDate,
-        actualEndDate: row.assignedTaskActualEndDate,
-        checklistNames: [checklistName],
+      const leadDaysRaw = typeof row.totalLeadDays === 'number' ? Math.round(row.totalLeadDays) : 1
+      const leadDays = Math.max(1, leadDaysRaw)
+      const startDate = addDays(dueDate, -(leadDays - 1))
+      preparedBars.push({
+        id: row.item.id,
+        label: row.item.productName || row.item.workCategory || '-',
+        startDate,
+        dueDate,
+        startDateIso: toIsoDate(startDate),
+        dueDateIso: row.computedDueDate,
+        assignmentStatus: row.assignmentStatus,
+        isOverdue: row.computedDueDate < todayIso,
+        isDueToday: row.computedDueDate === todayIso,
       })
     }
 
-    return Array.from(byTaskId.values()).sort((a, b) => {
-      const aDate = a.dueDate || a.startDate || '9999-12-31'
-      const bDate = b.dueDate || b.startDate || '9999-12-31'
-      const byDate = aDate.localeCompare(bDate)
-      if (byDate !== 0) return byDate
-      return a.taskName.localeCompare(b.taskName, 'ko')
+    preparedBars.sort((a, b) => {
+      const byStart = a.startDateIso.localeCompare(b.startDateIso)
+      if (byStart !== 0) return byStart
+      const byDue = a.dueDateIso.localeCompare(b.dueDateIso)
+      if (byDue !== 0) return byDue
+      return a.label.localeCompare(b.label, 'ko')
     })
-  }, [isAssignmentMode, rows])
+
+    const laneEndTimes: number[] = []
+    const bars: AssignmentTimelineBar[] = []
+    for (const entry of preparedBars) {
+      const startTime = entry.startDate.getTime()
+      const dueTime = entry.dueDate.getTime()
+      let lane = laneEndTimes.findIndex((endTime) => endTime <= startTime)
+      if (lane < 0) {
+        laneEndTimes.push(dueTime)
+        lane = laneEndTimes.length - 1
+      } else {
+        laneEndTimes[lane] = dueTime
+      }
+      bars.push({
+        ...entry,
+        lane,
+      })
+    }
+
+    return {
+      bars,
+      laneCount: laneEndTimes.length,
+      totalCount: targetRows.length,
+      unscheduledCount,
+      overdueCount: bars.filter((bar) => bar.isOverdue).length,
+    }
+  }, [isAssignmentMode, rows, todayIso])
 
   const assignmentTimelineRange = useMemo(() => {
-    if (!isAssignmentMode || assignmentTimelineItems.length === 0) return null
+    if (!isAssignmentMode || assignmentTimelineModel.bars.length === 0) return null
     const points: Date[] = []
-    for (const entry of assignmentTimelineItems) {
-      const start = parseIsoDate(entry.startDate)
-      const due = parseIsoDate(entry.dueDate)
-      const actualEnd = parseIsoDate(entry.actualEndDate)
-      if (start) points.push(start)
-      if (due) points.push(due)
-      if (actualEnd) points.push(actualEnd)
+    for (const entry of assignmentTimelineModel.bars) {
+      points.push(entry.startDate)
+      points.push(entry.dueDate)
     }
     if (todayDate) points.push(todayDate)
     const eventDate = parseIsoDate(selectedChecklistProject?.eventDate)
     if (eventDate) points.push(eventDate)
     return buildAssignmentTimelineRange(points)
-  }, [assignmentTimelineItems, isAssignmentMode, selectedChecklistProject?.eventDate, todayDate])
+  }, [assignmentTimelineModel.bars, isAssignmentMode, selectedChecklistProject?.eventDate, todayDate])
 
   const assignmentTodayMarkerStyle = useMemo(
     () => markerStyleForDate(assignmentTimelineRange, todayDate),
@@ -322,6 +345,10 @@ export function ChecklistView({
   const assignmentEventMarkerStyle = useMemo(
     () => markerStyleForDate(assignmentTimelineRange, parseIsoDate(selectedChecklistProject?.eventDate)),
     [assignmentTimelineRange, selectedChecklistProject?.eventDate],
+  )
+  const assignmentTimelineTrackHeight = useMemo(
+    () => Math.max(56, assignmentTimelineModel.laneCount * 30 + 16),
+    [assignmentTimelineModel.laneCount],
   )
 
   return (
@@ -465,58 +492,61 @@ export function ChecklistView({
         </section>
       ) : null}
       {isAssignmentMode && selectedChecklistProject ? (
-        <section className="assignmentTimelineSection" aria-label="업무별 타임라인">
+        <section className="assignmentTimelineSection" aria-label="고려 업무 타임라인">
           <div className="assignmentTimelineHeader">
-            <h3>업무별 타임라인</h3>
+            <h3>고려 업무 타임라인</h3>
             <Button type="button" variant="secondary" size="mini" onClick={() => setShowAssignmentTimeline((prev) => !prev)}>
               {showAssignmentTimeline ? '타임라인 접기' : '타임라인 펼치기'}
             </Button>
           </div>
           {showAssignmentTimeline ? (
             <>
-              <p className="muted small assignmentTimelineGuide">기준선: 주황=오늘, 보라=행사진행일</p>
-              {assignmentTimelineItems.length === 0 ? (
-                <p className="muted small">할당된 업무가 없어 타임라인을 표시할 수 없습니다.</p>
+              <p className="muted small assignmentTimelineGuide">
+                해당없음 제외 · 할당여부 무관 전체 표시 · 위험(역산 경과) 업무는 빨간색으로 강조됩니다.
+              </p>
+              <p className="muted small assignmentTimelineGuide">
+                전체 {assignmentTimelineModel.totalCount}건 / 표시 {assignmentTimelineModel.bars.length}건 / 날짜 미확정 {assignmentTimelineModel.unscheduledCount}건 /
+                위험 {assignmentTimelineModel.overdueCount}건
+              </p>
+              {assignmentTimelineModel.bars.length === 0 || !assignmentTimelineRange ? (
+                <p className="muted small">타임라인으로 표시 가능한 일정 데이터가 없습니다.</p>
               ) : (
-                <div className="assignmentTimelineList">
-                  {assignmentTimelineItems.map((entry) => {
-                    const barStyle = barStyleForDateRange(
-                      assignmentTimelineRange,
-                      parseIsoDate(entry.startDate ?? entry.dueDate),
-                      parseIsoDate(entry.dueDate ?? entry.startDate),
-                    )
-                    const tone = toTimelineTone(entry.status)
-                    const startLabel = entry.startDate ? formatDateLabel(entry.startDate) : '-'
-                    const dueLabel = entry.dueDate ? formatDateLabel(entry.dueDate) : '-'
-                    return (
-                      <article key={entry.taskId} className="assignmentTimelineItem">
-                        <div className="assignmentTimelineMeta">
-                          <button type="button" className="taskLink assignmentTimelineTaskName" onClick={() => onTaskOpen(entry.taskId)}>
-                            {entry.taskName}
-                          </button>
-                          <p className="small muted">{entry.checklistNames.join(', ')}</p>
-                          <p className="small muted">
-                            상태 {entry.status || '-'} · 담당 {entry.assigneeText || '-'}
-                          </p>
-                          <p className="small muted">
-                            기간 {startLabel} ~ {dueLabel} · 오늘 기준 {toTodayLeadLabel(entry.dueDate, todayDate)}
-                          </p>
+                <div className="assignmentAsanaBoard">
+                  <div className="assignmentAsanaAxis">
+                    <span>{formatDateLabel(toIsoDate(assignmentTimelineRange.start))}</span>
+                    <span>{formatDateLabel(toIsoDate(assignmentTimelineRange.end))}</span>
+                  </div>
+                  <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
+                    <div className="projectTimelineTrackGrid" aria-hidden="true" />
+                    {assignmentTodayMarkerStyle ? (
+                      <span className="projectTimelineTodayMarker event-inline" style={assignmentTodayMarkerStyle} aria-hidden="true" />
+                    ) : null}
+                    {assignmentEventMarkerStyle ? (
+                      <span className="projectTimelineEventMarker event-inline" style={assignmentEventMarkerStyle} aria-hidden="true" />
+                    ) : null}
+                    {assignmentTimelineModel.bars.map((entry) => {
+                      const position = barStyleForDateRange(assignmentTimelineRange, entry.startDate, entry.dueDate)
+                      if (!position) return null
+                      const className = [
+                        'assignmentAsanaBar',
+                        entry.assignmentStatus === 'unassigned' ? 'is-unassigned' : '',
+                        entry.isDueToday ? 'is-due-today' : '',
+                        entry.isOverdue ? 'is-overdue' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')
+                      const style: CSSProperties = {
+                        ...position,
+                        top: `${8 + entry.lane * 30}px`,
+                      }
+                      const title = `${entry.label} | ${entry.startDateIso} ~ ${entry.dueDateIso} | ${toTodayLeadLabel(entry.dueDateIso, todayDate)}`
+                      return (
+                        <div key={entry.id} className={className} style={style} title={title}>
+                          {entry.label}
                         </div>
-                        <div className="assignmentTimelineTrackWrap">
-                          <div className="projectTimelineTrack">
-                            <div className="projectTimelineTrackGrid" aria-hidden="true" />
-                            {assignmentTodayMarkerStyle ? (
-                              <span className="projectTimelineTodayMarker event-inline" style={assignmentTodayMarkerStyle} aria-hidden="true" />
-                            ) : null}
-                            {assignmentEventMarkerStyle ? (
-                              <span className="projectTimelineEventMarker event-inline" style={assignmentEventMarkerStyle} aria-hidden="true" />
-                            ) : null}
-                            {barStyle ? <span className={`projectTimelineBar tone-${tone}`} style={barStyle} /> : null}
-                          </div>
-                        </div>
-                      </article>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </>
