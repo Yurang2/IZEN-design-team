@@ -1314,6 +1314,61 @@ button.boardCard:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.assignmentTimelineSection {
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.assignmentTimelineHeader {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.assignmentTimelineHeader h3 {
+  color: var(--text-main);
+  font-size: 14px;
+  margin: 0;
+}
+
+.assignmentTimelineGuide {
+  margin: 8px 0 10px;
+}
+
+.assignmentTimelineList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assignmentTimelineItem {
+  align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 2fr);
+  padding: 10px;
+}
+
+.assignmentTimelineMeta p {
+  margin: 2px 0;
+}
+
+.assignmentTimelineTaskName {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.assignmentTimelineTrackWrap .projectTimelineTrack {
+  height: 26px;
+}
+
 .small {
   font-size: 12px;
 }
@@ -2831,6 +2886,19 @@ tr:hover td {
   .checklistPreviewFilters,
   .createForm,
   .detailForm {
+    grid-template-columns: 1fr;
+  }
+
+  .assignmentTimelineHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .assignmentTimelineHeader button {
+    width: 100%;
+  }
+
+  .assignmentTimelineItem {
     grid-template-columns: 1fr;
   }
 

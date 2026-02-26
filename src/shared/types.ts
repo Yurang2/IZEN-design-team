@@ -267,6 +267,12 @@ export type ChecklistTableRow = {
   isApplicable: boolean
   assignedTaskId: string
   assignedTaskLabel: string
+  assignedTaskName?: string
+  assignedTaskStatus?: string
+  assignedTaskStartDate?: string
+  assignedTaskDueDate?: string
+  assignedTaskActualEndDate?: string
+  assignedTaskAssigneeText?: string
   isAssigned: boolean
   totalLeadDays?: number
   computedDueDate?: string
