@@ -210,7 +210,7 @@ type TaskViewFilters = {
   hideDone: boolean
 }
 
-type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist'
+type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist' | 'guide'
 
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
@@ -306,7 +306,7 @@ function createDefaultTaskViewFilters(): TaskViewFilters {
 }
 
 function parseTopView(value: string | null): TopView {
-  if (value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist') return value
+  if (value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist' || value === 'guide') return value
   return 'tasks'
 }
 
@@ -562,7 +562,16 @@ function toTopViewPath(view: TopView): string {
   if (view === 'projects') return 'Projects'
   if (view === 'tasks') return 'Tasks'
   if (view === 'schedule') return 'Schedule'
+  if (view === 'guide') return 'Usage Guide'
   return 'Event Checklist'
+}
+
+function toTopViewTitle(view: TopView): string {
+  if (view === 'projects') return '프로젝트'
+  if (view === 'tasks') return '업무'
+  if (view === 'schedule') return '일정'
+  if (view === 'checklist') return '행사 체크리스트'
+  return '사용법'
 }
 
 function normalizeStatus(status: string | undefined): string {
@@ -2642,6 +2651,19 @@ function App() {
                   <span>행사 체크리스트</span>
                 </span>
               </button>
+              <button
+                type="button"
+                className={activeView === 'guide' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('guide')}
+                title="사용법"
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">
+                    <UiGlyph name="list" />
+                  </span>
+                  <span>사용법</span>
+                </span>
+              </button>
               {selectedViewDbUrl ? (
                 <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
                   <span className="iconLabel">
@@ -2676,15 +2698,7 @@ function App() {
         <header className="header topbarHeader">
           <div className="topbarHeading">
             <p className="topbarPath">Design Team / {toTopViewPath(activeView)}</p>
-            <h1>
-              {activeView === 'projects'
-                ? '프로젝트'
-                : activeView === 'tasks'
-                  ? '업무'
-                  : activeView === 'schedule'
-                    ? '일정'
-                    : '행사 체크리스트'}
-            </h1>
+            <h1>{toTopViewTitle(activeView)}</h1>
           </div>
           {activeView === 'tasks' ? (
             <div className="taskViewControls">
@@ -2887,6 +2901,72 @@ function App() {
       {activeView === 'schedule' ? (
         <section className="checklistPreview">
           <div className="timelineWipBadge">일정 화면은 준비 중입니다.</div>
+        </section>
+      ) : null}
+
+      {activeView === 'guide' ? (
+        <section className="guideView" aria-label="서비스 사용법">
+          <article className="guideHero">
+            <h2>처음 보는 분을 위한 간단 안내</h2>
+            <p>
+              이 페이지는 노션 DB를 읽어서 웹에서 보기 쉽게 정리하고, 웹에서 바꾼 값은 다시 노션에 기록하는 구조입니다.
+              그래서 팀은 노션을 직접 뒤적이지 않아도 업무/행사 상태를 빠르게 확인할 수 있습니다.
+            </p>
+          </article>
+
+          <div className="guideGrid">
+            <article className="guideCard">
+              <h3>1) 데이터가 들어오는 순서</h3>
+              <ol>
+                <li>`프로젝트 DB`에서 행사 기본정보(행사일, 분류, 배송마감 등)를 읽습니다.</li>
+                <li>`체크리스트 DB`에서 제작 항목과 소요일(영업일 기준)을 읽습니다.</li>
+                <li>웹에서 행사별 체크리스트/할당 현황/타임라인으로 보여줍니다.</li>
+              </ol>
+            </article>
+
+            <article className="guideCard">
+              <h3>2) 할당 데이터가 저장되는 위치</h3>
+              <p>
+                체크리스트 탭의 할당/미할당/해당없음은 <strong>행사-체크리스트 할당 매트릭스 DB</strong>를 기준으로 동기화됩니다.
+                웹에서 수정하면 이 매트릭스 DB가 먼저 업데이트되고, 화면이 다시 불러와집니다.
+              </p>
+            </article>
+
+            <article className="guideCard">
+              <h3>3) 날짜 계산 원리</h3>
+              <p>
+                체크리스트의 오프셋은 영업일 기준으로 계산됩니다. 기본적으로 행사일(또는 배송마감일)에서 역산해 완료예정일을 만들고,
+                타임라인 막대도 그 날짜를 기준으로 표시합니다.
+              </p>
+            </article>
+
+            <article className="guideCard">
+              <h3>4) 실제 DB 바로가기</h3>
+              <div className="guideDbLinks">
+                {dbLinks.project ? (
+                  <a className="guideDbLink" href={dbLinks.project} target="_blank" rel="noreferrer">
+                    프로젝트 DB: {dbLinks.project}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">프로젝트 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.task ? (
+                  <a className="guideDbLink" href={dbLinks.task} target="_blank" rel="noreferrer">
+                    업무 DB: {dbLinks.task}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">업무 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.checklist ? (
+                  <a className="guideDbLink" href={dbLinks.checklist} target="_blank" rel="noreferrer">
+                    체크리스트 DB: {dbLinks.checklist}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">체크리스트 DB: 연결 안 됨</span>
+                )}
+              </div>
+            </article>
+          </div>
         </section>
       ) : null}
 
