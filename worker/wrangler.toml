@@ -44,5 +44,6 @@ REQUIRE_CF_ACCESS = "false"
 # - CHECKLIST_DB_NAME (optional, default: izen-design-checklist)
 #
 # Optional R2 binding is appended at runtime by `scripts/run-worker.sh` when:
-# - MEETING_AUDIO_BUCKET_NAME and MEETING_AUDIO_BUCKET_ID are set
+# - MEETING_AUDIO_BUCKET_NAME is set
+# - MEETING_AUDIO_PREVIEW_BUCKET_NAME (optional) for local preview
 # binding name: MEETING_AUDIO_BUCKET
