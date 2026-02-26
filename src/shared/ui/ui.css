@@ -306,22 +306,35 @@
   background: rgba(71, 85, 105, 0.22);
 }
 
-[data-theme='v2'] .assignmentAsanaWeekendBand {
-  background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(248, 113, 113, 0.1) 0 4px,
-      rgba(248, 113, 113, 0.18) 4px 8px
-    );
-  border-left-color: rgba(248, 113, 113, 0.3);
-  border-right-color: rgba(248, 113, 113, 0.3);
-}
-
 [data-theme='v2'] .assignmentAsanaBar {
   background: linear-gradient(180deg, #1e3a8a 0%, #1d4ed8 100%);
   border-color: #60a5fa;
   color: #eff6ff;
   box-shadow: 0 5px 12px rgba(37, 99, 235, 0.35);
+}
+
+[data-theme='v2'] .assignmentAsanaAxisFill {
+  border-right-color: rgba(71, 85, 105, 0.7);
+}
+
+[data-theme='v2'] .assignmentAsanaAxisFill-year {
+  background: rgba(51, 65, 85, 0.3);
+}
+
+[data-theme='v2'] .assignmentAsanaAxisFill-month {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+[data-theme='v2'] .assignmentAsanaAxisFill-week {
+  background: rgba(59, 130, 246, 0.24);
+}
+
+[data-theme='v2'] .assignmentAsanaAxisFill-day {
+  background: rgba(71, 85, 105, 0.24);
+}
+
+[data-theme='v2'] .assignmentAsanaAxisFillLabel {
+  color: #e2e8f0;
 }
 
 [data-theme='v2'] .assignmentAsanaBar.is-unassigned {
@@ -1452,8 +1465,49 @@ button.boardCard:hover {
   border-radius: 8px;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  height: 16px;
+  min-height: 18px;
+  overflow: hidden;
   position: relative;
+}
+
+.assignmentAsanaAxisFill {
+  align-items: center;
+  border-right: 1px solid #c7d2e3;
+  bottom: 0;
+  display: flex;
+  left: 0;
+  padding: 0 6px;
+  position: absolute;
+  top: 0;
+}
+
+.assignmentAsanaAxisFill-year {
+  background: #edf1f7;
+}
+
+.assignmentAsanaAxisFill-month {
+  background: #e0ecff;
+}
+
+.assignmentAsanaAxisFill-week {
+  background: #dbeafe;
+}
+
+.assignmentAsanaAxisFill-day {
+  background: #eef2f7;
+}
+
+.assignmentAsanaAxisFillLabel {
+  color: #334155;
+  font-size: 10px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentAsanaAxisFill.is-narrow .assignmentAsanaAxisFillLabel {
+  display: none;
 }
 
 .assignmentAsanaTick {
@@ -1524,27 +1578,6 @@ button.boardCard:hover {
 
 .assignmentAsanaWeekBand.is-alt {
   background: rgba(224, 242, 254, 0.3);
-}
-
-.assignmentAsanaWeekendBands {
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: 1;
-}
-
-.assignmentAsanaWeekendBand {
-  background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(244, 63, 94, 0.06) 0 4px,
-      rgba(244, 63, 94, 0.14) 4px 8px
-    );
-  border-left: 1px solid rgba(244, 63, 94, 0.22);
-  border-right: 1px solid rgba(244, 63, 94, 0.22);
-  bottom: 0;
-  position: absolute;
-  top: 0;
 }
 
 .assignmentAsanaTrack .projectTimelineTrackGrid {
@@ -1643,22 +1676,35 @@ button.boardCard:hover {
 .assignmentAsanaBarOutsideLabel {
   background: #ffffffd9;
   border: 1px solid #cbd5e1;
-  border-radius: 999px;
+  border-radius: 10px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
   color: #1f2937;
   font-size: 10px;
   font-weight: 700;
   left: calc(100% + 6px);
-  line-height: 1;
-  max-width: 220px;
-  overflow: hidden;
-  padding: 3px 7px;
+  line-height: 1.2;
+  max-width: 180px;
+  min-width: 84px;
+  overflow: visible;
+  padding: 4px 7px;
   pointer-events: none;
   position: absolute;
-  text-overflow: ellipsis;
   top: 50%;
   transform: translateY(-50%);
-  white-space: nowrap;
+  white-space: normal;
+  z-index: 4;
+}
+
+.assignmentAsanaBarOutsideName,
+.assignmentAsanaBarOutsideState {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.assignmentAsanaBarOutsideState {
+  color: #475569;
+  font-size: 9px;
+  margin-top: 1px;
 }
 
 .assignmentAsanaBar.is-unassigned .assignmentAsanaBarStatus {

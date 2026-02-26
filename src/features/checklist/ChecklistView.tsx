@@ -79,16 +79,18 @@ function toIsoDate(value: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function toMonthDayLabel(value: Date): string {
-  return `${value.getUTCMonth() + 1}/${value.getUTCDate()}`
-}
-
 function getIsoWeekNumber(value: Date): number {
   const copy = new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
   const dayNum = copy.getUTCDay() || 7
   copy.setUTCDate(copy.getUTCDate() + 4 - dayNum)
   const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1))
   return Math.ceil((((copy.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7)
+}
+
+function toPercentNumber(value: string): number {
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.max(0, Math.min(100, parsed))
 }
 
 type AssignmentTimelineRange = {
@@ -419,14 +421,9 @@ export function ChecklistView({
         rows.month.push({ key: `month-${iso}`, label: `${month}월`, left, isStart, isEnd })
       }
       if (isStart || dayOfWeek === 1) {
-        const mondayOffset = (dayOfWeek || 7) - 1
-        const weekStart = addDays(cursor, -mondayOffset)
-        const weekEnd = addDays(weekStart, 6)
-        const rangeStart = weekStart.getTime() < assignmentTimelineRange.start.getTime() ? assignmentTimelineRange.start : weekStart
-        const rangeEnd = weekEnd.getTime() > assignmentTimelineRange.end.getTime() ? assignmentTimelineRange.end : weekEnd
         rows.week.push({
           key: `week-${iso}`,
-          label: `${getIsoWeekNumber(cursor)}주차 (${toMonthDayLabel(rangeStart)}-${toMonthDayLabel(rangeEnd)})`,
+          label: `${getIsoWeekNumber(cursor)}주차`,
           left,
           isStart,
           isEnd,
@@ -459,14 +456,9 @@ export function ChecklistView({
 
     ensureEndTick(rows.year, `${assignmentTimelineRange.end.getUTCFullYear()}년`, 'year')
     ensureEndTick(rows.month, `${assignmentTimelineRange.end.getUTCMonth() + 1}월`, 'month')
-    const endWeekDow = assignmentTimelineRange.end.getUTCDay() || 7
-    const endWeekStart = addDays(assignmentTimelineRange.end, -(endWeekDow - 1))
-    const endWeekEnd = addDays(endWeekStart, 6)
-    const endWeekRangeStart = endWeekStart.getTime() < assignmentTimelineRange.start.getTime() ? assignmentTimelineRange.start : endWeekStart
-    const endWeekRangeEnd = endWeekEnd.getTime() > assignmentTimelineRange.end.getTime() ? assignmentTimelineRange.end : endWeekEnd
     ensureEndTick(
       rows.week,
-      `${getIsoWeekNumber(assignmentTimelineRange.end)}주차 (${toMonthDayLabel(endWeekRangeStart)}-${toMonthDayLabel(endWeekRangeEnd)})`,
+      `${getIsoWeekNumber(assignmentTimelineRange.end)}주차`,
       'week',
     )
     ensureEndTick(
@@ -512,33 +504,6 @@ export function ChecklistView({
 
     return segments
   }, [assignmentTimelineRange])
-  const assignmentTimelineWeekendBands = useMemo(() => {
-    if (!assignmentTimelineRange) return [] as Array<{ key: string; left: string; width: string }>
-
-    const segments: Array<{ key: string; left: string; width: string }> = []
-    let cursor = new Date(assignmentTimelineRange.start.getTime())
-    while (cursor.getTime() <= assignmentTimelineRange.end.getTime()) {
-      const dayOfWeek = cursor.getUTCDay()
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        const nextDay = addDays(cursor, 1)
-        const start = cursor.getTime() < assignmentTimelineRange.start.getTime() ? assignmentTimelineRange.start : cursor
-        const end = nextDay.getTime() > assignmentTimelineRange.end.getTime() ? assignmentTimelineRange.end : nextDay
-        if (end.getTime() > start.getTime()) {
-          const left = ((start.getTime() - assignmentTimelineRange.start.getTime()) / assignmentTimelineRange.spanMs) * 100
-          const right = ((end.getTime() - assignmentTimelineRange.start.getTime()) / assignmentTimelineRange.spanMs) * 100
-          segments.push({
-            key: `weekend-band-${toIsoDate(cursor)}-${dayOfWeek}`,
-            left: `${Math.max(0, Math.min(100, left))}%`,
-            width: `${Math.max(0.8, Math.min(100, right) - Math.max(0, Math.min(100, left)))}%`,
-          })
-        }
-      }
-      cursor = addDays(cursor, 1)
-    }
-
-    return segments
-  }, [assignmentTimelineRange])
-
   return (
     <section className="checklistPreview">
       <div className="checklistPreviewHeader">
@@ -690,7 +655,7 @@ export function ChecklistView({
           {showAssignmentTimeline ? (
             <>
               <p className="muted small assignmentTimelineGuide">
-                해당없음 제외 · 할당여부 무관 전체 표시 · 위험(역산 경과) 업무는 빨간색 강조 · 사선 밴드는 주말입니다.
+                해당없음 제외 · 할당여부 무관 전체 표시 · 위험(역산 경과) 업무는 빨간색 강조
               </p>
               <p className="muted small assignmentTimelineGuide">
                 전체 {assignmentTimelineModel.totalCount}건 / 표시 {assignmentTimelineModel.bars.length}건 / 날짜 미확정 {assignmentTimelineModel.unscheduledCount}건 /
@@ -702,18 +667,35 @@ export function ChecklistView({
                 <div className="assignmentAsanaBoard">
                   <div className="assignmentAsanaAxis">
                     {assignmentTimelineAxisRows.map((row) => (
-                      <div key={row.key} className="assignmentAsanaAxisRow">
+                      <div key={row.key} className={`assignmentAsanaAxisRow assignmentAsanaAxisRow-${row.key}`}>
                         <span className="assignmentAsanaAxisLabel">{row.label}</span>
                         <div className="assignmentAsanaAxisTrack">
-                          {row.ticks.map((tick) => (
-                            <span
-                              key={tick.key}
-                              className={`assignmentAsanaTick ${tick.isStart ? 'is-start' : tick.isEnd ? 'is-end' : ''}`.trim()}
-                              style={{ left: tick.left }}
-                            >
-                              {tick.label}
-                            </span>
-                          ))}
+                          {row.ticks
+                            .map((tick, index) => {
+                              if (tick.isEnd) return null
+                              const left = toPercentNumber(tick.left)
+                              const nextTick = row.ticks[index + 1]
+                              const next = nextTick ? toPercentNumber(nextTick.left) : 100
+                              const width = Math.max(0, next - left)
+                              if (width <= 0.25) return null
+                              return {
+                                key: tick.key,
+                                label: tick.label,
+                                left: `${left}%`,
+                                width: `${width}%`,
+                                narrow: width < 4.5,
+                              }
+                            })
+                            .filter((entry): entry is { key: string; label: string; left: string; width: string; narrow: boolean } => entry !== null)
+                            .map((entry) => (
+                              <span
+                                key={`fill-${entry.key}`}
+                                className={`assignmentAsanaAxisFill assignmentAsanaAxisFill-${row.key} ${entry.narrow ? 'is-narrow' : ''}`.trim()}
+                                style={{ left: entry.left, width: entry.width }}
+                              >
+                                <span className="assignmentAsanaAxisFillLabel">{entry.label}</span>
+                              </span>
+                            ))}
                         </div>
                       </div>
                     ))}
@@ -723,11 +705,6 @@ export function ChecklistView({
                       바
                     </span>
                     <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
-                      <div className="assignmentAsanaWeekendBands" aria-hidden="true">
-                        {assignmentTimelineWeekendBands.map((band) => (
-                          <span key={band.key} className="assignmentAsanaWeekendBand" style={{ left: band.left, width: band.width }} />
-                        ))}
-                      </div>
                       <div className="assignmentAsanaWeekBands" aria-hidden="true">
                         {assignmentTimelineWeekBands.map((band) => (
                           <span key={band.key} className={`assignmentAsanaWeekBand ${band.alt ? 'is-alt' : ''}`.trim()} style={{ left: band.left, width: band.width }} />
@@ -784,7 +761,10 @@ export function ChecklistView({
                             <span className="assignmentAsanaBarName">{entry.label}</span>
                             <span className="assignmentAsanaBarStatus">{entry.assignmentStatusLabel}</span>
                             {isCompact ? (
-                              <span className="assignmentAsanaBarOutsideLabel">{entry.label} · {entry.assignmentStatusLabel}</span>
+                              <span className="assignmentAsanaBarOutsideLabel">
+                                <span className="assignmentAsanaBarOutsideName">{entry.label}</span>
+                                <span className="assignmentAsanaBarOutsideState">{entry.assignmentStatusLabel}</span>
+                              </span>
                             ) : null}
                           </button>
                         )
