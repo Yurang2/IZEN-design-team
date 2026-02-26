@@ -49,6 +49,38 @@ Firebase는 제거되었고, 백엔드는 Workers만 사용합니다.
 - Worker 배포 안정화:
   - `scripts/run-worker.sh`에서 config 경로 기준 깨짐 이슈 수정 완료
 
+## 테마 시스템 (v1 / v2 / v3)
+
+- v1: 모노톤 라이트 모드 (뉴트럴/흑백 중심, 포인트 컬러 최소)
+- v2: 다크 모드 (뉴트럴 다크, 대비/가독성 우선)
+- v3: 기존 테마 보존 모드 (기존 화면 기준값 유지)
+
+### 테마 결정 우선순위
+
+1. query string (`?theme=v1|v2|v3`)
+2. localStorage (`izen_theme`)
+3. system (`prefers-color-scheme`) - 정책으로 활성화한 경우만 사용
+4. default (`DEFAULT_THEME`)
+
+현재 정책:
+- 기존 경험 보존을 우선하여 `DEFAULT_THEME=v3`
+- 시스템 테마 자동 선택은 기본 비활성(`ENABLE_SYSTEM_THEME_FALLBACK=false`)
+- 사용자가 테마를 직접 선택한 경우에만 localStorage에 저장
+
+### 테스트 URL
+
+- `/?theme=v1`
+- `/?theme=v2`
+- `/?theme=v3`
+
+### 토큰 마이그레이션 우선순위 (하드코딩 치환)
+
+1. 레이아웃 컨테이너: `mondaySidebar / topbarHeader / toolbar / section card`
+2. 입력/포커스: `input/select/textarea/focus ring`
+3. 상태 배지/경고/오류: `statusPill / assignmentBadge / warningBox`
+4. 데이터 뷰: `table / boardColumn / boardCard / timeline track`
+5. 세부 장식색: `marker/guide/gradient/inline accent`
+
 ## UI 리빌드 목표 (단계 진행)
 
 1. Phase 1: 디자인 토큰/컴포넌트 시스템 고정
@@ -414,6 +446,24 @@ npm run deploy:worker
 
 ## 이관 작업 로그
 
+- 2026-02-26: 테마 3종(v1/v2/v3) 재정의 및 적용 로직 정리
+  - 기존 A/B/C 형태의 분산 테마 가정 제거, 단일 `theme` 파라미터 기반으로 통합.
+  - CSS Design Token 확장:
+    - 공통 키 추가: `--bg`, `--surface1`, `--surface2`, `--border`, `--text1`, `--text2`, `--muted`
+    - 상태/접근성 키 추가: `--primary`, `--primaryText`, `--danger`, `--warning`, `--success`, `--focusRing`, `--shadow`
+  - `data-theme="v3"`에 기존 기준값을 고정해 기존 화면 보존.
+  - 테마 선택 우선순위 코드화:
+    - `query > localStorage > system(옵션) > default`
+    - 현재 기본정책은 `DEFAULT_THEME=v3`, `ENABLE_SYSTEM_THEME_FALLBACK=false`
+  - 상단 툴바에 `Theme (V1/V2/V3)` 선택 UI 추가:
+    - 선택 즉시 반영
+    - `localStorage(izen_theme)` 저장
+    - URL `?theme=` 동기화
+- 2026-02-26: 행사 체크리스트 할당 매트릭스 반영 안정화
+  - `할당업무(relation)`가 비어있으면 `할당됨` 텍스트가 남아도 `assigned`로 판정하지 않도록 수정.
+  - 잘못된 할당값(`projectId::checklistItemId` 형태) 유입/표시를 방어.
+  - 할당 팝업은 업무 선택 즉시 닫히도록 UX 개선.
+  - 매트릭스 업서트 시 기존 row 탐색(관계키 + key 재탐색) 보강 및 task relation 매핑 우선순위 보강.
 - 2026-02-25: 프로젝트 타임라인 집계/라벨 정리
   - 지연 집계에서 `보류/보관` 상태 제외 로직을 문자열 포함 기준으로 보강
   - 운영용 상단 카드 구성 변경: `과부하 담당자` -> `선행대기`, 기존 `선행 대기` -> `오늘 마감`

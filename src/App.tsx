@@ -260,6 +260,7 @@ type DetailForm = {
 
 type ApiCheckState = 'idle' | 'checking' | 'ok' | 'error'
 type QuickSearchScope = 'project' | 'task'
+type ThemeKey = 'v1' | 'v2' | 'v3'
 
 declare global {
   interface Window {
@@ -275,6 +276,10 @@ const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
 const TOAST_LIFETIME_MS = 3600
 const AUTH_GATE_ENABLED = false
+const THEME_QUERY_KEY = 'theme'
+const THEME_STORAGE_KEY = 'izen_theme'
+const DEFAULT_THEME: ThemeKey = 'v3'
+const ENABLE_SYSTEM_THEME_FALLBACK = false
 
 const DEFAULT_FILTERS: Filters = {
   projectId: '',
@@ -317,6 +322,51 @@ function parseTaskQuickGroupBy(value: string | null): TaskQuickGroupBy {
 
 function parseBooleanQuery(value: string | null): boolean {
   return value === '1' || value === 'true'
+}
+
+function parseThemeValue(value: string | null | undefined): ThemeKey | null {
+  if (value === 'v1' || value === 'v2' || value === 'v3') return value
+  return null
+}
+
+function resolveSystemTheme(): ThemeKey {
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'v2' : 'v1'
+  }
+  return DEFAULT_THEME
+}
+
+function readStoredTheme(): ThemeKey | null {
+  try {
+    return parseThemeValue(window.localStorage.getItem(THEME_STORAGE_KEY))
+  } catch {
+    return null
+  }
+}
+
+function resolveThemeFromSearch(search: string): ThemeKey {
+  const params = new URLSearchParams(search)
+  const fromQuery = parseThemeValue(params.get(THEME_QUERY_KEY))
+  if (fromQuery) return fromQuery
+
+  const fromStorage = readStoredTheme()
+  if (fromStorage) return fromStorage
+
+  if (ENABLE_SYSTEM_THEME_FALLBACK) return resolveSystemTheme()
+  return DEFAULT_THEME
+}
+
+function writeThemeToStorage(theme: ThemeKey): void {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+  } catch {
+    // Ignore storage errors in restrictive browser contexts.
+  }
+}
+
+function applyThemeToDocument(theme: ThemeKey): void {
+  document.documentElement.setAttribute('data-theme', theme)
+  document.documentElement.style.colorScheme = theme === 'v2' ? 'dark' : 'light'
 }
 
 function readListUiStateFromSearch(search: string): {
@@ -767,6 +817,7 @@ function toErrorMessage(error: unknown, fallback: string): string {
 function App() {
   const initialListUiState = readListUiStateFromSearch(window.location.search)
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname))
+  const [theme, setTheme] = useState<ThemeKey>(() => resolveThemeFromSearch(window.location.search))
   const [activeView, setActiveView] = useState<TopView>(initialListUiState.activeView)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuCollapsed, setMenuCollapsed] = useState(false)
@@ -887,6 +938,10 @@ function App() {
   }, [])
 
   useEffect(() => {
+    applyThemeToDocument(theme)
+  }, [theme])
+
+  useEffect(() => {
     if (!AUTH_GATE_ENABLED) {
       setAuthState('authenticated')
       setAuthError(null)
@@ -925,6 +980,17 @@ function App() {
     setRoute(parseRoute(to))
   }, [])
 
+  const onThemeChange = useCallback((nextTheme: ThemeKey) => {
+    setTheme(nextTheme)
+    writeThemeToStorage(nextTheme)
+
+    const params = new URLSearchParams(window.location.search)
+    params.set(THEME_QUERY_KEY, nextTheme)
+    const nextQuery = params.toString()
+    const nextUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname
+    window.history.replaceState({}, '', nextUrl)
+  }, [])
+
   const applyListUiStateFromSearch = useCallback((search: string) => {
     const next = readListUiStateFromSearch(search)
     setActiveView(next.activeView)
@@ -939,6 +1005,7 @@ function App() {
     const onPopState = () => {
       const nextRoute = parseRoute(window.location.pathname)
       setRoute(nextRoute)
+      setTheme(resolveThemeFromSearch(window.location.search))
       if (nextRoute.kind === 'list') {
         applyListUiStateFromSearch(window.location.search)
       }
@@ -2728,6 +2795,22 @@ function App() {
               <span>{exporting ? '내보내는 중...' : '수동 Export'}</span>
             </span>
           </button>
+          <div className="themePicker" role="group" aria-label="Theme 선택">
+            <span className="themePickerLabel">Theme</span>
+            <div className="themePickerButtons">
+              {(['v1', 'v2', 'v3'] as ThemeKey[]).map((themeOption) => (
+                <button
+                  key={themeOption}
+                  type="button"
+                  className={theme === themeOption ? 'secondary mini is-active themeButton' : 'secondary mini themeButton'}
+                  aria-pressed={theme === themeOption}
+                  onClick={() => onThemeChange(themeOption)}
+                >
+                  {themeOption.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
           {USE_MOCK_DATA ? <span className="apiModePill">DEMO DATA</span> : null}
           <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
           <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>

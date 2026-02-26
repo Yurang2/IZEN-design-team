@@ -4,11 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "cp -f index.template.html index.html",
+    "predev": "node -e \"require('fs').copyFileSync('index.template.html','index.html')\"",
     "dev": "vite",
     "dev:worker": "bash ./scripts/run-worker.sh dev",
     "deploy:worker": "bash ./scripts/run-worker.sh deploy",
-    "prebuild": "cp -f index.template.html index.html",
+    "prebuild": "node -e \"require('fs').copyFileSync('index.template.html','index.html')\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
