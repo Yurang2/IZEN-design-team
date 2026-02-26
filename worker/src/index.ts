@@ -1593,7 +1593,7 @@ export default {
         const projectPageId = asString(url.searchParams.get('projectId')) ?? asString(url.searchParams.get('projectPageId'))
 
         if (projectPageId && env.NOTION_CHECKLIST_ASSIGNMENT_DB_ID) {
-          const rows = await service.listChecklistAssignments(projectPageId)
+          const rows = await service.ensureChecklistAssignmentsForProject(projectPageId)
           return ok(
             {
               ok: true,

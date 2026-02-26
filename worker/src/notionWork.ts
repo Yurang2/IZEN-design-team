@@ -1327,23 +1327,24 @@ export class NotionWorkService {
       throw new Error('project_not_found')
     }
 
-    const applicableChecklistIds = checklists
-      .filter((item) => this.isChecklistApplicableToProject(item, project))
-      .map((item) => item.id)
+    const checklistApplicability = checklists.map((item) => ({
+      item,
+      applicable: this.isChecklistApplicableToProject(item, project),
+    }))
 
     const existingPages = await this.listChecklistAssignmentPagesByProject(schema, project.id)
     const existingRows = existingPages.map((page) => this.mapChecklistAssignmentPage(page, schema))
     const existingChecklistIdSet = new Set(existingRows.map((row) => normalizeNotionId(row.checklistItemPageId)))
 
-    for (const checklistItemId of applicableChecklistIds) {
+    for (const entry of checklistApplicability) {
+      const checklistItemId = entry.item.id
       if (existingChecklistIdSet.has(normalizeNotionId(checklistItemId))) continue
 
       const key = this.checklistAssignmentKey(project.id, checklistItemId)
-      const checklistItem = checklists.find((entry) => normalizeNotionId(entry.id) === normalizeNotionId(checklistItemId))
       const titleValue = this.resolveChecklistAssignmentTitle(
         schema,
         key,
-        checklistItem?.productName || checklistItem?.workCategory,
+        entry.item.productName || entry.item.workCategory,
       )
       const properties: AnyMap = {}
       applyTitleLike(properties, schema.fields.key, titleValue)
@@ -1352,8 +1353,8 @@ export class NotionWorkService {
       if (isKnownField(schema.fields.task)) {
         applyRelationIds(properties, schema.fields.task, [])
       }
-      applyCheckbox(properties, schema.fields.applicable, true)
-      applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText('unassigned'))
+      applyCheckbox(properties, schema.fields.applicable, entry.applicable)
+      applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText(entry.applicable ? 'unassigned' : 'not_applicable'))
 
       await this.api.createPage({
         parent: { database_id: this.getChecklistAssignmentDbId() },

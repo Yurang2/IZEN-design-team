@@ -1704,8 +1704,10 @@ function App() {
   useEffect(() => {
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
+    if (activeView !== 'checklist') return
+    if (checklistMode !== 'assignment') return
     void fetchChecklistAssignments(selectedChecklistProject?.id)
-  }, [authState, fetchChecklistAssignments, route.kind, selectedChecklistProject?.id])
+  }, [activeView, authState, checklistMode, fetchChecklistAssignments, route.kind, selectedChecklistProject?.id])
 
   const sortedChecklistItems = useMemo(() => {
     const copy = [...checklistItems]

@@ -401,7 +401,7 @@ export function ChecklistView({
       if (isStart || dayIndex % dayStep === 0) {
         rows.day.push({
           key: `day-${iso}`,
-          label: `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`,
+          label: `${day}일`,
           left,
           isStart,
           isEnd,
@@ -428,7 +428,7 @@ export function ChecklistView({
     ensureEndTick(rows.week, `${getIsoWeekNumber(assignmentTimelineRange.end)}주차`, 'week')
     ensureEndTick(
       rows.day,
-      `${String(assignmentTimelineRange.end.getUTCMonth() + 1).padStart(2, '0')}/${String(assignmentTimelineRange.end.getUTCDate()).padStart(2, '0')}`,
+      `${assignmentTimelineRange.end.getUTCDate()}일`,
       'day',
     )
 
@@ -438,6 +438,36 @@ export function ChecklistView({
       { key: 'week', label: '주차', ticks: rows.week },
       { key: 'day', label: '일', ticks: rows.day },
     ]
+  }, [assignmentTimelineRange])
+  const assignmentTimelineWeekBands = useMemo(() => {
+    if (!assignmentTimelineRange) return [] as Array<{ key: string; left: string; width: string; alt: boolean }>
+
+    const segments: Array<{ key: string; left: string; width: string; alt: boolean }> = []
+    const start = assignmentTimelineRange.start
+    const end = assignmentTimelineRange.end
+    const startDow = start.getUTCDay() || 7
+    let weekCursor = addDays(start, -(startDow - 1))
+    let index = 0
+
+    while (weekCursor.getTime() < end.getTime()) {
+      const nextWeek = addDays(weekCursor, 7)
+      const segStart = weekCursor.getTime() < start.getTime() ? start : weekCursor
+      const segEnd = nextWeek.getTime() > end.getTime() ? end : nextWeek
+      if (segEnd.getTime() > segStart.getTime()) {
+        const left = ((segStart.getTime() - start.getTime()) / assignmentTimelineRange.spanMs) * 100
+        const right = ((segEnd.getTime() - start.getTime()) / assignmentTimelineRange.spanMs) * 100
+        segments.push({
+          key: `week-band-${toIsoDate(weekCursor)}-${index}`,
+          left: `${Math.max(0, Math.min(100, left))}%`,
+          width: `${Math.max(1, Math.min(100, right) - Math.max(0, Math.min(100, left)))}%`,
+          alt: index % 2 === 1,
+        })
+      }
+      weekCursor = nextWeek
+      index += 1
+    }
+
+    return segments
   }, [assignmentTimelineRange])
 
   return (
@@ -624,6 +654,11 @@ export function ChecklistView({
                       바
                     </span>
                     <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
+                      <div className="assignmentAsanaWeekBands" aria-hidden="true">
+                        {assignmentTimelineWeekBands.map((band) => (
+                          <span key={band.key} className={`assignmentAsanaWeekBand ${band.alt ? 'is-alt' : ''}`.trim()} style={{ left: band.left, width: band.width }} />
+                        ))}
+                      </div>
                       <div className="projectTimelineTrackGrid" aria-hidden="true" />
                       {assignmentTodayMarkerStyle ? (
                         <span className="projectTimelineTodayMarker event-inline" style={assignmentTodayMarkerStyle} aria-hidden="true" />
@@ -654,6 +689,7 @@ export function ChecklistView({
                             className={className}
                             style={style}
                             title={title}
+                            data-full-label={`${entry.label} · ${entry.assignmentStatusLabel}`}
                             onClick={() => {
                               const target = document.getElementById(`checklist-assignment-row-${entry.id}`)
                               if (!target) return
@@ -662,9 +698,10 @@ export function ChecklistView({
                               window.setTimeout(() => {
                                 setTimelineFocusedRowId((current) => (current === entry.id ? null : current))
                               }, 1800)
-                            }}
-                          >
-                            {entry.label} · {entry.assignmentStatusLabel}
+                          }}
+                        >
+                            <span className="assignmentAsanaBarName">{entry.label}</span>
+                            <span className="assignmentAsanaBarStatus">{entry.assignmentStatusLabel}</span>
                           </button>
                         )
                       })}
