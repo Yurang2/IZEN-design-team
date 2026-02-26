@@ -247,7 +247,6 @@ function checklistStatusFromValues(
   if (normalized.includes('해당없음')) return 'not_applicable'
   if (applicable === false) return 'not_applicable'
   if (taskPageId) return 'assigned'
-  if (normalized.includes('할당됨')) return 'assigned'
   return 'unassigned'
 }
 
