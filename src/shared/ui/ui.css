@@ -1895,15 +1895,15 @@ button.boardCard:hover {
 .assignmentAsanaBarOutsideName,
 .assignmentAsanaBarOutsideState {
   display: block;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 .assignmentAsanaBarOutsideName {
-  display: -webkit-box;
+  display: block;
   line-height: 1.15;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
   overflow: hidden;
+  white-space: nowrap;
 }
 
 .assignmentAsanaBarOutsideState {
