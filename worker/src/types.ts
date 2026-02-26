@@ -8,6 +8,31 @@ export type ChecklistDbBinding = {
   }
 }
 
+export type R2ObjectBody = {
+  text: () => Promise<string>
+  arrayBuffer: () => Promise<ArrayBuffer>
+}
+
+export type R2ObjectLike = {
+  key: string
+  httpEtag?: string
+  size?: number
+  uploaded?: Date
+  body?: R2ObjectBody | null
+}
+
+export type R2BucketBinding = {
+  put: (key: string, value: ArrayBuffer | ArrayBufferView | ReadableStream | string | Blob, options?: Record<string, unknown>) => Promise<R2ObjectLike | null>
+  get: (key: string, options?: Record<string, unknown>) => Promise<R2ObjectLike | null>
+  delete: (key: string | string[]) => Promise<void>
+  createPresignedUrl?: (
+    request: Request,
+    options?: {
+      expiresIn?: number
+    },
+  ) => Promise<URL | string>
+}
+
 export interface Env {
   NOTION_TOKEN: string
   NOTION_TASK_DB_ID: string
@@ -27,6 +52,11 @@ export interface Env {
   ALLOWED_ACCESS_EMAILS?: string
   API_CACHE_TTL_SECONDS?: string
   CHECKLIST_DB?: ChecklistDbBinding
+  MEETING_AUDIO_BUCKET?: R2BucketBinding
+  ASSEMBLYAI_API_KEY?: string
+  ASSEMBLYAI_WEBHOOK_SECRET?: string
+  ASSEMBLYAI_WEBHOOK_URL?: string
+  MEETING_KEYWORD_LIMIT?: string
 }
 
 export type FieldStatus = 'exact' | 'fallback' | 'missing' | 'mismatch'

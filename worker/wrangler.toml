@@ -31,6 +31,9 @@ AUTH_DISABLED = "true"
 RATE_LIMIT_WINDOW_SECONDS = "10"
 RATE_LIMIT_MAX_REQUESTS = "180"
 RATE_LIMIT_BLOCK_SECONDS = "30"
+MEETING_KEYWORD_LIMIT = "120"
+# Optional: override default webhook callback target
+# ASSEMBLYAI_WEBHOOK_URL = "https://your-domain/api/assemblyai/webhook"
 
 # Optional Cloudflare Access gate on top of session/API-key auth.
 REQUIRE_CF_ACCESS = "false"
@@ -39,3 +42,7 @@ REQUIRE_CF_ACCESS = "false"
 # D1 binding is appended at runtime by `scripts/run-worker.sh` when:
 # - CHECKLIST_DB_ID is set
 # - CHECKLIST_DB_NAME (optional, default: izen-design-checklist)
+#
+# Optional R2 binding is appended at runtime by `scripts/run-worker.sh` when:
+# - MEETING_AUDIO_BUCKET_NAME and MEETING_AUDIO_BUCKET_ID are set
+# binding name: MEETING_AUDIO_BUCKET

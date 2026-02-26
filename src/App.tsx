@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { AssignmentModal } from './features/checklist/AssignmentModal'
 import { ChecklistView } from './features/checklist/ChecklistView'
+import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
@@ -211,7 +212,7 @@ type TaskViewFilters = {
   hideDone: boolean
 }
 
-type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist' | 'guide'
+type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist' | 'meetings' | 'guide'
 
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
@@ -307,7 +308,7 @@ function createDefaultTaskViewFilters(): TaskViewFilters {
 }
 
 function parseTopView(value: string | null): TopView {
-  if (value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist' || value === 'guide') return value
+  if (value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist' || value === 'meetings' || value === 'guide') return value
   return 'tasks'
 }
 
@@ -563,6 +564,7 @@ function toTopViewPath(view: TopView): string {
   if (view === 'projects') return 'Projects'
   if (view === 'tasks') return 'Tasks'
   if (view === 'schedule') return 'Schedule'
+  if (view === 'meetings') return 'Meetings'
   if (view === 'guide') return 'Usage Guide'
   return 'Event Checklist'
 }
@@ -571,6 +573,7 @@ function toTopViewTitle(view: TopView): string {
   if (view === 'projects') return '프로젝트'
   if (view === 'tasks') return '업무'
   if (view === 'schedule') return '일정'
+  if (view === 'meetings') return '회의록'
   if (view === 'checklist') return '행사 체크리스트'
   return '사용법'
 }
@@ -2792,6 +2795,19 @@ function App() {
               </button>
               <button
                 type="button"
+                className={activeView === 'meetings' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('meetings')}
+                title="회의록"
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">
+                    <UiGlyph name="list" />
+                  </span>
+                  <span>회의록</span>
+                </span>
+              </button>
+              <button
+                type="button"
                 className={activeView === 'guide' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('guide')}
                 title="사용법"
@@ -3042,6 +3058,8 @@ function App() {
           <div className="timelineWipBadge">일정 화면은 준비 중입니다.</div>
         </section>
       ) : null}
+
+      {activeView === 'meetings' ? <MeetingsView /> : null}
 
       {activeView === 'guide' ? (
         <section className="guideView" aria-label="서비스 사용법">

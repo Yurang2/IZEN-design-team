@@ -29,10 +29,20 @@ const RATE_LIMIT_MAX_ENTRIES = 10_000
 const RATE_LIMIT_CLEANUP_INTERVAL_MS = 30_000
 const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 const SESSION_COOKIE_NAME = 'izen_session'
+const MEETING_AUDIO_PREFIX = 'meetings/audio'
+const DEFAULT_MEETING_KEYWORD_LIMIT = 120
+const MIN_MEETING_KEYWORD_LIMIT = 50
+const MAX_MEETING_KEYWORD_LIMIT = 150
+const DEFAULT_MIN_SPEAKERS = 2
+const DEFAULT_MAX_SPEAKERS = 10
+const MIN_ALLOWED_SPEAKERS = 1
+const MAX_ALLOWED_SPEAKERS = 10
+const TRANSCRIPT_POLL_LIMIT = 50
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
 let checklistDbInitInFlight: Promise<void> | null = null
+let meetingDbInitInFlight: Promise<void> | null = null
 let lastRateLimitCleanupAt = 0
 let sessionSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
 
@@ -759,6 +769,177 @@ function parseChecklistAssignmentBody(body: unknown): {
   }
 }
 
+function slugifyFilenamePart(value: string): string {
+  const cleaned = value
+    .normalize('NFKC')
+    .replace(/[^\w.\- ]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+  return cleaned.toLowerCase()
+}
+
+function extractFileExtension(filename: string): string {
+  const normalized = filename.trim()
+  const idx = normalized.lastIndexOf('.')
+  if (idx < 0 || idx === normalized.length - 1) return ''
+  const ext = normalized.slice(idx + 1).toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (!ext) return ''
+  return `.${ext.slice(0, 8)}`
+}
+
+function buildMeetingAudioKey(filenameRaw: string): string {
+  const filename = filenameRaw.trim()
+  const extension = extractFileExtension(filename)
+  const basename = extension ? filename.slice(0, -extension.length) : filename
+  const safeBase = slugifyFilenamePart(basename).slice(0, 64) || 'audio'
+  const date = new Date().toISOString().slice(0, 10)
+  const id = crypto.randomUUID().replace(/-/g, '')
+  return `${MEETING_AUDIO_PREFIX}/${date}/${id}-${safeBase}${extension}`
+}
+
+function isValidMeetingAudioKey(key: string): boolean {
+  if (!key.startsWith(`${MEETING_AUDIO_PREFIX}/`)) return false
+  return /^[a-zA-Z0-9/_\-.]+$/.test(key)
+}
+
+function parseMeetingKeywordLimit(env: Env): number {
+  return parseBoundedInt(asString(env.MEETING_KEYWORD_LIMIT), DEFAULT_MEETING_KEYWORD_LIMIT, MIN_MEETING_KEYWORD_LIMIT, MAX_MEETING_KEYWORD_LIMIT)
+}
+
+function parseMeetingTranscriptBody(body: unknown): {
+  key: string
+  title: string
+  minSpeakers: number
+  maxSpeakers: number
+  keywordSetId: string | null
+} {
+  const payload = parsePatchBody(body)
+  const key = asString(payload.key)
+  if (!key) throw new Error('key_required')
+  if (!isValidMeetingAudioKey(key)) throw new Error('key_invalid')
+
+  const title = asString(payload.title) ?? key.split('/').pop() ?? '회의록'
+  const minSpeakersRaw = Number(payload.minSpeakers ?? DEFAULT_MIN_SPEAKERS)
+  const maxSpeakersRaw = Number(payload.maxSpeakers ?? DEFAULT_MAX_SPEAKERS)
+
+  if (!Number.isFinite(minSpeakersRaw) || !Number.isFinite(maxSpeakersRaw)) {
+    throw new Error('speaker_range_invalid')
+  }
+
+  const minSpeakers = Math.max(MIN_ALLOWED_SPEAKERS, Math.min(MAX_ALLOWED_SPEAKERS, Math.floor(minSpeakersRaw)))
+  const maxSpeakers = Math.max(MIN_ALLOWED_SPEAKERS, Math.min(MAX_ALLOWED_SPEAKERS, Math.floor(maxSpeakersRaw)))
+  if (maxSpeakers < minSpeakers) {
+    throw new Error('speaker_range_invalid')
+  }
+
+  return {
+    key,
+    title: title.slice(0, 200),
+    minSpeakers,
+    maxSpeakers,
+    keywordSetId: asString(payload.keywordSetId) ?? null,
+  }
+}
+
+type SpeakerMappingInput = {
+  speakerLabel: string
+  displayName: string
+}
+
+function parseSpeakerMappingsBody(body: unknown): SpeakerMappingInput[] {
+  const payload = parsePatchBody(body)
+  const mappings: SpeakerMappingInput[] = []
+
+  if (Array.isArray(payload.mappings)) {
+    for (const row of payload.mappings) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) continue
+      const item = row as Record<string, unknown>
+      const speakerLabel = asString(item.speakerLabel) ?? asString(item.speaker) ?? ''
+      const displayName = asString(item.displayName) ?? asString(item.name) ?? ''
+      if (!speakerLabel || !displayName) continue
+      mappings.push({ speakerLabel: speakerLabel.slice(0, 40), displayName: displayName.slice(0, 120) })
+    }
+  } else {
+    const speakerLabel = asString(payload.speakerLabel) ?? asString(payload.speaker) ?? ''
+    const displayName = asString(payload.displayName) ?? asString(payload.name) ?? ''
+    if (speakerLabel && displayName) {
+      mappings.push({ speakerLabel: speakerLabel.slice(0, 40), displayName: displayName.slice(0, 120) })
+    }
+  }
+
+  if (mappings.length === 0) {
+    throw new Error('speaker_mappings_required')
+  }
+
+  return mappings
+}
+
+function parseKeywordSetCreateBody(body: unknown): { name: string; isActive: boolean } {
+  const payload = parsePatchBody(body)
+  const name = asString(payload.name)
+  if (!name) throw new Error('name_required')
+  const isActive = payload.isActive === undefined ? true : Boolean(payload.isActive)
+  return { name: name.slice(0, 120), isActive }
+}
+
+function parseKeywordSetPatchBody(body: unknown): { id: string; name?: string; isActive?: boolean } {
+  const payload = parsePatchBody(body)
+  const id = asString(payload.id)
+  if (!id) throw new Error('id_required')
+  const name = asString(payload.name)
+  const hasIsActive = Object.prototype.hasOwnProperty.call(payload, 'isActive')
+  const isActive = hasIsActive ? Boolean(payload.isActive) : undefined
+  return {
+    id,
+    name: name?.slice(0, 120),
+    isActive,
+  }
+}
+
+function parseKeywordCreateBody(body: unknown): { setId: string; phrase: string; weight: number | null; tags: string | null } {
+  const payload = parsePatchBody(body)
+  const setId = asString(payload.setId)
+  const phrase = asString(payload.phrase)
+  if (!setId) throw new Error('setId_required')
+  if (!phrase) throw new Error('phrase_required')
+  const weightRaw = payload.weight
+  const weight = typeof weightRaw === 'number' && Number.isFinite(weightRaw) ? Math.max(0, Math.min(10, weightRaw)) : null
+  const tags = asString(payload.tags) ?? null
+  return {
+    setId,
+    phrase: phrase.slice(0, 200),
+    weight,
+    tags: tags?.slice(0, 400) ?? null,
+  }
+}
+
+function parseKeywordPatchBody(body: unknown): { id: string; phrase?: string; weight?: number | null; tags?: string | null } {
+  const payload = parsePatchBody(body)
+  const id = asString(payload.id)
+  if (!id) throw new Error('id_required')
+  const phrase = asString(payload.phrase)
+  const hasWeight = Object.prototype.hasOwnProperty.call(payload, 'weight')
+  const weightRaw = payload.weight
+  const weight = hasWeight
+    ? weightRaw === null
+      ? null
+      : typeof weightRaw === 'number' && Number.isFinite(weightRaw)
+        ? Math.max(0, Math.min(10, weightRaw))
+        : undefined
+    : undefined
+  const hasTags = Object.prototype.hasOwnProperty.call(payload, 'tags')
+  const tags = hasTags ? (asString(payload.tags) ?? null) : undefined
+
+  return {
+    id,
+    phrase: phrase?.slice(0, 200),
+    weight,
+    tags: tags?.slice(0, 400) ?? null,
+  }
+}
+
 function getCacheTtlMs(env: Env): number {
   const ttlSec = Number(env.API_CACHE_TTL_SECONDS ?? '60')
   if (!Number.isFinite(ttlSec)) return DEFAULT_CACHE_TTL_MS
@@ -1104,6 +1285,158 @@ async function listChecklistAssignmentLogs(
   }))
 }
 
+async function listKeywordSets(env: Env): Promise<
+  Array<{
+    id: string
+    name: string
+    isActive: boolean
+    createdAt: number
+    keywordCount: number
+  }>
+> {
+  await ensureMeetingDbTables(env)
+  const db = requireMeetingsDb(env)
+  const result = await db
+    .prepare(
+      `SELECT s.id, s.name, s.is_active, s.created_at, COUNT(k.id) AS keyword_count
+       FROM keyword_sets s
+       LEFT JOIN keywords k ON k.set_id = s.id
+       GROUP BY s.id, s.name, s.is_active, s.created_at
+       ORDER BY s.created_at DESC`,
+    )
+    .bind()
+    .all<{
+      id?: unknown
+      name?: unknown
+      is_active?: unknown
+      created_at?: unknown
+      keyword_count?: unknown
+    }>()
+  const rows = Array.isArray(result.results) ? result.results : []
+  return rows.map((row) => ({
+    id: typeof row.id === 'string' ? row.id : '',
+    name: typeof row.name === 'string' ? row.name : '',
+    isActive: Number(row.is_active ?? 0) === 1,
+    createdAt: Number(row.created_at ?? 0),
+    keywordCount: Number(row.keyword_count ?? 0),
+  }))
+}
+
+async function listKeywords(env: Env, setId?: string): Promise<
+  Array<{
+    id: string
+    setId: string
+    phrase: string
+    weight: number | null
+    tags: string | null
+    createdAt: number
+  }>
+> {
+  await ensureMeetingDbTables(env)
+  const db = requireMeetingsDb(env)
+  const hasSetId = Boolean(setId)
+  const query = hasSetId
+    ? `SELECT id, set_id, phrase, weight, tags, created_at FROM keywords WHERE set_id = ? ORDER BY created_at DESC`
+    : `SELECT id, set_id, phrase, weight, tags, created_at FROM keywords ORDER BY created_at DESC`
+  const stmt = db.prepare(query)
+  const result = hasSetId ? await stmt.bind(setId).all() : await stmt.bind().all()
+  const rows = Array.isArray(result.results) ? result.results : []
+  return rows.map((row) => ({
+    id: typeof row.id === 'string' ? row.id : '',
+    setId: typeof row.set_id === 'string' ? row.set_id : '',
+    phrase: typeof row.phrase === 'string' ? row.phrase : '',
+    weight: typeof row.weight === 'number' ? row.weight : row.weight === null ? null : null,
+    tags: typeof row.tags === 'string' ? row.tags : row.tags === null ? null : null,
+    createdAt: Number(row.created_at ?? 0),
+  }))
+}
+
+async function readKeywordPhrasesBySetId(env: Env, setId: string | null): Promise<{ phrases: string[]; truncated: boolean; total: number }> {
+  if (!setId) return { phrases: [], truncated: false, total: 0 }
+  const keywords = await listKeywords(env, setId)
+  const keywordLimit = parseMeetingKeywordLimit(env)
+  const phrases = keywords
+    .map((entry) => entry.phrase.trim())
+    .filter(Boolean)
+  const uniquePhrases = Array.from(new Set(phrases))
+  return {
+    phrases: uniquePhrases.slice(0, keywordLimit),
+    truncated: uniquePhrases.length > keywordLimit,
+    total: uniquePhrases.length,
+  }
+}
+
+async function readSpeakerMap(env: Env, transcriptId: string): Promise<Record<string, string>> {
+  await ensureMeetingDbTables(env)
+  const db = requireMeetingsDb(env)
+  const result = await db
+    .prepare(
+      `SELECT speaker_label, display_name
+       FROM speaker_maps
+       WHERE transcript_id = ?`,
+    )
+    .bind(transcriptId)
+    .all<{
+      speaker_label?: unknown
+      display_name?: unknown
+    }>()
+  const rows = Array.isArray(result.results) ? result.results : []
+  const map: Record<string, string> = {}
+  for (const row of rows) {
+    const speaker = asString(typeof row.speaker_label === 'string' ? row.speaker_label : undefined)
+    const display = asString(typeof row.display_name === 'string' ? row.display_name : undefined)
+    if (!speaker || !display) continue
+    map[speaker] = display
+  }
+  return map
+}
+
+function normalizeUtterances(raw: unknown): Array<{ speaker: string; text: string; start: number | null; end: number | null }> {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
+      const item = entry as Record<string, unknown>
+      const speaker = asString(item.speaker) ?? asString(item.speaker_label) ?? 'Speaker [UNKNOWN]'
+      const text = asString(item.text) ?? ''
+      const start = typeof item.start === 'number' && Number.isFinite(item.start) ? item.start : null
+      const end = typeof item.end === 'number' && Number.isFinite(item.end) ? item.end : null
+      return {
+        speaker,
+        text,
+        start,
+        end,
+      }
+    })
+    .filter((entry): entry is { speaker: string; text: string; start: number | null; end: number | null } => Boolean(entry))
+}
+
+async function updateTranscriptFromAssembly(env: Env, assemblyId: string): Promise<void> {
+  await ensureMeetingDbTables(env)
+  const db = requireMeetingsDb(env)
+  const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(assemblyId)}`)
+  const status = asString(detail.status) ?? 'processing'
+  const text = asString(detail.text) ?? ''
+  const utterances = normalizeUtterances(detail.utterances)
+  const now = Date.now()
+  await db
+    .prepare(
+      `UPDATE transcripts
+       SET status = ?, raw_json = ?, utterances_json = ?, text = ?, updated_at = ?, error_message = ?
+       WHERE assembly_id = ?`,
+    )
+    .bind(
+      status,
+      JSON.stringify(detail),
+      JSON.stringify(utterances),
+      text,
+      now,
+      asString(detail.error) ?? null,
+      assemblyId,
+    )
+    .run()
+}
+
 function checklistAssignmentKey(eventCategory: string | undefined, itemId: string, projectId?: string): string {
   const projectKey = normalizeNotionId(projectId) || 'all_project'
   const category = (eventCategory ?? '').trim() || 'ALL'
@@ -1182,6 +1515,200 @@ function toChecklistAssignmentStatus(
   }
 }
 
+function requireMeetingsDb(env: Env): NonNullable<Env['CHECKLIST_DB']> {
+  if (!env.CHECKLIST_DB) {
+    throw new Error('meetings_db_not_configured')
+  }
+  return env.CHECKLIST_DB
+}
+
+async function ensureMeetingDbTables(env: Env): Promise<void> {
+  const db = requireMeetingsDb(env)
+  if (meetingDbInitInFlight) {
+    await meetingDbInitInFlight
+    return
+  }
+
+  meetingDbInitInFlight = (async () => {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS meetings (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          audio_key TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )`,
+      )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS transcripts (
+          id TEXT PRIMARY KEY,
+          meeting_id TEXT NOT NULL,
+          assembly_id TEXT,
+          status TEXT NOT NULL,
+          raw_json TEXT,
+          utterances_json TEXT,
+          text TEXT,
+          keywords_used_json TEXT,
+          error_message TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )`,
+      )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS speaker_maps (
+          transcript_id TEXT NOT NULL,
+          speaker_label TEXT NOT NULL,
+          display_name TEXT NOT NULL,
+          updated_at INTEGER NOT NULL,
+          PRIMARY KEY(transcript_id, speaker_label)
+        )`,
+      )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS keyword_sets (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL
+        )`,
+      )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS keywords (
+          id TEXT PRIMARY KEY,
+          set_id TEXT NOT NULL,
+          phrase TEXT NOT NULL,
+          weight REAL,
+          tags TEXT,
+          created_at INTEGER NOT NULL
+        )`,
+      )
+      .bind()
+      .run()
+
+    try {
+      await db.prepare(`ALTER TABLE transcripts ADD COLUMN keywords_used_json TEXT`).bind().run()
+    } catch {}
+    try {
+      await db.prepare(`ALTER TABLE transcripts ADD COLUMN error_message TEXT`).bind().run()
+    } catch {}
+
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_transcripts_created_at
+         ON transcripts(created_at DESC)`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_transcripts_assembly_id
+         ON transcripts(assembly_id)`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_keywords_set_id
+         ON keywords(set_id)`,
+      )
+      .bind()
+      .run()
+  })()
+
+  try {
+    await meetingDbInitInFlight
+  } catch (error) {
+    meetingDbInitInFlight = null
+    throw error
+  }
+}
+
+function getAssemblyApiKey(env: Env): string {
+  const apiKey = asString(env.ASSEMBLYAI_API_KEY)
+  if (!apiKey) throw new Error('assemblyai_api_key_missing')
+  return apiKey
+}
+
+function getAssemblyWebhookSecret(env: Env): string {
+  const secret = asString(env.ASSEMBLYAI_WEBHOOK_SECRET)
+  if (!secret) throw new Error('assemblyai_webhook_secret_missing')
+  return secret
+}
+
+function getMeetingAudioBucket(env: Env): NonNullable<Env['MEETING_AUDIO_BUCKET']> {
+  const bucket = env.MEETING_AUDIO_BUCKET
+  if (!bucket) throw new Error('meeting_audio_bucket_missing')
+  return bucket
+}
+
+async function createR2PresignedUrl(
+  env: Env,
+  key: string,
+  method: 'GET' | 'PUT',
+  options?: {
+    expiresIn?: number
+    contentType?: string
+  },
+): Promise<{ url: string; requiredHeaders?: Record<string, string> }> {
+  const bucket = getMeetingAudioBucket(env)
+  const createFn = (bucket as { createPresignedUrl?: unknown }).createPresignedUrl
+  if (typeof createFn !== 'function') {
+    throw new Error('r2_presign_not_supported_[UNKNOWN]')
+  }
+
+  const headers = new Headers()
+  if (options?.contentType) {
+    headers.set('content-type', options.contentType)
+  }
+  const unsigned = new Request(`https://r2-upload.local/${key}`, {
+    method,
+    headers,
+  })
+  const signer = createFn as (request: Request, options?: { expiresIn?: number }) => Promise<URL | string>
+  const signed = await signer(unsigned, { expiresIn: options?.expiresIn ?? 60 * 15 })
+  const url = typeof signed === 'string' ? signed : signed.toString()
+  const requiredHeaders = options?.contentType ? { 'Content-Type': options.contentType } : undefined
+  return {
+    url,
+    requiredHeaders,
+  }
+}
+
+async function assemblyRequest<T>(
+  env: Env,
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`https://api.assemblyai.com/v2${path}`, {
+    ...init,
+    headers: {
+      Authorization: getAssemblyApiKey(env),
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  })
+  if (!response.ok) {
+    const text = (await response.text()).trim()
+    throw new Error(`assemblyai_http_${response.status}${text ? `:${text.slice(0, 180)}` : ''}`)
+  }
+  return (await response.json()) as T
+}
+
 function decodeChecklistAssignmentValue(rawValue: string | undefined): { taskPageId: string | null; explicitNotApplicable: boolean } {
   const value = asString(rawValue)
   if (!value) {
@@ -1241,8 +1768,16 @@ function isSensitivePath(path: string): boolean {
     path === '/projects' ||
     path === '/meta' ||
     path === '/tasks' ||
+    path === '/uploads/presign' ||
+    path === '/transcripts' ||
+    path === '/keyword-sets' ||
+    path === '/keywords' ||
+    path === '/assemblyai/webhook' ||
+    path === '/meetings' ||
     path === '/admin/notion/project-schema/sync' ||
-    /^\/tasks\/[^/]+$/.test(path)
+    /^\/tasks\/[^/]+$/.test(path) ||
+    /^\/transcripts\/[^/]+$/.test(path) ||
+    /^\/transcripts\/[^/]+\/speakers$/.test(path)
   )
 }
 
@@ -1250,7 +1785,7 @@ function buildResponseHeaders(context: ResponseContext): Headers {
   const headers = new Headers()
 
   if (context.requestOrigin) {
-    headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
+    headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS')
     headers.set('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, CF-Access-Authenticated-User-Email')
     headers.set('Access-Control-Allow-Origin', context.corsOrigin ?? 'null')
     headers.set('Access-Control-Allow-Credentials', 'true')
@@ -1328,6 +1863,490 @@ async function readJsonBody(request: Request): Promise<unknown> {
 function serviceFromEnv(env: Env): NotionWorkService {
   const api = new NotionApi(env)
   return new NotionWorkService(api, env)
+}
+
+async function handleMeetingRoutes(
+  request: Request,
+  path: string,
+  url: URL,
+  env: Env,
+  ctx: ExecutionContext,
+  respond: {
+    json: (body: unknown, status: number) => Response
+    ok: (body: unknown) => Response
+  },
+): Promise<Response | null> {
+  const toErrorStatus = (message: string): number => {
+    if (
+      message.includes('_required') ||
+      message.includes('_invalid') ||
+      message.includes('speaker_range_invalid') ||
+      message.includes('mappings_required')
+    ) {
+      return 400
+    }
+    if (message.includes('not_found')) return 404
+    if (message.includes('assemblyai_http_')) return 502
+    return 500
+  }
+  const fail = (error: unknown): Response => {
+    const message = error instanceof Error && error.message ? error.message : 'unknown_error'
+    return respond.json({ ok: false, error: message }, toErrorStatus(message))
+  }
+
+  const transcriptMatch = path.match(/^\/transcripts\/([^/]+)$/)
+  const speakerMatch = path.match(/^\/transcripts\/([^/]+)\/speakers$/)
+
+  try {
+    if (request.method === 'POST' && path === '/uploads/presign') {
+      const payload = parsePatchBody(await readJsonBody(request))
+      const filename = asString(payload.filename) ?? asString(payload.name) ?? 'recording.m4a'
+      const contentType = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
+      const key = buildMeetingAudioKey(filename)
+      const signed = await createR2PresignedUrl(env, key, 'PUT', {
+        expiresIn: 15 * 60,
+        contentType,
+      })
+      return respond.ok({
+        ok: true,
+        key,
+        putUrl: signed.url,
+        requiredHeaders: signed.requiredHeaders ?? {},
+      })
+    }
+
+    if (request.method === 'POST' && path === '/transcripts') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const payload = parseMeetingTranscriptBody(await readJsonBody(request))
+      const keywordInfo = await readKeywordPhrasesBySetId(env, payload.keywordSetId)
+      const getSigned = await createR2PresignedUrl(env, payload.key, 'GET', {
+        expiresIn: 60 * 60,
+      })
+
+      const meetingId = crypto.randomUUID()
+      const transcriptId = crypto.randomUUID()
+      const now = Date.now()
+
+      await db
+        .prepare(
+          `INSERT INTO meetings (id, title, audio_key, created_at)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .bind(meetingId, payload.title, payload.key, now)
+        .run()
+
+      await db
+        .prepare(
+          `INSERT INTO transcripts (id, meeting_id, assembly_id, status, raw_json, utterances_json, text, keywords_used_json, error_message, created_at, updated_at)
+           VALUES (?, ?, NULL, ?, NULL, NULL, NULL, ?, NULL, ?, ?)`,
+        )
+        .bind(transcriptId, meetingId, 'queued', JSON.stringify(keywordInfo.phrases), now, now)
+        .run()
+
+      const webhookUrl = asString(env.ASSEMBLYAI_WEBHOOK_URL) ?? `${url.origin}/api/assemblyai/webhook`
+      const webhookSecret = getAssemblyWebhookSecret(env)
+      const assemblyPayload: Record<string, unknown> = {
+        audio_url: getSigned.url,
+        speaker_labels: true,
+        webhook_url: webhookUrl,
+        webhook_auth_header_name: 'x-assemblyai-webhook-secret',
+        webhook_auth_header_value: webhookSecret,
+      }
+      if (keywordInfo.phrases.length > 0) {
+        assemblyPayload.word_boost = keywordInfo.phrases
+      }
+      // [UNKNOWN] AssemblyAI diarization range field compatibility may differ by API version.
+      assemblyPayload.speaker_options = {
+        min_speakers: payload.minSpeakers,
+        max_speakers: payload.maxSpeakers,
+      }
+
+      let created: Record<string, unknown>
+      try {
+        created = await assemblyRequest<Record<string, unknown>>(env, '/transcript', {
+          method: 'POST',
+          body: JSON.stringify(assemblyPayload),
+        })
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'assembly_request_failed'
+        await db
+          .prepare(
+            `UPDATE transcripts
+             SET status = ?, error_message = ?, updated_at = ?
+             WHERE id = ?`,
+          )
+          .bind('failed', message.slice(0, 600), Date.now(), transcriptId)
+          .run()
+        throw error
+      }
+
+      const assemblyId = asString(created.id)
+      if (!assemblyId) {
+        await db
+          .prepare(
+            `UPDATE transcripts
+             SET status = ?, error_message = ?, updated_at = ?
+             WHERE id = ?`,
+          )
+          .bind('failed', 'assembly_transcript_id_missing_[UNKNOWN]', Date.now(), transcriptId)
+          .run()
+        throw new Error('assembly_transcript_id_missing_[UNKNOWN]')
+      }
+      const status = asString(created.status) ?? 'queued'
+
+      await db
+        .prepare(
+          `UPDATE transcripts
+           SET assembly_id = ?, status = ?, raw_json = ?, error_message = NULL, updated_at = ?
+           WHERE id = ?`,
+        )
+        .bind(assemblyId, status, JSON.stringify(created), Date.now(), transcriptId)
+        .run()
+
+      return respond.json(
+        {
+          ok: true,
+          transcriptId,
+          meetingId,
+          assemblyId,
+          keywordsUsed: keywordInfo.phrases,
+          keywordsTruncated: keywordInfo.truncated,
+          keywordsTotal: keywordInfo.total,
+        },
+        201,
+      )
+    }
+
+    if (request.method === 'GET' && path === '/transcripts') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const limit = parseBoundedLimit(asString(url.searchParams.get('limit')), 20, TRANSCRIPT_POLL_LIMIT)
+      const result = await db
+        .prepare(
+          `SELECT t.id, t.meeting_id, t.assembly_id, t.status, t.created_at, t.updated_at, m.title, m.audio_key
+           FROM transcripts t
+           JOIN meetings m ON m.id = t.meeting_id
+           ORDER BY t.created_at DESC
+           LIMIT ?`,
+        )
+        .bind(limit)
+        .all<{
+          id?: unknown
+          meeting_id?: unknown
+          assembly_id?: unknown
+          status?: unknown
+          created_at?: unknown
+          updated_at?: unknown
+          title?: unknown
+          audio_key?: unknown
+        }>()
+
+      const rows = Array.isArray(result.results) ? result.results : []
+      return respond.ok({
+        ok: true,
+        transcripts: rows.map((row) => ({
+          id: typeof row.id === 'string' ? row.id : '',
+          meetingId: typeof row.meeting_id === 'string' ? row.meeting_id : '',
+          assemblyId: typeof row.assembly_id === 'string' ? row.assembly_id : null,
+          status: typeof row.status === 'string' ? row.status : 'unknown',
+          createdAt: Number(row.created_at ?? 0),
+          updatedAt: Number(row.updated_at ?? 0),
+          title: typeof row.title === 'string' ? row.title : '',
+          audioKey: typeof row.audio_key === 'string' ? row.audio_key : '',
+        })),
+      })
+    }
+
+    if (request.method === 'GET' && transcriptMatch) {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const transcriptId = decodeURIComponent(transcriptMatch[1])
+      const row = await db
+        .prepare(
+          `SELECT t.id, t.meeting_id, t.assembly_id, t.status, t.raw_json, t.utterances_json, t.text, t.keywords_used_json, t.error_message, t.created_at, t.updated_at, m.title, m.audio_key
+           FROM transcripts t
+           JOIN meetings m ON m.id = t.meeting_id
+           WHERE t.id = ?`,
+        )
+        .bind(transcriptId)
+        .first<{
+          id?: unknown
+          meeting_id?: unknown
+          assembly_id?: unknown
+          status?: unknown
+          raw_json?: unknown
+          utterances_json?: unknown
+          text?: unknown
+          keywords_used_json?: unknown
+          error_message?: unknown
+          created_at?: unknown
+          updated_at?: unknown
+          title?: unknown
+          audio_key?: unknown
+        }>()
+
+      if (!row) {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+
+      const utterances = (() => {
+        try {
+          return normalizeUtterances(typeof row.utterances_json === 'string' ? JSON.parse(row.utterances_json) : [])
+        } catch {
+          return [] as Array<{ speaker: string; text: string; start: number | null; end: number | null }>
+        }
+      })()
+      const speakerMap = await readSpeakerMap(env, transcriptId)
+      const mappedUtterances = utterances.map((entry) => ({
+        ...entry,
+        displaySpeaker: speakerMap[entry.speaker] ?? entry.speaker,
+      }))
+      const keywordsUsed = (() => {
+        try {
+          const parsed = typeof row.keywords_used_json === 'string' ? JSON.parse(row.keywords_used_json) : []
+          if (!Array.isArray(parsed)) return [] as string[]
+          return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        } catch {
+          return [] as string[]
+        }
+      })()
+
+      return respond.ok({
+        ok: true,
+        transcript: {
+          id: typeof row.id === 'string' ? row.id : '',
+          meetingId: typeof row.meeting_id === 'string' ? row.meeting_id : '',
+          assemblyId: typeof row.assembly_id === 'string' ? row.assembly_id : null,
+          status: typeof row.status === 'string' ? row.status : 'unknown',
+          text: typeof row.text === 'string' ? row.text : '',
+          rawJson: typeof row.raw_json === 'string' ? row.raw_json : null,
+          utterances,
+          utterancesMapped: mappedUtterances,
+          speakerMap,
+          keywordsUsed,
+          errorMessage: typeof row.error_message === 'string' ? row.error_message : null,
+          createdAt: Number(row.created_at ?? 0),
+          updatedAt: Number(row.updated_at ?? 0),
+          meeting: {
+            title: typeof row.title === 'string' ? row.title : '',
+            audioKey: typeof row.audio_key === 'string' ? row.audio_key : '',
+          },
+        },
+      })
+    }
+
+    if ((request.method === 'POST' || request.method === 'PATCH') && speakerMatch) {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const transcriptId = decodeURIComponent(speakerMatch[1])
+      const mappings = parseSpeakerMappingsBody(await readJsonBody(request))
+      const now = Date.now()
+
+      const existingTranscript = await db.prepare(`SELECT id FROM transcripts WHERE id = ?`).bind(transcriptId).first<{ id?: unknown }>()
+      if (!existingTranscript || typeof existingTranscript.id !== 'string') {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+
+      for (const entry of mappings) {
+        await db
+          .prepare(
+            `INSERT INTO speaker_maps (transcript_id, speaker_label, display_name, updated_at)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT(transcript_id, speaker_label) DO UPDATE SET
+               display_name = excluded.display_name,
+               updated_at = excluded.updated_at`,
+          )
+          .bind(transcriptId, entry.speakerLabel, entry.displayName, now)
+          .run()
+      }
+
+      const speakerMap = await readSpeakerMap(env, transcriptId)
+      return respond.ok({
+        ok: true,
+        transcriptId,
+        speakerMap,
+      })
+    }
+
+    if (request.method === 'GET' && path === '/keyword-sets') {
+      const sets = await listKeywordSets(env)
+      return respond.ok({
+        ok: true,
+        sets,
+      })
+    }
+
+    if (request.method === 'POST' && path === '/keyword-sets') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const payload = parseKeywordSetCreateBody(await readJsonBody(request))
+      const id = crypto.randomUUID()
+      const now = Date.now()
+      await db
+        .prepare(
+          `INSERT INTO keyword_sets (id, name, is_active, created_at)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .bind(id, payload.name, payload.isActive ? 1 : 0, now)
+        .run()
+      return respond.json(
+        {
+          ok: true,
+          set: {
+            id,
+            name: payload.name,
+            isActive: payload.isActive,
+            createdAt: now,
+            keywordCount: 0,
+          },
+        },
+        201,
+      )
+    }
+
+    if (request.method === 'PATCH' && path === '/keyword-sets') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const payload = parseKeywordSetPatchBody(await readJsonBody(request))
+      if (payload.name !== undefined) {
+        await db.prepare(`UPDATE keyword_sets SET name = ? WHERE id = ?`).bind(payload.name, payload.id).run()
+      }
+      if (payload.isActive !== undefined) {
+        await db.prepare(`UPDATE keyword_sets SET is_active = ? WHERE id = ?`).bind(payload.isActive ? 1 : 0, payload.id).run()
+      }
+      const sets = await listKeywordSets(env)
+      const updated = sets.find((entry) => entry.id === payload.id)
+      if (!updated) {
+        return respond.json({ ok: false, error: 'keyword_set_not_found' }, 404)
+      }
+      return respond.ok({ ok: true, set: updated })
+    }
+
+    if (request.method === 'DELETE' && path === '/keyword-sets') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const id = asString(url.searchParams.get('id'))
+      if (!id) {
+        return respond.json({ ok: false, error: 'id_required' }, 400)
+      }
+      await db.prepare(`DELETE FROM keywords WHERE set_id = ?`).bind(id).run()
+      await db.prepare(`DELETE FROM keyword_sets WHERE id = ?`).bind(id).run()
+      return respond.ok({ ok: true, id })
+    }
+
+    if (request.method === 'GET' && path === '/keywords') {
+      const setId = asString(url.searchParams.get('setId'))
+      const keywords = await listKeywords(env, setId)
+      return respond.ok({
+        ok: true,
+        keywords,
+      })
+    }
+
+    if (request.method === 'POST' && path === '/keywords') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const payload = parseKeywordCreateBody(await readJsonBody(request))
+      const id = crypto.randomUUID()
+      const now = Date.now()
+      await db
+        .prepare(
+          `INSERT INTO keywords (id, set_id, phrase, weight, tags, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(id, payload.setId, payload.phrase, payload.weight, payload.tags, now)
+        .run()
+      return respond.json(
+        {
+          ok: true,
+          keyword: {
+            id,
+            setId: payload.setId,
+            phrase: payload.phrase,
+            weight: payload.weight,
+            tags: payload.tags,
+            createdAt: now,
+          },
+        },
+        201,
+      )
+    }
+
+    if (request.method === 'PATCH' && path === '/keywords') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const payload = parseKeywordPatchBody(await readJsonBody(request))
+      if (payload.phrase !== undefined) {
+        await db.prepare(`UPDATE keywords SET phrase = ? WHERE id = ?`).bind(payload.phrase, payload.id).run()
+      }
+      if (payload.weight !== undefined) {
+        await db.prepare(`UPDATE keywords SET weight = ? WHERE id = ?`).bind(payload.weight, payload.id).run()
+      }
+      if (payload.tags !== undefined) {
+        await db.prepare(`UPDATE keywords SET tags = ? WHERE id = ?`).bind(payload.tags, payload.id).run()
+      }
+      const list = await listKeywords(env)
+      const keyword = list.find((entry) => entry.id === payload.id)
+      if (!keyword) {
+        return respond.json({ ok: false, error: 'keyword_not_found' }, 404)
+      }
+      return respond.ok({ ok: true, keyword })
+    }
+
+    if (request.method === 'DELETE' && path === '/keywords') {
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const id = asString(url.searchParams.get('id'))
+      if (!id) {
+        return respond.json({ ok: false, error: 'id_required' }, 400)
+      }
+      await db.prepare(`DELETE FROM keywords WHERE id = ?`).bind(id).run()
+      return respond.ok({ ok: true, id })
+    }
+
+    if (request.method === 'POST' && path === '/assemblyai/webhook') {
+      await ensureMeetingDbTables(env)
+      const secret = getAssemblyWebhookSecret(env)
+      const headerSecret = asString(request.headers.get('x-assemblyai-webhook-secret'))
+      if (!headerSecret || headerSecret !== secret) {
+        return respond.json({ ok: false, error: 'webhook_forbidden' }, 403)
+      }
+
+      const body = parsePatchBody(await readJsonBody(request))
+      const assemblyId = asString(body.transcript_id) ?? asString(body.id)
+      if (!assemblyId) {
+        return respond.json({ ok: false, error: 'transcript_id_required' }, 400)
+      }
+      const status = (asString(body.status) ?? 'processing').toLowerCase()
+      const errorMessage = asString(body.error) ?? null
+      const now = Date.now()
+      const db = requireMeetingsDb(env)
+
+      await db
+        .prepare(
+          `UPDATE transcripts
+           SET status = ?, updated_at = ?, error_message = ?
+           WHERE assembly_id = ?`,
+        )
+        .bind(status, now, errorMessage, assemblyId)
+        .run()
+
+      if (status === 'completed') {
+        ctx.waitUntil(updateTranscriptFromAssembly(env, assemblyId))
+      }
+
+      return respond.ok({
+        ok: true,
+        assemblyId,
+        status,
+      })
+    }
+  } catch (error: unknown) {
+    return fail(error)
+  }
+
+  return null
 }
 
 export default {
@@ -1456,9 +2475,12 @@ export default {
       return response
     }
 
-    const missingNotion = requiredNotionEnv(env)
-    if (missingNotion) {
-      return json({ ok: false, error: 'config_missing', message: `Missing environment variable: ${missingNotion}` }, 500, origin)
+    if (request.method === 'POST' && path === '/assemblyai/webhook') {
+      const meetingHandled = await handleMeetingRoutes(request, path, url, env, ctx, {
+        json: (body, status) => json(body, status, origin),
+        ok: (body) => ok(body, origin),
+      })
+      if (meetingHandled) return meetingHandled
     }
 
     if (!(await isAuthenticated(request, env))) {
@@ -1467,6 +2489,19 @@ export default {
         401,
         origin,
       )
+    }
+
+    if (path !== '/assemblyai/webhook') {
+      const meetingHandled = await handleMeetingRoutes(request, path, url, env, ctx, {
+        json: (body, status) => json(body, status, origin),
+        ok: (body) => ok(body, origin),
+      })
+      if (meetingHandled) return meetingHandled
+    }
+
+    const missingNotion = requiredNotionEnv(env)
+    if (missingNotion) {
+      return json({ ok: false, error: 'config_missing', message: `Missing environment variable: ${missingNotion}` }, 500, origin)
     }
 
     const service = serviceFromEnv(env)
@@ -1967,6 +3002,14 @@ export default {
               'GET /api/checklist-assignments/export?logLimit=1000',
               'GET /api/checklist-assignment-logs?limit=100',
               'POST /api/checklist-assignments',
+              'POST /api/uploads/presign',
+              'GET /api/transcripts?limit=20',
+              'POST /api/transcripts',
+              'GET /api/transcripts/:id',
+              'POST|PATCH /api/transcripts/:id/speakers',
+              'GET|POST|PATCH|DELETE /api/keyword-sets',
+              'GET|POST|PATCH|DELETE /api/keywords',
+              'POST /api/assemblyai/webhook',
               'GET /api/tasks?projectId=...&status=...&q=...&cursor=...&pageSize=...',
               'GET /api/tasks/:id',
               'POST /api/tasks',

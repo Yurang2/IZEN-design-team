@@ -27,6 +27,18 @@ else
   echo "[run-worker] CHECKLIST_DB_ID is not set -> cache mode"
 fi
 
+if [[ -n "${MEETING_AUDIO_BUCKET_NAME:-}" && -n "${MEETING_AUDIO_BUCKET_ID:-}" ]]; then
+  {
+    printf "\n[[r2_buckets]]\n"
+    printf "binding = \"MEETING_AUDIO_BUCKET\"\n"
+    printf "bucket_name = \"%s\"\n" "$MEETING_AUDIO_BUCKET_NAME"
+    printf "bucket_id = \"%s\"\n" "$MEETING_AUDIO_BUCKET_ID"
+  } >> "$TMP_CONFIG"
+  echo "[run-worker] R2 binding enabled: MEETING_AUDIO_BUCKET (${MEETING_AUDIO_BUCKET_NAME})"
+else
+  echo "[run-worker] MEETING_AUDIO_BUCKET_NAME/ID is not set -> meetings upload disabled"
+fi
+
 if [[ "$MODE" == "dev" ]]; then
   shift || true
   npx wrangler dev --config "$TMP_CONFIG" "$@"
