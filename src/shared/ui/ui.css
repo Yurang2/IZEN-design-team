@@ -449,6 +449,10 @@
   padding: 14px;
 }
 
+.page.mondayShell.checklistWide {
+  max-width: none;
+}
+
 .mondayShell {
   display: grid;
   gap: 14px;
@@ -1466,6 +1470,11 @@ button.boardCard:hover {
   margin-bottom: 12px;
 }
 
+.checklistPastToggle {
+  align-self: end;
+  margin-bottom: 2px;
+}
+
 .checklistPreviewActions {
   align-items: flex-end;
   display: flex;
@@ -1562,7 +1571,8 @@ button.boardCard:hover {
   border: 1px solid #d4def0;
   border-radius: 14px;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
-  padding: 10px;
+  padding: 10px 8px;
+  width: 100%;
 }
 
 .assignmentAsanaAxis {
@@ -1575,13 +1585,13 @@ button.boardCard:hover {
 .assignmentAsanaAxisRow {
   align-items: center;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 38px 1fr;
+  gap: 6px;
+  grid-template-columns: 30px 1fr;
 }
 
 .assignmentAsanaAxisLabel {
   color: var(--text-sub);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-align: right;
 }
@@ -1729,8 +1739,8 @@ button.boardCard:hover {
 .assignmentAsanaTrackRow {
   align-items: flex-start;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 38px 1fr;
+  gap: 6px;
+  grid-template-columns: 30px 1fr;
 }
 
 .assignmentAsanaWeekBands {

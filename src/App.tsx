@@ -2602,7 +2602,7 @@ function App() {
   }
 
   return (
-    <div className={`page mondayShell${sidebarCollapsed ? ' sidebarCollapsed' : ''}`}>
+    <div className={`page mondayShell${sidebarCollapsed ? ' sidebarCollapsed' : ''}${activeView === 'checklist' ? ' checklistWide' : ''}`}>
       <aside className={`mondaySidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="sidebarWorkspace">
           <span className="workspaceMark">IZ</span>

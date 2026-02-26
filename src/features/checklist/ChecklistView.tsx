@@ -271,12 +271,23 @@ export function ChecklistView({
   const eventNameRef = useRef<HTMLSelectElement | null>(null)
   const isAssignmentMode = mode === 'assignment'
   const [showAssignmentTimeline, setShowAssignmentTimeline] = useState(true)
+  const [hidePastEvents, setHidePastEvents] = useState(false)
   const [timelineFocusedRowId, setTimelineFocusedRowId] = useState<string | null>(null)
   const todayIso = useMemo(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   }, [])
   const todayDate = useMemo(() => parseIsoDate(todayIso), [todayIso])
+  const filteredProjectOptions = useMemo(() => {
+    if (!hidePastEvents || !todayDate) return projectDbOptions
+    const todayTime = todayDate.getTime()
+    return projectDbOptions.filter((project) => {
+      if (project.name === checklistFilters.eventName) return true
+      const eventDate = parseIsoDate(project.eventDate)
+      if (!eventDate) return true
+      return eventDate.getTime() >= todayTime
+    })
+  }, [checklistFilters.eventName, hidePastEvents, projectDbOptions, todayDate])
 
   const scheduleSummary = useMemo(() => {
     let overdue = 0
@@ -348,27 +359,15 @@ export function ChecklistView({
       return a.label.localeCompare(b.label, 'ko')
     })
 
-    const laneEndTimes: number[] = []
-    const bars: AssignmentTimelineBar[] = []
-    for (const entry of preparedBars) {
-      const startTime = entry.startDate.getTime()
-      const dueTime = entry.dueDate.getTime()
-      let lane = laneEndTimes.findIndex((endTime) => endTime <= startTime)
-      if (lane < 0) {
-        laneEndTimes.push(dueTime)
-        lane = laneEndTimes.length - 1
-      } else {
-        laneEndTimes[lane] = dueTime
-      }
-      bars.push({
-        ...entry,
-        lane,
-      })
-    }
+    // Keep one lane per item so each bar remains readable and stable.
+    const bars: AssignmentTimelineBar[] = preparedBars.map((entry, lane) => ({
+      ...entry,
+      lane,
+    }))
 
     return {
       bars,
-      laneCount: laneEndTimes.length,
+      laneCount: bars.length,
       totalCount: targetRows.length,
       unscheduledCount,
       overdueCount: bars.filter((bar) => bar.isOverdue).length,
@@ -582,12 +581,16 @@ export function ChecklistView({
           행사명
           <select ref={eventNameRef} name="eventName" value={checklistFilters.eventName} onChange={onChecklistInput}>
             <option value="">프로젝트 선택 안 함</option>
-            {projectDbOptions.map((project) => (
+            {filteredProjectOptions.map((project) => (
               <option key={project.id} value={project.name}>
                 {toProjectLabel(project)}
               </option>
             ))}
           </select>
+        </label>
+        <label className="checkboxLabel flat checklistPastToggle">
+          <input type="checkbox" checked={hidePastEvents} onChange={(event) => setHidePastEvents(event.target.checked)} />
+          지난 행사 접기
         </label>
 
         <label>
