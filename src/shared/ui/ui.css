@@ -1525,6 +1525,12 @@ button.boardCard:hover {
 .assignmentAsanaAxisRow-day .assignmentAsanaAxisFillLabel {
   font-size: 9px;
   font-weight: 600;
+  text-overflow: clip;
+}
+
+.assignmentAsanaAxisRow-day .assignmentAsanaAxisFill {
+  justify-content: center;
+  padding: 0 2px;
 }
 
 .assignmentAsanaTick {

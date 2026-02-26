@@ -726,10 +726,12 @@ export function ChecklistView({
                               const next = nextTick ? toPercentNumber(nextTick.left) : 100
                               const width = Math.max(0, next - left)
                               if (width <= 0.25) return null
-                              const hideLabelThreshold = row.key === 'day' ? 1.2 : 4.5
+                              const labelText = String(tick.label ?? '')
+                              const isDayRow = row.key === 'day'
+                              const hideLabelThreshold = isDayRow ? (labelText.length >= 2 ? 2.25 : 1.1) : 4.5
                               return {
                                 key: tick.key,
-                                label: tick.label,
+                                label: labelText,
                                 left: `${left}%`,
                                 width: `${width}%`,
                                 narrow: width < hideLabelThreshold,
