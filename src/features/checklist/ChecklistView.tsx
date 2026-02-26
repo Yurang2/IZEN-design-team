@@ -53,11 +53,34 @@ function addDays(date: Date, days: number): Date {
   return copied
 }
 
+function isBusinessDay(date: Date): boolean {
+  const day = date.getUTCDay()
+  return day !== 0 && day !== 6
+}
+
+function shiftBusinessDays(date: Date, offsetDays: number): Date {
+  if (offsetDays === 0) return new Date(date.getTime())
+  const step = offsetDays > 0 ? 1 : -1
+  let remaining = Math.abs(offsetDays)
+  let cursor = new Date(date.getTime())
+  while (remaining > 0) {
+    cursor = addDays(cursor, step)
+    if (isBusinessDay(cursor)) {
+      remaining -= 1
+    }
+  }
+  return cursor
+}
+
 function toIsoDate(value: Date): string {
   const year = value.getUTCFullYear()
   const month = String(value.getUTCMonth() + 1).padStart(2, '0')
   const day = String(value.getUTCDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function toMonthDayLabel(value: Date): string {
+  return `${value.getUTCMonth() + 1}/${value.getUTCDate()}`
 }
 
 function getIsoWeekNumber(value: Date): number {
@@ -286,7 +309,7 @@ export function ChecklistView({
 
       const leadDaysRaw = typeof row.totalLeadDays === 'number' ? Math.round(row.totalLeadDays) : 1
       const leadDays = Math.max(1, leadDaysRaw)
-      const startDate = addDays(dueDate, -(leadDays - 1))
+      const startDate = shiftBusinessDays(dueDate, -(leadDays - 1))
       preparedBars.push({
         id: row.item.id,
         label: row.item.productName || row.item.workCategory || '-',
@@ -396,7 +419,18 @@ export function ChecklistView({
         rows.month.push({ key: `month-${iso}`, label: `${month}월`, left, isStart, isEnd })
       }
       if (isStart || dayOfWeek === 1) {
-        rows.week.push({ key: `week-${iso}`, label: `${getIsoWeekNumber(cursor)}주차`, left, isStart, isEnd })
+        const mondayOffset = (dayOfWeek || 7) - 1
+        const weekStart = addDays(cursor, -mondayOffset)
+        const weekEnd = addDays(weekStart, 6)
+        const rangeStart = weekStart.getTime() < assignmentTimelineRange.start.getTime() ? assignmentTimelineRange.start : weekStart
+        const rangeEnd = weekEnd.getTime() > assignmentTimelineRange.end.getTime() ? assignmentTimelineRange.end : weekEnd
+        rows.week.push({
+          key: `week-${iso}`,
+          label: `${getIsoWeekNumber(cursor)}주차 (${toMonthDayLabel(rangeStart)}-${toMonthDayLabel(rangeEnd)})`,
+          left,
+          isStart,
+          isEnd,
+        })
       }
       if (isStart || dayIndex % dayStep === 0) {
         rows.day.push({
@@ -425,7 +459,16 @@ export function ChecklistView({
 
     ensureEndTick(rows.year, `${assignmentTimelineRange.end.getUTCFullYear()}년`, 'year')
     ensureEndTick(rows.month, `${assignmentTimelineRange.end.getUTCMonth() + 1}월`, 'month')
-    ensureEndTick(rows.week, `${getIsoWeekNumber(assignmentTimelineRange.end)}주차`, 'week')
+    const endWeekDow = assignmentTimelineRange.end.getUTCDay() || 7
+    const endWeekStart = addDays(assignmentTimelineRange.end, -(endWeekDow - 1))
+    const endWeekEnd = addDays(endWeekStart, 6)
+    const endWeekRangeStart = endWeekStart.getTime() < assignmentTimelineRange.start.getTime() ? assignmentTimelineRange.start : endWeekStart
+    const endWeekRangeEnd = endWeekEnd.getTime() > assignmentTimelineRange.end.getTime() ? assignmentTimelineRange.end : endWeekEnd
+    ensureEndTick(
+      rows.week,
+      `${getIsoWeekNumber(assignmentTimelineRange.end)}주차 (${toMonthDayLabel(endWeekRangeStart)}-${toMonthDayLabel(endWeekRangeEnd)})`,
+      'week',
+    )
     ensureEndTick(
       rows.day,
       `${assignmentTimelineRange.end.getUTCDate()}일`,
@@ -465,6 +508,32 @@ export function ChecklistView({
       }
       weekCursor = nextWeek
       index += 1
+    }
+
+    return segments
+  }, [assignmentTimelineRange])
+  const assignmentTimelineWeekendBands = useMemo(() => {
+    if (!assignmentTimelineRange) return [] as Array<{ key: string; left: string; width: string }>
+
+    const segments: Array<{ key: string; left: string; width: string }> = []
+    let cursor = new Date(assignmentTimelineRange.start.getTime())
+    while (cursor.getTime() <= assignmentTimelineRange.end.getTime()) {
+      const dayOfWeek = cursor.getUTCDay()
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        const nextDay = addDays(cursor, 1)
+        const start = cursor.getTime() < assignmentTimelineRange.start.getTime() ? assignmentTimelineRange.start : cursor
+        const end = nextDay.getTime() > assignmentTimelineRange.end.getTime() ? assignmentTimelineRange.end : nextDay
+        if (end.getTime() > start.getTime()) {
+          const left = ((start.getTime() - assignmentTimelineRange.start.getTime()) / assignmentTimelineRange.spanMs) * 100
+          const right = ((end.getTime() - assignmentTimelineRange.start.getTime()) / assignmentTimelineRange.spanMs) * 100
+          segments.push({
+            key: `weekend-band-${toIsoDate(cursor)}-${dayOfWeek}`,
+            left: `${Math.max(0, Math.min(100, left))}%`,
+            width: `${Math.max(0.8, Math.min(100, right) - Math.max(0, Math.min(100, left)))}%`,
+          })
+        }
+      }
+      cursor = addDays(cursor, 1)
     }
 
     return segments
@@ -621,7 +690,7 @@ export function ChecklistView({
           {showAssignmentTimeline ? (
             <>
               <p className="muted small assignmentTimelineGuide">
-                해당없음 제외 · 할당여부 무관 전체 표시 · 위험(역산 경과) 업무는 빨간색으로 강조됩니다.
+                해당없음 제외 · 할당여부 무관 전체 표시 · 위험(역산 경과) 업무는 빨간색 강조 · 사선 밴드는 주말입니다.
               </p>
               <p className="muted small assignmentTimelineGuide">
                 전체 {assignmentTimelineModel.totalCount}건 / 표시 {assignmentTimelineModel.bars.length}건 / 날짜 미확정 {assignmentTimelineModel.unscheduledCount}건 /
@@ -654,6 +723,11 @@ export function ChecklistView({
                       바
                     </span>
                     <div className="assignmentAsanaTrack" style={{ height: `${assignmentTimelineTrackHeight}px` }}>
+                      <div className="assignmentAsanaWeekendBands" aria-hidden="true">
+                        {assignmentTimelineWeekendBands.map((band) => (
+                          <span key={band.key} className="assignmentAsanaWeekendBand" style={{ left: band.left, width: band.width }} />
+                        ))}
+                      </div>
                       <div className="assignmentAsanaWeekBands" aria-hidden="true">
                         {assignmentTimelineWeekBands.map((band) => (
                           <span key={band.key} className={`assignmentAsanaWeekBand ${band.alt ? 'is-alt' : ''}`.trim()} style={{ left: band.left, width: band.width }} />
@@ -669,11 +743,17 @@ export function ChecklistView({
                       {assignmentTimelineModel.bars.map((entry) => {
                         const position = barStyleForDateRange(assignmentTimelineRange, entry.startDate, entry.dueDate)
                         if (!position) return null
+                        const widthPercent =
+                          typeof position.width === 'number'
+                            ? position.width
+                            : Number.parseFloat(typeof position.width === 'string' ? position.width : '0')
+                        const isCompact = Number.isFinite(widthPercent) && widthPercent < 7
                         const className = [
                           'assignmentAsanaBar',
                           entry.assignmentStatus === 'unassigned' ? 'is-unassigned' : '',
                           entry.isDueToday ? 'is-due-today' : '',
                           entry.isOverdue ? 'is-overdue' : '',
+                          isCompact ? 'is-compact' : '',
                         ]
                           .filter(Boolean)
                           .join(' ')
@@ -700,8 +780,12 @@ export function ChecklistView({
                               }, 1800)
                           }}
                         >
+                            {isCompact ? <span className="assignmentAsanaBarCompactDot" aria-hidden="true" /> : null}
                             <span className="assignmentAsanaBarName">{entry.label}</span>
                             <span className="assignmentAsanaBarStatus">{entry.assignmentStatusLabel}</span>
+                            {isCompact ? (
+                              <span className="assignmentAsanaBarOutsideLabel">{entry.label} · {entry.assignmentStatusLabel}</span>
+                            ) : null}
                           </button>
                         )
                       })}
