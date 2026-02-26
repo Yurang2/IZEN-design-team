@@ -444,13 +444,9 @@
 
 .page {
   margin: 0 auto;
-  max-width: 1680px;
+  max-width: none;
   min-height: 100vh;
   padding: 14px;
-}
-
-.page.mondayShell.checklistWide {
-  max-width: none;
 }
 
 .mondayShell {
