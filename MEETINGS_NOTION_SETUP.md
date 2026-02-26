@@ -1,0 +1,55 @@
+# 회의록 기능 설정 가이드 (Notion DB 저장, D1 미사용)
+
+## 핵심 결론
+- 회의록 기능은 `Notion DB + R2 + AssemblyAI`로 동작합니다.
+- `D1`은 회의록 기능에서 사용하지 않습니다.
+- `R2`는 별도 서버를 띄우는 방식이 아닙니다. Cloudflare에 버킷만 만들고 Worker에 바인딩하면 됩니다.
+
+## 1) Notion 준비
+1. 회의록 전용 DB를 하나 만듭니다. (기본 제목 컬럼 1개만 있어도 시작 가능)
+2. DB를 Worker가 접근할 수 있도록 Notion Integration을 DB에 공유합니다.
+3. DB 주소에서 ID를 복사합니다.
+- 예: `https://www.notion.so/<workspace>/<DB_ID>?v=...`
+- 이 `DB_ID`를 `NOTION_MEETING_DB_ID`로 사용합니다.
+
+## 2) Cloudflare Pages/Workers 환경변수(대시보드) 설정
+- `ASSEMBLYAI_API_KEY` (Secret)
+- `ASSEMBLYAI_WEBHOOK_SECRET` (Secret)
+- `NOTION_TOKEN` (Secret)
+- `NOTION_MEETING_DB_ID` (Variable)
+- 선택: `ASSEMBLYAI_WEBHOOK_URL` (Variable, 미설정 시 자동 `/api/assemblyai/webhook`)
+
+참고:
+- 기존 프로젝트/업무 API를 계속 쓴다면 아래도 이미 설정되어 있어야 합니다.
+  - `NOTION_PROJECT_DB_ID`
+  - `NOTION_TASK_DB_ID`
+
+## 3) R2 준비 (대시보드)
+1. Cloudflare R2에서 버킷 생성 (예: `izen-meeting-audio`)
+2. Worker 설정에서 R2 바인딩 추가
+- Binding name: `MEETING_AUDIO_BUCKET`
+- Bucket: 방금 만든 버킷
+
+## 4) 배포 후 확인
+1. 웹 `회의록` 탭 접속
+2. m4a/mp3 업로드 후 전사 시작
+3. 상태가 `queued/processing -> completed`로 변하는지 확인
+4. 완료 후 Notion DB에 transcript row 생성 확인
+5. Notion 페이지 본문에 전사 텍스트/utterances가 들어오는지 확인
+6. 화자 매핑 저장 후 화면 표시명이 바뀌는지 확인
+7. 키워드 세트/키워드 추가 후 `keywordsUsed` 반영 확인
+
+## 5) 엔드포인트 요약
+- `POST /api/uploads/presign`
+- `POST /api/transcripts`
+- `GET /api/transcripts?limit=20`
+- `GET /api/transcripts/:id`
+- `POST|PATCH /api/transcripts/:id/speakers`
+- `GET|POST|PATCH|DELETE /api/keyword-sets`
+- `GET|POST|PATCH|DELETE /api/keywords`
+- `POST /api/assemblyai/webhook`
+
+## 6) 현재 저장 방식
+- 원본 전사(화자 라벨 A/B/C)는 그대로 유지합니다.
+- 화자 이름 매핑은 별도 속성으로 저장합니다.
+- 화면/내보내기에서는 매핑 이름으로 치환해 보여줍니다.

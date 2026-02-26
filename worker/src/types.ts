@@ -38,6 +38,7 @@ export interface Env {
   NOTION_TASK_DB_ID: string
   NOTION_PROJECT_DB_ID: string
   NOTION_CHECKLIST_DB_ID?: string
+  NOTION_MEETING_DB_ID?: string
   NOTION_CHECKLIST_ASSIGNMENT_DB_ID?: string
   PAGE_PASSWORD: string
   AUTH_DISABLED?: string

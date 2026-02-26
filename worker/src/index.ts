@@ -38,6 +38,10 @@ const DEFAULT_MAX_SPEAKERS = 10
 const MIN_ALLOWED_SPEAKERS = 1
 const MAX_ALLOWED_SPEAKERS = 10
 const TRANSCRIPT_POLL_LIMIT = 50
+const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
+const NOTION_RICH_TEXT_CHUNK = 1800
+const MAX_TRANSCRIPT_BODY_TEXT_BLOCKS = 80
+const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
@@ -45,6 +49,7 @@ let checklistDbInitInFlight: Promise<void> | null = null
 let meetingDbInitInFlight: Promise<void> | null = null
 let lastRateLimitCleanupAt = 0
 let sessionSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
+let meetingNotionSchemaCache: { databaseId: string; titlePropertyName: string; checkedAt: number } | null = null
 
 type RateLimitBucket = {
   count: number
@@ -1876,6 +1881,10 @@ async function handleMeetingRoutes(
     ok: (body: unknown) => Response
   },
 ): Promise<Response | null> {
+  if (asString(env.NOTION_MEETING_DB_ID)) {
+    return handleMeetingRoutesNotion(request, path, url, env, ctx, respond)
+  }
+
   const toErrorStatus = (message: string): number => {
     if (
       message.includes('_required') ||
@@ -2349,6 +2358,1113 @@ async function handleMeetingRoutes(
   return null
 }
 
+const MEETING_NOTION_FIELD = {
+  recordType: 'Record Type',
+  transcriptId: 'Transcript ID',
+  meetingId: 'Meeting ID',
+  assemblyId: 'Assembly ID',
+  status: 'Status',
+  audioKey: 'Audio Key',
+  speakerMapJson: 'Speaker Map JSON',
+  keywordsUsedJson: 'Keywords Used JSON',
+  errorMessage: 'Error Message',
+  createdAt: 'Created At',
+  updatedAt: 'Updated At',
+  minSpeakers: 'Min Speakers',
+  maxSpeakers: 'Max Speakers',
+  keywordSetId: 'Keyword Set ID',
+  keywordSetName: 'Keyword Set Name',
+  keywordId: 'Keyword ID',
+  phrase: 'Phrase',
+  weight: 'Weight',
+  tags: 'Tags',
+  isActive: 'Is Active',
+  bodySynced: 'Body Synced',
+  textPreview: 'Text Preview',
+} as const
+
+const MEETING_RECORD_TYPE = {
+  transcript: 'transcript',
+  keywordSet: 'keyword_set',
+  keyword: 'keyword',
+} as const
+
+const MEETING_STATUS_VALUES = new Set(['queued', 'submitted', 'processing', 'completed', 'failed', 'error'])
+
+function normalizeMeetingStatus(value: string | undefined): string {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (!normalized) return 'processing'
+  return MEETING_STATUS_VALUES.has(normalized) ? normalized : 'processing'
+}
+
+type MeetingNotionContext = {
+  api: NotionApi
+  databaseId: string
+  titlePropertyName: string
+}
+
+type MeetingNotionTranscriptRow = {
+  pageId: string
+  id: string
+  meetingId: string
+  assemblyId: string | null
+  status: string
+  createdAt: number
+  updatedAt: number
+  title: string
+  audioKey: string
+  speakerMap: Record<string, string>
+  keywordsUsed: string[]
+  errorMessage: string | null
+  bodySynced: boolean
+  textPreview: string
+}
+
+function getMeetingNotionDbId(env: Env): string {
+  const id = asString(env.NOTION_MEETING_DB_ID)
+  if (!id) throw new Error('notion_meeting_db_id_missing')
+  return id
+}
+
+function toNotionRichText(text: string, maxChars = 6000): Array<{ type: 'text'; text: { content: string } }> {
+  const trimmed = text.trim()
+  if (!trimmed) return []
+  const safe = trimmed.slice(0, maxChars)
+  const chunks: Array<{ type: 'text'; text: { content: string } }> = []
+  for (let i = 0; i < safe.length; i += NOTION_RICH_TEXT_CHUNK) {
+    chunks.push({ type: 'text', text: { content: safe.slice(i, i + NOTION_RICH_TEXT_CHUNK) } })
+  }
+  return chunks
+}
+
+function notionRichTextValue(text: string, maxChars = 6000): { rich_text: Array<{ type: 'text'; text: { content: string } }> } {
+  return { rich_text: toNotionRichText(text, maxChars) }
+}
+
+function notionReadRichText(prop: unknown): string {
+  if (!prop || typeof prop !== 'object') return ''
+  const value = prop as Record<string, unknown>
+  const rich = Array.isArray(value.rich_text) ? value.rich_text : []
+  return rich
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return ''
+      const item = entry as Record<string, unknown>
+      return asString(item.plain_text) ?? ''
+    })
+    .join('')
+    .trim()
+}
+
+function notionReadTitle(prop: unknown): string {
+  if (!prop || typeof prop !== 'object') return ''
+  const value = prop as Record<string, unknown>
+  const title = Array.isArray(value.title) ? value.title : []
+  return title
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return ''
+      const item = entry as Record<string, unknown>
+      return asString(item.plain_text) ?? ''
+    })
+    .join('')
+    .trim()
+}
+
+function notionReadSelect(prop: unknown): string {
+  if (!prop || typeof prop !== 'object') return ''
+  const value = prop as Record<string, unknown>
+  if (!value.select || typeof value.select !== 'object') return ''
+  return asString((value.select as Record<string, unknown>).name) ?? ''
+}
+
+function notionReadNumber(prop: unknown): number {
+  if (!prop || typeof prop !== 'object') return 0
+  const value = prop as Record<string, unknown>
+  const n = value.number
+  return typeof n === 'number' && Number.isFinite(n) ? n : 0
+}
+
+function notionReadCheckbox(prop: unknown): boolean {
+  if (!prop || typeof prop !== 'object') return false
+  const value = prop as Record<string, unknown>
+  return Boolean(value.checkbox)
+}
+
+function safeParseSpeakerMap(value: string): Record<string, string> {
+  if (!value) return {}
+  try {
+    const parsed = JSON.parse(value)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const map: Record<string, string> = {}
+    for (const [key, item] of Object.entries(parsed)) {
+      const speaker = asString(key)
+      const name = asString(typeof item === 'string' ? item : undefined)
+      if (!speaker || !name) continue
+      map[speaker] = name
+    }
+    return map
+  } catch {
+    return {}
+  }
+}
+
+function safeParseStringArray(value: string): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+  } catch {
+    return []
+  }
+}
+
+async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext> {
+  const databaseId = getMeetingNotionDbId(env)
+  const now = Date.now()
+  if (
+    meetingNotionSchemaCache &&
+    meetingNotionSchemaCache.databaseId === databaseId &&
+    now - meetingNotionSchemaCache.checkedAt < MEETING_NOTION_SCHEMA_CACHE_MS
+  ) {
+    return {
+      api: new NotionApi(env),
+      databaseId,
+      titlePropertyName: meetingNotionSchemaCache.titlePropertyName,
+    }
+  }
+
+  const api = new NotionApi(env)
+  const db = await api.retrieveDatabase(databaseId)
+  const properties = (db?.properties ?? {}) as Record<string, unknown>
+  const titlePropertyName =
+    Object.entries(properties).find(([, prop]) => {
+      if (!prop || typeof prop !== 'object') return false
+      return (prop as Record<string, unknown>).type === 'title'
+    })?.[0] ?? ''
+  if (!titlePropertyName) throw new Error('notion_meeting_db_title_property_missing')
+
+  const patch: Record<string, unknown> = {}
+  const ensure = (name: string, spec: Record<string, unknown>): void => {
+    if (!properties[name]) patch[name] = spec
+  }
+
+  ensure(MEETING_NOTION_FIELD.recordType, {
+    select: {
+      options: [{ name: MEETING_RECORD_TYPE.transcript }, { name: MEETING_RECORD_TYPE.keywordSet }, { name: MEETING_RECORD_TYPE.keyword }],
+    },
+  })
+  ensure(MEETING_NOTION_FIELD.transcriptId, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.meetingId, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.assemblyId, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.status, {
+    select: {
+      options: [{ name: 'queued' }, { name: 'submitted' }, { name: 'processing' }, { name: 'completed' }, { name: 'failed' }, { name: 'error' }],
+    },
+  })
+  ensure(MEETING_NOTION_FIELD.audioKey, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.speakerMapJson, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.keywordsUsedJson, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.errorMessage, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.createdAt, { number: { format: 'number' } })
+  ensure(MEETING_NOTION_FIELD.updatedAt, { number: { format: 'number' } })
+  ensure(MEETING_NOTION_FIELD.minSpeakers, { number: { format: 'number' } })
+  ensure(MEETING_NOTION_FIELD.maxSpeakers, { number: { format: 'number' } })
+  ensure(MEETING_NOTION_FIELD.keywordSetId, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.keywordSetName, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.keywordId, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.phrase, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.weight, { number: { format: 'number' } })
+  ensure(MEETING_NOTION_FIELD.tags, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.isActive, { checkbox: {} })
+  ensure(MEETING_NOTION_FIELD.bodySynced, { checkbox: {} })
+  ensure(MEETING_NOTION_FIELD.textPreview, { rich_text: {} })
+
+  if (Object.keys(patch).length > 0) {
+    await api.updateDatabase(databaseId, { properties: patch })
+  }
+
+  meetingNotionSchemaCache = {
+    databaseId,
+    titlePropertyName,
+    checkedAt: now,
+  }
+
+  return { api, databaseId, titlePropertyName }
+}
+
+async function queryAllMeetingNotionPages(ctx: MeetingNotionContext, input: Record<string, unknown>): Promise<any[]> {
+  const pages: any[] = []
+  let cursor: string | undefined
+  for (let i = 0; i < 50; i += 1) {
+    const payload: Record<string, unknown> = { ...input, page_size: 100 }
+    if (cursor) payload.start_cursor = cursor
+    const result = await ctx.api.queryDatabase(ctx.databaseId, payload)
+    const rows = Array.isArray(result?.results) ? result.results : []
+    pages.push(...rows.filter((page) => page && !page.archived && !page.in_trash))
+    cursor = result?.has_more ? asString(result?.next_cursor) : undefined
+    if (!cursor) break
+  }
+  return pages
+}
+
+function transcriptFilterById(transcriptId: string): Record<string, unknown> {
+  return {
+    and: [
+      { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.transcript } },
+      { property: MEETING_NOTION_FIELD.transcriptId, rich_text: { equals: transcriptId } },
+    ],
+  }
+}
+
+function transcriptFilterByAssemblyId(assemblyId: string): Record<string, unknown> {
+  return {
+    and: [
+      { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.transcript } },
+      { property: MEETING_NOTION_FIELD.assemblyId, rich_text: { equals: assemblyId } },
+    ],
+  }
+}
+
+function mapMeetingNotionTranscriptPage(page: any, titlePropertyName: string): MeetingNotionTranscriptRow {
+  const props = (page?.properties ?? {}) as Record<string, unknown>
+  const transcriptId = notionReadRichText(props[MEETING_NOTION_FIELD.transcriptId]) || asString(page?.id) || ''
+  return {
+    pageId: asString(page?.id) ?? '',
+    id: transcriptId,
+    meetingId: notionReadRichText(props[MEETING_NOTION_FIELD.meetingId]),
+    assemblyId: notionReadRichText(props[MEETING_NOTION_FIELD.assemblyId]) || null,
+    status: notionReadSelect(props[MEETING_NOTION_FIELD.status]) || 'queued',
+    createdAt: notionReadNumber(props[MEETING_NOTION_FIELD.createdAt]),
+    updatedAt: notionReadNumber(props[MEETING_NOTION_FIELD.updatedAt]),
+    title: notionReadTitle(props[titlePropertyName]) || transcriptId || 'Untitled meeting',
+    audioKey: notionReadRichText(props[MEETING_NOTION_FIELD.audioKey]),
+    speakerMap: safeParseSpeakerMap(notionReadRichText(props[MEETING_NOTION_FIELD.speakerMapJson])),
+    keywordsUsed: safeParseStringArray(notionReadRichText(props[MEETING_NOTION_FIELD.keywordsUsedJson])),
+    errorMessage: notionReadRichText(props[MEETING_NOTION_FIELD.errorMessage]) || null,
+    bodySynced: notionReadCheckbox(props[MEETING_NOTION_FIELD.bodySynced]),
+    textPreview: notionReadRichText(props[MEETING_NOTION_FIELD.textPreview]),
+  }
+}
+
+async function getMeetingNotionTranscriptById(env: Env, transcriptId: string): Promise<{ row: MeetingNotionTranscriptRow; ctx: MeetingNotionContext } | null> {
+  const ctx = await ensureMeetingNotionSchema(env)
+  const pages = await queryAllMeetingNotionPages(ctx, { filter: transcriptFilterById(transcriptId) })
+  if (pages.length === 0) return null
+  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName), ctx }
+}
+
+async function getMeetingNotionTranscriptByAssemblyId(env: Env, assemblyId: string): Promise<{ row: MeetingNotionTranscriptRow; ctx: MeetingNotionContext } | null> {
+  const ctx = await ensureMeetingNotionSchema(env)
+  const pages = await queryAllMeetingNotionPages(ctx, { filter: transcriptFilterByAssemblyId(assemblyId) })
+  if (pages.length === 0) return null
+  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName), ctx }
+}
+
+async function listMeetingNotionTranscripts(env: Env, limit: number): Promise<MeetingNotionTranscriptRow[]> {
+  const ctx = await ensureMeetingNotionSchema(env)
+  const result = await ctx.api.queryDatabase(ctx.databaseId, {
+    filter: {
+      property: MEETING_NOTION_FIELD.recordType,
+      select: { equals: MEETING_RECORD_TYPE.transcript },
+    },
+    sorts: [{ property: MEETING_NOTION_FIELD.createdAt, direction: 'descending' }],
+    page_size: Math.max(1, Math.min(100, limit)),
+  })
+  const pages = Array.isArray(result?.results) ? result.results : []
+  return pages
+    .filter((page) => page && !page.archived && !page.in_trash)
+    .map((page) => mapMeetingNotionTranscriptPage(page, ctx.titlePropertyName))
+}
+
+function keywordSetFilterById(setId: string): Record<string, unknown> {
+  return {
+    and: [
+      { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.keywordSet } },
+      { property: MEETING_NOTION_FIELD.keywordSetId, rich_text: { equals: setId } },
+    ],
+  }
+}
+
+function keywordFilterBySetId(setId: string): Record<string, unknown> {
+  return {
+    and: [
+      { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.keyword } },
+      { property: MEETING_NOTION_FIELD.keywordSetId, rich_text: { equals: setId } },
+    ],
+  }
+}
+
+function keywordFilterById(keywordId: string): Record<string, unknown> {
+  return {
+    and: [
+      { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.keyword } },
+      { property: MEETING_NOTION_FIELD.keywordId, rich_text: { equals: keywordId } },
+    ],
+  }
+}
+
+async function findMeetingNotionKeywordSetPageById(
+  env: Env,
+  setId: string,
+): Promise<{ page: any; ctx: MeetingNotionContext } | null> {
+  const ctx = await ensureMeetingNotionSchema(env)
+  const pages = await queryAllMeetingNotionPages(ctx, { filter: keywordSetFilterById(setId) })
+  if (pages.length > 0) return { page: pages[0], ctx }
+  try {
+    const page = await ctx.api.retrievePage(setId)
+    if (!page || page.archived || page.in_trash) return null
+    const props = (page.properties ?? {}) as Record<string, unknown>
+    const recordType = notionReadSelect(props[MEETING_NOTION_FIELD.recordType])
+    if (recordType !== MEETING_RECORD_TYPE.keywordSet) return null
+    return { page, ctx }
+  } catch {
+    return null
+  }
+}
+
+async function findMeetingNotionKeywordPageById(
+  env: Env,
+  keywordId: string,
+): Promise<{ page: any; ctx: MeetingNotionContext } | null> {
+  const ctx = await ensureMeetingNotionSchema(env)
+  const pages = await queryAllMeetingNotionPages(ctx, { filter: keywordFilterById(keywordId) })
+  if (pages.length > 0) return { page: pages[0], ctx }
+  try {
+    const page = await ctx.api.retrievePage(keywordId)
+    if (!page || page.archived || page.in_trash) return null
+    const props = (page.properties ?? {}) as Record<string, unknown>
+    const recordType = notionReadSelect(props[MEETING_NOTION_FIELD.recordType])
+    if (recordType !== MEETING_RECORD_TYPE.keyword) return null
+    return { page, ctx }
+  } catch {
+    return null
+  }
+}
+
+function paragraphBlock(text: string): Record<string, unknown> {
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: { rich_text: toNotionRichText(text, NOTION_RICH_TEXT_CHUNK) },
+  }
+}
+
+function headingBlock(level: 'heading_2' | 'heading_3', text: string): Record<string, unknown> {
+  return {
+    object: 'block',
+    type: level,
+    [level]: { rich_text: toNotionRichText(text, NOTION_RICH_TEXT_CHUNK) },
+  }
+}
+
+function bulletBlock(text: string): Record<string, unknown> {
+  return {
+    object: 'block',
+    type: 'bulleted_list_item',
+    bulleted_list_item: { rich_text: toNotionRichText(text, NOTION_RICH_TEXT_CHUNK) },
+  }
+}
+
+function splitTextChunks(text: string, chunkSize: number, maxChunks: number): string[] {
+  const trimmed = text.trim()
+  if (!trimmed) return []
+  const chunks: string[] = []
+  for (let i = 0; i < trimmed.length && chunks.length < maxChunks; i += chunkSize) {
+    chunks.push(trimmed.slice(i, i + chunkSize))
+  }
+  return chunks
+}
+
+function buildTranscriptBodyBlocks(detail: Record<string, unknown>): Record<string, unknown>[] {
+  const status = asString(detail.status) ?? 'completed'
+  const text = asString(detail.text) ?? ''
+  const utterances = normalizeUtterances(detail.utterances)
+  const blocks: Record<string, unknown>[] = []
+  blocks.push(headingBlock('heading_2', 'AssemblyAI Transcript'))
+  blocks.push(paragraphBlock(`status=${status} generated_at=${new Date().toISOString()}`))
+
+  if (text.trim()) {
+    blocks.push(headingBlock('heading_3', 'Full Text'))
+    for (const chunk of splitTextChunks(text, NOTION_RICH_TEXT_CHUNK, MAX_TRANSCRIPT_BODY_TEXT_BLOCKS)) {
+      blocks.push(paragraphBlock(chunk))
+    }
+  }
+
+  if (utterances.length > 0) {
+    blocks.push(headingBlock('heading_3', `Utterances (${Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)}/${utterances.length})`))
+    for (const row of utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)) {
+      blocks.push(bulletBlock(`${row.speaker}: ${row.text}`))
+    }
+  }
+  return blocks
+}
+
+async function appendBlocksInChunks(api: NotionApi, pageId: string, blocks: Array<Record<string, unknown>>): Promise<void> {
+  for (let i = 0; i < blocks.length; i += 80) {
+    await api.appendBlockChildren(pageId, blocks.slice(i, i + 80))
+  }
+}
+
+async function listNotionKeywordSets(
+  env: Env,
+): Promise<
+  Array<{
+    id: string
+    name: string
+    isActive: boolean
+    createdAt: number
+    keywordCount: number
+  }>
+> {
+  const ctx = await ensureMeetingNotionSchema(env)
+  const [setPages, keywordPages] = await Promise.all([
+    queryAllMeetingNotionPages(ctx, {
+      filter: { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.keywordSet } },
+      sorts: [{ property: MEETING_NOTION_FIELD.createdAt, direction: 'descending' }],
+    }),
+    queryAllMeetingNotionPages(ctx, {
+      filter: { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.keyword } },
+    }),
+  ])
+
+  const counts = new Map<string, number>()
+  for (const page of keywordPages) {
+    const props = (page?.properties ?? {}) as Record<string, unknown>
+    const setId = notionReadRichText(props[MEETING_NOTION_FIELD.keywordSetId])
+    if (!setId) continue
+    counts.set(setId, (counts.get(setId) ?? 0) + 1)
+  }
+
+  return setPages.map((page) => {
+    const props = (page?.properties ?? {}) as Record<string, unknown>
+    const id = notionReadRichText(props[MEETING_NOTION_FIELD.keywordSetId]) || asString(page?.id) || ''
+    const name = notionReadRichText(props[MEETING_NOTION_FIELD.keywordSetName]) || notionReadTitle(props[ctx.titlePropertyName]) || 'Untitled set'
+    return {
+      id,
+      name,
+      isActive: notionReadCheckbox(props[MEETING_NOTION_FIELD.isActive]),
+      createdAt: notionReadNumber(props[MEETING_NOTION_FIELD.createdAt]),
+      keywordCount: counts.get(id) ?? 0,
+    }
+  })
+}
+
+async function listNotionKeywords(
+  env: Env,
+  setId?: string,
+): Promise<
+  Array<{
+    id: string
+    setId: string
+    phrase: string
+    weight: number | null
+    tags: string | null
+    createdAt: number
+  }>
+> {
+  const ctx = await ensureMeetingNotionSchema(env)
+  const filter = setId
+    ? {
+        and: [
+          { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.keyword } },
+          { property: MEETING_NOTION_FIELD.keywordSetId, rich_text: { equals: setId } },
+        ],
+      }
+    : { property: MEETING_NOTION_FIELD.recordType, select: { equals: MEETING_RECORD_TYPE.keyword } }
+  const pages = await queryAllMeetingNotionPages(ctx, {
+    filter,
+    sorts: [{ property: MEETING_NOTION_FIELD.createdAt, direction: 'descending' }],
+  })
+
+  return pages.map((page) => {
+    const props = (page?.properties ?? {}) as Record<string, unknown>
+    const id = notionReadRichText(props[MEETING_NOTION_FIELD.keywordId]) || asString(page?.id) || ''
+    const setIdValue = notionReadRichText(props[MEETING_NOTION_FIELD.keywordSetId]) || ''
+    const phrase = notionReadRichText(props[MEETING_NOTION_FIELD.phrase]) || notionReadTitle(props[ctx.titlePropertyName]) || ''
+    const weight = notionReadNumber(props[MEETING_NOTION_FIELD.weight])
+    return {
+      id,
+      setId: setIdValue,
+      phrase,
+      weight: Number.isFinite(weight) ? weight : null,
+      tags: notionReadRichText(props[MEETING_NOTION_FIELD.tags]) || null,
+      createdAt: notionReadNumber(props[MEETING_NOTION_FIELD.createdAt]),
+    }
+  })
+}
+
+async function readKeywordPhrasesBySetIdFromNotion(
+  env: Env,
+  setId: string | null,
+): Promise<{ phrases: string[]; truncated: boolean; total: number }> {
+  if (!setId) return { phrases: [], truncated: false, total: 0 }
+  const keywords = await listNotionKeywords(env, setId)
+  const keywordLimit = parseMeetingKeywordLimit(env)
+  const phrases = keywords.map((entry) => entry.phrase.trim()).filter(Boolean)
+  const uniquePhrases = Array.from(new Set(phrases))
+  return {
+    phrases: uniquePhrases.slice(0, keywordLimit),
+    truncated: uniquePhrases.length > keywordLimit,
+    total: uniquePhrases.length,
+  }
+}
+
+async function updateMeetingNotionTranscriptFromAssembly(env: Env, assemblyId: string): Promise<void> {
+  const found = await getMeetingNotionTranscriptByAssemblyId(env, assemblyId)
+  if (!found) return
+  const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(assemblyId)}`)
+  const status = normalizeMeetingStatus(asString(detail.status) ?? 'processing')
+  const text = asString(detail.text) ?? ''
+
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
+      [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
+    },
+  })
+
+  if (found.row.bodySynced) return
+  const blocks = buildTranscriptBodyBlocks(detail)
+  if (blocks.length > 0) {
+    await appendBlocksInChunks(found.ctx.api, found.row.pageId, blocks)
+  }
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+    },
+  })
+}
+
+function isMeetingRoutePath(path: string): boolean {
+  return (
+    path === '/uploads/presign' ||
+    path === '/transcripts' ||
+    path === '/keyword-sets' ||
+    path === '/keywords' ||
+    path === '/assemblyai/webhook' ||
+    /^\/transcripts\/[^/]+$/.test(path) ||
+    /^\/transcripts\/[^/]+\/speakers$/.test(path)
+  )
+}
+
+async function handleMeetingRoutesNotion(
+  request: Request,
+  path: string,
+  url: URL,
+  env: Env,
+  ctx: ExecutionContext,
+  respond: {
+    json: (body: unknown, status: number) => Response
+    ok: (body: unknown) => Response
+  },
+): Promise<Response | null> {
+  if (!isMeetingRoutePath(path)) {
+    return null
+  }
+
+  const toErrorStatus = (message: string): number => {
+    if (
+      message.includes('_required') ||
+      message.includes('_invalid') ||
+      message.includes('speaker_range_invalid') ||
+      message.includes('mappings_required')
+    ) {
+      return 400
+    }
+    if (message.includes('not_found') || message.includes('object_not_found')) return 404
+    if (message.includes('assemblyai_http_')) return 502
+    if (message.includes('notion_http_')) return 502
+    return 500
+  }
+  const fail = (error: unknown): Response => {
+    const message = error instanceof Error && error.message ? error.message : 'unknown_error'
+    return respond.json({ ok: false, error: message }, toErrorStatus(message))
+  }
+
+  const transcriptMatch = path.match(/^\/transcripts\/([^/]+)$/)
+  const speakerMatch = path.match(/^\/transcripts\/([^/]+)\/speakers$/)
+
+  try {
+    if (request.method === 'POST' && path === '/uploads/presign') {
+      const payload = parsePatchBody(await readJsonBody(request))
+      const filename = asString(payload.filename) ?? asString(payload.name) ?? 'recording.m4a'
+      const contentType = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
+      const key = buildMeetingAudioKey(filename)
+      const signed = await createR2PresignedUrl(env, key, 'PUT', {
+        expiresIn: 15 * 60,
+        contentType,
+      })
+      return respond.ok({
+        ok: true,
+        key,
+        putUrl: signed.url,
+        requiredHeaders: signed.requiredHeaders ?? {},
+      })
+    }
+
+    if (request.method === 'POST' && path === '/transcripts') {
+      const payload = parseMeetingTranscriptBody(await readJsonBody(request))
+      const keywordInfo = await readKeywordPhrasesBySetIdFromNotion(env, payload.keywordSetId)
+      const getSigned = await createR2PresignedUrl(env, payload.key, 'GET', {
+        expiresIn: 60 * 60,
+      })
+      const notionCtx = await ensureMeetingNotionSchema(env)
+
+      const meetingId = crypto.randomUUID()
+      const transcriptId = crypto.randomUUID()
+      const now = Date.now()
+      let keywordSetName = ''
+      if (payload.keywordSetId) {
+        const keywordSet = await findMeetingNotionKeywordSetPageById(env, payload.keywordSetId)
+        if (keywordSet) {
+          const props = (keywordSet.page?.properties ?? {}) as Record<string, unknown>
+          keywordSetName =
+            notionReadRichText(props[MEETING_NOTION_FIELD.keywordSetName]) ||
+            notionReadTitle(props[keywordSet.ctx.titlePropertyName]) ||
+            ''
+        }
+      }
+
+      const createdPage = await notionCtx.api.createPage({
+        parent: { database_id: notionCtx.databaseId },
+        properties: {
+          [notionCtx.titlePropertyName]: { title: toNotionRichText(payload.title || transcriptId, 300) },
+          [MEETING_NOTION_FIELD.recordType]: { select: { name: MEETING_RECORD_TYPE.transcript } },
+          [MEETING_NOTION_FIELD.transcriptId]: notionRichTextValue(transcriptId, 200),
+          [MEETING_NOTION_FIELD.meetingId]: notionRichTextValue(meetingId, 200),
+          [MEETING_NOTION_FIELD.status]: { select: { name: 'queued' } },
+          [MEETING_NOTION_FIELD.audioKey]: notionRichTextValue(payload.key, 600),
+          [MEETING_NOTION_FIELD.speakerMapJson]: notionRichTextValue('{}', 2000),
+          [MEETING_NOTION_FIELD.keywordsUsedJson]: notionRichTextValue(JSON.stringify(keywordInfo.phrases), 6000),
+          [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue('', 200),
+          [MEETING_NOTION_FIELD.createdAt]: { number: now },
+          [MEETING_NOTION_FIELD.updatedAt]: { number: now },
+          [MEETING_NOTION_FIELD.minSpeakers]: { number: payload.minSpeakers },
+          [MEETING_NOTION_FIELD.maxSpeakers]: { number: payload.maxSpeakers },
+          [MEETING_NOTION_FIELD.keywordSetId]: notionRichTextValue(payload.keywordSetId ?? '', 200),
+          [MEETING_NOTION_FIELD.keywordSetName]: notionRichTextValue(keywordSetName, 500),
+          [MEETING_NOTION_FIELD.bodySynced]: { checkbox: false },
+          [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue('', 200),
+        },
+      })
+
+      const transcriptPageId = asString(createdPage?.id)
+      if (!transcriptPageId) {
+        throw new Error('notion_transcript_create_failed_[UNKNOWN]')
+      }
+
+      const webhookUrl = asString(env.ASSEMBLYAI_WEBHOOK_URL) ?? `${url.origin}/api/assemblyai/webhook`
+      const webhookSecret = getAssemblyWebhookSecret(env)
+      const assemblyPayload: Record<string, unknown> = {
+        audio_url: getSigned.url,
+        speaker_labels: true,
+        webhook_url: webhookUrl,
+        webhook_auth_header_name: 'x-assemblyai-webhook-secret',
+        webhook_auth_header_value: webhookSecret,
+      }
+      if (keywordInfo.phrases.length > 0) {
+        assemblyPayload.word_boost = keywordInfo.phrases
+      }
+      // [UNKNOWN] AssemblyAI diarization range field compatibility may differ by API version.
+      assemblyPayload.speaker_options = {
+        min_speakers: payload.minSpeakers,
+        max_speakers: payload.maxSpeakers,
+      }
+
+      let created: Record<string, unknown>
+      try {
+        created = await assemblyRequest<Record<string, unknown>>(env, '/transcript', {
+          method: 'POST',
+          body: JSON.stringify(assemblyPayload),
+        })
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'assembly_request_failed'
+        await notionCtx.api.updatePage(transcriptPageId, {
+          properties: {
+            [MEETING_NOTION_FIELD.status]: { select: { name: 'failed' } },
+            [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(message.slice(0, 1200), 1200),
+            [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+          },
+        })
+        throw error
+      }
+
+      const assemblyId = asString(created.id)
+      if (!assemblyId) {
+        await notionCtx.api.updatePage(transcriptPageId, {
+          properties: {
+            [MEETING_NOTION_FIELD.status]: { select: { name: 'failed' } },
+            [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue('assembly_transcript_id_missing_[UNKNOWN]', 1200),
+            [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+          },
+        })
+        throw new Error('assembly_transcript_id_missing_[UNKNOWN]')
+      }
+      const status = normalizeMeetingStatus(asString(created.status))
+
+      await notionCtx.api.updatePage(transcriptPageId, {
+        properties: {
+          [MEETING_NOTION_FIELD.assemblyId]: notionRichTextValue(assemblyId, 200),
+          [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+          [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue('', 1200),
+          [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+        },
+      })
+
+      return respond.json(
+        {
+          ok: true,
+          transcriptId,
+          meetingId,
+          assemblyId,
+          keywordsUsed: keywordInfo.phrases,
+          keywordsTruncated: keywordInfo.truncated,
+          keywordsTotal: keywordInfo.total,
+        },
+        201,
+      )
+    }
+
+    if (request.method === 'GET' && path === '/transcripts') {
+      const limit = parseBoundedLimit(asString(url.searchParams.get('limit')), 20, TRANSCRIPT_POLL_LIMIT)
+      const rows = await listMeetingNotionTranscripts(env, limit)
+      return respond.ok({
+        ok: true,
+        transcripts: rows.map((row) => ({
+          id: row.id,
+          meetingId: row.meetingId,
+          assemblyId: row.assemblyId,
+          status: row.status,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          title: row.title,
+          audioKey: row.audioKey,
+        })),
+      })
+    }
+
+    if (request.method === 'GET' && transcriptMatch) {
+      const transcriptId = decodeURIComponent(transcriptMatch[1])
+      const found = await getMeetingNotionTranscriptById(env, transcriptId)
+      if (!found) {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+
+      let status = found.row.status
+      let text = found.row.textPreview
+      let utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }> = []
+      let errorMessage = found.row.errorMessage
+      let rawJson: string | null = null
+
+      if (found.row.assemblyId) {
+        try {
+          const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(found.row.assemblyId)}`)
+          rawJson = JSON.stringify(detail)
+          status = normalizeMeetingStatus(asString(detail.status) ?? found.row.status)
+          text = asString(detail.text) ?? found.row.textPreview
+          utterances = normalizeUtterances(detail.utterances)
+          errorMessage = asString(detail.error) ?? found.row.errorMessage
+
+          if (
+            status !== found.row.status ||
+            text.slice(0, 4000) !== found.row.textPreview ||
+            (errorMessage ?? '') !== (found.row.errorMessage ?? '')
+          ) {
+            ctx.waitUntil(
+              found.ctx.api.updatePage(found.row.pageId, {
+                properties: {
+                  [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+                  [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+                  [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(errorMessage ?? '', 1200),
+                  [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
+                },
+              }),
+            )
+          }
+          if (status === 'completed' && !found.row.bodySynced) {
+            ctx.waitUntil(updateMeetingNotionTranscriptFromAssembly(env, found.row.assemblyId))
+          }
+        } catch {
+          // Keep last synced Notion state when AssemblyAI detail fetch fails.
+        }
+      }
+
+      const speakerMap = found.row.speakerMap
+      const mappedUtterances = utterances.map((entry) => ({
+        ...entry,
+        displaySpeaker: speakerMap[entry.speaker] ?? entry.speaker,
+      }))
+
+      return respond.ok({
+        ok: true,
+        transcript: {
+          id: found.row.id,
+          meetingId: found.row.meetingId,
+          assemblyId: found.row.assemblyId,
+          status,
+          text,
+          rawJson,
+          utterances,
+          utterancesMapped: mappedUtterances,
+          speakerMap,
+          keywordsUsed: found.row.keywordsUsed,
+          errorMessage,
+          createdAt: found.row.createdAt,
+          updatedAt: found.row.updatedAt,
+          meeting: {
+            title: found.row.title,
+            audioKey: found.row.audioKey,
+          },
+        },
+      })
+    }
+
+    if ((request.method === 'POST' || request.method === 'PATCH') && speakerMatch) {
+      const transcriptId = decodeURIComponent(speakerMatch[1])
+      const mappings = parseSpeakerMappingsBody(await readJsonBody(request))
+      const found = await getMeetingNotionTranscriptById(env, transcriptId)
+      if (!found) {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+      const speakerMap = { ...found.row.speakerMap }
+      for (const entry of mappings) {
+        speakerMap[entry.speakerLabel] = entry.displayName
+      }
+      await found.ctx.api.updatePage(found.row.pageId, {
+        properties: {
+          [MEETING_NOTION_FIELD.speakerMapJson]: notionRichTextValue(JSON.stringify(speakerMap), 6000),
+          [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+        },
+      })
+      return respond.ok({
+        ok: true,
+        transcriptId,
+        speakerMap,
+      })
+    }
+
+    if (request.method === 'GET' && path === '/keyword-sets') {
+      const sets = await listNotionKeywordSets(env)
+      return respond.ok({
+        ok: true,
+        sets,
+      })
+    }
+
+    if (request.method === 'POST' && path === '/keyword-sets') {
+      const payload = parseKeywordSetCreateBody(await readJsonBody(request))
+      const notionCtx = await ensureMeetingNotionSchema(env)
+      const id = crypto.randomUUID()
+      const now = Date.now()
+      await notionCtx.api.createPage({
+        parent: { database_id: notionCtx.databaseId },
+        properties: {
+          [notionCtx.titlePropertyName]: { title: toNotionRichText(payload.name, 120) },
+          [MEETING_NOTION_FIELD.recordType]: { select: { name: MEETING_RECORD_TYPE.keywordSet } },
+          [MEETING_NOTION_FIELD.keywordSetId]: notionRichTextValue(id, 200),
+          [MEETING_NOTION_FIELD.keywordSetName]: notionRichTextValue(payload.name, 300),
+          [MEETING_NOTION_FIELD.isActive]: { checkbox: payload.isActive },
+          [MEETING_NOTION_FIELD.createdAt]: { number: now },
+          [MEETING_NOTION_FIELD.updatedAt]: { number: now },
+        },
+      })
+      return respond.json(
+        {
+          ok: true,
+          set: {
+            id,
+            name: payload.name,
+            isActive: payload.isActive,
+            createdAt: now,
+            keywordCount: 0,
+          },
+        },
+        201,
+      )
+    }
+
+    if (request.method === 'PATCH' && path === '/keyword-sets') {
+      const payload = parseKeywordSetPatchBody(await readJsonBody(request))
+      const found = await findMeetingNotionKeywordSetPageById(env, payload.id)
+      if (!found) {
+        return respond.json({ ok: false, error: 'keyword_set_not_found' }, 404)
+      }
+      const patch: Record<string, unknown> = {
+        [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      }
+      if (payload.name !== undefined) {
+        patch[found.ctx.titlePropertyName] = { title: toNotionRichText(payload.name, 120) }
+        patch[MEETING_NOTION_FIELD.keywordSetName] = notionRichTextValue(payload.name, 300)
+      }
+      if (payload.isActive !== undefined) {
+        patch[MEETING_NOTION_FIELD.isActive] = { checkbox: payload.isActive }
+      }
+      await found.ctx.api.updatePage(asString(found.page?.id) ?? payload.id, {
+        properties: patch,
+      })
+      const sets = await listNotionKeywordSets(env)
+      const updated = sets.find((entry) => entry.id === payload.id)
+      if (!updated) {
+        return respond.json({ ok: false, error: 'keyword_set_not_found' }, 404)
+      }
+      return respond.ok({ ok: true, set: updated })
+    }
+
+    if (request.method === 'DELETE' && path === '/keyword-sets') {
+      const id = asString(url.searchParams.get('id'))
+      if (!id) {
+        return respond.json({ ok: false, error: 'id_required' }, 400)
+      }
+      const found = await findMeetingNotionKeywordSetPageById(env, id)
+      if (found) {
+        const keywords = await queryAllMeetingNotionPages(found.ctx, {
+          filter: keywordFilterBySetId(id),
+        })
+        for (const keywordPage of keywords) {
+          const keywordPageId = asString(keywordPage?.id)
+          if (!keywordPageId) continue
+          await found.ctx.api.updatePage(keywordPageId, { archived: true })
+        }
+        const setPageId = asString(found.page?.id) ?? id
+        await found.ctx.api.updatePage(setPageId, { archived: true })
+      }
+      return respond.ok({ ok: true, id })
+    }
+
+    if (request.method === 'GET' && path === '/keywords') {
+      const setId = asString(url.searchParams.get('setId'))
+      const keywords = await listNotionKeywords(env, setId)
+      return respond.ok({
+        ok: true,
+        keywords,
+      })
+    }
+
+    if (request.method === 'POST' && path === '/keywords') {
+      const payload = parseKeywordCreateBody(await readJsonBody(request))
+      const setFound = await findMeetingNotionKeywordSetPageById(env, payload.setId)
+      if (!setFound) {
+        return respond.json({ ok: false, error: 'keyword_set_not_found' }, 404)
+      }
+      const id = crypto.randomUUID()
+      const now = Date.now()
+      await setFound.ctx.api.createPage({
+        parent: { database_id: setFound.ctx.databaseId },
+        properties: {
+          [setFound.ctx.titlePropertyName]: { title: toNotionRichText(payload.phrase, 200) },
+          [MEETING_NOTION_FIELD.recordType]: { select: { name: MEETING_RECORD_TYPE.keyword } },
+          [MEETING_NOTION_FIELD.keywordId]: notionRichTextValue(id, 200),
+          [MEETING_NOTION_FIELD.keywordSetId]: notionRichTextValue(payload.setId, 200),
+          [MEETING_NOTION_FIELD.phrase]: notionRichTextValue(payload.phrase, 300),
+          [MEETING_NOTION_FIELD.weight]: { number: payload.weight },
+          [MEETING_NOTION_FIELD.tags]: notionRichTextValue(payload.tags ?? '', 400),
+          [MEETING_NOTION_FIELD.createdAt]: { number: now },
+          [MEETING_NOTION_FIELD.updatedAt]: { number: now },
+        },
+      })
+      return respond.json(
+        {
+          ok: true,
+          keyword: {
+            id,
+            setId: payload.setId,
+            phrase: payload.phrase,
+            weight: payload.weight,
+            tags: payload.tags,
+            createdAt: now,
+          },
+        },
+        201,
+      )
+    }
+
+    if (request.method === 'PATCH' && path === '/keywords') {
+      const payload = parseKeywordPatchBody(await readJsonBody(request))
+      const found = await findMeetingNotionKeywordPageById(env, payload.id)
+      if (!found) {
+        return respond.json({ ok: false, error: 'keyword_not_found' }, 404)
+      }
+      const patch: Record<string, unknown> = {
+        [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      }
+      if (payload.phrase !== undefined) {
+        patch[found.ctx.titlePropertyName] = { title: toNotionRichText(payload.phrase, 200) }
+        patch[MEETING_NOTION_FIELD.phrase] = notionRichTextValue(payload.phrase, 300)
+      }
+      if (payload.weight !== undefined) {
+        patch[MEETING_NOTION_FIELD.weight] = { number: payload.weight }
+      }
+      if (payload.tags !== undefined) {
+        patch[MEETING_NOTION_FIELD.tags] = notionRichTextValue(payload.tags ?? '', 400)
+      }
+      await found.ctx.api.updatePage(asString(found.page?.id) ?? payload.id, {
+        properties: patch,
+      })
+      const list = await listNotionKeywords(env)
+      const keyword = list.find((entry) => entry.id === payload.id)
+      if (!keyword) {
+        return respond.json({ ok: false, error: 'keyword_not_found' }, 404)
+      }
+      return respond.ok({ ok: true, keyword })
+    }
+
+    if (request.method === 'DELETE' && path === '/keywords') {
+      const id = asString(url.searchParams.get('id'))
+      if (!id) {
+        return respond.json({ ok: false, error: 'id_required' }, 400)
+      }
+      const found = await findMeetingNotionKeywordPageById(env, id)
+      if (found) {
+        await found.ctx.api.updatePage(asString(found.page?.id) ?? id, { archived: true })
+      }
+      return respond.ok({ ok: true, id })
+    }
+
+    if (request.method === 'POST' && path === '/assemblyai/webhook') {
+      const secret = getAssemblyWebhookSecret(env)
+      const headerSecret = asString(request.headers.get('x-assemblyai-webhook-secret'))
+      if (!headerSecret || headerSecret !== secret) {
+        return respond.json({ ok: false, error: 'webhook_forbidden' }, 403)
+      }
+
+      const body = parsePatchBody(await readJsonBody(request))
+      const assemblyId = asString(body.transcript_id) ?? asString(body.id)
+      if (!assemblyId) {
+        return respond.json({ ok: false, error: 'transcript_id_required' }, 400)
+      }
+      const status = normalizeMeetingStatus(asString(body.status) ?? 'processing')
+      const errorMessage = asString(body.error) ?? null
+      const found = await getMeetingNotionTranscriptByAssemblyId(env, assemblyId)
+      if (found) {
+        await found.ctx.api.updatePage(found.row.pageId, {
+          properties: {
+            [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+            [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+            [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(errorMessage ?? '', 1200),
+          },
+        })
+      }
+
+      if (status === 'completed') {
+        ctx.waitUntil(updateMeetingNotionTranscriptFromAssembly(env, assemblyId))
+      }
+
+      return respond.ok({
+        ok: true,
+        assemblyId,
+        status,
+      })
+    }
+  } catch (error: unknown) {
+    return fail(error)
+  }
+
+  return null
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
@@ -2537,6 +3653,10 @@ export default {
               checklist: {
                 id: env.NOTION_CHECKLIST_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_CHECKLIST_DB_ID),
+              },
+              meeting: {
+                id: env.NOTION_MEETING_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_MEETING_DB_ID),
               },
             },
           },

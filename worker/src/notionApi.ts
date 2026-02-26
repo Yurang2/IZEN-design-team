@@ -72,4 +72,16 @@ export class NotionApi {
       body: JSON.stringify(input),
     })
   }
+
+  async listBlockChildren(blockId: string, startCursor?: string): Promise<any> {
+    const query = startCursor ? `?start_cursor=${encodeURIComponent(startCursor)}&page_size=100` : '?page_size=100'
+    return this.request(`/blocks/${blockId}/children${query}`)
+  }
+
+  async appendBlockChildren(blockId: string, children: unknown[]): Promise<any> {
+    return this.request(`/blocks/${blockId}/children`, {
+      method: 'PATCH',
+      body: JSON.stringify({ children }),
+    })
+  }
 }
