@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
-import { API_BASE_URL, api } from '../../shared/api/client'
+import { api } from '../../shared/api/client'
 import { Button, TableWrap } from '../../shared/ui'
 import { useRef } from 'react'
 
@@ -62,8 +62,6 @@ type TranscriptDetail = {
 
 type UploadPresignResponse = {
   ok: boolean
-  uploadId: string
-  eventToken: string
   key: string
   putUrl: string
   requiredHeaders?: Record<string, string>
@@ -96,30 +94,6 @@ const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000
 const TRANSCRIPT_CREATE_TIMEOUT_MS = 45_000
 
 type UploadStage = 'idle' | 'presign' | 'upload' | 'transcript'
-
-type ActiveUploadSession = {
-  id: string
-  key: string
-  token: string
-}
-
-type UploadSessionRow = {
-  id: string
-  key: string
-  filename: string
-  contentType: string | null
-  uploadMode: string | null
-  stage: string
-  state: string
-  reasonCode: string | null
-  reasonMessage: string | null
-  transcriptId: string | null
-  meetingId: string | null
-  createdAt: number
-  updatedAt: number
-  lastEventType: string | null
-  lastEventAt: number | null
-}
 
 function toDateTimeLabel(timestamp: number): string {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return '-'
@@ -161,29 +135,6 @@ function getUploadStageLabel(stage: UploadStage): string {
   if (stage === 'upload') return '2/3 파일 업로드'
   if (stage === 'transcript') return '3/3 전사 요청 생성'
   return '대기'
-}
-
-function toUploadSessionStageLabel(stage: string): string {
-  if (stage === 'presign') return '업로드 준비'
-  if (stage === 'upload') return '파일 업로드'
-  if (stage === 'transcript') return '전사 요청'
-  if (stage === 'done') return '완료'
-  return stage || '-'
-}
-
-function toUploadSessionStateLabel(state: string): string {
-  if (state === 'presigned') return '준비됨'
-  if (state === 'uploading') return '업로드 중'
-  if (state === 'uploaded') return '업로드 완료'
-  if (state === 'transcript_requested') return '전사 요청됨'
-  if (state === 'completed') return '완료'
-  if (state === 'cancelled') return '취소'
-  if (state === 'failed') return '실패'
-  return state || '-'
-}
-
-function isUploadSessionInProgress(state: string): boolean {
-  return state === 'presigned' || state === 'uploading' || state === 'uploaded' || state === 'transcript_requested'
 }
 
 function isAbortError(error: unknown): boolean {
@@ -257,8 +208,6 @@ export function MeetingsView() {
   const [uploadElapsedSec, setUploadElapsedSec] = useState(0)
   const uploadAbortRef = useRef<AbortController | null>(null)
   const uploadStartedAtRef = useRef<number | null>(null)
-  const uploadSessionRef = useRef<ActiveUploadSession | null>(null)
-  const [sharedUploadSessions, setSharedUploadSessions] = useState<UploadSessionRow[]>([])
 
   const [transcripts, setTranscripts] = useState<TranscriptListRow[]>([])
   const [selectedTranscriptId, setSelectedTranscriptId] = useState('')
@@ -329,68 +278,10 @@ export function MeetingsView() {
     }
   }, [])
 
-  const reportUploadEvent = useCallback(
-    async (
-      session: ActiveUploadSession,
-      event: {
-        eventType: string
-        stage?: string
-        state?: string
-        reasonCode?: string
-        reasonMessage?: string
-        elapsedMs?: number
-        payload?: unknown
-      },
-      keepalive = false,
-    ) => {
-      if (!session.id || !session.key || !session.token) return
-      if (API_BASE_URL.startsWith('mock://')) return
-
-      const endpoint = `${API_BASE_URL}/uploads/events`
-      const body = JSON.stringify({
-        uploadId: session.id,
-        key: session.key,
-        token: session.token,
-        eventType: event.eventType,
-        stage: event.stage,
-        state: event.state,
-        reasonCode: event.reasonCode,
-        reasonMessage: event.reasonMessage,
-        elapsedMs: event.elapsedMs,
-        payload: event.payload,
-      })
-
-      try {
-        await fetch(endpoint, {
-          method: 'POST',
-          credentials: 'include',
-          keepalive,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body,
-        })
-      } catch {
-        // Best-effort logging only.
-      }
-    },
-    [],
-  )
-
-  const loadUploadSessions = useCallback(async () => {
-    try {
-      const response = await api<{ ok: boolean; sessions: UploadSessionRow[] }>('/uploads/sessions?limit=20')
-      setSharedUploadSessions(response.sessions ?? [])
-    } catch {
-      // Keep upload status board non-blocking.
-    }
-  }, [])
-
   useEffect(() => {
     void loadKeywordSets()
     void loadTranscripts()
-    void loadUploadSessions()
-  }, [loadKeywordSets, loadTranscripts, loadUploadSessions])
+  }, [loadKeywordSets, loadTranscripts])
 
   useEffect(() => {
     if (!selectedKeywordSetId) {
@@ -434,11 +325,6 @@ export function MeetingsView() {
     [transcripts],
   )
 
-  const inProgressUploadSessionCount = useMemo(
-    () => sharedUploadSessions.filter((row) => isUploadSessionInProgress(row.state)).length,
-    [sharedUploadSessions],
-  )
-
   const onSubmitUpload = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!file) {
@@ -457,14 +343,11 @@ export function MeetingsView() {
     if (uploadAbortRef.current) uploadAbortRef.current.abort()
     const flowAbort = new AbortController()
     uploadAbortRef.current = flowAbort
-    uploadSessionRef.current = null
 
     setUploadMessage('')
     setUploadErrorMessage('')
     setErrorMessage('')
     const selectedFile = file
-    let currentStage: UploadStage = 'presign'
-    let activeSession: ActiveUploadSession | null = null
 
     const runStageWithTimeout = async <T,>(
       runner: (signal: AbortSignal) => Promise<T>,
@@ -499,14 +382,6 @@ export function MeetingsView() {
         PRESIGN_TIMEOUT_MS,
         'presign_timeout',
       )
-      if (presign.uploadId && presign.eventToken) {
-        activeSession = {
-          id: presign.uploadId,
-          key: presign.key,
-          token: presign.eventToken,
-        }
-        uploadSessionRef.current = activeSession
-      }
 
       const putHeaders = new Headers(presign.requiredHeaders ?? {})
       if (!putHeaders.has('Content-Type')) {
@@ -514,16 +389,6 @@ export function MeetingsView() {
       }
 
       setUploadStage('upload')
-      currentStage = 'upload'
-      const uploadStartedAt = uploadStartedAtRef.current
-      if (activeSession) {
-        void reportUploadEvent(activeSession, {
-          eventType: 'upload_started',
-          stage: 'upload',
-          state: 'uploading',
-          elapsedMs: uploadStartedAt ? Math.max(0, Date.now() - uploadStartedAt) : undefined,
-        })
-      }
       const uploadResponse = await runStageWithTimeout(
         (signal) =>
           fetch(presign.putUrl, {
@@ -539,27 +404,8 @@ export function MeetingsView() {
       if (!uploadResponse.ok) {
         throw new Error(`오디오 업로드 실패: HTTP ${uploadResponse.status}`)
       }
-      if (activeSession) {
-        const startedAt = uploadStartedAtRef.current
-        void reportUploadEvent(activeSession, {
-          eventType: 'upload_completed',
-          stage: 'upload',
-          state: 'uploaded',
-          elapsedMs: startedAt ? Math.max(0, Date.now() - startedAt) : undefined,
-        })
-      }
 
       setUploadStage('transcript')
-      currentStage = 'transcript'
-      if (activeSession) {
-        const startedAt = uploadStartedAtRef.current
-        void reportUploadEvent(activeSession, {
-          eventType: 'transcript_create_started',
-          stage: 'transcript',
-          state: 'transcript_requested',
-          elapsedMs: startedAt ? Math.max(0, Date.now() - startedAt) : undefined,
-        })
-      }
       const created = await runStageWithTimeout(
         (signal) =>
           api<TranscriptCreateResponse>('/transcripts', {
@@ -571,65 +417,33 @@ export function MeetingsView() {
               minSpeakers,
               maxSpeakers,
               keywordSetId: selectedKeywordSetId || null,
-              uploadId: activeSession?.id ?? null,
             }),
           }),
         TRANSCRIPT_CREATE_TIMEOUT_MS,
         'transcript_create_timeout',
       )
-      if (activeSession) {
-        const startedAt = uploadStartedAtRef.current
-        void reportUploadEvent(activeSession, {
-          eventType: 'transcript_create_succeeded',
-          stage: 'transcript',
-          state: 'transcript_requested',
-          elapsedMs: startedAt ? Math.max(0, Date.now() - startedAt) : undefined,
-          payload: { transcriptId: created.transcriptId },
-        })
-      }
 
       setUploadMessage(`전사 요청이 생성되었습니다. Transcript ID: ${created.transcriptId}`)
       setSelectedTranscriptId(created.transcriptId)
       setFile(null)
       await loadTranscripts()
       await loadTranscriptDetail(created.transcriptId)
-      await loadUploadSessions()
     } catch (error: unknown) {
       const raw = error instanceof Error ? error.message : '전사 요청 중 오류가 발생했습니다.'
       let message = raw
-      let reasonCode = 'upload_failed'
-      let failedState: 'failed' | 'cancelled' = 'failed'
       if (raw.includes('presign_timeout')) {
         message = '업로드 준비 단계가 지연되었습니다. 잠시 후 다시 시도해 주세요.'
-        reasonCode = 'presign_timeout'
       } else if (raw.includes('upload_timeout')) {
         message = '파일 업로드 시간이 너무 오래 걸립니다. 네트워크 상태를 확인하고 다시 시도해 주세요.'
-        reasonCode = 'upload_timeout'
       } else if (raw.includes('transcript_create_timeout')) {
         message = '전사 요청 생성이 지연되고 있습니다. 새로고침 후 최근 전사 목록을 확인해 주세요.'
-        reasonCode = 'transcript_create_timeout'
       } else if (raw.includes('upload_cancelled') || isAbortError(error)) {
         message = '요청을 취소했습니다.'
-        reasonCode = 'upload_cancelled'
-        failedState = 'cancelled'
-      }
-      if (activeSession) {
-        const startedAt = uploadStartedAtRef.current
-        void reportUploadEvent(activeSession, {
-          eventType: failedState === 'cancelled' ? 'upload_cancelled' : 'upload_failed',
-          stage: currentStage,
-          state: failedState,
-          reasonCode,
-          reasonMessage: message,
-          elapsedMs: startedAt ? Math.max(0, Date.now() - startedAt) : undefined,
-        })
       }
       setUploadErrorMessage(message)
-      await loadUploadSessions()
     } finally {
       uploadAbortRef.current = null
       uploadStartedAtRef.current = null
-      uploadSessionRef.current = null
       setUploadStage('idle')
       setUploadElapsedSec(0)
       setUploading(false)
@@ -638,18 +452,6 @@ export function MeetingsView() {
 
   const onCancelUploadFlow = () => {
     if (!uploading || !uploadAbortRef.current) return
-    const activeSession = uploadSessionRef.current
-    if (activeSession) {
-      const startedAt = uploadStartedAtRef.current
-      void reportUploadEvent(activeSession, {
-        eventType: 'upload_cancelled',
-        stage: uploadStage === 'idle' ? 'upload' : uploadStage,
-        state: 'cancelled',
-        reasonCode: 'user_cancelled',
-        reasonMessage: 'user_requested_cancel',
-        elapsedMs: startedAt ? Math.max(0, Date.now() - startedAt) : undefined,
-      })
-    }
     uploadAbortRef.current.abort()
   }
 
@@ -663,40 +465,6 @@ export function MeetingsView() {
     }, 1000)
     return () => window.clearInterval(timer)
   }, [uploading])
-
-  useEffect(() => {
-    const hasActiveSharedUpload = sharedUploadSessions.some((row) => isUploadSessionInProgress(row.state))
-    if (!uploading && !hasActiveSharedUpload) return
-    const timer = window.setInterval(() => {
-      void loadUploadSessions()
-    }, POLL_INTERVAL_MS)
-    return () => window.clearInterval(timer)
-  }, [loadUploadSessions, sharedUploadSessions, uploading])
-
-  useEffect(() => {
-    const onPageHide = () => {
-      const session = uploadSessionRef.current
-      if (!session) return
-      const startedAt = uploadStartedAtRef.current
-      const elapsedMs = startedAt ? Math.max(0, Date.now() - startedAt) : undefined
-      void reportUploadEvent(
-        session,
-        {
-          eventType: 'browser_unload',
-          stage: uploadStage === 'idle' ? 'upload' : uploadStage,
-          state: 'cancelled',
-          reasonCode: 'browser_closed',
-          reasonMessage: 'browser_closed_during_upload',
-          elapsedMs,
-        },
-        true,
-      )
-    }
-    window.addEventListener('pagehide', onPageHide)
-    return () => {
-      window.removeEventListener('pagehide', onPageHide)
-    }
-  }, [reportUploadEvent, uploadStage])
 
   useEffect(() => {
     if (inProgressTranscriptCount <= 0) return
@@ -976,45 +744,6 @@ export function MeetingsView() {
         {uploadMessage ? <p className="muted small">{uploadMessage}</p> : null}
         {uploadErrorMessage ? <p className="error">{uploadErrorMessage}</p> : null}
         {errorMessage ? <p className="error">{errorMessage}</p> : null}
-      </article>
-
-      <article className="meetingsCard">
-        <div className="meetingsCardHeader">
-          <h3>공유 업로드 상태</h3>
-          <Button type="button" variant="secondary" size="mini" onClick={() => void loadUploadSessions()}>
-            새로고침
-          </Button>
-        </div>
-        {inProgressUploadSessionCount > 0 ? <p className="muted small">진행중 {inProgressUploadSessionCount}건</p> : null}
-        <TableWrap className="meetingsListTable">
-          <table>
-            <thead>
-              <tr>
-                <th>파일</th>
-                <th>단계</th>
-                <th>상태</th>
-                <th>사유</th>
-                <th>갱신</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sharedUploadSessions.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.filename}</td>
-                  <td>{toUploadSessionStageLabel(row.stage)}</td>
-                  <td>{toUploadSessionStateLabel(row.state)}</td>
-                  <td>{row.reasonMessage ?? row.reasonCode ?? '-'}</td>
-                  <td>{toDateTimeLabel(row.updatedAt)}</td>
-                </tr>
-              ))}
-              {sharedUploadSessions.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>공유 업로드 상태가 없습니다.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </TableWrap>
       </article>
 
       <div className="meetingsWorkbench">
