@@ -283,6 +283,7 @@ export function MeetingsView() {
       const uploadResponse = await fetch(presign.putUrl, {
         method: 'PUT',
         headers: putHeaders,
+        credentials: 'include',
         body: file,
       })
       if (!uploadResponse.ok) {

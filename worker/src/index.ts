@@ -42,6 +42,7 @@ const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_TRANSCRIPT_BODY_TEXT_BLOCKS = 80
 const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
+const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
@@ -49,6 +50,7 @@ let checklistDbInitInFlight: Promise<void> | null = null
 let meetingDbInitInFlight: Promise<void> | null = null
 let lastRateLimitCleanupAt = 0
 let sessionSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
+let meetingUploadSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
 let meetingNotionSchemaCache: { databaseId: string; titlePropertyName: string; checkedAt: number } | null = null
 
 type RateLimitBucket = {
@@ -283,6 +285,76 @@ async function signSessionPayload(payloadBase64: string, env: Env): Promise<stri
   const key = await getSessionSigningKey(env)
   const signature = await crypto.subtle.sign('HMAC', key, utf8Encode(payloadBase64))
   return base64UrlEncode(new Uint8Array(signature))
+}
+
+function getMeetingUploadSecret(env: Env): string {
+  return (
+    asString(env.SESSION_SECRET) ??
+    asString(env.ASSEMBLYAI_WEBHOOK_SECRET) ??
+    asString(env.PAGE_PASSWORD) ??
+    asString(env.NOTION_TOKEN) ??
+    'izen_meeting_upload_fallback_secret'
+  )
+}
+
+async function getMeetingUploadSigningKey(env: Env): Promise<CryptoKey> {
+  const secret = getMeetingUploadSecret(env)
+  if (meetingUploadSigningKeyCache && meetingUploadSigningKeyCache.secret === secret) {
+    return meetingUploadSigningKeyCache.key
+  }
+
+  const keyPromise = crypto.subtle.importKey('raw', utf8Encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
+  meetingUploadSigningKeyCache = {
+    secret,
+    key: keyPromise,
+  }
+  return keyPromise
+}
+
+async function signMeetingUploadPayload(payloadBase64: string, env: Env): Promise<string> {
+  const key = await getMeetingUploadSigningKey(env)
+  const signature = await crypto.subtle.sign('HMAC', key, utf8Encode(payloadBase64))
+  return base64UrlEncode(new Uint8Array(signature))
+}
+
+async function createMeetingUploadToken(env: Env, params: { key: string; method: 'GET' | 'PUT'; expiresInSec: number }): Promise<string> {
+  const payload = {
+    key: params.key,
+    method: params.method,
+    exp: Date.now() + params.expiresInSec * 1000,
+  }
+  const payloadBase64 = base64UrlEncode(utf8Encode(JSON.stringify(payload)))
+  const signatureBase64 = await signMeetingUploadPayload(payloadBase64, env)
+  return `${payloadBase64}.${signatureBase64}`
+}
+
+async function verifyMeetingUploadToken(
+  env: Env,
+  token: string | undefined,
+  expected: { key: string; method: 'GET' | 'PUT' },
+): Promise<boolean> {
+  if (!token) return false
+  const [payloadBase64, signatureBase64] = token.split('.')
+  if (!payloadBase64 || !signatureBase64) return false
+
+  const expectedSignature = await signMeetingUploadPayload(payloadBase64, env)
+  const expectedBytes = base64UrlDecode(expectedSignature)
+  const providedBytes = base64UrlDecode(signatureBase64)
+  if (!expectedBytes || !providedBytes) return false
+  if (!timingSafeEqual(expectedBytes, providedBytes)) return false
+
+  const payloadBytes = base64UrlDecode(payloadBase64)
+  if (!payloadBytes) return false
+
+  try {
+    const parsed = JSON.parse(utf8Decode(payloadBytes)) as Partial<{ key: string; method: 'GET' | 'PUT'; exp: number }>
+    if (parsed.key !== expected.key) return false
+    if (parsed.method !== expected.method) return false
+    if (typeof parsed.exp !== 'number' || parsed.exp <= Date.now()) return false
+    return true
+  } catch {
+    return false
+  }
 }
 
 function parseCookieHeader(raw: string): Record<string, string> {
@@ -816,6 +888,7 @@ function parseMeetingKeywordLimit(env: Env): number {
 function parseMeetingTranscriptBody(body: unknown): {
   key: string
   title: string
+  meetingDate: string | null
   minSpeakers: number
   maxSpeakers: number
   keywordSetId: string | null
@@ -825,7 +898,8 @@ function parseMeetingTranscriptBody(body: unknown): {
   if (!key) throw new Error('key_required')
   if (!isValidMeetingAudioKey(key)) throw new Error('key_invalid')
 
-  const title = asString(payload.title) ?? key.split('/').pop() ?? '회의록'
+  const titleInput = asString(payload.title) ?? key.split('/').pop() ?? '회의록'
+  const parsedTitle = parseMeetingTitleMetadata(titleInput)
   const minSpeakersRaw = Number(payload.minSpeakers ?? DEFAULT_MIN_SPEAKERS)
   const maxSpeakersRaw = Number(payload.maxSpeakers ?? DEFAULT_MAX_SPEAKERS)
 
@@ -841,13 +915,48 @@ function parseMeetingTranscriptBody(body: unknown): {
 
   return {
     key,
-    title: title.slice(0, 200),
+    title: parsedTitle.title.slice(0, 200),
+    meetingDate: parsedTitle.meetingDate,
     minSpeakers,
     maxSpeakers,
     keywordSetId: asString(payload.keywordSetId) ?? null,
   }
 }
 
+function toIsoDateFromYyMmDd(value: string): string | null {
+  if (!/^\d{6}$/.test(value)) return null
+  const year = 2000 + Number(value.slice(0, 2))
+  const month = Number(value.slice(2, 4))
+  const day = Number(value.slice(4, 6))
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null
+  const iso = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return parseIsoDate(iso) ? iso : null
+}
+
+function parseMeetingTitleMetadata(input: string): { title: string; meetingDate: string | null } {
+  const withoutExtension = input.replace(/\.[a-z0-9]{2,5}$/i, '').trim()
+  const compact = withoutExtension.replace(/\s+/g, ' ').trim()
+  const match = compact.match(/^(\d{6})[\s_-]+(.+)$/)
+  if (!match) {
+    return {
+      title: compact || '회의록',
+      meetingDate: null,
+    }
+  }
+
+  const isoDate = toIsoDateFromYyMmDd(match[1])
+  const tailTitle = match[2].trim()
+  if (!isoDate) {
+    return {
+      title: compact || '회의록',
+      meetingDate: null,
+    }
+  }
+  return {
+    title: tailTitle || compact || '회의록',
+    meetingDate: isoDate,
+  }
+}
 type SpeakerMappingInput = {
   speakerLabel: string
   displayName: string
@@ -1694,6 +1803,71 @@ async function createR2PresignedUrl(
   }
 }
 
+async function resolveMeetingUploadTarget(
+  env: Env,
+  requestUrl: URL,
+  key: string,
+  contentType: string | undefined,
+): Promise<{ url: string; requiredHeaders?: Record<string, string>; uploadMode: 'r2_presigned' | 'worker_direct' }> {
+  try {
+    const signed = await createR2PresignedUrl(env, key, 'PUT', {
+      expiresIn: 15 * 60,
+      contentType,
+    })
+    return {
+      url: signed.url,
+      requiredHeaders: signed.requiredHeaders ?? {},
+      uploadMode: 'r2_presigned',
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'unknown_error'
+    if (message !== 'r2_presign_not_supported_[UNKNOWN]') {
+      throw error
+    }
+
+    const directUrl = new URL('/api/uploads/direct', requestUrl.origin)
+    directUrl.searchParams.set('key', key)
+    directUrl.searchParams.set('token', await createMeetingUploadToken(env, { key, method: 'PUT', expiresInSec: 15 * 60 }))
+    const requiredHeaders: Record<string, string> = {}
+    if (contentType) requiredHeaders['Content-Type'] = contentType
+    return {
+      url: directUrl.toString(),
+      requiredHeaders,
+      uploadMode: 'worker_direct',
+    }
+  }
+}
+
+async function resolveMeetingFetchUrl(env: Env, requestUrl: URL, key: string): Promise<string> {
+  try {
+    const signed = await createR2PresignedUrl(env, key, 'GET', {
+      expiresIn: 60 * 60,
+    })
+    return signed.url
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'unknown_error'
+    if (message !== 'r2_presign_not_supported_[UNKNOWN]') {
+      throw error
+    }
+    const fetchUrl = new URL('/api/uploads/fetch', requestUrl.origin)
+    fetchUrl.searchParams.set('key', key)
+    fetchUrl.searchParams.set('token', await createMeetingUploadToken(env, { key, method: 'GET', expiresInSec: 60 * 60 }))
+    return fetchUrl.toString()
+  }
+}
+
+function inferAudioContentType(key: string): string {
+  const lower = key.toLowerCase()
+  if (lower.endsWith('.m4a')) return 'audio/mp4'
+  if (lower.endsWith('.mp3')) return 'audio/mpeg'
+  if (lower.endsWith('.wav')) return 'audio/wav'
+  if (lower.endsWith('.aac')) return 'audio/aac'
+  if (lower.endsWith('.flac')) return 'audio/flac'
+  if (lower.endsWith('.ogg')) return 'audio/ogg'
+  if (lower.endsWith('.mp4')) return 'audio/mp4'
+  return 'application/octet-stream'
+}
+
 async function assemblyRequest<T>(
   env: Env,
   path: string,
@@ -1774,6 +1948,8 @@ function isSensitivePath(path: string): boolean {
     path === '/meta' ||
     path === '/tasks' ||
     path === '/uploads/presign' ||
+    path === '/uploads/direct' ||
+    path === '/uploads/fetch' ||
     path === '/transcripts' ||
     path === '/keyword-sets' ||
     path === '/keywords' ||
@@ -1881,9 +2057,7 @@ async function handleMeetingRoutes(
     ok: (body: unknown) => Response
   },
 ): Promise<Response | null> {
-  if (asString(env.NOTION_MEETING_DB_ID)) {
-    return handleMeetingRoutesNotion(request, path, url, env, ctx, respond)
-  }
+  if (isMeetingRoutePath(path)) return handleMeetingRoutesNotion(request, path, url, env, ctx, respond)
 
   const toErrorStatus = (message: string): number => {
     if (
@@ -2359,6 +2533,7 @@ async function handleMeetingRoutes(
 }
 
 const MEETING_NOTION_FIELD = {
+  date: '날짜',
   recordType: 'Record Type',
   transcriptId: 'Transcript ID',
   meetingId: 'Meeting ID',
@@ -2407,6 +2582,7 @@ type MeetingNotionTranscriptRow = {
   pageId: string
   id: string
   meetingId: string
+  meetingDate: string | null
   assemblyId: string | null
   status: string
   createdAt: number
@@ -2421,9 +2597,11 @@ type MeetingNotionTranscriptRow = {
 }
 
 function getMeetingNotionDbId(env: Env): string {
-  const id = asString(env.NOTION_MEETING_DB_ID)
-  if (!id) throw new Error('notion_meeting_db_id_missing')
-  return id
+  const configured = asString(env.NOTION_MEETING_DB_ID)
+  if (configured && normalizeNotionId(configured) !== normalizeNotionId(FIXED_MEETING_NOTION_DB_ID)) {
+    throw new Error('notion_meeting_db_id_mismatch')
+  }
+  return FIXED_MEETING_NOTION_DB_ID
 }
 
 function toNotionRichText(text: string, maxChars = 6000): Array<{ type: 'text'; text: { content: string } }> {
@@ -2487,6 +2665,16 @@ function notionReadCheckbox(prop: unknown): boolean {
   if (!prop || typeof prop !== 'object') return false
   const value = prop as Record<string, unknown>
   return Boolean(value.checkbox)
+}
+
+function notionReadDateStart(prop: unknown): string | null {
+  if (!prop || typeof prop !== 'object') return null
+  const value = prop as Record<string, unknown>
+  if (!value.date || typeof value.date !== 'object') return null
+  const start = asString((value.date as Record<string, unknown>).start)
+  if (!start) return null
+  if (ISO_DATE_RE.test(start)) return start
+  return null
 }
 
 function safeParseSpeakerMap(value: string): Record<string, string> {
@@ -2562,6 +2750,7 @@ async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext
     },
   })
   ensure(MEETING_NOTION_FIELD.audioKey, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.date, { date: {} })
   ensure(MEETING_NOTION_FIELD.speakerMapJson, { rich_text: {} })
   ensure(MEETING_NOTION_FIELD.keywordsUsedJson, { rich_text: {} })
   ensure(MEETING_NOTION_FIELD.errorMessage, { rich_text: {} })
@@ -2632,6 +2821,7 @@ function mapMeetingNotionTranscriptPage(page: any, titlePropertyName: string): M
     pageId: asString(page?.id) ?? '',
     id: transcriptId,
     meetingId: notionReadRichText(props[MEETING_NOTION_FIELD.meetingId]),
+    meetingDate: notionReadDateStart(props[MEETING_NOTION_FIELD.date]),
     assemblyId: notionReadRichText(props[MEETING_NOTION_FIELD.assemblyId]) || null,
     status: notionReadSelect(props[MEETING_NOTION_FIELD.status]) || 'queued',
     createdAt: notionReadNumber(props[MEETING_NOTION_FIELD.createdAt]),
@@ -2780,18 +2970,20 @@ function buildTranscriptBodyBlocks(detail: Record<string, unknown>): Record<stri
   const text = asString(detail.text) ?? ''
   const utterances = normalizeUtterances(detail.utterances)
   const blocks: Record<string, unknown>[] = []
-  blocks.push(headingBlock('heading_2', 'AssemblyAI Transcript'))
+  blocks.push(headingBlock('heading_2', '요약'))
+  blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 mini 연동 후 이 섹션에 자동 요약을 기록합니다.'))
+  blocks.push(headingBlock('heading_2', '전문'))
   blocks.push(paragraphBlock(`status=${status} generated_at=${new Date().toISOString()}`))
 
   if (text.trim()) {
-    blocks.push(headingBlock('heading_3', 'Full Text'))
+    blocks.push(headingBlock('heading_3', '원문 텍스트'))
     for (const chunk of splitTextChunks(text, NOTION_RICH_TEXT_CHUNK, MAX_TRANSCRIPT_BODY_TEXT_BLOCKS)) {
       blocks.push(paragraphBlock(chunk))
     }
   }
 
   if (utterances.length > 0) {
-    blocks.push(headingBlock('heading_3', `Utterances (${Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)}/${utterances.length})`))
+    blocks.push(headingBlock('heading_3', `화자별 발화 (${Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)}/${utterances.length})`))
     for (const row of utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)) {
       blocks.push(bulletBlock(`${row.speaker}: ${row.text}`))
     }
@@ -2941,12 +3133,22 @@ async function updateMeetingNotionTranscriptFromAssembly(env: Env, assemblyId: s
 function isMeetingRoutePath(path: string): boolean {
   return (
     path === '/uploads/presign' ||
+    path === '/uploads/direct' ||
+    path === '/uploads/fetch' ||
     path === '/transcripts' ||
     path === '/keyword-sets' ||
     path === '/keywords' ||
     path === '/assemblyai/webhook' ||
     /^\/transcripts\/[^/]+$/.test(path) ||
     /^\/transcripts\/[^/]+\/speakers$/.test(path)
+  )
+}
+
+function isMeetingPreAuthRoute(method: string, path: string): boolean {
+  return (
+    (method === 'POST' && path === '/assemblyai/webhook') ||
+    (method === 'PUT' && path === '/uploads/direct') ||
+    (method === 'GET' && path === '/uploads/fetch')
   )
 }
 
@@ -2993,24 +3195,72 @@ async function handleMeetingRoutesNotion(
       const filename = asString(payload.filename) ?? asString(payload.name) ?? 'recording.m4a'
       const contentType = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
       const key = buildMeetingAudioKey(filename)
-      const signed = await createR2PresignedUrl(env, key, 'PUT', {
-        expiresIn: 15 * 60,
-        contentType,
+      const upload = await resolveMeetingUploadTarget(env, url, key, contentType)
+      return respond.ok({
+        ok: true,
+        key,
+        putUrl: upload.url,
+        requiredHeaders: upload.requiredHeaders ?? {},
+        uploadMode: upload.uploadMode,
+      })
+    }
+
+    if (request.method === 'PUT' && path === '/uploads/direct') {
+      const key = asString(url.searchParams.get('key'))
+      if (!key) return respond.json({ ok: false, error: 'key_required' }, 400)
+      if (!isValidMeetingAudioKey(key)) return respond.json({ ok: false, error: 'key_invalid' }, 400)
+
+      const token = asString(url.searchParams.get('token'))
+      const validToken = await verifyMeetingUploadToken(env, token, { key, method: 'PUT' })
+      if (!validToken) return respond.json({ ok: false, error: 'upload_token_invalid' }, 401)
+
+      const body = await request.arrayBuffer()
+      if (!body || body.byteLength <= 0) {
+        return respond.json({ ok: false, error: 'upload_body_required' }, 400)
+      }
+      const contentType = asString(request.headers.get('content-type')) ?? inferAudioContentType(key)
+      const bucket = getMeetingAudioBucket(env)
+      await bucket.put(key, body, {
+        httpMetadata: {
+          contentType,
+        },
       })
       return respond.ok({
         ok: true,
         key,
-        putUrl: signed.url,
-        requiredHeaders: signed.requiredHeaders ?? {},
+        bytes: body.byteLength,
+        uploadMode: 'worker_direct',
+      })
+    }
+
+    if (request.method === 'GET' && path === '/uploads/fetch') {
+      const key = asString(url.searchParams.get('key'))
+      if (!key) return respond.json({ ok: false, error: 'key_required' }, 400)
+      if (!isValidMeetingAudioKey(key)) return respond.json({ ok: false, error: 'key_invalid' }, 400)
+
+      const token = asString(url.searchParams.get('token'))
+      const validToken = await verifyMeetingUploadToken(env, token, { key, method: 'GET' })
+      if (!validToken) return respond.json({ ok: false, error: 'upload_token_invalid' }, 401)
+
+      const bucket = getMeetingAudioBucket(env)
+      const object = await bucket.get(key)
+      const body = await object?.body?.arrayBuffer()
+      if (!object || !body) {
+        return respond.json({ ok: false, error: 'audio_not_found' }, 404)
+      }
+      return new Response(body, {
+        status: 200,
+        headers: {
+          'Content-Type': inferAudioContentType(key),
+          'Cache-Control': 'private, max-age=300',
+        },
       })
     }
 
     if (request.method === 'POST' && path === '/transcripts') {
       const payload = parseMeetingTranscriptBody(await readJsonBody(request))
       const keywordInfo = await readKeywordPhrasesBySetIdFromNotion(env, payload.keywordSetId)
-      const getSigned = await createR2PresignedUrl(env, payload.key, 'GET', {
-        expiresIn: 60 * 60,
-      })
+      const audioUrl = await resolveMeetingFetchUrl(env, url, payload.key)
       const notionCtx = await ensureMeetingNotionSchema(env)
 
       const meetingId = crypto.randomUUID()
@@ -3032,6 +3282,7 @@ async function handleMeetingRoutesNotion(
         parent: { database_id: notionCtx.databaseId },
         properties: {
           [notionCtx.titlePropertyName]: { title: toNotionRichText(payload.title || transcriptId, 300) },
+          [MEETING_NOTION_FIELD.date]: payload.meetingDate ? { date: { start: payload.meetingDate } } : { date: null },
           [MEETING_NOTION_FIELD.recordType]: { select: { name: MEETING_RECORD_TYPE.transcript } },
           [MEETING_NOTION_FIELD.transcriptId]: notionRichTextValue(transcriptId, 200),
           [MEETING_NOTION_FIELD.meetingId]: notionRichTextValue(meetingId, 200),
@@ -3059,7 +3310,7 @@ async function handleMeetingRoutesNotion(
       const webhookUrl = asString(env.ASSEMBLYAI_WEBHOOK_URL) ?? `${url.origin}/api/assemblyai/webhook`
       const webhookSecret = getAssemblyWebhookSecret(env)
       const assemblyPayload: Record<string, unknown> = {
-        audio_url: getSigned.url,
+        audio_url: audioUrl,
         speaker_labels: true,
         webhook_url: webhookUrl,
         webhook_auth_header_name: 'x-assemblyai-webhook-secret',
@@ -3136,6 +3387,7 @@ async function handleMeetingRoutesNotion(
         transcripts: rows.map((row) => ({
           id: row.id,
           meetingId: row.meetingId,
+          meetingDate: row.meetingDate,
           assemblyId: row.assemblyId,
           status: row.status,
           createdAt: row.createdAt,
@@ -3203,6 +3455,7 @@ async function handleMeetingRoutesNotion(
         transcript: {
           id: found.row.id,
           meetingId: found.row.meetingId,
+          meetingDate: found.row.meetingDate,
           assemblyId: found.row.assemblyId,
           status,
           text,
@@ -3591,7 +3844,7 @@ export default {
       return response
     }
 
-    if (request.method === 'POST' && path === '/assemblyai/webhook') {
+    if (isMeetingPreAuthRoute(request.method, path)) {
       const meetingHandled = await handleMeetingRoutes(request, path, url, env, ctx, {
         json: (body, status) => json(body, status, origin),
         ok: (body) => ok(body, origin),
@@ -3607,7 +3860,7 @@ export default {
       )
     }
 
-    if (path !== '/assemblyai/webhook') {
+    if (!isMeetingPreAuthRoute(request.method, path)) {
       const meetingHandled = await handleMeetingRoutes(request, path, url, env, ctx, {
         json: (body, status) => json(body, status, origin),
         ok: (body) => ok(body, origin),
@@ -3655,8 +3908,8 @@ export default {
                 url: notionDatabaseUrl(env.NOTION_CHECKLIST_DB_ID),
               },
               meeting: {
-                id: env.NOTION_MEETING_DB_ID ?? null,
-                url: notionDatabaseUrl(env.NOTION_MEETING_DB_ID),
+                id: getMeetingNotionDbId(env),
+                url: notionDatabaseUrl(getMeetingNotionDbId(env)),
               },
             },
           },
@@ -4123,6 +4376,8 @@ export default {
               'GET /api/checklist-assignment-logs?limit=100',
               'POST /api/checklist-assignments',
               'POST /api/uploads/presign',
+              'PUT /api/uploads/direct?key=...&token=...',
+              'GET /api/uploads/fetch?key=...&token=...',
               'GET /api/transcripts?limit=20',
               'POST /api/transcripts',
               'GET /api/transcripts/:id',
@@ -4155,3 +4410,4 @@ export default {
     }
   },
 }
+

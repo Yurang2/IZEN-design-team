@@ -8,7 +8,7 @@
 - Project DB: `NOTION_PROJECT_DB_ID`
 - Task DB: `NOTION_TASK_DB_ID`
 - Checklist DB: `NOTION_CHECKLIST_DB_ID` (optional)
-- Meeting DB: `NOTION_MEETING_DB_ID` (optional)
+- Meeting DB (fixed): `3f3c1cc7ec278216b5e881744612ed6b`
 - Checklist Assignment DB: `NOTION_CHECKLIST_ASSIGNMENT_DB_ID` (optional)
 
 ## 3) 공통 규칙
@@ -112,6 +112,49 @@
   "applicable": true,
   "assignmentStatus": "not_applicable | unassigned | assigned",
   "assignmentStatusText": "string"
+}
+```
+
+### 4.6 Meeting Transcript Input Rule
+```json
+{
+  "key": "meetings/audio/.../file.m4a",
+  "title": "yymmdd 디자인팀 주간보고",
+  "minSpeakers": 2,
+  "maxSpeakers": 10,
+  "keywordSetId": "string | null"
+}
+```
+- `title`이 `yymmdd <제목>` 패턴이면:
+- Notion `날짜` 속성(date)에 `YYYY-MM-DD`로 저장한다.
+- Notion 페이지 제목은 `yymmdd` 이후 텍스트를 사용한다.
+- 패턴이 아니면 기존 제목을 그대로 사용하고 `날짜`는 비운다.
+
+### 4.7 Meeting Upload Presign Response
+```json
+{
+  "ok": true,
+  "key": "meetings/audio/.../file.wav",
+  "putUrl": "string",
+  "requiredHeaders": {
+    "Content-Type": "audio/wav"
+  },
+  "uploadMode": "r2_presigned | worker_direct"
+}
+```
+
+### 4.8 Meeting Transcript Read Shape (excerpt)
+```json
+{
+  "transcript": {
+    "id": "string",
+    "meetingId": "string",
+    "meetingDate": "YYYY-MM-DD | null",
+    "status": "queued | submitted | processing | completed | failed | error",
+    "meeting": {
+      "title": "string"
+    }
+  }
 }
 ```
 
