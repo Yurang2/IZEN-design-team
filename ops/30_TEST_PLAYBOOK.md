@@ -154,3 +154,9 @@
 - Scenario: transcript start path under constrained subrequest budget
 - Expected: no large Notion full-scan in create path; build passes
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: meetings upload pipeline stage UI + timeout/cancel handling
+- Expected: user sees current stage and elapsed time; stuck requests can be cancelled; timeout yields explicit stage-specific errors
+- Actual: PASS (`npm run build`)

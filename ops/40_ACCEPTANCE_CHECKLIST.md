@@ -127,3 +127,9 @@
 - [x] keyword phrase read for Assembly word boost capped to required size
 - [x] runtime `Too many subrequests` mapped to 503 in meetings route
 - [x] build/typecheck passed
+
+### 2026-02-27 Upload UX Hardening
+- [x] upload pipeline stage/elapsed status visible in meetings upload card
+- [x] cancel action available during in-flight upload/transcript-create request
+- [x] stage-specific timeout handling and guidance messages applied
+- [x] build/typecheck passed

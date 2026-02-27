@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import { api } from '../../shared/api/client'
 import { Button, TableWrap } from '../../shared/ui'
+import { useRef } from 'react'
 
 type KeywordSetRow = {
   id: string
@@ -88,6 +89,11 @@ type TranscriptPublishResponse = {
 }
 
 const POLL_INTERVAL_MS = 4_000
+const PRESIGN_TIMEOUT_MS = 20_000
+const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000
+const TRANSCRIPT_CREATE_TIMEOUT_MS = 45_000
+
+type UploadStage = 'idle' | 'presign' | 'upload' | 'transcript'
 
 function toDateTimeLabel(timestamp: number): string {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return '-'
@@ -109,6 +115,49 @@ function sanitizeSpeakerMap(values: Record<string, string>): Array<{ speakerLabe
       displayName: displayName.trim(),
     }))
     .filter((entry) => entry.speakerLabel && entry.displayName)
+}
+
+function formatDurationSeconds(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return '0s'
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes <= 0) return `${seconds}s`
+  return `${minutes}m ${String(seconds).padStart(2, '0')}s`
+}
+
+function getUploadStageLabel(stage: UploadStage): string {
+  if (stage === 'presign') return '1/3 업로드 준비'
+  if (stage === 'upload') return '2/3 파일 업로드'
+  if (stage === 'transcript') return '3/3 전사 요청 생성'
+  return '대기'
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!error) return false
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
+    return error.name === 'AbortError'
+  }
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes('AbortError')
+}
+
+function combineAbortSignals(signals: AbortSignal[]): AbortSignal {
+  const anyFn = (AbortSignal as unknown as { any?: (list: AbortSignal[]) => AbortSignal }).any
+  if (typeof anyFn === 'function') return anyFn(signals)
+
+  const controller = new AbortController()
+  const abort = () => {
+    if (!controller.signal.aborted) controller.abort()
+  }
+
+  for (const signal of signals) {
+    if (signal.aborted) {
+      abort()
+      break
+    }
+    signal.addEventListener('abort', abort, { once: true })
+  }
+  return controller.signal
 }
 
 function ActionIcon({ kind }: { kind: 'edit' | 'delete' | 'loading' }) {
@@ -149,6 +198,10 @@ export function MeetingsView() {
   const [maxSpeakers, setMaxSpeakers] = useState(10)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
+  const [uploadElapsedSec, setUploadElapsedSec] = useState(0)
+  const uploadAbortRef = useRef<AbortController | null>(null)
+  const uploadStartedAtRef = useRef<number | null>(null)
 
   const [transcripts, setTranscripts] = useState<TranscriptListRow[]>([])
   const [selectedTranscriptId, setSelectedTranscriptId] = useState('')
@@ -273,42 +326,90 @@ export function MeetingsView() {
     }
 
     setUploading(true)
+    setUploadStage('presign')
+    uploadStartedAtRef.current = Date.now()
+    setUploadElapsedSec(0)
+    if (uploadAbortRef.current) uploadAbortRef.current.abort()
+    const flowAbort = new AbortController()
+    uploadAbortRef.current = flowAbort
+
     setUploadMessage('')
     setErrorMessage('')
+    const selectedFile = file
+
+    const runStageWithTimeout = async <T,>(
+      runner: (signal: AbortSignal) => Promise<T>,
+      timeoutMs: number,
+      timeoutCode: string,
+    ): Promise<T> => {
+      const timeoutController = new AbortController()
+      const timeoutTimer = window.setTimeout(() => timeoutController.abort(), timeoutMs)
+      const signal = combineAbortSignals([flowAbort.signal, timeoutController.signal])
+      try {
+        return await runner(signal)
+      } catch (error) {
+        if (flowAbort.signal.aborted) throw new Error('upload_cancelled')
+        if (timeoutController.signal.aborted) throw new Error(timeoutCode)
+        throw error
+      } finally {
+        window.clearTimeout(timeoutTimer)
+      }
+    }
+
     try {
-      const presign = await api<UploadPresignResponse>('/uploads/presign', {
-        method: 'POST',
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type || 'audio/m4a',
-        }),
-      })
+      const presign = await runStageWithTimeout(
+        (signal) =>
+          api<UploadPresignResponse>('/uploads/presign', {
+            method: 'POST',
+            signal,
+            body: JSON.stringify({
+              filename: selectedFile.name,
+              contentType: selectedFile.type || 'audio/m4a',
+            }),
+          }),
+        PRESIGN_TIMEOUT_MS,
+        'presign_timeout',
+      )
 
       const putHeaders = new Headers(presign.requiredHeaders ?? {})
       if (!putHeaders.has('Content-Type')) {
-        putHeaders.set('Content-Type', file.type || 'audio/m4a')
+        putHeaders.set('Content-Type', selectedFile.type || 'audio/m4a')
       }
 
-      const uploadResponse = await fetch(presign.putUrl, {
-        method: 'PUT',
-        headers: putHeaders,
-        credentials: 'include',
-        body: file,
-      })
+      setUploadStage('upload')
+      const uploadResponse = await runStageWithTimeout(
+        (signal) =>
+          fetch(presign.putUrl, {
+            method: 'PUT',
+            signal,
+            headers: putHeaders,
+            credentials: 'include',
+            body: selectedFile,
+          }),
+        UPLOAD_TIMEOUT_MS,
+        'upload_timeout',
+      )
       if (!uploadResponse.ok) {
         throw new Error(`오디오 업로드 실패: HTTP ${uploadResponse.status}`)
       }
 
-      const created = await api<TranscriptCreateResponse>('/transcripts', {
-        method: 'POST',
-        body: JSON.stringify({
-          key: presign.key,
-          title: file.name,
-          minSpeakers,
-          maxSpeakers,
-          keywordSetId: selectedKeywordSetId || null,
-        }),
-      })
+      setUploadStage('transcript')
+      const created = await runStageWithTimeout(
+        (signal) =>
+          api<TranscriptCreateResponse>('/transcripts', {
+            method: 'POST',
+            signal,
+            body: JSON.stringify({
+              key: presign.key,
+              title: selectedFile.name,
+              minSpeakers,
+              maxSpeakers,
+              keywordSetId: selectedKeywordSetId || null,
+            }),
+          }),
+        TRANSCRIPT_CREATE_TIMEOUT_MS,
+        'transcript_create_timeout',
+      )
 
       setUploadMessage(`전사 요청이 생성되었습니다. Transcript ID: ${created.transcriptId}`)
       setSelectedTranscriptId(created.transcriptId)
@@ -316,12 +417,42 @@ export function MeetingsView() {
       await loadTranscripts()
       await loadTranscriptDetail(created.transcriptId)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '전사 요청 중 오류가 발생했습니다.'
+      const raw = error instanceof Error ? error.message : '전사 요청 중 오류가 발생했습니다.'
+      let message = raw
+      if (raw.includes('presign_timeout')) {
+        message = '업로드 준비 단계가 지연되었습니다. 잠시 후 다시 시도해 주세요.'
+      } else if (raw.includes('upload_timeout')) {
+        message = '파일 업로드 시간이 너무 오래 걸립니다. 네트워크 상태를 확인하고 다시 시도해 주세요.'
+      } else if (raw.includes('transcript_create_timeout')) {
+        message = '전사 요청 생성이 지연되고 있습니다. 새로고침 후 최근 전사 목록을 확인해 주세요.'
+      } else if (raw.includes('upload_cancelled') || isAbortError(error)) {
+        message = '요청을 취소했습니다.'
+      }
       setErrorMessage(message)
     } finally {
+      uploadAbortRef.current = null
+      uploadStartedAtRef.current = null
+      setUploadStage('idle')
+      setUploadElapsedSec(0)
       setUploading(false)
     }
   }
+
+  const onCancelUploadFlow = () => {
+    if (!uploading || !uploadAbortRef.current) return
+    uploadAbortRef.current.abort()
+  }
+
+  useEffect(() => {
+    if (!uploading) return
+    const timer = window.setInterval(() => {
+      const startedAt = uploadStartedAtRef.current
+      if (!startedAt) return
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000)
+      setUploadElapsedSec(elapsed)
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [uploading])
 
   const persistSpeakerMap = useCallback(
     async (transcriptId: string) => {
@@ -577,8 +708,19 @@ export function MeetingsView() {
             <Button type="submit" disabled={uploading}>
               {uploading ? '전사 요청 중...' : '업로드 후 전사 시작'}
             </Button>
+            {uploading ? (
+              <Button type="button" variant="secondary" onClick={onCancelUploadFlow}>
+                요청 취소
+              </Button>
+            ) : null}
           </div>
         </form>
+        {uploading ? (
+          <div className="meetingsUploadStatus" role="status" aria-live="polite">
+            <strong>{getUploadStageLabel(uploadStage)}</strong>
+            <span>경과 {formatDurationSeconds(uploadElapsedSec)}</span>
+          </div>
+        ) : null}
         {uploadMessage ? <p className="muted small">{uploadMessage}</p> : null}
         {errorMessage ? <p className="error">{errorMessage}</p> : null}
       </article>

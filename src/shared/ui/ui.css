@@ -1560,6 +1560,27 @@ button.boardCard:hover {
   gap: 6px;
 }
 
+.meetingsUploadStatus {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-soft) 86%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 6px 8px;
+}
+
+.meetingsUploadStatus strong {
+  color: var(--text-main);
+  font-size: 12px;
+}
+
+.meetingsUploadStatus span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
 .meetingsWorkbench {
   display: grid;
   gap: 12px;

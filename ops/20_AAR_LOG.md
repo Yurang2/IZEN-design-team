@@ -155,3 +155,9 @@
 - Result: ID lookups now use single-page query (`page_size=1`), and keyword phrase loading for Assembly word boost is capped to needed volume.
 - Result: meeting route maps runtime `Too many subrequests` to 503 for clearer operational signal.
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (upload flow stage visibility + timeout/cancel UX)
+- Task: expose upload pipeline stage to user and prevent silent hangs.
+- Result: meetings upload now shows 3-stage progress (presign/upload/transcript create), elapsed time, and cancel action.
+- Result: per-stage timeout added (20s/5m/45s) with specific user-facing error messages.
+- Validation: `npm run build` passed.
