@@ -27,3 +27,9 @@
 - [x] Korean transcript recognition enforced (`language_code=ko`)
 - [x] E2E scenario passed with real WAV input
 - [x] AAR and test logs updated
+
+### 2026-02-27 Meetings Labeling-first Flow
+- [x] 라벨링 우선 + 수동 publish 정책 반영
+- [x] 상태 표기 분리(전사 진행중/라벨링 필요/반영 완료)
+- [x] 문서/훅 계약 업데이트 완료
+- [x] 배포 라우트 반영 확인 완료

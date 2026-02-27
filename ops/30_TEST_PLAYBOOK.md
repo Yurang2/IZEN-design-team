@@ -37,3 +37,11 @@
 - Scenario: Re-run meetings E2E after Korean ASR fix using `files/260113_test-enhanced-v2.wav`
 - Expected: Completed transcript with Korean text and speaker utterances
 - Actual: PASS (`status=completed`, Korean text returned, utterances populated)
+
+- 날짜: 2026-02-27
+- 실행자: Codex
+- 시나리오: 신규 publish 엔드포인트 배포 반영 확인
+- 절차: `POST /api/transcripts/test-id/publish`
+- 기대 결과: 라우트 존재 시 `transcript_not_found` (404)
+- 실제 결과: PASS (`404`, body=`{"ok":false,"error":"transcript_not_found"}`)
+- 비고: 전사 비용 절감을 위해 AssemblyAI 재전사 E2E는 생략

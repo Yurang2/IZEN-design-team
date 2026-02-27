@@ -47,3 +47,10 @@
 - Result: New transcript output changed from gibberish to valid Korean full text and speaker utterances.
 - Evidence: transcriptId `99fb62fb-d46d-433b-9965-8e71ab490595`, status `completed`, non-empty Korean transcript.
 - Next: add optional language selector only if multilingual use-case is confirmed.
+
+### 2026-02-27 (manual publish flow + status UX + Notion file attachment)
+- 작업 항목: 화자 라벨링 후 수동 publish 구조로 전환, 상태 표기 개선, publish 시 Notion 파일 업로드 첨부
+- 결과: 자동 본문 반영 제거, `POST /api/transcripts/:id/publish` 추가, `completed`를 곧바로 완료로 표시하지 않도록 UX 분리
+- 검증: 배포 후 `POST /api/transcripts/test-id/publish` -> `404 transcript_not_found`로 신규 라우트 반영 확인
+- 비용 메모: 동일 transcriptId에 대한 매핑 저장 + publish 반복은 AssemblyAI 재전사 비용을 추가로 만들지 않음
+- 다음 액션: publish 시 기존 첨부 파일 재사용 최적화(불필요 재업로드 방지)
