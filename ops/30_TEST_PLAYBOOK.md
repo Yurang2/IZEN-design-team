@@ -112,3 +112,9 @@
 - Scenario: openai_summary_empty diagnostics and extractor hardening
 - Expected: build pass; richer summary error context when text extraction fails
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: summary generation retry path for `incomplete=max_output_tokens`
+- Expected: build pass and retry logic compiled
+- Actual: PASS (`npm run build`)

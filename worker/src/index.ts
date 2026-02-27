@@ -43,7 +43,8 @@ const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
-const MAX_SUMMARY_SOURCE_CHARS = 18_000
+const MAX_SUMMARY_SOURCE_CHARS = 10_000
+const SUMMARY_RETRY_SOURCE_CHARS = 6_000
 const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
 const DEFAULT_ASSEMBLY_SPEECH_MODELS = ['universal-2']
 
@@ -3174,6 +3175,13 @@ function summarizeOpenAiResponsePayload(payload: unknown): string {
   return fields.join(',')
 }
 
+function getOpenAiIncompleteReason(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const obj = payload as Record<string, unknown>
+  if (!obj.incomplete_details || typeof obj.incomplete_details !== 'object') return null
+  return asString((obj.incomplete_details as Record<string, unknown>).reason)
+}
+
 async function generateMeetingSummary(
   env: Env,
   utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
@@ -3191,107 +3199,130 @@ async function generateMeetingSummary(
     'You are a meeting-minutes draft assistant.',
     'Produce a structured draft that is easy for humans to review and edit, not a final confirmed document.',
   ].join('\n')
-  const userPrompt = [
-    'Input assumptions:',
-    'Output language: Korean (ko-KR) only.',
-    '',
-    'Every utterance uses this timestamp format:',
-    '[00:00:01-00:00:24] Name: Utterance',
-    '',
-    'Timestamps are always accurate and must be used as evidence.',
-    '',
-    'Use each speaker name exactly as provided.',
-    '',
-    'Absolute rules:',
-    '',
-    'For decisions, requests, changes, deadlines, risks, and role assignments, include at least one supporting timestamp.',
-    '',
-    'If evidence is ambiguous, do not assert; mark as [Uncertain].',
-    '',
-    'Do not use fixed tags. Generate tags based on meeting context.',
-    '',
-    'Confidence must be exactly one of: High, Medium, Low.',
-    '',
-    'Never add information that is not in the source utterances.',
-    '',
-    'Output format:',
-    '',
-    'Meta',
-    '',
-    'Participants (estimated): name list',
-    '',
-    'Draft note: Auto-generated draft summary; omissions or interpretation errors may exist.',
-    '',
-    'Key agenda summary',
-    'Format:',
-    '[Tag] Agenda title (Priority 1~3) / Confidence: High|Medium|Low / Evidence: [00:00:00-00:00:00]',
-    '',
-    '2-3 line summary',
-    '',
-    'Priority criteria:',
-    '1 = immediate risk/decision required',
-    '2 = important in-progress matter',
-    '3 = reference/future discussion',
-    '',
-    'Decided items / Needs confirmation (table)',
-    'Columns:',
-    'Agenda | Decided item | Needs confirmation (question form) | Related person | Evidence timestamp | Confidence',
-    '',
-    'Action items by participant (table)',
-    'Columns:',
-    'Person | Action item | Evidence timestamp | Confidence',
-    '',
-    'Uncertain / needs additional confirmation segments',
-    '',
-    'Item',
-    '',
-    'Reason',
-    '',
-    'Confirmation question',
-    '',
-    'Evidence timestamp',
-    '',
-    'Notes:',
-    '',
-    'Keep timestamps exactly in square-bracket format.',
-    '',
-    'If an agenda has multiple evidence timestamps, include only one representative timestamp.',
-    '',
-    'No excessive interpretation.',
-    '',
-    'Source utterances:',
-    '',
-    source,
-  ].join('\n')
+  const buildUserPrompt = (sourceText: string, condensed: boolean): string =>
+    [
+      'Input assumptions:',
+      'Output language: Korean (ko-KR) only.',
+      '',
+      'Every utterance uses this timestamp format:',
+      '[00:00:01-00:00:24] Name: Utterance',
+      '',
+      'Timestamps are always accurate and must be used as evidence.',
+      '',
+      'Use each speaker name exactly as provided.',
+      '',
+      'Absolute rules:',
+      '',
+      'For decisions, requests, changes, deadlines, risks, and role assignments, include at least one supporting timestamp.',
+      '',
+      'If evidence is ambiguous, do not assert; mark as [Uncertain].',
+      '',
+      'Do not use fixed tags. Generate tags based on meeting context.',
+      '',
+      'Confidence must be exactly one of: High, Medium, Low.',
+      '',
+      'Never add information that is not in the source utterances.',
+      '',
+      'Output format:',
+      '',
+      'Meta',
+      '',
+      'Participants (estimated): name list',
+      '',
+      'Draft note: Auto-generated draft summary; omissions or interpretation errors may exist.',
+      '',
+      'Key agenda summary',
+      'Format:',
+      '[Tag] Agenda title (Priority 1~3) / Confidence: High|Medium|Low / Evidence: [00:00:00-00:00:00]',
+      '',
+      '2-3 line summary',
+      '',
+      'Priority criteria:',
+      '1 = immediate risk/decision required',
+      '2 = important in-progress matter',
+      '3 = reference/future discussion',
+      '',
+      'Decided items / Needs confirmation (table)',
+      'Columns:',
+      'Agenda | Decided item | Needs confirmation (question form) | Related person | Evidence timestamp | Confidence',
+      '',
+      'Action items by participant (table)',
+      'Columns:',
+      'Person | Action item | Evidence timestamp | Confidence',
+      '',
+      'Uncertain / needs additional confirmation segments',
+      '',
+      'Item',
+      '',
+      'Reason',
+      '',
+      'Confirmation question',
+      '',
+      'Evidence timestamp',
+      '',
+      'Notes:',
+      '',
+      'Keep timestamps exactly in square-bracket format.',
+      '',
+      'If an agenda has multiple evidence timestamps, include only one representative timestamp.',
+      '',
+      'No excessive interpretation.',
+      condensed ? 'Keep wording concise and focus on top-priority items first.' : '',
+      '',
+      'Source utterances:',
+      '',
+      sourceText,
+    ]
+      .filter((line) => line !== '')
+      .join('\n')
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
-        { role: 'user', content: [{ type: 'input_text', text: userPrompt }] },
-      ],
-      text: { format: { type: 'text' } },
-      max_output_tokens: 1400,
-    }),
-  })
+  const requestSummary = async (
+    sourceText: string,
+    maxOutputTokens: number,
+    condensed: boolean,
+  ): Promise<{ summary: string; payload: unknown } | { summary: null; payload: unknown }> => {
+    const userPrompt = buildUserPrompt(sourceText, condensed)
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        input: [
+          { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
+          { role: 'user', content: [{ type: 'input_text', text: userPrompt }] },
+        ],
+        text: { format: { type: 'text' } },
+        max_output_tokens: maxOutputTokens,
+      }),
+    })
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`openai_summary_failed:${response.status}:${detail.slice(0, 200)}`)
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(`openai_summary_failed:${response.status}:${detail.slice(0, 200)}`)
+    }
+
+    const payload = (await response.json()) as unknown
+    const summary = extractOpenAiResponseText(payload)
+    if (!summary) return { summary: null, payload }
+    return { summary: summary.slice(0, 6000), payload }
   }
 
-  const payload = (await response.json()) as unknown
-  const summary = extractOpenAiResponseText(payload)
-  if (!summary) {
-    throw new Error(`openai_summary_empty:${summarizeOpenAiResponsePayload(payload)}`)
+  const first = await requestSummary(source, 2200, false)
+  if (first.summary) return first.summary
+
+  if (getOpenAiIncompleteReason(first.payload) === 'max_output_tokens') {
+    const retrySource = source.slice(0, SUMMARY_RETRY_SOURCE_CHARS)
+    const second = await requestSummary(retrySource, 3200, true)
+    if (second.summary) return second.summary
+    throw new Error(
+      `openai_summary_empty_retry:${summarizeOpenAiResponsePayload(first.payload)}=>${summarizeOpenAiResponsePayload(second.payload)}`,
+    )
   }
-  return summary.slice(0, 6000)
+
+  throw new Error(`openai_summary_empty:${summarizeOpenAiResponsePayload(first.payload)}`)
 }
 
 function findUnmappedSpeakers(

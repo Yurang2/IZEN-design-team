@@ -115,3 +115,11 @@
 - `openai_summary_empty` error now includes payload diagnostics:
   - `status`, `outputItems`, `contentTypes`, optional `incomplete` reason.
 - Request includes `text.format.type = "text"` to stabilize text output extraction.
+
+## 14) Summary Token Incomplete Auto-Retry (2026-02-27)
+- When first summary call ends with `incomplete=max_output_tokens`, Worker retries once automatically.
+- Retry strategy:
+  - shorter source slice (`SUMMARY_RETRY_SOURCE_CHARS=6000`)
+  - higher output token budget (3200)
+  - condensed phrasing hint while preserving required structure/evidence rules
+- Base source limit reduced to `MAX_SUMMARY_SOURCE_CHARS=10000`.

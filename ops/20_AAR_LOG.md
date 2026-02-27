@@ -115,3 +115,8 @@
 - Result: expanded OpenAI response text extraction and added payload diagnostics in empty-summary error.
 - Protocol: responses call now requests explicit text format (`text.format.type=text`).
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (summary token-incomplete auto-retry)
+- Task: fix persistent `openai_summary_empty ... incomplete=max_output_tokens`.
+- Result: reduced source cap (10k chars) + one automatic retry with shorter source (6k) and larger output budget.
+- Validation: `npm run build` passed.

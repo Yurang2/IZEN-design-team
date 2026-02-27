@@ -89,3 +89,8 @@
 - [x] empty-summary error includes status/output/content type diagnostics
 - [x] responses request enforces text format
 - [x] build/typecheck passed
+### 2026-02-27 Summary Token Incomplete Retry
+- [x] source cap reduced to 10k chars
+- [x] retry on `incomplete=max_output_tokens` implemented
+- [x] retry uses shorter source + higher output token budget
+- [x] build/typecheck passed
