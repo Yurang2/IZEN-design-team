@@ -1772,22 +1772,25 @@ function getMeetingAudioBucket(env: Env): NonNullable<Env['MEETING_AUDIO_BUCKET'
 
 async function readR2ObjectForResponse(object: unknown): Promise<{ body: BodyInit; contentType?: string } | null> {
   if (!object || typeof object !== 'object') return null
-  const value = object as Record<string, unknown>
-  const httpMetadata = value.httpMetadata as Record<string, unknown> | undefined
+  const value = object as {
+    body?: BodyInit
+    arrayBuffer?: () => Promise<ArrayBuffer>
+    httpMetadata?: Record<string, unknown>
+  }
+  const httpMetadata = value.httpMetadata
   const contentType = asString(httpMetadata?.contentType)
 
-  const stream = value.body as unknown
+  const stream = value.body
   if (stream && typeof stream === 'object') {
     // Workers R2 runtime commonly exposes a ReadableStream body directly.
     return {
-      body: stream as BodyInit,
+      body: stream,
       contentType,
     }
   }
 
-  const asArrayBuffer = value.arrayBuffer
-  if (typeof asArrayBuffer === 'function') {
-    const buffer = (await (asArrayBuffer as () => Promise<ArrayBuffer>)()) as ArrayBuffer
+  if (typeof value.arrayBuffer === 'function') {
+    const buffer = await value.arrayBuffer()
     return {
       body: buffer,
       contentType,
@@ -1799,13 +1802,16 @@ async function readR2ObjectForResponse(object: unknown): Promise<{ body: BodyIni
 
 async function readR2ObjectAsArrayBuffer(object: unknown): Promise<{ bytes: ArrayBuffer; contentType?: string } | null> {
   if (!object || typeof object !== 'object') return null
-  const value = object as Record<string, unknown>
-  const httpMetadata = value.httpMetadata as Record<string, unknown> | undefined
+  const value = object as {
+    body?: BodyInit
+    arrayBuffer?: () => Promise<ArrayBuffer>
+    httpMetadata?: Record<string, unknown>
+  }
+  const httpMetadata = value.httpMetadata
   const contentType = asString(httpMetadata?.contentType)
 
-  const asArrayBuffer = value.arrayBuffer
-  if (typeof asArrayBuffer === 'function') {
-    const bytes = (await (asArrayBuffer as () => Promise<ArrayBuffer>)()) as ArrayBuffer
+  if (typeof value.arrayBuffer === 'function') {
+    const bytes = await value.arrayBuffer()
     return { bytes, contentType }
   }
 
@@ -1827,8 +1833,10 @@ async function createR2PresignedUrl(
   },
 ): Promise<{ url: string; requiredHeaders?: Record<string, string> }> {
   const bucket = getMeetingAudioBucket(env)
-  const createFn = (bucket as { createPresignedUrl?: unknown }).createPresignedUrl
-  if (typeof createFn !== 'function') {
+  const r2Bucket = bucket as {
+    createPresignedUrl?: (request: Request, options?: { expiresIn?: number }) => Promise<URL | string>
+  }
+  if (typeof r2Bucket.createPresignedUrl !== 'function') {
     throw new Error('r2_presign_not_supported_[UNKNOWN]')
   }
 
@@ -1840,8 +1848,7 @@ async function createR2PresignedUrl(
     method,
     headers,
   })
-  const signer = createFn as (request: Request, options?: { expiresIn?: number }) => Promise<URL | string>
-  const signed = await signer(unsigned, { expiresIn: options?.expiresIn ?? 60 * 15 })
+  const signed = await r2Bucket.createPresignedUrl(unsigned, { expiresIn: options?.expiresIn ?? 60 * 15 })
   const url = typeof signed === 'string' ? signed : signed.toString()
   const requiredHeaders = options?.contentType ? { 'Content-Type': options.contentType } : undefined
   return {

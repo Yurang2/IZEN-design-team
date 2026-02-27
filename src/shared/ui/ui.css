@@ -1581,6 +1581,15 @@ button.boardCard:hover {
   font-size: 12px;
 }
 
+.meetingsListTable tbody tr.isTimelineFocus td {
+  background: color-mix(in srgb, var(--primary) 13%, var(--surface));
+  border-bottom-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+
+.meetingsListTable tbody tr:hover td {
+  background: color-mix(in srgb, var(--surface-soft) 80%, var(--surface));
+}
+
 .meetingsDetailCard .meetingsUtterances {
   max-height: 320px;
   overflow: auto;

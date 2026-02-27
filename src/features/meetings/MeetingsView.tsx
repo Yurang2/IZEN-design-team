@@ -100,46 +100,6 @@ function sanitizeSpeakerMap(values: Record<string, string>): Array<{ speakerLabe
     .filter((entry) => entry.speakerLabel && entry.displayName)
 }
 
-function toMarkdown(detail: TranscriptDetail, useMapped: boolean): string {
-  const utterances = useMapped ? detail.utterancesMapped : detail.utterances
-  const lines = utterances.map((entry) => `- **${useMapped ? entry.displaySpeaker ?? entry.speaker : entry.speaker}**: ${entry.text}`)
-  return [
-    `# ${detail.meeting.title || '회의록'}`,
-    '',
-    `- 상태: ${detail.status}`,
-    `- Transcript ID: ${detail.id}`,
-    `- 생성: ${toDateTimeLabel(detail.createdAt)}`,
-    `- 수정: ${toDateTimeLabel(detail.updatedAt)}`,
-    '',
-    '## 대화',
-    ...lines,
-  ].join('\n')
-}
-
-function downloadText(filename: string, content: string): void {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.append(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
-function downloadJson(filename: string, value: unknown): void {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.append(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
 export function MeetingsView() {
   const [keywordSets, setKeywordSets] = useState<KeywordSetRow[]>([])
   const [selectedKeywordSetId, setSelectedKeywordSetId] = useState('')
@@ -526,24 +486,6 @@ export function MeetingsView() {
     }
   }
 
-  const onExportJson = (mapped: boolean) => {
-    if (!transcriptDetail) return
-    downloadJson(
-      `transcript-${transcriptDetail.id}-${mapped ? 'mapped' : 'raw'}.json`,
-      mapped
-        ? {
-            ...transcriptDetail,
-            utterances: transcriptDetail.utterancesMapped,
-          }
-        : transcriptDetail,
-    )
-  }
-
-  const onExportMarkdown = (mapped: boolean) => {
-    if (!transcriptDetail) return
-    downloadText(`transcript-${transcriptDetail.id}-${mapped ? 'mapped' : 'raw'}.md`, toMarkdown(transcriptDetail, mapped))
-  }
-
   return (
     <section className="meetingsView">
       <article className="meetingsCard">
@@ -631,22 +573,6 @@ export function MeetingsView() {
         <article className="meetingsCard meetingsDetailCard">
           <div className="meetingsCardHeader">
             <h3>Transcript 상세 / 화자 매핑</h3>
-            {transcriptDetail ? (
-              <div className="meetingsActions">
-                <Button type="button" variant="secondary" size="mini" onClick={() => onExportJson(false)}>
-                  JSON(raw)
-                </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => onExportJson(true)}>
-                  JSON(mapped)
-                </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => onExportMarkdown(false)}>
-                  MD(raw)
-                </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => onExportMarkdown(true)}>
-                  MD(mapped)
-                </Button>
-              </div>
-            ) : null}
           </div>
           {!selectedTranscriptId ? (
             <p className="muted">좌측 목록에서 transcript를 선택해 주세요.</p>
@@ -658,10 +584,6 @@ export function MeetingsView() {
                 <article>
                   <span>상태</span>
                   <strong>{toTranscriptStatusLabel(transcriptDetail.status, transcriptDetail.bodySynced)}</strong>
-                </article>
-                <article>
-                  <span>Assembly ID</span>
-                  <strong>{transcriptDetail.assemblyId || '-'}</strong>
                 </article>
                 <article>
                   <span>생성 시각</span>
