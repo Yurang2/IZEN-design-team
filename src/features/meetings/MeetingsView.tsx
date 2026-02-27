@@ -24,6 +24,7 @@ type TranscriptListRow = {
   meetingId: string
   assemblyId: string | null
   status: string
+  bodySynced: boolean
   createdAt: number
   updatedAt: number
   title: string
@@ -43,6 +44,7 @@ type TranscriptDetail = {
   meetingId: string
   assemblyId: string | null
   status: string
+  bodySynced: boolean
   text: string
   utterances: TranscriptUtterance[]
   utterancesMapped: TranscriptUtterance[]
@@ -79,6 +81,14 @@ const POLL_INTERVAL_MS = 4_000
 function toDateTimeLabel(timestamp: number): string {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return '-'
   return new Date(timestamp).toLocaleString('ko-KR', { hour12: false })
+}
+
+function toTranscriptStatusLabel(status: string, bodySynced: boolean): string {
+  const normalized = status.trim().toLowerCase()
+  if (normalized === 'completed') return bodySynced ? '반영 완료' : '라벨링 필요'
+  if (normalized === 'queued' || normalized === 'submitted' || normalized === 'processing') return '전사 진행중'
+  if (normalized === 'failed' || normalized === 'error') return '처리 실패'
+  return status
 }
 
 function sanitizeSpeakerMap(values: Record<string, string>): Array<{ speakerLabel: string; displayName: string }> {
@@ -151,6 +161,7 @@ export function MeetingsView() {
   const [transcriptDetail, setTranscriptDetail] = useState<TranscriptDetail | null>(null)
   const [speakerMapDraft, setSpeakerMapDraft] = useState<Record<string, string>>({})
   const [savingSpeakers, setSavingSpeakers] = useState(false)
+  const [publishingToNotion, setPublishingToNotion] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingTranscripts, setLoadingTranscripts] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -315,23 +326,61 @@ export function MeetingsView() {
     }
   }
 
-  const onSaveSpeakerMap = async () => {
-    if (!selectedTranscriptId) return
-    setSavingSpeakers(true)
-    setErrorMessage('')
-    try {
-      await api(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/speakers`, {
+  const persistSpeakerMap = useCallback(
+    async (transcriptId: string) => {
+      await api(`/transcripts/${encodeURIComponent(transcriptId)}/speakers`, {
         method: 'PATCH',
         body: JSON.stringify({
           mappings: sanitizeSpeakerMap(speakerMapDraft),
         }),
       })
+    },
+    [speakerMapDraft],
+  )
+
+  const onSaveSpeakerMap = async () => {
+    if (!selectedTranscriptId) return
+    setSavingSpeakers(true)
+    setErrorMessage('')
+    try {
+      await persistSpeakerMap(selectedTranscriptId)
       await loadTranscriptDetail(selectedTranscriptId)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '화자 이름 저장에 실패했습니다.'
       setErrorMessage(message)
     } finally {
       setSavingSpeakers(false)
+    }
+  }
+
+  const onPublishToNotion = async () => {
+    if (!selectedTranscriptId || !transcriptDetail) return
+    if (transcriptDetail.status !== 'completed') {
+      setErrorMessage('전사가 completed 상태가 된 뒤 Notion 반영이 가능합니다.')
+      return
+    }
+
+    const missingMappings = speakerLabels.filter((speaker) => !(speakerMapDraft[speaker] ?? '').trim())
+    if (missingMappings.length > 0) {
+      setErrorMessage(`아직 이름이 지정되지 않은 화자가 있습니다: ${missingMappings.join(', ')}`)
+      return
+    }
+
+    setPublishingToNotion(true)
+    setErrorMessage('')
+    try {
+      await persistSpeakerMap(selectedTranscriptId)
+      await api(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/publish`, {
+        method: 'POST',
+      })
+      setUploadMessage('라벨링된 화자 발화를 Notion에 반영했습니다.')
+      await loadTranscriptDetail(selectedTranscriptId)
+      await loadTranscripts()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Notion 반영에 실패했습니다.'
+      setErrorMessage(message)
+    } finally {
+      setPublishingToNotion(false)
     }
   }
 
@@ -566,7 +615,7 @@ export function MeetingsView() {
                     onClick={() => setSelectedTranscriptId(row.id)}
                   >
                     <td>{row.title || row.audioKey}</td>
-                    <td>{row.status}</td>
+                    <td>{toTranscriptStatusLabel(row.status, row.bodySynced)}</td>
                     <td>{toDateTimeLabel(row.createdAt)}</td>
                   </tr>
                 ))}
@@ -672,7 +721,7 @@ export function MeetingsView() {
             <section className="meetingsMetaGrid">
               <article>
                 <span>상태</span>
-                <strong>{transcriptDetail.status}</strong>
+                <strong>{toTranscriptStatusLabel(transcriptDetail.status, transcriptDetail.bodySynced)}</strong>
               </article>
               <article>
                 <span>Assembly ID</span>
@@ -685,6 +734,10 @@ export function MeetingsView() {
               <article>
                 <span>최종 갱신</span>
                 <strong>{toDateTimeLabel(transcriptDetail.updatedAt)}</strong>
+              </article>
+              <article>
+                <span>Notion 반영</span>
+                <strong>{transcriptDetail.bodySynced ? '완료' : '대기'}</strong>
               </article>
             </section>
 
@@ -714,6 +767,14 @@ export function MeetingsView() {
               <div className="meetingsActions">
                 <Button type="button" onClick={() => void onSaveSpeakerMap()} disabled={savingSpeakers || speakerLabels.length === 0}>
                   {savingSpeakers ? '저장 중...' : '매핑 저장'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void onPublishToNotion()}
+                  disabled={publishingToNotion || savingSpeakers || transcriptDetail.status !== 'completed' || speakerLabels.length === 0}
+                >
+                  {publishingToNotion ? 'Notion 반영 중...' : '라벨 확정 후 Notion 반영'}
                 </Button>
               </div>
             </section>

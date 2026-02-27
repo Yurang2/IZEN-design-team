@@ -151,10 +151,31 @@
     "meetingId": "string",
     "meetingDate": "YYYY-MM-DD | null",
     "status": "queued | submitted | processing | completed | failed | error",
+    "bodySynced": false,
     "meeting": {
       "title": "string"
     }
   }
+}
+```
+
+### 4.9 Meeting Transcript Publish (manual Notion sync)
+- Endpoint: `POST /api/transcripts/:id/publish`
+- Purpose: after speaker mapping is completed in web UI, publish mapped utterances to Notion body.
+- Rule:
+- webhook/GET polling must not auto-publish transcript body.
+- publish is rejected when transcript status is not `completed`.
+- publish is rejected when any speaker label is unmapped.
+- Notion `전문` section writes only `화자별 발화` (mapped names). `원문 텍스트` section is not written.
+
+```json
+{
+  "ok": true,
+  "transcriptId": "string",
+  "assemblyId": "string",
+  "status": "completed",
+  "utteranceCount": 123,
+  "audioFileAttached": true
 }
 ```
 

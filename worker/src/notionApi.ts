@@ -2,19 +2,21 @@ import type { Env } from './types'
 
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
+const NOTION_FILE_UPLOAD_VERSION = '2025-09-03'
 
 type JsonMap = Record<string, unknown>
 
 export class NotionApi {
   constructor(private readonly env: Env) {}
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T>(path: string, init?: RequestInit, notionVersion = NOTION_VERSION): Promise<T> {
+    const bodyIsForm = typeof FormData !== 'undefined' && init?.body instanceof FormData
     const response = await fetch(`${NOTION_API_BASE}${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${this.env.NOTION_TOKEN}`,
-        'Notion-Version': NOTION_VERSION,
-        'Content-Type': 'application/json',
+        'Notion-Version': notionVersion,
+        ...(bodyIsForm ? {} : { 'Content-Type': 'application/json' }),
         ...(init?.headers ?? {}),
       },
     })
@@ -83,5 +85,45 @@ export class NotionApi {
       method: 'PATCH',
       body: JSON.stringify({ children }),
     })
+  }
+
+  async updateBlock(blockId: string, input: JsonMap): Promise<any> {
+    return this.request(`/blocks/${blockId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async createFileUpload(filename: string, contentType: string): Promise<any> {
+    return this.request(
+      '/file_uploads',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          mode: 'single_part',
+          filename,
+          content_type: contentType,
+        }),
+      },
+      NOTION_FILE_UPLOAD_VERSION,
+    )
+  }
+
+  async sendFileUpload(fileUploadId: string, bytes: ArrayBuffer, filename: string, contentType: string): Promise<any> {
+    const form = new FormData()
+    const blob = new Blob([bytes], { type: contentType })
+    form.append('file', blob, filename)
+    return this.request(
+      `/file_uploads/${encodeURIComponent(fileUploadId)}/send`,
+      {
+        method: 'POST',
+        body: form,
+      },
+      NOTION_FILE_UPLOAD_VERSION,
+    )
+  }
+
+  async retrieveFileUpload(fileUploadId: string): Promise<any> {
+    return this.request(`/file_uploads/${encodeURIComponent(fileUploadId)}`, undefined, NOTION_FILE_UPLOAD_VERSION)
   }
 }

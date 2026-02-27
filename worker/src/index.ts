@@ -40,7 +40,7 @@ const MAX_ALLOWED_SPEAKERS = 10
 const TRANSCRIPT_POLL_LIMIT = 50
 const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
-const MAX_TRANSCRIPT_BODY_TEXT_BLOCKS = 80
+const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
 const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
 
@@ -1797,6 +1797,26 @@ async function readR2ObjectForResponse(object: unknown): Promise<{ body: BodyIni
   return null
 }
 
+async function readR2ObjectAsArrayBuffer(object: unknown): Promise<{ bytes: ArrayBuffer; contentType?: string } | null> {
+  if (!object || typeof object !== 'object') return null
+  const value = object as Record<string, unknown>
+  const httpMetadata = value.httpMetadata as Record<string, unknown> | undefined
+  const contentType = asString(httpMetadata?.contentType)
+
+  const asArrayBuffer = value.arrayBuffer
+  if (typeof asArrayBuffer === 'function') {
+    const bytes = (await (asArrayBuffer as () => Promise<ArrayBuffer>)()) as ArrayBuffer
+    return { bytes, contentType }
+  }
+
+  const stream = value.body
+  if (stream) {
+    const bytes = await new Response(stream as BodyInit).arrayBuffer()
+    return { bytes, contentType }
+  }
+  return null
+}
+
 async function createR2PresignedUrl(
   env: Env,
   key: string,
@@ -2983,19 +3003,22 @@ function bulletBlock(text: string): Record<string, unknown> {
   }
 }
 
-function splitTextChunks(text: string, chunkSize: number, maxChunks: number): string[] {
-  const trimmed = text.trim()
-  if (!trimmed) return []
-  const chunks: string[] = []
-  for (let i = 0; i < trimmed.length && chunks.length < maxChunks; i += chunkSize) {
-    chunks.push(trimmed.slice(i, i + chunkSize))
-  }
-  return chunks
+function findUnmappedSpeakers(
+  utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
+  speakerMap: Record<string, string>,
+): string[] {
+  const uniqueSpeakers = Array.from(new Set(utterances.map((row) => row.speaker).filter(Boolean)))
+  return uniqueSpeakers.filter((speakerLabel) => {
+    const mapped = asString(speakerMap[speakerLabel])?.trim()
+    return !mapped
+  })
 }
 
-function buildTranscriptBodyBlocks(detail: Record<string, unknown>): Record<string, unknown>[] {
+function buildTranscriptBodyBlocks(
+  detail: Record<string, unknown>,
+  speakerMap: Record<string, string>,
+): Record<string, unknown>[] {
   const status = asString(detail.status) ?? 'completed'
-  const text = asString(detail.text) ?? ''
   const utterances = normalizeUtterances(detail.utterances)
   const blocks: Record<string, unknown>[] = []
   blocks.push(headingBlock('heading_2', '요약'))
@@ -3003,18 +3026,14 @@ function buildTranscriptBodyBlocks(detail: Record<string, unknown>): Record<stri
   blocks.push(headingBlock('heading_2', '전문'))
   blocks.push(paragraphBlock(`status=${status} generated_at=${new Date().toISOString()}`))
 
-  if (text.trim()) {
-    blocks.push(headingBlock('heading_3', '원문 텍스트'))
-    for (const chunk of splitTextChunks(text, NOTION_RICH_TEXT_CHUNK, MAX_TRANSCRIPT_BODY_TEXT_BLOCKS)) {
-      blocks.push(paragraphBlock(chunk))
-    }
-  }
-
   if (utterances.length > 0) {
     blocks.push(headingBlock('heading_3', `화자별 발화 (${Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)}/${utterances.length})`))
     for (const row of utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)) {
-      blocks.push(bulletBlock(`${row.speaker}: ${row.text}`))
+      const displaySpeaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
+      blocks.push(bulletBlock(`${displaySpeaker}: ${row.text}`))
     }
+  } else {
+    blocks.push(paragraphBlock('화자별 발화가 아직 없습니다.'))
   }
   return blocks
 }
@@ -3022,6 +3041,67 @@ function buildTranscriptBodyBlocks(detail: Record<string, unknown>): Record<stri
 async function appendBlocksInChunks(api: NotionApi, pageId: string, blocks: Array<Record<string, unknown>>): Promise<void> {
   for (let i = 0; i < blocks.length; i += 80) {
     await api.appendBlockChildren(pageId, blocks.slice(i, i + 80))
+  }
+}
+
+async function clearPageBlocks(api: NotionApi, pageId: string): Promise<void> {
+  let cursor: string | undefined
+  do {
+    const response = await api.listBlockChildren(pageId, cursor)
+    const blocks = Array.isArray(response?.results) ? response.results : []
+    for (const block of blocks) {
+      const blockId = asString((block as Record<string, unknown>)?.id)
+      if (!blockId) continue
+      await api.updateBlock(blockId, { archived: true })
+    }
+    const nextCursor = asString(response?.next_cursor)
+    cursor = response?.has_more && nextCursor ? nextCursor : undefined
+  } while (cursor)
+}
+
+function extractFilenameFromAudioKey(audioKey: string): string {
+  const raw = audioKey.split('/').filter(Boolean).pop() ?? 'recording.m4a'
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+async function buildMeetingAudioFileBlock(api: NotionApi, env: Env, audioKey: string): Promise<Record<string, unknown>> {
+  const bucket = getMeetingAudioBucket(env)
+  const object = await bucket.get(audioKey)
+  const resolved = await readR2ObjectAsArrayBuffer(object)
+  if (!resolved) {
+    throw new Error('audio_not_found')
+  }
+  if (resolved.bytes.byteLength > MAX_NOTION_FILE_UPLOAD_BYTES) {
+    throw new Error('notion_file_too_large')
+  }
+
+  const filename = extractFilenameFromAudioKey(audioKey)
+  const contentType = resolved.contentType ?? inferAudioContentType(audioKey)
+  const created = await api.createFileUpload(filename, contentType)
+  const fileUploadId = asString((created as Record<string, unknown>)?.id)
+  if (!fileUploadId) {
+    throw new Error('notion_file_upload_create_failed')
+  }
+
+  await api.sendFileUpload(fileUploadId, resolved.bytes, filename, contentType)
+  const uploaded = await api.retrieveFileUpload(fileUploadId)
+  const status = asString((uploaded as Record<string, unknown>)?.status)
+  if (status && status !== 'uploaded') {
+    throw new Error('notion_file_upload_send_failed')
+  }
+
+  return {
+    object: 'block',
+    type: 'file',
+    file: {
+      type: 'file_upload',
+      file_upload: { id: fileUploadId },
+      caption: toNotionRichText('원본 녹음 파일', 120),
+    },
   }
 }
 
@@ -3129,12 +3209,16 @@ async function readKeywordPhrasesBySetIdFromNotion(
   }
 }
 
-async function updateMeetingNotionTranscriptFromAssembly(env: Env, assemblyId: string): Promise<void> {
+async function updateMeetingNotionTranscriptFromAssembly(
+  env: Env,
+  assemblyId: string,
+): Promise<{ status: string; utteranceCount: number; unmappedSpeakers: string[]; audioFileAttached: boolean }> {
   const found = await getMeetingNotionTranscriptByAssemblyId(env, assemblyId)
-  if (!found) return
+  if (!found) throw new Error('transcript_not_found')
   const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(assemblyId)}`)
   const status = normalizeMeetingStatus(asString(detail.status) ?? 'processing')
   const text = asString(detail.text) ?? ''
+  const utterances = normalizeUtterances(detail.utterances)
 
   await found.ctx.api.updatePage(found.row.pageId, {
     properties: {
@@ -3145,8 +3229,18 @@ async function updateMeetingNotionTranscriptFromAssembly(env: Env, assemblyId: s
     },
   })
 
-  if (found.row.bodySynced) return
-  const blocks = buildTranscriptBodyBlocks(detail)
+  if (status !== 'completed') {
+    throw new Error('transcript_not_completed')
+  }
+
+  const unmappedSpeakers = findUnmappedSpeakers(utterances, found.row.speakerMap)
+  if (unmappedSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_incomplete:${unmappedSpeakers.join(',')}`)
+  }
+
+  const audioBlock = await buildMeetingAudioFileBlock(found.ctx.api, env, found.row.audioKey)
+  const blocks = [audioBlock, ...buildTranscriptBodyBlocks(detail, found.row.speakerMap)]
+  await clearPageBlocks(found.ctx.api, found.row.pageId)
   if (blocks.length > 0) {
     await appendBlocksInChunks(found.ctx.api, found.row.pageId, blocks)
   }
@@ -3156,6 +3250,12 @@ async function updateMeetingNotionTranscriptFromAssembly(env: Env, assemblyId: s
       [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
     },
   })
+  return {
+    status,
+    utteranceCount: utterances.length,
+    unmappedSpeakers: [],
+    audioFileAttached: true,
+  }
 }
 
 function isMeetingRoutePath(path: string): boolean {
@@ -3168,7 +3268,8 @@ function isMeetingRoutePath(path: string): boolean {
     path === '/keywords' ||
     path === '/assemblyai/webhook' ||
     /^\/transcripts\/[^/]+$/.test(path) ||
-    /^\/transcripts\/[^/]+\/speakers$/.test(path)
+    /^\/transcripts\/[^/]+\/speakers$/.test(path) ||
+    /^\/transcripts\/[^/]+\/publish$/.test(path)
   )
 }
 
@@ -3200,10 +3301,14 @@ async function handleMeetingRoutesNotion(
       message.includes('_required') ||
       message.includes('_invalid') ||
       message.includes('speaker_range_invalid') ||
-      message.includes('mappings_required')
+      message.includes('mappings_required') ||
+      message.includes('speaker_mapping_incomplete')
     ) {
       return 400
     }
+    if (message.includes('notion_file_too_large')) return 413
+    if (message.includes('notion_file_upload_')) return 502
+    if (message.includes('transcript_not_completed')) return 409
     if (message.includes('not_found') || message.includes('object_not_found')) return 404
     if (message.includes('assemblyai_http_')) return 502
     if (message.includes('notion_http_')) return 502
@@ -3216,6 +3321,7 @@ async function handleMeetingRoutesNotion(
 
   const transcriptMatch = path.match(/^\/transcripts\/([^/]+)$/)
   const speakerMatch = path.match(/^\/transcripts\/([^/]+)\/speakers$/)
+  const publishMatch = path.match(/^\/transcripts\/([^/]+)\/publish$/)
 
   try {
     if (request.method === 'POST' && path === '/uploads/presign') {
@@ -3419,6 +3525,7 @@ async function handleMeetingRoutesNotion(
           meetingDate: row.meetingDate,
           assemblyId: row.assemblyId,
           status: row.status,
+          bodySynced: row.bodySynced,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
           title: row.title,
@@ -3465,9 +3572,6 @@ async function handleMeetingRoutesNotion(
               }),
             )
           }
-          if (status === 'completed' && !found.row.bodySynced) {
-            ctx.waitUntil(updateMeetingNotionTranscriptFromAssembly(env, found.row.assemblyId))
-          }
         } catch {
           // Keep last synced Notion state when AssemblyAI detail fetch fails.
         }
@@ -3487,6 +3591,7 @@ async function handleMeetingRoutesNotion(
           meetingDate: found.row.meetingDate,
           assemblyId: found.row.assemblyId,
           status,
+          bodySynced: found.row.bodySynced,
           text,
           rawJson,
           utterances,
@@ -3525,6 +3630,26 @@ async function handleMeetingRoutesNotion(
         ok: true,
         transcriptId,
         speakerMap,
+      })
+    }
+
+    if (request.method === 'POST' && publishMatch) {
+      const transcriptId = decodeURIComponent(publishMatch[1])
+      const found = await getMeetingNotionTranscriptById(env, transcriptId)
+      if (!found) {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+      if (!found.row.assemblyId) {
+        return respond.json({ ok: false, error: 'assembly_id_missing' }, 400)
+      }
+      const published = await updateMeetingNotionTranscriptFromAssembly(env, found.row.assemblyId)
+      return respond.ok({
+        ok: true,
+        transcriptId,
+        assemblyId: found.row.assemblyId,
+        status: published.status,
+        utteranceCount: published.utteranceCount,
+        audioFileAttached: published.audioFileAttached,
       })
     }
 
@@ -3728,10 +3853,6 @@ async function handleMeetingRoutesNotion(
             [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(errorMessage ?? '', 1200),
           },
         })
-      }
-
-      if (status === 'completed') {
-        ctx.waitUntil(updateMeetingNotionTranscriptFromAssembly(env, assemblyId))
       }
 
       return respond.ok({
@@ -4411,6 +4532,7 @@ export default {
               'POST /api/transcripts',
               'GET /api/transcripts/:id',
               'POST|PATCH /api/transcripts/:id/speakers',
+              'POST /api/transcripts/:id/publish',
               'GET|POST|PATCH|DELETE /api/keyword-sets',
               'GET|POST|PATCH|DELETE /api/keywords',
               'POST /api/assemblyai/webhook',
@@ -4439,4 +4561,5 @@ export default {
     }
   },
 }
+
 

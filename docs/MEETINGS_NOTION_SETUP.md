@@ -51,9 +51,13 @@
 - `GET /api/transcripts?limit=20`
 - `GET /api/transcripts/:id`
 - `POST|PATCH /api/transcripts/:id/speakers`
+- `POST /api/transcripts/:id/publish`
 - `GET|POST|PATCH|DELETE /api/keyword-sets`
 - `GET|POST|PATCH|DELETE /api/keywords`
 - `POST /api/assemblyai/webhook`
+- publish 동작 주의:
+- `POST /api/transcripts/:id/publish`는 기존 transcript를 재사용해 Notion 본문만 다시 반영합니다.
+- 따라서 publish 반복 실행은 AssemblyAI 재전사 비용을 추가로 발생시키지 않습니다.
 
 ## 6) 현재 저장 방식
 - 원본 전사(화자 라벨 A/B/C)는 그대로 유지합니다.
