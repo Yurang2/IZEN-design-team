@@ -60,3 +60,9 @@
 - 결과: 키워드 UI를 컴팩트 카드로 축약하고 액션 라벨을 짧게 조정, 상세 카드 내부 utterances 스크롤로 페이지 스크롤 압박 완화
 - 검증: `npm run build` 성공, `npx eslint src/features/meetings/MeetingsView.tsx` 성공
 - 다음 액션: 실제 사용자 해상도(노트북 13~14")에서 한 화면 가시성 확인 후 필요 시 높이 미세조정
+
+### 2026-02-27 (mapping UI cleanup + publish 500 hotfix)
+- 작업 항목: 상세 내 JSON/MD/Assembly ID 제거, 최근 전사 선택 하이라이트 추가, publish Illegal invocation 수정
+- 결과: R2 메서드 호출을 direct method call로 교체해 `this` 바인딩 오류 제거
+- 검증: 기존 transcriptId `c5202f34-c298-4ed2-8a7b-8876aea99ce0`에 대해 매핑 저장 + publish 성공 (`status=completed`, `audioFileAttached=true`)
+- 다음 액션: 키워드 카드 액션을 아이콘 버튼으로 추가 축소할지 사용자 피드백 수집

@@ -52,3 +52,10 @@
 - 절차: build + meetings view lint
 - 기대 결과: 컴파일/타입/대상 파일 린트 오류 없음
 - 실제 결과: PASS
+
+- 날짜: 2026-02-27
+- 실행자: Codex
+- 시나리오: publish 경로 500(Illegal invocation) 회귀 테스트
+- 절차: 완료 transcript 선택 -> speakers PATCH -> publish POST
+- 기대 결과: 200 OK, completed, audioFileAttached=true
+- 실제 결과: PASS (transcriptId=`c5202f34-c298-4ed2-8a7b-8876aea99ce0`)

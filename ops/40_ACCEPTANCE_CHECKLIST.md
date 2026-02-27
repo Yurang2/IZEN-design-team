@@ -38,3 +38,8 @@
 - [x] 키워드 UI 하단 이동/축소 반영
 - [x] 전사 목록 + 매핑 상세 상단 우선 배치
 - [x] 빌드 및 대상 파일 린트 통과
+
+### 2026-02-27 Meetings Publish Hotfix Check
+- [x] 상세 상단 불필요 정보(내보내기/Assembly ID) 제거
+- [x] 최근 전사 선택 하이라이트 반영
+- [x] publish Illegal invocation 이슈 재현/수정/재검증 완료
