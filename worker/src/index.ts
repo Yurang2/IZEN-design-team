@@ -2641,6 +2641,7 @@ const MEETING_NOTION_FIELD = {
   assemblyId: 'Assembly ID',
   status: 'Status',
   audioKey: 'Audio Key',
+  audioFile: 'Audio File',
   speakerMapJson: 'Speaker Map JSON',
   keywordsUsedJson: 'Keywords Used JSON',
   errorMessage: 'Error Message',
@@ -2868,6 +2869,7 @@ async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext
     },
   })
   ensure(MEETING_NOTION_FIELD.audioKey, { rich_text: {} })
+  ensure(MEETING_NOTION_FIELD.audioFile, { files: {} })
   ensure(datePropertyName, { date: {} })
   ensure(MEETING_NOTION_FIELD.speakerMapJson, { rich_text: {} })
   ensure(MEETING_NOTION_FIELD.keywordsUsedJson, { rich_text: {} })
@@ -3199,8 +3201,6 @@ const REQUIRED_SUMMARY_HEADERS = [
   '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4',
   '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D',
   '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694',
-  '## \uCC38\uC5EC\uC790\uBCC4 \uD574\uC57C \uD560 \uC77C',
-  '## \uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04',
 ] as const
 
 function normalizeMeetingSummaryText(summary: string): string {
@@ -3247,7 +3247,9 @@ function ensureRequiredSummaryHeaders(markdown: string): string {
   if (!normalized) {
     return [
       ...REQUIRED_SUMMARY_HEADERS,
-      '- [\uBD88\uD655\uC2E4] \uC694\uC57D \uB0B4\uC6A9\uC774 \uBE44\uC5B4 \uC788\uC5B4 \uC7AC\uD655\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. / \uADFC\uAC70: [00:00:00-00:00:00]',
+      '| \uD56D\uBAA9 | \uC815\uD574\uC9C4 \uB0B4\uC6A9 | \uD655\uC778 \uD544\uC694(\uC9C8\uBB38\uD615) | \uAD00\uB828\uC790 | \uADFC\uAC70 \uD0C0\uC784\uC2A4\uD0EC\uD504 | \uD655\uC2E0\uB3C4 |',
+      '|---|---|---|---|---|---|',
+      '| \uC694\uC57D \uBBF8\uC0DD\uC131 | \uC815\uBCF4 \uC5C6\uC74C | \uC7AC\uC2E4\uD589 \uD544\uC694 | - | [00:00:00-00:00:00] | \uB0AE\uC74C |',
     ].join('\n')
   }
 
@@ -3256,7 +3258,6 @@ function ensureRequiredSummaryHeaders(markdown: string): string {
     if (!normalized.includes(header)) {
       parts.push('')
       parts.push(header)
-      parts.push('- [\uBD88\uD655\uC2E4] \uC790\uB3D9 \uBCF4\uC815\uB41C \uC139\uC158\uC785\uB2C8\uB2E4. \uB0B4\uC6A9\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694. / \uADFC\uAC70: [00:00:00-00:00:00]')
     }
   }
   return parts.join('\n').trim()
@@ -3312,8 +3313,12 @@ async function generateMeetingSummary(
       '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4',
       '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D',
       '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694',
-      '## \uCC38\uC5EC\uC790\uBCC4 \uD574\uC57C \uD560 \uC77C',
-      '## \uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04',
+      '',
+      '\uC544\uB798 \uB450 \uC139\uC158\uC740 \uB0B4\uC6A9\uC774 \uC788\uC744 \uB54C\uB9CC \uCD94\uAC00\uD558\uC138\uC694.',
+      '- ## \uCC38\uC5EC\uC790\uBCC4 \uD574\uC57C \uD560 \uC77C',
+      '- ## \uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04',
+      '\uD574\uB2F9 \uB0B4\uC6A9\uC774 \uC5C6\uC73C\uBA74 \uC139\uC158\uC744 \uC0DD\uC131\uD558\uC9C0 \uB9C8\uC138\uC694.',
+      '"[\uBD88\uD655\uC2E4] \uC790\uB3D9 \uBCF4\uC815\uB41C \uC139\uC158..." \uAC19\uC740 \uB354\uBBF8 \uBB38\uC7A5\uC740 \uAE08\uC9C0\uD569\uB2C8\uB2E4.',
       '',
       '\uACB0\uC815/\uC694\uCCAD/\uBCC0\uACBD/\uB9C8\uAC10/\uB9AC\uC2A4\uD06C/\uC5ED\uD560 \uC9C0\uC815\uC5D0\uB294 \uBC18\uB4DC\uC2DC \uD0C0\uC784\uC2A4\uD0EC\uD504 \uADFC\uAC70\uB97C 1\uAC1C \uC774\uC0C1 \uD3EC\uD568\uD558\uC138\uC694.',
       '\uADFC\uAC70\uAC00 \uBD88\uBD84\uBA85\uD558\uBA74 [\uBD88\uD655\uC2E4]\uB85C \uD45C\uAE30\uD558\uC138\uC694.',
@@ -3323,7 +3328,7 @@ async function generateMeetingSummary(
       '\uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4\uB294 1~2\uBB38\uC7A5 \uC774\uB0B4\uB85C \uAC04\uB2E8\uD788 \uC791\uC131\uD558\uC138\uC694.',
       '\uD575\uC2EC \uC548\uAC74 \uC694\uC57D\uC740 \uAC1C\uC218 \uC81C\uD55C \uC5C6\uC774 \uC791\uC131\uD558\uB418, \uAC01 \uD56D\uBAA9\uC740 1~2\uBB38\uC7A5\uC73C\uB85C \uAC04\uACB0\uD788 \uC4F0\uC138\uC694.',
       '\uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694 \uC139\uC158\uC740 Markdown \uD45C\uB85C\uB9CC \uC791\uC131\uD558\uACE0 \uD45C \uC678 \uC911\uBCF5 \uC124\uBA85\uC740 \uAE08\uC9C0\uD569\uB2C8\uB2E4.',
-      '\uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04\uC740 \uAC1C\uC218 \uC81C\uD55C \uC5C6\uC774 \uC791\uC131\uD558\uC138\uC694.',
+      '\uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04\uC744 \uC791\uC131\uD560 \uB54C\uB294 \uAC1C\uC218 \uC81C\uD55C \uC5C6\uC774 \uC791\uC131\uD558\uC138\uC694.',
       '\uD45C\uAC00 \uD544\uC694\uD55C \uC139\uC158\uC740 Markdown \uD45C \uBB38\uBC95\uC744 \uC0AC\uC6A9\uD558\uC138\uC694.',
       condensed ? '\uCD9C\uB825 \uBD84\uB7C9\uC744 \uC904\uC774\uACE0 \uD575\uC2EC \uD56D\uBAA9\uB9CC \uAC04\uACB0\uD558\uAC8C \uC791\uC131\uD558\uC138\uC694.' : '',
       '',
@@ -3418,7 +3423,6 @@ function buildTranscriptBodyBlocks(
   summaryText: string | null,
   summaryError: string | null,
 ): Record<string, unknown>[] {
-  const status = asString(detail.status) ?? 'completed'
   const utterances = normalizeUtterances(detail.utterances)
   const blocks: Record<string, unknown>[] = []
   blocks.push(headingBlock('heading_2', '\uC694\uC57D'))
@@ -3438,7 +3442,6 @@ function buildTranscriptBodyBlocks(
     blocks.push(paragraphBlock('\uC694\uC57D \uC0DD\uC131 \uC804\uC785\uB2C8\uB2E4. GPT-5 mini \uC5F0\uB3D9 \uD6C4 \uC774 \uC139\uC158\uC5D0 \uC790\uB3D9 \uC694\uC57D\uC744 \uAE30\uB85D\uD569\uB2C8\uB2E4.'))
   }
   blocks.push(headingBlock('heading_2', '\uC804\uBB38'))
-  blocks.push(paragraphBlock('status=' + status + ' generated_at=' + new Date().toISOString()))
 
   if (utterances.length > 0) {
     blocks.push(headingBlock('heading_3', '\uD654\uC790\uBCC4 \uBC1C\uD654 (' + Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS) + '/' + utterances.length + ')'))
@@ -3483,7 +3486,11 @@ function extractFilenameFromAudioKey(audioKey: string): string {
   }
 }
 
-async function buildMeetingAudioFileBlock(api: NotionApi, env: Env, audioKey: string): Promise<Record<string, unknown>> {
+async function buildMeetingAudioFileAttachment(
+  api: NotionApi,
+  env: Env,
+  audioKey: string,
+): Promise<{ block: Record<string, unknown>; propertyFile: Record<string, unknown> }> {
   const bucket = getMeetingAudioBucket(env)
   const object = await bucket.get(audioKey)
   const resolved = await readR2ObjectAsArrayBuffer(object)
@@ -3509,14 +3516,22 @@ async function buildMeetingAudioFileBlock(api: NotionApi, env: Env, audioKey: st
     throw new Error('notion_file_upload_send_failed')
   }
 
+  const fileUploadRef = {
+    name: filename,
+    type: 'file_upload',
+    file_upload: { id: fileUploadId },
+  }
+
   return {
-    object: 'block',
-    type: 'file',
-    file: {
-      type: 'file_upload',
-      file_upload: { id: fileUploadId },
-      caption: toNotionRichText('원본 녹음 파일', 120),
+    block: {
+      object: 'block',
+      type: 'file',
+      file: {
+        ...fileUploadRef,
+        caption: toNotionRichText('Original audio file', 120),
+      },
     },
+    propertyFile: fileUploadRef,
   }
 }
 
@@ -3685,23 +3700,37 @@ async function updateMeetingNotionTranscriptFromAssembly(
     summaryError = 'openai_api_key_missing'
   }
 
-  const audioBlock = await buildMeetingAudioFileBlock(found.ctx.api, env, found.row.audioKey)
-  const blocks = [audioBlock, ...buildTranscriptBodyBlocks(detail, found.row.speakerMap, summaryText, summaryError)]
+  let audioAttachment: { block: Record<string, unknown>; propertyFile: Record<string, unknown> } | null = null
+  try {
+    audioAttachment = await buildMeetingAudioFileAttachment(found.ctx.api, env, found.row.audioKey)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.includes('audio_not_found')) throw error
+  }
+
+  const blocks = [
+    ...(audioAttachment ? [audioAttachment.block] : []),
+    ...buildTranscriptBodyBlocks(detail, found.row.speakerMap, summaryText, summaryError),
+  ]
   await clearPageBlocks(found.ctx.api, found.row.pageId)
   if (blocks.length > 0) {
     await appendBlocksInChunks(found.ctx.api, found.row.pageId, blocks)
   }
+  const finalProperties: Record<string, unknown> = {
+    [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+    [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+  }
+  if (audioAttachment) {
+    finalProperties[MEETING_NOTION_FIELD.audioFile] = { files: [audioAttachment.propertyFile] }
+  }
   await found.ctx.api.updatePage(found.row.pageId, {
-    properties: {
-      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
-      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
-    },
+    properties: finalProperties,
   })
   return {
     status,
     utteranceCount: utterances.length,
     unmappedSpeakers: [],
-    audioFileAttached: true,
+    audioFileAttached: Boolean(audioAttachment),
     summaryGenerated: Boolean(summaryText && summaryText.trim()),
     summaryError,
   }
@@ -3872,6 +3901,7 @@ async function handleMeetingRoutesNotion(
           [MEETING_NOTION_FIELD.meetingId]: notionRichTextValue(meetingId, 200),
           [MEETING_NOTION_FIELD.status]: { select: { name: 'queued' } },
           [MEETING_NOTION_FIELD.audioKey]: notionRichTextValue(payload.key, 600),
+          [MEETING_NOTION_FIELD.audioFile]: { files: [] },
           [MEETING_NOTION_FIELD.speakerMapJson]: notionRichTextValue('{}', 2000),
           [MEETING_NOTION_FIELD.keywordsUsedJson]: notionRichTextValue(JSON.stringify(keywordInfo.phrases), 6000),
           [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue('', 200),

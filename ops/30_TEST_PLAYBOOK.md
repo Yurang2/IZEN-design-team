@@ -142,3 +142,9 @@
 - Scenario: speaker mapping rejects one-letter alphabet display names
 - Expected: build pass and server-side validation active on save/publish paths
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: optional summary sections omitted when empty + transcript runtime meta line removed + Notion Audio File property write
+- Expected: no dummy "자동 보정된 섹션" output for empty optional sections; no `status=... generated_at=...` in `전문`; publish stores recording in `Audio File` column
+- Actual: PASS (`npm run build`)

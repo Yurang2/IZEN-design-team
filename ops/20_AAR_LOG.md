@@ -142,3 +142,9 @@
 - Task: prevent placeholder-like speaker names (`A/B/C`) from being accepted as mapped real names.
 - Result: mapping save rejects single-letter alphabet display names; publish path rejects legacy rows with such mappings.
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (summary optional sections + transcript metadata line removal + audio column attachment)
+- Task: remove noisy auto-placeholder output in summary optional sections and remove runtime metadata line from `Àü¹®`.
+- Task: attach recording in Notion DB files property (`Audio File`) in addition to body top file block.
+- Result: required summary headers reduced to 5 core sections; optional sections are omitted when empty; `status=... generated_at=...` removed; publish now writes `Audio File` property and no longer hard-fails on missing R2 object.
+- Validation: `npm run build` passed.

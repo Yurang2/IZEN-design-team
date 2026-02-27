@@ -115,3 +115,9 @@
 - [x] mapping save rejects displayName as single alphabet letter
 - [x] publish path rejects legacy single-alpha mappings
 - [x] build/typecheck passed
+
+### 2026-02-27 Meetings Summary/Audio Publishing Refinement
+- [x] optional summary sections (`참여자별 해야 할 일`, `불확실/추가 확인 필요 구간`) omitted when empty
+- [x] transcript runtime metadata line (`status=... generated_at=...`) removed from Notion body
+- [x] recording attached to both body file block and DB `Audio File` files property
+- [x] build/typecheck passed
