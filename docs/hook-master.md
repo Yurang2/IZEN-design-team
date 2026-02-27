@@ -170,6 +170,7 @@
 - publish is rejected when transcript status is not `completed`.
 - publish is rejected when any speaker label is unmapped.
 - Notion `전문` section writes only `화자별 발화` (mapped names). `원문 텍스트` section is not written.
+- `화자별 발화` 항목은 `[HH:MM:SS-HH:MM:SS] 화자: 발화` 형식으로 타임스탬프를 포함한다. (timestamp 누락 시 prefix 생략)
 - `OPENAI_API_KEY`가 설정된 경우 `요약` 섹션은 GPT 요약으로 채운다. 미설정 시 placeholder를 유지한다.
 - publish 반복 실행은 AssemblyAI 재전사 비용을 만들지 않는다. 단, `OPENAI_API_KEY`가 설정된 경우 요약 호출 비용은 실행 횟수만큼 발생한다.
 

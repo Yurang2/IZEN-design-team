@@ -90,3 +90,7 @@
 - Result: transcript create payload now sends `speech_models: ["universal-2"]` by default (override via ASSEMBLYAI_SPEECH_MODELS).
 - Note: OPENAI summary default remains gpt-5-mini.
 - Validation: `npm run build` passed.
+### 2026-02-27 (notion utterance timestamps)
+- Task: include utterance timestamps in Notion body transcript bullets.
+- Result: Notion `전문 > 화자별 발화` now writes `[HH:MM:SS-HH:MM:SS] 화자: 발화` format.
+- Validation: `npm run build` passed.

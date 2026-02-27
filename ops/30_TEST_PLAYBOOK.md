@@ -85,3 +85,8 @@
 - Scenario: assembly speech_models default and docs sync
 - Expected: build pass and speech_models field included in transcript create payload path
 - Actual: PASS (`npm run build`)
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: Notion publish body includes utterance timestamps
+- Expected: mapped utterance bullets prefixed with timestamp range when available
+- Actual: PASS (code path updated, build passed)

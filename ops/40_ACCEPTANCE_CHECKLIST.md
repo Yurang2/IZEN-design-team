@@ -66,3 +66,7 @@
 - [x] default speech model routing set to universal-2
 - [x] optional override env (`ASSEMBLYAI_SPEECH_MODELS`) documented
 - [x] build/typecheck passed
+### 2026-02-27 Notion Timestamp Output Update
+- [x] Notion utterance bullets include timestamp prefix
+- [x] docs synchronized (hook-master / meetings guides)
+- [x] build/typecheck passed

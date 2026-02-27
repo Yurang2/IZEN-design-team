@@ -3048,6 +3048,23 @@ function bulletBlock(text: string): Record<string, unknown> {
   }
 }
 
+function toTimestampLabel(ms: number | null): string {
+  if (!Number.isFinite(ms ?? NaN) || (ms ?? -1) < 0) return ''
+  const totalSeconds = Math.floor((ms as number) / 1000)
+  const hh = String(Math.floor(totalSeconds / 3600)).padStart(2, '0')
+  const mm = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0')
+  const ss = String(totalSeconds % 60).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
+function toUtteranceTimestampRange(start: number | null, end: number | null): string {
+  const from = toTimestampLabel(start)
+  const to = toTimestampLabel(end)
+  if (from && to) return `[${from}-${to}] `
+  if (from) return `[${from}] `
+  return ''
+}
+
 function buildMeetingSummarySource(
   utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
   speakerMap: Record<string, string>,
@@ -3183,7 +3200,8 @@ function buildTranscriptBodyBlocks(
     blocks.push(headingBlock('heading_3', `화자별 발화 (${Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)}/${utterances.length})`))
     for (const row of utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)) {
       const displaySpeaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
-      blocks.push(bulletBlock(`${displaySpeaker}: ${row.text}`))
+      const timestamp = toUtteranceTimestampRange(row.start, row.end)
+      blocks.push(bulletBlock(`${timestamp}${displaySpeaker}: ${row.text}`))
     }
   } else {
     blocks.push(paragraphBlock('화자별 발화가 아직 없습니다.'))
