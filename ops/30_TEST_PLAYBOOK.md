@@ -75,3 +75,8 @@
 - Scenario: keyword icon buttons + loading state + gpt-5 summary default
 - Expected: edit/delete action shows spinner and blocks duplicate click; build passes
 - Actual: PASS (`npm run build`)
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: summary default model rollback to gpt-5-mini
+- Expected: build pass and docs/wrangler default alignment
+- Actual: PASS (`npm run build`)

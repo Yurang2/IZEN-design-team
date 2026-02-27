@@ -58,3 +58,7 @@
 - [x] per-item loading state added for edit/delete actions
 - [x] meeting summary default model updated to gpt-5
 - [x] build/typecheck passed
+### 2026-02-27 Summary Default Model Rollback
+- [x] default summary model reverted to gpt-5-mini
+- [x] wrangler/docs default text synchronized
+- [x] build/typecheck passed

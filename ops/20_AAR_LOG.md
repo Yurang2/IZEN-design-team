@@ -81,3 +81,7 @@
 - Task: switch meeting summary default model from gpt-5-mini to gpt-5.
 - Result: action feedback confusion reduced; summary generation path now defaults to GPT-5 when OPENAI_API_KEY exists.
 - Validation: `npm run build` passed.
+### 2026-02-27 (summary model default rollback)
+- Task: rollback default summary model from gpt-5 to gpt-5-mini to avoid implicit cost/behavior change.
+- Result: OPENAI_API_KEY-only 환경에서는 gpt-5-mini 사용, gpt-5는 OPENAI_SUMMARY_MODEL로 명시 설정.
+- Validation: `npm run build` passed.
