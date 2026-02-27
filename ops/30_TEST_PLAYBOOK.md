@@ -70,3 +70,8 @@
 - Scenario: meetings keyword panel compactness update
 - Expected: keyword panel occupies substantially less area; build passes
 - Actual: PASS (`npm run build`)
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: keyword icon buttons + loading state + gpt-5 summary default
+- Expected: edit/delete action shows spinner and blocks duplicate click; build passes
+- Actual: PASS (`npm run build`)

@@ -76,3 +76,8 @@
 - Task: reduce keyword set/keyword UI footprint aggressively in meetings page.
 - Result: compact chip-style layout, lower max-height, smaller paddings/buttons, E/X icon labels.
 - Validation: `npm run build` passed.
+### 2026-02-27 (keyword action icons + loading + GPT-5 default)
+- Task: replace keyword action labels(E/X) with icon buttons and add per-item loading spinner on edit/delete actions.
+- Task: switch meeting summary default model from gpt-5-mini to gpt-5.
+- Result: action feedback confusion reduced; summary generation path now defaults to GPT-5 when OPENAI_API_KEY exists.
+- Validation: `npm run build` passed.

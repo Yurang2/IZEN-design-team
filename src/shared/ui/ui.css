@@ -1695,6 +1695,30 @@ button.boardCard:hover {
   padding: 2px 5px;
 }
 
+.meetingsIconButtonContent {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1;
+}
+
+.meetingsActionIcon {
+  color: currentColor;
+  display: block;
+  height: 12px;
+  width: 12px;
+}
+
+.meetingsActionIcon.is-spinning {
+  animation: meetingsIconSpin 0.9s linear infinite;
+}
+
+@keyframes meetingsIconSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .meetingsKeywordCard .meetingsKeywordItem {
   align-items: center;
   display: inline-flex;

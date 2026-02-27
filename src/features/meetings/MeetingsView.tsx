@@ -100,6 +100,30 @@ function sanitizeSpeakerMap(values: Record<string, string>): Array<{ speakerLabe
     .filter((entry) => entry.speakerLabel && entry.displayName)
 }
 
+function ActionIcon({ kind }: { kind: 'edit' | 'delete' | 'loading' }) {
+  if (kind === 'loading') {
+    return (
+      <svg className="meetingsActionIcon is-spinning" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity="0.35" />
+        <path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  if (kind === 'edit') {
+    return (
+      <svg className="meetingsActionIcon" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M10.8 2.4l2.8 2.8-7.6 7.6H3.2V10z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M9.8 3.4l2.8 2.8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="meetingsActionIcon" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M4 4.5h8M6 4.5v-1h4v1M6 6.2v5.3M8 6.2v5.3M10 6.2v5.3M5.2 4.5l.4 8h4.8l.4-8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function MeetingsView() {
   const [keywordSets, setKeywordSets] = useState<KeywordSetRow[]>([])
   const [selectedKeywordSetId, setSelectedKeywordSetId] = useState('')
@@ -126,6 +150,10 @@ export function MeetingsView() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [creatingKeywordSet, setCreatingKeywordSet] = useState(false)
   const [creatingKeyword, setCreatingKeyword] = useState(false)
+  const [renamingKeywordSetId, setRenamingKeywordSetId] = useState<string | null>(null)
+  const [deletingKeywordSetId, setDeletingKeywordSetId] = useState<string | null>(null)
+  const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null)
+  const [deletingKeywordId, setDeletingKeywordId] = useState<string | null>(null)
 
   const loadKeywordSets = useCallback(async () => {
     try {
@@ -401,6 +429,7 @@ export function MeetingsView() {
   }
 
   const onDeleteKeyword = async (keywordId: string) => {
+    setDeletingKeywordId(keywordId)
     try {
       await api(`/keywords?id=${encodeURIComponent(keywordId)}`, { method: 'DELETE' })
       await loadKeywords(selectedKeywordSetId || undefined)
@@ -408,6 +437,8 @@ export function MeetingsView() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '키워드를 삭제하지 못했습니다.'
       setErrorMessage(message)
+    } finally {
+      setDeletingKeywordId(null)
     }
   }
 
@@ -418,6 +449,7 @@ export function MeetingsView() {
     if (weightRaw === null) return
     const tags = window.prompt('태그(선택)', keyword.tags ?? '')
     if (tags === null) return
+    setEditingKeywordId(keyword.id)
     try {
       await api('/keywords', {
         method: 'PATCH',
@@ -433,6 +465,8 @@ export function MeetingsView() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '키워드를 수정하지 못했습니다.'
       setErrorMessage(message)
+    } finally {
+      setEditingKeywordId(null)
     }
   }
 
@@ -456,6 +490,7 @@ export function MeetingsView() {
     const nextName = window.prompt('세트 이름', set.name)
     if (nextName === null) return
     if (!nextName.trim()) return
+    setRenamingKeywordSetId(set.id)
     try {
       await api('/keyword-sets', {
         method: 'PATCH',
@@ -468,10 +503,13 @@ export function MeetingsView() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '키워드 세트 이름을 수정하지 못했습니다.'
       setErrorMessage(message)
+    } finally {
+      setRenamingKeywordSetId(null)
     }
   }
 
   const onDeleteKeywordSet = async (id: string) => {
+    setDeletingKeywordSetId(id)
     try {
       await api(`/keyword-sets?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (selectedKeywordSetId === id) {
@@ -481,6 +519,8 @@ export function MeetingsView() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '키워드 세트를 삭제하지 못했습니다.'
       setErrorMessage(message)
+    } finally {
+      setDeletingKeywordSetId(null)
     }
   }
 
@@ -670,14 +710,40 @@ export function MeetingsView() {
                 {set.name} ({set.keywordCount})
               </button>
               <div className="meetingsKeywordSetActions">
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onRenameKeywordSet(set)} title="이름 수정" aria-label="이름 수정">
-                  E
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="mini"
+                  onClick={() => void onRenameKeywordSet(set)}
+                  title="이름 수정"
+                  aria-label="이름 수정"
+                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
+                >
+                  <span className="meetingsIconButtonContent">
+                    <ActionIcon kind={renamingKeywordSetId === set.id ? 'loading' : 'edit'} />
+                  </span>
                 </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onToggleKeywordSetActive(set)}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="mini"
+                  onClick={() => void onToggleKeywordSetActive(set)}
+                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
+                >
                   {set.isActive ? 'Off' : 'On'}
                 </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeywordSet(set.id)} title="세트 삭제" aria-label="세트 삭제">
-                  X
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="mini"
+                  onClick={() => void onDeleteKeywordSet(set.id)}
+                  title="세트 삭제"
+                  aria-label="세트 삭제"
+                  disabled={deletingKeywordSetId === set.id}
+                >
+                  <span className="meetingsIconButtonContent">
+                    <ActionIcon kind={deletingKeywordSetId === set.id ? 'loading' : 'delete'} />
+                  </span>
                 </Button>
               </div>
             </div>
@@ -702,11 +768,31 @@ export function MeetingsView() {
                 </span>
               </div>
               <div className="meetingsKeywordSetActions">
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onEditKeyword(keyword)} title="키워드 수정" aria-label="키워드 수정">
-                  E
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="mini"
+                  onClick={() => void onEditKeyword(keyword)}
+                  title="키워드 수정"
+                  aria-label="키워드 수정"
+                  disabled={editingKeywordId === keyword.id || deletingKeywordId === keyword.id}
+                >
+                  <span className="meetingsIconButtonContent">
+                    <ActionIcon kind={editingKeywordId === keyword.id ? 'loading' : 'edit'} />
+                  </span>
                 </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeyword(keyword.id)} title="키워드 삭제" aria-label="키워드 삭제">
-                  X
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="mini"
+                  onClick={() => void onDeleteKeyword(keyword.id)}
+                  title="키워드 삭제"
+                  aria-label="키워드 삭제"
+                  disabled={editingKeywordId === keyword.id || deletingKeywordId === keyword.id}
+                >
+                  <span className="meetingsIconButtonContent">
+                    <ActionIcon kind={deletingKeywordId === keyword.id ? 'loading' : 'delete'} />
+                  </span>
                 </Button>
               </div>
             </div>

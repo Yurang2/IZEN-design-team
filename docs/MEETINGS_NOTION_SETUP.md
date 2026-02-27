@@ -18,7 +18,7 @@
 - `ASSEMBLYAI_WEBHOOK_SECRET` (Secret)
 - `NOTION_TOKEN` (Secret)
 - 선택: `OPENAI_API_KEY` (Secret, publish 시 요약 생성)
-- 선택: `OPENAI_SUMMARY_MODEL` (Variable, 기본값 `gpt-5-mini`)
+- 선택: `OPENAI_SUMMARY_MODEL` (Variable, 기본값 `gpt-5`)
 - 선택: `ASSEMBLYAI_WEBHOOK_URL` (Variable, 미설정 시 자동 `/api/assemblyai/webhook`)
 
 참고:

@@ -53,3 +53,8 @@
 - [x] keyword set/item boxes compacted to chip-like layout
 - [x] small action buttons applied (E/X)
 - [x] build/typecheck passed
+### 2026-02-27 Meetings Keyword Action Feedback + GPT-5 Default
+- [x] keyword set/keyword edit-delete controls switched to icons
+- [x] per-item loading state added for edit/delete actions
+- [x] meeting summary default model updated to gpt-5
+- [x] build/typecheck passed

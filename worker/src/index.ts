@@ -42,7 +42,7 @@ const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
-const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
+const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5'
 const MAX_SUMMARY_SOURCE_CHARS = 18_000
 const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
 
@@ -3161,7 +3161,7 @@ function buildTranscriptBodyBlocks(
       }
     }
   } else {
-    blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 mini 연동 후 이 섹션에 자동 요약을 기록합니다.'))
+    blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 연동 후 이 섹션에 자동 요약을 기록합니다.'))
   }
   blocks.push(headingBlock('heading_2', '전문'))
   blocks.push(paragraphBlock(`status=${status} generated_at=${new Date().toISOString()}`))
