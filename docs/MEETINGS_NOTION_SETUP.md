@@ -92,3 +92,13 @@
 - 일부 브라우저는 m4a를 `audio/x-m4a`로 전송합니다.
 - Worker는 업로드/Notion 첨부 단계에서 이를 `audio/mp4`로 자동 정규화합니다.
 - 따라서 `The content type audio/x-m4a is not supported for the File Upload API` 오류를 회피합니다.
+
+## 11) GPT Draft Summary Prompt (2026-02-27)
+- Default model: `gpt-5-mini` (override with `OPENAI_SUMMARY_MODEL`).
+- On publish, Worker sends timestamped utterance lines to GPT:
+  - `[HH:MM:SS-HH:MM:SS] Name: Utterance`
+- Prompt contract:
+  - meeting-draft output (not final record)
+  - timestamp-based evidence required on key decisions/actions
+  - ambiguity must be marked as `[Uncertain]`
+  - no extra facts beyond source utterances

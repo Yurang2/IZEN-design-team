@@ -95,3 +95,8 @@
 - Scenario: m4a MIME normalization for Notion File Upload API compatibility
 - Expected: no 500 on audio/x-m4a path; build pass
 - Actual: PASS (`npm run build`)
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: GPT draft prompt policy replacement + timestamped source input for summary
+- Expected: build passes and summary prompt enforces evidence/uncertainty/output structure
+- Actual: PASS (`npm run build`)

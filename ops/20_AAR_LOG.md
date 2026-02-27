@@ -98,3 +98,8 @@
 - Task: fix Notion file upload failure on `audio/x-m4a`.
 - Result: Worker normalizes `audio/x-m4a`/`audio/m4a` to `audio/mp4` for presign, direct upload metadata, and Notion file upload.
 - Validation: `npm run build` passed.
+### 2026-02-27 (meeting draft prompt policy + timestamp evidence input)
+- Task: replace GPT summary prompt with structured meeting-draft policy and evidence requirements.
+- Result: `generateMeetingSummary` now uses strict draft format instructions; GPT input source is timestamped utterances.
+- Model/Cost guardrail: default remains `gpt-5-mini`.
+- Validation: `npm run build` passed.

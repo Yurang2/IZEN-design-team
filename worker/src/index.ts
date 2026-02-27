@@ -3089,7 +3089,8 @@ function buildMeetingSummarySource(
     const speaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
     const text = row.text.trim()
     if (!text) continue
-    lines.push(`${speaker}: ${text}`)
+    const timestamp = toUtteranceTimestampRange(row.start, row.end)
+    lines.push(`${timestamp}${speaker}: ${text}`)
     if (lines.join('\n').length >= MAX_SUMMARY_SOURCE_CHARS) break
   }
 
@@ -3131,14 +3132,78 @@ async function generateMeetingSummary(
   if (!source) return null
 
   const model = asString(env.OPENAI_SUMMARY_MODEL) ?? DEFAULT_OPENAI_SUMMARY_MODEL
-  const systemPrompt =
-    '당신은 한국어 회의록 요약 보조 도우미다. 핵심 결정/이슈/액션아이템 중심으로 간결하게 정리한다.'
+  const systemPrompt = [
+    'You are a meeting-minutes draft assistant.',
+    'Produce a structured draft that is easy for humans to review and edit, not a final confirmed document.',
+  ].join('\n')
   const userPrompt = [
-    '다음 회의 발화를 요약해 주세요.',
-    '- 형식: 한국어',
-    '- 섹션: 핵심 논의 / 결정사항 / 액션아이템',
-    '- 액션아이템은 담당자(알 수 없으면 미지정)와 기한(없으면 미정) 포함',
-    '- 불필요한 장식 문구 금지',
+    'Input assumptions:',
+    '',
+    'Every utterance uses this timestamp format:',
+    '[00:00:01-00:00:24] Name: Utterance',
+    '',
+    'Timestamps are always accurate and must be used as evidence.',
+    '',
+    'Use each speaker name exactly as provided.',
+    '',
+    'Absolute rules:',
+    '',
+    'For decisions, requests, changes, deadlines, risks, and role assignments, include at least one supporting timestamp.',
+    '',
+    'If evidence is ambiguous, do not assert; mark as [Uncertain].',
+    '',
+    'Do not use fixed tags. Generate tags based on meeting context.',
+    '',
+    'Confidence must be exactly one of: High, Medium, Low.',
+    '',
+    'Never add information that is not in the source utterances.',
+    '',
+    'Output format:',
+    '',
+    'Meta',
+    '',
+    'Participants (estimated): name list',
+    '',
+    'Draft note: Auto-generated draft summary; omissions or interpretation errors may exist.',
+    '',
+    'Key agenda summary',
+    'Format:',
+    '[Tag] Agenda title (Priority 1~3) / Confidence: High|Medium|Low / Evidence: [00:00:00-00:00:00]',
+    '',
+    '2-3 line summary',
+    '',
+    'Priority criteria:',
+    '1 = immediate risk/decision required',
+    '2 = important in-progress matter',
+    '3 = reference/future discussion',
+    '',
+    'Decided items / Needs confirmation (table)',
+    'Columns:',
+    'Agenda | Decided item | Needs confirmation (question form) | Related person | Evidence timestamp | Confidence',
+    '',
+    'Action items by participant (table)',
+    'Columns:',
+    'Person | Action item | Evidence timestamp | Confidence',
+    '',
+    'Uncertain / needs additional confirmation segments',
+    '',
+    'Item',
+    '',
+    'Reason',
+    '',
+    'Confirmation question',
+    '',
+    'Evidence timestamp',
+    '',
+    'Notes:',
+    '',
+    'Keep timestamps exactly in square-bracket format.',
+    '',
+    'If an agenda has multiple evidence timestamps, include only one representative timestamp.',
+    '',
+    'No excessive interpretation.',
+    '',
+    'Source utterances:',
     '',
     source,
   ].join('\n')
@@ -3155,7 +3220,7 @@ async function generateMeetingSummary(
         { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
         { role: 'user', content: [{ type: 'input_text', text: userPrompt }] },
       ],
-      max_output_tokens: 700,
+      max_output_tokens: 1400,
     }),
   })
 

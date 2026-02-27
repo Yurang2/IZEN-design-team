@@ -74,3 +74,8 @@
 - [x] audio/x-m4a normalized to audio/mp4
 - [x] upload + notion attach paths both covered
 - [x] build/typecheck passed
+### 2026-02-27 GPT Draft Prompt Policy Update
+- [x] GPT summary prompt replaced with structured draft template
+- [x] summary source includes utterance timestamp range
+- [x] default model remains gpt-5-mini
+- [x] build/typecheck passed
