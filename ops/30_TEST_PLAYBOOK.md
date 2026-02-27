@@ -100,3 +100,9 @@
 - Scenario: GPT draft prompt policy replacement + timestamped source input for summary
 - Expected: build passes and summary prompt enforces evidence/uncertainty/output structure
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: summary failure diagnostics + Korean-output prompt enforcement
+- Expected: publish response includes summaryGenerated/summaryError and build passes
+- Actual: PASS (`npm run build`)

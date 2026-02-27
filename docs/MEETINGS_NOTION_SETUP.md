@@ -102,3 +102,10 @@
   - timestamp-based evidence required on key decisions/actions
   - ambiguity must be marked as `[Uncertain]`
   - no extra facts beyond source utterances
+
+## 12) Publish Summary Diagnostics (2026-02-27)
+- `POST /api/transcripts/:id/publish` returns:
+  - `summaryGenerated: boolean`
+  - `summaryError: string | null`
+- If summary generation fails, Notion summary section includes a failure hint.
+- GPT summary prompt enforces output language as Korean (`ko-KR`).

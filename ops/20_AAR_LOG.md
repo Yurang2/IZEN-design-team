@@ -103,3 +103,9 @@
 - Result: `generateMeetingSummary` now uses strict draft format instructions; GPT input source is timestamped utterances.
 - Model/Cost guardrail: default remains `gpt-5-mini`.
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (summary failure visibility + Korean output enforcement)
+- Task: make summary failure visible instead of silent fallback, and force Korean output language in GPT prompt.
+- Result: publish response now includes `summaryGenerated`/`summaryError`; Notion summary block shows failure reason when generation fails.
+- UI: publish completion message now distinguishes summary success/failure.
+- Validation: `npm run build` passed.

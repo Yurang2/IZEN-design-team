@@ -76,6 +76,17 @@ type TranscriptCreateResponse = {
   keywordsTotal: number
 }
 
+type TranscriptPublishResponse = {
+  ok: boolean
+  transcriptId: string
+  assemblyId: string
+  status: string
+  utteranceCount: number
+  audioFileAttached: boolean
+  summaryGenerated: boolean
+  summaryError: string | null
+}
+
 const POLL_INTERVAL_MS = 4_000
 
 function toDateTimeLabel(timestamp: number): string {
@@ -356,10 +367,16 @@ export function MeetingsView() {
     setErrorMessage('')
     try {
       await persistSpeakerMap(selectedTranscriptId)
-      await api(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/publish`, {
+      const published = await api<TranscriptPublishResponse>(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/publish`, {
         method: 'POST',
       })
-      setUploadMessage('라벨링된 화자 발화를 Notion에 반영했습니다.')
+      if (published.summaryGenerated) {
+        setUploadMessage('라벨링된 화자 발화와 요약을 Notion에 반영했습니다.')
+      } else if (published.summaryError) {
+        setUploadMessage(`Notion 반영은 완료되었지만 요약은 생성되지 않았습니다: ${published.summaryError}`)
+      } else {
+        setUploadMessage('라벨링된 화자 발화를 Notion에 반영했습니다. (요약 미생성)')
+      }
       await loadTranscriptDetail(selectedTranscriptId)
       await loadTranscripts()
     } catch (error: unknown) {

@@ -3138,6 +3138,7 @@ async function generateMeetingSummary(
   ].join('\n')
   const userPrompt = [
     'Input assumptions:',
+    'Output language: Korean (ko-KR) only.',
     '',
     'Every utterance uses this timestamp format:',
     '[00:00:01-00:00:24] Name: Utterance',
@@ -3252,6 +3253,7 @@ function buildTranscriptBodyBlocks(
   detail: Record<string, unknown>,
   speakerMap: Record<string, string>,
   summaryText: string | null,
+  summaryError: string | null,
 ): Record<string, unknown>[] {
   const status = asString(detail.status) ?? 'completed'
   const utterances = normalizeUtterances(detail.utterances)
@@ -3269,6 +3271,8 @@ function buildTranscriptBodyBlocks(
         blocks.push(paragraphBlock(paragraph))
       }
     }
+  } else if (summaryError) {
+    blocks.push(paragraphBlock(`Summary unavailable (${summaryError}). Check OPENAI_API_KEY / OPENAI_SUMMARY_MODEL and republish this transcript.`))
   } else {
     blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 mini 연동 후 이 섹션에 자동 요약을 기록합니다.'))
   }
@@ -3462,7 +3466,14 @@ async function readKeywordPhrasesBySetIdFromNotion(
 async function updateMeetingNotionTranscriptFromAssembly(
   env: Env,
   assemblyId: string,
-): Promise<{ status: string; utteranceCount: number; unmappedSpeakers: string[]; audioFileAttached: boolean }> {
+): Promise<{
+  status: string
+  utteranceCount: number
+  unmappedSpeakers: string[]
+  audioFileAttached: boolean
+  summaryGenerated: boolean
+  summaryError: string | null
+}> {
   const found = await getMeetingNotionTranscriptByAssemblyId(env, assemblyId)
   if (!found) throw new Error('transcript_not_found')
   const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(assemblyId)}`)
@@ -3497,12 +3508,19 @@ async function updateMeetingNotionTranscriptFromAssembly(
   }
 
   let summaryText: string | null = null
+  let summaryError: string | null = null
   try {
     summaryText = await generateMeetingSummary(env, utterances, found.row.speakerMap, text)
-  } catch {}
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    summaryError = detail.trim().slice(0, 240) || 'summary_generation_failed'
+  }
+  if (!summaryText && !summaryError && !asString(env.OPENAI_API_KEY)) {
+    summaryError = 'openai_api_key_missing'
+  }
 
   const audioBlock = await buildMeetingAudioFileBlock(found.ctx.api, env, found.row.audioKey)
-  const blocks = [audioBlock, ...buildTranscriptBodyBlocks(detail, found.row.speakerMap, summaryText)]
+  const blocks = [audioBlock, ...buildTranscriptBodyBlocks(detail, found.row.speakerMap, summaryText, summaryError)]
   await clearPageBlocks(found.ctx.api, found.row.pageId)
   if (blocks.length > 0) {
     await appendBlocksInChunks(found.ctx.api, found.row.pageId, blocks)
@@ -3518,6 +3536,8 @@ async function updateMeetingNotionTranscriptFromAssembly(
     utteranceCount: utterances.length,
     unmappedSpeakers: [],
     audioFileAttached: true,
+    summaryGenerated: Boolean(summaryText && summaryText.trim()),
+    summaryError,
   }
 }
 
@@ -3916,6 +3936,8 @@ async function handleMeetingRoutesNotion(
         status: published.status,
         utteranceCount: published.utteranceCount,
         audioFileAttached: published.audioFileAttached,
+        summaryGenerated: published.summaryGenerated,
+        summaryError: published.summaryError,
       })
     }
 

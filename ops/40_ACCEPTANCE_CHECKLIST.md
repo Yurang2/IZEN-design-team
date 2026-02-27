@@ -79,3 +79,8 @@
 - [x] summary source includes utterance timestamp range
 - [x] default model remains gpt-5-mini
 - [x] build/typecheck passed
+### 2026-02-27 Summary Visibility + Korean Output Enforcement
+- [x] publish no longer swallows summary errors silently
+- [x] publish response includes summaryGenerated/summaryError
+- [x] GPT prompt enforces Korean output language
+- [x] build/typecheck passed
