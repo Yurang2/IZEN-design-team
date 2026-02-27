@@ -590,15 +590,15 @@ export function MeetingsView() {
         {errorMessage ? <p className="error">{errorMessage}</p> : null}
       </article>
 
-      <div className="meetingsGrid">
-        <article className="meetingsCard">
+      <div className="meetingsWorkbench">
+        <article className="meetingsCard meetingsListCard">
           <div className="meetingsCardHeader">
             <h3>최근 전사</h3>
             <Button type="button" variant="secondary" size="mini" onClick={() => void loadTranscripts()} disabled={loadingTranscripts}>
               새로고침
             </Button>
           </div>
-          <TableWrap>
+          <TableWrap className="meetingsListTable">
             <table>
               <thead>
                 <tr>
@@ -628,176 +628,175 @@ export function MeetingsView() {
             </table>
           </TableWrap>
         </article>
-
-        <article className="meetingsCard">
+        <article className="meetingsCard meetingsDetailCard">
           <div className="meetingsCardHeader">
-            <h3>키워드 세트 / Word Boost</h3>
-          </div>
-          <form className="meetingsInlineForm" onSubmit={onCreateKeywordSet}>
-            <input value={keywordSetName} onChange={(event) => setKeywordSetName(event.target.value)} placeholder="새 키워드 세트 이름" />
-            <Button type="submit" size="mini" disabled={creatingKeywordSet}>
-              {creatingKeywordSet ? '추가 중...' : '세트 추가'}
-            </Button>
-          </form>
-          <div className="meetingsKeywordSets">
-            {keywordSets.map((set) => (
-              <div key={set.id} className={selectedKeywordSetId === set.id ? 'meetingsKeywordSetItem is-active' : 'meetingsKeywordSetItem'}>
-                <button type="button" className="linkButton secondary mini" onClick={() => setSelectedKeywordSetId(set.id)}>
-                  {set.name} ({set.keywordCount})
-                </button>
-                <div className="meetingsKeywordSetActions">
-                  <Button type="button" variant="secondary" size="mini" onClick={() => void onRenameKeywordSet(set)}>
-                    수정
-                  </Button>
-                  <Button type="button" variant="secondary" size="mini" onClick={() => void onToggleKeywordSetActive(set)}>
-                    {set.isActive ? '비활성화' : '활성화'}
-                  </Button>
-                  <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeywordSet(set.id)}>
-                    삭제
-                  </Button>
-                </div>
+            <h3>Transcript 상세 / 화자 매핑</h3>
+            {transcriptDetail ? (
+              <div className="meetingsActions">
+                <Button type="button" variant="secondary" size="mini" onClick={() => onExportJson(false)}>
+                  JSON(raw)
+                </Button>
+                <Button type="button" variant="secondary" size="mini" onClick={() => onExportJson(true)}>
+                  JSON(mapped)
+                </Button>
+                <Button type="button" variant="secondary" size="mini" onClick={() => onExportMarkdown(false)}>
+                  MD(raw)
+                </Button>
+                <Button type="button" variant="secondary" size="mini" onClick={() => onExportMarkdown(true)}>
+                  MD(mapped)
+                </Button>
               </div>
-            ))}
+            ) : null}
           </div>
-          <form className="meetingsInlineForm" onSubmit={onCreateKeyword}>
-            <input value={keywordPhrase} onChange={(event) => setKeywordPhrase(event.target.value)} placeholder="키워드 문구" />
-            <input value={keywordWeight} onChange={(event) => setKeywordWeight(event.target.value)} placeholder="weight(선택)" />
-            <input value={keywordTags} onChange={(event) => setKeywordTags(event.target.value)} placeholder="tags(선택)" />
-            <Button type="submit" size="mini" disabled={!selectedKeywordSetId || creatingKeyword}>
-              {creatingKeyword ? '추가 중...' : '키워드 추가'}
-            </Button>
-          </form>
-          {!selectedKeywordSetId ? <p className="muted small">먼저 키워드 세트를 생성하거나 선택해야 키워드 추가가 가능합니다.</p> : null}
-          <div className="meetingsKeywordList">
-            {keywords.map((keyword) => (
-              <div key={keyword.id} className="meetingsKeywordItem">
-                <div className="meetingsKeywordItemHeader">
-                  <strong className="meetingsKeywordPhrase">{keyword.phrase}</strong>
-                  <span className="muted small">
-                    {keyword.weight != null ? `w:${keyword.weight}` : '-'} / {keyword.tags || '-'}
-                  </span>
-                </div>
-                <div className="meetingsKeywordSetActions">
-                  <Button type="button" variant="secondary" size="mini" onClick={() => void onEditKeyword(keyword)}>
-                    수정
+          {!selectedTranscriptId ? (
+            <p className="muted">좌측 목록에서 transcript를 선택해 주세요.</p>
+          ) : loadingDetail ? (
+            <p className="muted">상세 조회 중...</p>
+          ) : transcriptDetail ? (
+            <>
+              <section className="meetingsMetaGrid">
+                <article>
+                  <span>상태</span>
+                  <strong>{toTranscriptStatusLabel(transcriptDetail.status, transcriptDetail.bodySynced)}</strong>
+                </article>
+                <article>
+                  <span>Assembly ID</span>
+                  <strong>{transcriptDetail.assemblyId || '-'}</strong>
+                </article>
+                <article>
+                  <span>생성 시각</span>
+                  <strong>{toDateTimeLabel(transcriptDetail.createdAt)}</strong>
+                </article>
+                <article>
+                  <span>최종 갱신</span>
+                  <strong>{toDateTimeLabel(transcriptDetail.updatedAt)}</strong>
+                </article>
+                <article>
+                  <span>Notion 반영</span>
+                  <strong>{transcriptDetail.bodySynced ? '완료' : '대기'}</strong>
+                </article>
+              </section>
+
+              {transcriptDetail.keywordsUsed.length > 0 ? (
+                <p className="muted small">전사에 적용된 Word Boost: {transcriptDetail.keywordsUsed.join(', ')}</p>
+              ) : null}
+              {transcriptDetail.errorMessage ? <p className="error">{transcriptDetail.errorMessage}</p> : null}
+
+              <section className="meetingsSpeakerMap">
+                <h4>화자 이름 매핑</h4>
+                {speakerLabels.length === 0 ? <p className="muted small">화자 라벨이 아직 생성되지 않았습니다.</p> : null}
+                {speakerLabels.map((speaker) => (
+                  <label key={speaker}>
+                    {speaker}
+                    <input
+                      value={speakerMapDraft[speaker] ?? ''}
+                      onChange={(event) =>
+                        setSpeakerMapDraft((prev) => ({
+                          ...prev,
+                          [speaker]: event.target.value,
+                        }))
+                      }
+                      placeholder={`예: ${speaker}`}
+                    />
+                  </label>
+                ))}
+                <div className="meetingsActions">
+                  <Button type="button" onClick={() => void onSaveSpeakerMap()} disabled={savingSpeakers || speakerLabels.length === 0}>
+                    {savingSpeakers ? '저장 중...' : '매핑 저장'}
                   </Button>
-                  <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeyword(keyword.id)}>
-                    삭제
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void onPublishToNotion()}
+                    disabled={publishingToNotion || savingSpeakers || transcriptDetail.status !== 'completed' || speakerLabels.length === 0}
+                  >
+                    {publishingToNotion ? 'Notion 반영 중...' : '라벨 확정 후 Notion 반영'}
                   </Button>
                 </div>
-              </div>
-            ))}
-            {selectedKeywordSetId && keywords.length === 0 ? <p className="muted small">등록된 키워드가 없습니다.</p> : null}
-          </div>
+              </section>
+
+              <section className="meetingsUtterances">
+                <h4>Utterances</h4>
+                {transcriptDetail.utterancesMapped.length === 0 ? <p className="muted">아직 전사 결과가 없습니다.</p> : null}
+                {transcriptDetail.utterancesMapped.map((entry, index) => (
+                  <article key={`${entry.speaker}-${index}`}>
+                    <header>
+                      <strong>{entry.displaySpeaker ?? entry.speaker}</strong>
+                      <span className="muted small">
+                        {entry.start ?? '-'} ~ {entry.end ?? '-'}
+                      </span>
+                    </header>
+                    <p>{entry.text}</p>
+                  </article>
+                ))}
+              </section>
+            </>
+          ) : (
+            <p className="muted">선택한 transcript를 찾을 수 없습니다.</p>
+          )}
         </article>
       </div>
 
-      <article className="meetingsCard">
+      <article className="meetingsCard meetingsKeywordCard">
         <div className="meetingsCardHeader">
-          <h3>Transcript 상세 / 화자 매핑</h3>
-          {transcriptDetail ? (
-            <div className="meetingsActions">
-              <Button type="button" variant="secondary" size="mini" onClick={() => onExportJson(false)}>
-                JSON(raw)
-              </Button>
-              <Button type="button" variant="secondary" size="mini" onClick={() => onExportJson(true)}>
-                JSON(mapped)
-              </Button>
-              <Button type="button" variant="secondary" size="mini" onClick={() => onExportMarkdown(false)}>
-                MD(raw)
-              </Button>
-              <Button type="button" variant="secondary" size="mini" onClick={() => onExportMarkdown(true)}>
-                MD(mapped)
-              </Button>
-            </div>
-          ) : null}
+          <h3>키워드 세트 / Word Boost</h3>
         </div>
-        {!selectedTranscriptId ? (
-          <p className="muted">좌측 목록에서 transcript를 선택해 주세요.</p>
-        ) : loadingDetail ? (
-          <p className="muted">상세 조회 중...</p>
-        ) : transcriptDetail ? (
-          <>
-            <section className="meetingsMetaGrid">
-              <article>
-                <span>상태</span>
-                <strong>{toTranscriptStatusLabel(transcriptDetail.status, transcriptDetail.bodySynced)}</strong>
-              </article>
-              <article>
-                <span>Assembly ID</span>
-                <strong>{transcriptDetail.assemblyId || '-'}</strong>
-              </article>
-              <article>
-                <span>생성 시각</span>
-                <strong>{toDateTimeLabel(transcriptDetail.createdAt)}</strong>
-              </article>
-              <article>
-                <span>최종 갱신</span>
-                <strong>{toDateTimeLabel(transcriptDetail.updatedAt)}</strong>
-              </article>
-              <article>
-                <span>Notion 반영</span>
-                <strong>{transcriptDetail.bodySynced ? '완료' : '대기'}</strong>
-              </article>
-            </section>
-
-            {transcriptDetail.keywordsUsed.length > 0 ? (
-              <p className="muted small">전사에 적용된 Word Boost: {transcriptDetail.keywordsUsed.join(', ')}</p>
-            ) : null}
-            {transcriptDetail.errorMessage ? <p className="error">{transcriptDetail.errorMessage}</p> : null}
-
-            <section className="meetingsSpeakerMap">
-              <h4>화자 이름 매핑</h4>
-              {speakerLabels.length === 0 ? <p className="muted small">화자 라벨이 아직 생성되지 않았습니다.</p> : null}
-              {speakerLabels.map((speaker) => (
-                <label key={speaker}>
-                  {speaker}
-                  <input
-                    value={speakerMapDraft[speaker] ?? ''}
-                    onChange={(event) =>
-                      setSpeakerMapDraft((prev) => ({
-                        ...prev,
-                        [speaker]: event.target.value,
-                      }))
-                    }
-                    placeholder={`예: ${speaker}`}
-                  />
-                </label>
-              ))}
-              <div className="meetingsActions">
-                <Button type="button" onClick={() => void onSaveSpeakerMap()} disabled={savingSpeakers || speakerLabels.length === 0}>
-                  {savingSpeakers ? '저장 중...' : '매핑 저장'}
+        <form className="meetingsInlineForm meetingsKeywordCreateSetForm" onSubmit={onCreateKeywordSet}>
+          <input value={keywordSetName} onChange={(event) => setKeywordSetName(event.target.value)} placeholder="세트 이름" />
+          <Button type="submit" size="mini" disabled={creatingKeywordSet}>
+            {creatingKeywordSet ? '추가 중...' : '추가'}
+          </Button>
+        </form>
+        <div className="meetingsKeywordSets meetingsKeywordSetsCompact">
+          {keywordSets.map((set) => (
+            <div key={set.id} className={selectedKeywordSetId === set.id ? 'meetingsKeywordSetItem is-active' : 'meetingsKeywordSetItem'}>
+              <button type="button" className="linkButton secondary mini" onClick={() => setSelectedKeywordSetId(set.id)}>
+                {set.name} ({set.keywordCount})
+              </button>
+              <div className="meetingsKeywordSetActions">
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onRenameKeywordSet(set)}>
+                  편집
                 </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void onPublishToNotion()}
-                  disabled={publishingToNotion || savingSpeakers || transcriptDetail.status !== 'completed' || speakerLabels.length === 0}
-                >
-                  {publishingToNotion ? 'Notion 반영 중...' : '라벨 확정 후 Notion 반영'}
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onToggleKeywordSetActive(set)}>
+                  {set.isActive ? 'Off' : 'On'}
+                </Button>
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeywordSet(set.id)}>
+                  Del
                 </Button>
               </div>
-            </section>
-
-            <section className="meetingsUtterances">
-              <h4>Utterances</h4>
-              {transcriptDetail.utterancesMapped.length === 0 ? <p className="muted">아직 전사 결과가 없습니다.</p> : null}
-              {transcriptDetail.utterancesMapped.map((entry, index) => (
-                <article key={`${entry.speaker}-${index}`}>
-                  <header>
-                    <strong>{entry.displaySpeaker ?? entry.speaker}</strong>
-                    <span className="muted small">
-                      {entry.start ?? '-'} ~ {entry.end ?? '-'}
-                    </span>
-                  </header>
-                  <p>{entry.text}</p>
-                </article>
-              ))}
-            </section>
-          </>
-        ) : (
-          <p className="muted">선택한 transcript를 찾을 수 없습니다.</p>
-        )}
+            </div>
+          ))}
+        </div>
+        <form className="meetingsInlineForm meetingsKeywordCreateKeywordForm" onSubmit={onCreateKeyword}>
+          <input value={keywordPhrase} onChange={(event) => setKeywordPhrase(event.target.value)} placeholder="키워드" />
+          <input value={keywordWeight} onChange={(event) => setKeywordWeight(event.target.value)} placeholder="w" />
+          <input value={keywordTags} onChange={(event) => setKeywordTags(event.target.value)} placeholder="tags" />
+          <Button type="submit" size="mini" disabled={!selectedKeywordSetId || creatingKeyword}>
+            {creatingKeyword ? '추가 중...' : '추가'}
+          </Button>
+        </form>
+        {!selectedKeywordSetId ? <p className="muted small">세트를 선택해야 키워드 추가가 가능합니다.</p> : null}
+        <div className="meetingsKeywordList meetingsKeywordListCompact">
+          {keywords.map((keyword) => (
+            <div key={keyword.id} className="meetingsKeywordItem">
+              <div className="meetingsKeywordItemHeader">
+                <strong className="meetingsKeywordPhrase">{keyword.phrase}</strong>
+                <span className="muted small">
+                  {keyword.weight != null ? `w:${keyword.weight}` : '-'} / {keyword.tags || '-'}
+                </span>
+              </div>
+              <div className="meetingsKeywordSetActions">
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onEditKeyword(keyword)}>
+                  편집
+                </Button>
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeyword(keyword.id)}>
+                  Del
+                </Button>
+              </div>
+            </div>
+          ))}
+          {selectedKeywordSetId && keywords.length === 0 ? <p className="muted small">등록된 키워드가 없습니다.</p> : null}
+        </div>
       </article>
     </section>
   )
