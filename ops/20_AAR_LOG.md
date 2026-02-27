@@ -148,3 +148,10 @@
 - Task: attach recording in Notion DB files property (`Audio File`) in addition to body top file block.
 - Result: required summary headers reduced to 5 core sections; optional sections are omitted when empty; `status=... generated_at=...` removed; publish now writes `Audio File` property and no longer hard-fails on missing R2 object.
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (Too many subrequests mitigation on transcript start)
+- Task: fix intermittent `HTTP 500: Too many subrequests` during transcript creation flow.
+- Root cause: Notion lookup paths used full-scan helpers in places that only need one row or limited keyword phrases.
+- Result: ID lookups now use single-page query (`page_size=1`), and keyword phrase loading for Assembly word boost is capped to needed volume.
+- Result: meeting route maps runtime `Too many subrequests` to 503 for clearer operational signal.
+- Validation: `npm run build` passed.

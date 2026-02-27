@@ -121,3 +121,9 @@
 - [x] transcript runtime metadata line (`status=... generated_at=...`) removed from Notion body
 - [x] recording attached to both body file block and DB `Audio File` files property
 - [x] build/typecheck passed
+
+### 2026-02-27 Subrequest Budget Hardening
+- [x] transcript/keyword ID lookup path switched to single-page query
+- [x] keyword phrase read for Assembly word boost capped to required size
+- [x] runtime `Too many subrequests` mapped to 503 in meetings route
+- [x] build/typecheck passed

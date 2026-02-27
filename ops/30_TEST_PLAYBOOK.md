@@ -148,3 +148,9 @@
 - Scenario: optional summary sections omitted when empty + transcript runtime meta line removed + Notion Audio File property write
 - Expected: no dummy "자동 보정된 섹션" output for empty optional sections; no `status=... generated_at=...` in `전문`; publish stores recording in `Audio File` column
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: transcript start path under constrained subrequest budget
+- Expected: no large Notion full-scan in create path; build passes
+- Actual: PASS (`npm run build`)

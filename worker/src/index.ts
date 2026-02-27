@@ -2917,6 +2917,16 @@ async function queryAllMeetingNotionPages(ctx: MeetingNotionContext, input: Reco
   return pages
 }
 
+async function queryFirstMeetingNotionPage(ctx: MeetingNotionContext, input: Record<string, unknown>): Promise<any | null> {
+  const result = await ctx.api.queryDatabase(ctx.databaseId, {
+    ...input,
+    page_size: 1,
+  })
+  const rows = Array.isArray(result?.results) ? result.results : []
+  const page = rows.find((entry) => entry && !entry.archived && !entry.in_trash)
+  return page ?? null
+}
+
 function transcriptFilterById(transcriptId: string): Record<string, unknown> {
   return {
     and: [
@@ -2959,16 +2969,16 @@ function mapMeetingNotionTranscriptPage(page: any, titlePropertyName: string, da
 
 async function getMeetingNotionTranscriptById(env: Env, transcriptId: string): Promise<{ row: MeetingNotionTranscriptRow; ctx: MeetingNotionContext } | null> {
   const ctx = await ensureMeetingNotionSchema(env)
-  const pages = await queryAllMeetingNotionPages(ctx, { filter: transcriptFilterById(transcriptId) })
-  if (pages.length === 0) return null
-  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName, ctx.datePropertyName), ctx }
+  const page = await queryFirstMeetingNotionPage(ctx, { filter: transcriptFilterById(transcriptId) })
+  if (!page) return null
+  return { row: mapMeetingNotionTranscriptPage(page, ctx.titlePropertyName, ctx.datePropertyName), ctx }
 }
 
 async function getMeetingNotionTranscriptByAssemblyId(env: Env, assemblyId: string): Promise<{ row: MeetingNotionTranscriptRow; ctx: MeetingNotionContext } | null> {
   const ctx = await ensureMeetingNotionSchema(env)
-  const pages = await queryAllMeetingNotionPages(ctx, { filter: transcriptFilterByAssemblyId(assemblyId) })
-  if (pages.length === 0) return null
-  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName, ctx.datePropertyName), ctx }
+  const page = await queryFirstMeetingNotionPage(ctx, { filter: transcriptFilterByAssemblyId(assemblyId) })
+  if (!page) return null
+  return { row: mapMeetingNotionTranscriptPage(page, ctx.titlePropertyName, ctx.datePropertyName), ctx }
 }
 
 async function listMeetingNotionTranscripts(env: Env, limit: number): Promise<MeetingNotionTranscriptRow[]> {
@@ -3019,8 +3029,8 @@ async function findMeetingNotionKeywordSetPageById(
   setId: string,
 ): Promise<{ page: any; ctx: MeetingNotionContext } | null> {
   const ctx = await ensureMeetingNotionSchema(env)
-  const pages = await queryAllMeetingNotionPages(ctx, { filter: keywordSetFilterById(setId) })
-  if (pages.length > 0) return { page: pages[0], ctx }
+  const pageByFilter = await queryFirstMeetingNotionPage(ctx, { filter: keywordSetFilterById(setId) })
+  if (pageByFilter) return { page: pageByFilter, ctx }
   try {
     const page = await ctx.api.retrievePage(setId)
     if (!page || page.archived || page.in_trash) return null
@@ -3038,8 +3048,8 @@ async function findMeetingNotionKeywordPageById(
   keywordId: string,
 ): Promise<{ page: any; ctx: MeetingNotionContext } | null> {
   const ctx = await ensureMeetingNotionSchema(env)
-  const pages = await queryAllMeetingNotionPages(ctx, { filter: keywordFilterById(keywordId) })
-  if (pages.length > 0) return { page: pages[0], ctx }
+  const pageByFilter = await queryFirstMeetingNotionPage(ctx, { filter: keywordFilterById(keywordId) })
+  if (pageByFilter) return { page: pageByFilter, ctx }
   try {
     const page = await ctx.api.retrievePage(keywordId)
     if (!page || page.archived || page.in_trash) return null
@@ -3628,14 +3638,42 @@ async function readKeywordPhrasesBySetIdFromNotion(
   setId: string | null,
 ): Promise<{ phrases: string[]; truncated: boolean; total: number }> {
   if (!setId) return { phrases: [], truncated: false, total: 0 }
-  const keywords = await listNotionKeywords(env, setId)
   const keywordLimit = parseMeetingKeywordLimit(env)
-  const phrases = keywords.map((entry) => entry.phrase.trim()).filter(Boolean)
-  const uniquePhrases = Array.from(new Set(phrases))
+  const ctx = await ensureMeetingNotionSchema(env)
+  const uniquePhrases = new Set<string>()
+  let cursor: string | undefined
+  let hasMore = false
+  for (let page = 0; page < 6; page += 1) {
+    const payload: Record<string, unknown> = {
+      filter: keywordFilterBySetId(setId),
+      sorts: [{ property: MEETING_NOTION_FIELD.createdAt, direction: 'descending' }],
+      page_size: 100,
+    }
+    if (cursor) payload.start_cursor = cursor
+    const result = await ctx.api.queryDatabase(ctx.databaseId, payload)
+    const rows = Array.isArray(result?.results) ? result.results : []
+    for (const row of rows) {
+      if (!row || row.archived || row.in_trash) continue
+      const props = (row.properties ?? {}) as Record<string, unknown>
+      const phrase = (notionReadRichText(props[MEETING_NOTION_FIELD.phrase]) || notionReadTitle(props[ctx.titlePropertyName]) || '').trim()
+      if (!phrase) continue
+      uniquePhrases.add(phrase)
+      if (uniquePhrases.size >= keywordLimit) break
+    }
+    if (uniquePhrases.size >= keywordLimit) {
+      hasMore = true
+      break
+    }
+    const nextCursor = asString(result?.next_cursor)
+    hasMore = Boolean(result?.has_more && nextCursor)
+    if (!hasMore) break
+    cursor = nextCursor
+  }
+  const phrases = Array.from(uniquePhrases)
   return {
-    phrases: uniquePhrases.slice(0, keywordLimit),
-    truncated: uniquePhrases.length > keywordLimit,
-    total: uniquePhrases.length,
+    phrases: phrases.slice(0, keywordLimit),
+    truncated: hasMore || phrases.length > keywordLimit,
+    total: phrases.length,
   }
 }
 
@@ -3787,6 +3825,7 @@ async function handleMeetingRoutesNotion(
     if (message.includes('notion_file_too_large')) return 413
     if (message.includes('notion_file_upload_')) return 502
     if (message.includes('transcript_not_completed')) return 409
+    if (message.toLowerCase().includes('too many subrequests')) return 503
     if (message.includes('not_found') || message.includes('object_not_found')) return 404
     if (message.includes('assemblyai_http_')) return 502
     if (message.includes('notion_http_')) return 502
