@@ -140,3 +140,13 @@
   - `### ` -> heading_3
   - `- ` -> bulleted_list_item
   - others -> paragraph
+
+## 17) Summary Compactness Policy (2026-02-27)
+- Section rename: `## 메타` -> `## 회의 개요`.
+- Compactness constraints:
+  - `참석자(추정)` lists names only (no utterance timestamps/content)
+  - `자동 초안 안내` is short (1-2 sentences)
+  - `정해진 내용 / 확인 필요` uses markdown table only (no duplicate prose)
+- Explicitly no count limit for:
+  - `핵심 안건 요약`
+  - `불확실/추가 확인 필요 구간`

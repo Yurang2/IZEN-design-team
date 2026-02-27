@@ -105,3 +105,9 @@
 - [x] missing sections auto-patched on final fallback
 - [x] markdown-to-Notion block mapping implemented
 - [x] build/typecheck and publish smoke test passed
+### 2026-02-27 Summary Compactness Update
+- [x] `메타` heading replaced by `회의 개요`
+- [x] names-only participant list + short draft-note enforced
+- [x] table-only `정해진 내용 / 확인 필요` enforced
+- [x] no count limits for key agenda and uncertainty sections
+- [x] build/typecheck and publish E2E passed

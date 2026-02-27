@@ -131,3 +131,9 @@
 - Result: required heading contract, one retry on format violation, and fallback auto-patch for missing sections.
 - Rendering: markdown prefixes now map to Notion heading/list/paragraph blocks.
 - Validation: `npm run build` passed; publish smoke test passed.
+
+### 2026-02-27 (summary compactness + section rename)
+- Task: remove `메타` wording and reduce summary verbosity while preserving evidence quality.
+- Result: heading renamed to `회의 개요`; prompt enforces names-only participants and table-only decided/confirm section.
+- Constraint: no count cap applied to key-agenda or uncertainty sections.
+- Validation: `npm run build` + publish E2E passed.

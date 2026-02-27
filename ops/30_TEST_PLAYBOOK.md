@@ -130,3 +130,9 @@
 - Scenario: markdown contract + heading validation + notion markdown block mapping
 - Expected: build pass and publish success with summaryGenerated=true
 - Actual: PASS (`npm run build`, publish OK)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: summary compactness policy with no key-agenda/uncertainty count cap
+- Expected: build pass and publish E2E success
+- Actual: PASS (`npm run build`, transcriptId=`c69fcb38-ceda-49e5-b8b9-44b13303a811`, summaryGenerated=true)
