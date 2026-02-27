@@ -111,3 +111,7 @@
 - [x] table-only `정해진 내용 / 확인 필요` enforced
 - [x] no count limits for key agenda and uncertainty sections
 - [x] build/typecheck and publish E2E passed
+### 2026-02-27 Speaker Mapping Single-Alpha Ban
+- [x] mapping save rejects displayName as single alphabet letter
+- [x] publish path rejects legacy single-alpha mappings
+- [x] build/typecheck passed

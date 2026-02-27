@@ -137,3 +137,8 @@
 - Result: heading renamed to `회의 개요`; prompt enforces names-only participants and table-only decided/confirm section.
 - Constraint: no count cap applied to key-agenda or uncertainty sections.
 - Validation: `npm run build` + publish E2E passed.
+
+### 2026-02-27 (speaker mapping single-alpha ban)
+- Task: prevent placeholder-like speaker names (`A/B/C`) from being accepted as mapped real names.
+- Result: mapping save rejects single-letter alphabet display names; publish path rejects legacy rows with such mappings.
+- Validation: `npm run build` passed.

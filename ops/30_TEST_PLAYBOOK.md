@@ -136,3 +136,9 @@
 - Scenario: summary compactness policy with no key-agenda/uncertainty count cap
 - Expected: build pass and publish E2E success
 - Actual: PASS (`npm run build`, transcriptId=`c69fcb38-ceda-49e5-b8b9-44b13303a811`, summaryGenerated=true)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: speaker mapping rejects one-letter alphabet display names
+- Expected: build pass and server-side validation active on save/publish paths
+- Actual: PASS (`npm run build`)

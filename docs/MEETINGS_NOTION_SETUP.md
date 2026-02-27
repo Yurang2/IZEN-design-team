@@ -150,3 +150,8 @@
 - Explicitly no count limit for:
   - `핵심 안건 요약`
   - `불확실/추가 확인 필요 구간`
+
+## 18) Speaker Mapping Name Guard (2026-02-27)
+- Disallow simple single-letter alphabet display names in speaker mapping (e.g., `A`, `b`, `C`).
+- English real names are still allowed (e.g., `Amy`, `Ben`, `J. Park`), as long as not a single alphabet letter.
+- Publish guard also validates stored mappings to prevent legacy bypass.

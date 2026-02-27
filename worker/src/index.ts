@@ -981,6 +981,11 @@ type SpeakerMappingInput = {
   displayName: string
 }
 
+function isSimpleAlphabetDisplayName(value: string | undefined): boolean {
+  if (!value) return false
+  return /^[A-Za-z]$/.test(value.trim())
+}
+
 function parseSpeakerMappingsBody(body: unknown): SpeakerMappingInput[] {
   const payload = parsePatchBody(body)
   const mappings: SpeakerMappingInput[] = []
@@ -992,12 +997,18 @@ function parseSpeakerMappingsBody(body: unknown): SpeakerMappingInput[] {
       const speakerLabel = asString(item.speakerLabel) ?? asString(item.speaker) ?? ''
       const displayName = asString(item.displayName) ?? asString(item.name) ?? ''
       if (!speakerLabel || !displayName) continue
+      if (isSimpleAlphabetDisplayName(displayName)) {
+        throw new Error(`speaker_display_name_invalid_simple_alpha:${speakerLabel}`)
+      }
       mappings.push({ speakerLabel: speakerLabel.slice(0, 40), displayName: displayName.slice(0, 120) })
     }
   } else {
     const speakerLabel = asString(payload.speakerLabel) ?? asString(payload.speaker) ?? ''
     const displayName = asString(payload.displayName) ?? asString(payload.name) ?? ''
     if (speakerLabel && displayName) {
+      if (isSimpleAlphabetDisplayName(displayName)) {
+        throw new Error(`speaker_display_name_invalid_simple_alpha:${speakerLabel}`)
+      }
       mappings.push({ speakerLabel: speakerLabel.slice(0, 40), displayName: displayName.slice(0, 120) })
     }
   }
@@ -3386,7 +3397,18 @@ function findUnmappedSpeakers(
   const uniqueSpeakers = Array.from(new Set(utterances.map((row) => row.speaker).filter(Boolean)))
   return uniqueSpeakers.filter((speakerLabel) => {
     const mapped = asString(speakerMap[speakerLabel])?.trim()
-    return !mapped
+    return !mapped || isSimpleAlphabetDisplayName(mapped)
+  })
+}
+
+function findInvalidSimpleAlphabetMappedSpeakers(
+  utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
+  speakerMap: Record<string, string>,
+): string[] {
+  const uniqueSpeakers = Array.from(new Set(utterances.map((row) => row.speaker).filter(Boolean)))
+  return uniqueSpeakers.filter((speakerLabel) => {
+    const mapped = asString(speakerMap[speakerLabel])?.trim()
+    return Boolean(mapped && isSimpleAlphabetDisplayName(mapped))
   })
 }
 
@@ -3639,6 +3661,11 @@ async function updateMeetingNotionTranscriptFromAssembly(
 
   if (status !== 'completed') {
     throw new Error('transcript_not_completed')
+  }
+
+  const invalidSimpleAlphaSpeakers = findInvalidSimpleAlphabetMappedSpeakers(utterances, found.row.speakerMap)
+  if (invalidSimpleAlphaSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_invalid_simple_alpha:${invalidSimpleAlphaSpeakers.join(',')}`)
   }
 
   const unmappedSpeakers = findUnmappedSpeakers(utterances, found.row.speakerMap)
