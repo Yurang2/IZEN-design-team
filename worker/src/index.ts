@@ -2158,6 +2158,7 @@ async function handleMeetingRoutes(
       const webhookSecret = getAssemblyWebhookSecret(env)
       const assemblyPayload: Record<string, unknown> = {
         audio_url: getSigned.url,
+        language_code: 'ko',
         speaker_labels: true,
         webhook_url: webhookUrl,
         webhook_auth_header_name: 'x-assemblyai-webhook-secret',
@@ -3338,6 +3339,7 @@ async function handleMeetingRoutesNotion(
       const webhookSecret = getAssemblyWebhookSecret(env)
       const assemblyPayload: Record<string, unknown> = {
         audio_url: audioUrl,
+        language_code: 'ko',
         speaker_labels: true,
         webhook_url: webhookUrl,
         webhook_auth_header_name: 'x-assemblyai-webhook-secret',
