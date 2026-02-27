@@ -98,7 +98,6 @@ const MAX_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000
 const TRANSCRIPT_CREATE_TIMEOUT_MS = 45_000
 const ASSUMED_MIN_UPLOAD_BYTES_PER_SEC = 128 * 1024
 const UPLOAD_TIMEOUT_BUFFER_MS = 30_000
-const MAX_WORKER_DIRECT_UPLOAD_BYTES = 25 * 1024 * 1024
 
 type UploadStage = 'idle' | 'presign' | 'upload' | 'transcript'
 
@@ -172,12 +171,6 @@ function computeUploadTimeoutMs(fileSizeBytes: number): number {
   if (!Number.isFinite(fileSizeBytes) || fileSizeBytes <= 0) return UPLOAD_TIMEOUT_MS
   const estimatedMs = Math.ceil(fileSizeBytes / ASSUMED_MIN_UPLOAD_BYTES_PER_SEC) * 1000 + UPLOAD_TIMEOUT_BUFFER_MS
   return Math.max(UPLOAD_TIMEOUT_MS, Math.min(MAX_UPLOAD_TIMEOUT_MS, estimatedMs))
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0MB'
-  const mb = bytes / (1024 * 1024)
-  return `${mb.toFixed(1)}MB`
 }
 
 function isRetryableUploadError(error: unknown): boolean {
@@ -540,11 +533,8 @@ export function MeetingsView() {
       if (!putHeaders.has('Content-Type')) {
         putHeaders.set('Content-Type', selectedFile.type || 'audio/m4a')
       }
-      if (presign.uploadMode === 'worker_direct' && selectedFile.size > MAX_WORKER_DIRECT_UPLOAD_BYTES) {
-        throw new Error('worker_direct_file_too_large')
-      }
       if (presign.uploadMode === 'worker_direct') {
-        setUploadMessage('현재 업로드 경로가 fallback(worker_direct)입니다. 대용량 파일은 실패할 수 있습니다.')
+        setUploadMessage('현재 업로드 경로가 fallback(worker_direct)입니다. 대용량 파일은 업로드 시간이 길어질 수 있습니다.')
       }
 
       setUploadStage('upload')
@@ -668,9 +658,6 @@ export function MeetingsView() {
       } else if (raw.includes('upload_timeout')) {
         message = '파일 업로드 시간이 너무 오래 걸립니다. 네트워크 상태를 확인하고 다시 시도해 주세요.'
         reasonCode = 'upload_timeout'
-      } else if (raw.includes('worker_direct_file_too_large')) {
-        message = `현재 fallback 업로드 경로(worker_direct)에서는 ${formatBytes(MAX_WORKER_DIRECT_UPLOAD_BYTES)} 초과 파일 업로드를 제한합니다. 파일을 줄이거나 네트워크 상태 확인 후 다시 시도해 주세요.`
-        reasonCode = 'worker_direct_file_too_large'
       } else if (raw.includes('transcript_create_timeout')) {
         message = '전사 요청 생성이 지연되고 있습니다. 새로고침 후 최근 전사 목록을 확인해 주세요.'
         reasonCode = 'transcript_create_timeout'
