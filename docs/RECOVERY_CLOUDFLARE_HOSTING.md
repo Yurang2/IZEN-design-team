@@ -101,3 +101,10 @@ git push origin backup-cloudflare-hosting-2026-02-23
 주의:
 - Git만으로는 Secrets/대시보드 설정이 복구되지 않습니다.
 - Cloudflare 대시보드의 변수/시크릿/빌드 설정을 이 문서대로 함께 복원해야 완전 복구됩니다.
+
+## 2026-02-27 Upload Runtime Update
+- Current meeting upload pipeline: Browser -> (R2 presigned or worker_direct fallback) -> R2 -> AssemblyAI(audio_url) -> webhook -> transcript detail/publish.
+- Upload timeout handling was updated: dynamic timeout by file size (min 5m, max 30m).
+- Upload retry policy was updated: retry once on retryable upload errors (total up to 2 attempts).
+- worker_direct is a fallback path when R2 presigned URL is not available. Hard size blocking was removed; warning-only behavior remains.
+- Deployment note: manual Cloudflare Pages deploy via Wrangler requires CLOUDFLARE_API_TOKEN in non-interactive environments.

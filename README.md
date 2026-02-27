@@ -596,3 +596,10 @@ npm run deploy:worker
 - AssemblyAI key is used only in Worker (not exposed to frontend).
 - Upload path uses browser -> R2 direct PUT (no Worker file proxy).
 - [UNKNOWN] `R2Bucket.createPresignedUrl` support can vary by Workers runtime/version. If unavailable, endpoint returns `r2_presign_not_supported_[UNKNOWN]`.
+
+## 2026-02-27 Upload Runtime Update
+- Current meeting upload pipeline: Browser -> (R2 presigned or worker_direct fallback) -> R2 -> AssemblyAI(audio_url) -> webhook -> transcript detail/publish.
+- Upload timeout handling was updated: dynamic timeout by file size (min 5m, max 30m).
+- Upload retry policy was updated: retry once on retryable upload errors (total up to 2 attempts).
+- worker_direct is a fallback path when R2 presigned URL is not available. Hard size blocking was removed; warning-only behavior remains.
+- Deployment note: manual Cloudflare Pages deploy via Wrangler requires CLOUDFLARE_API_TOKEN in non-interactive environments.

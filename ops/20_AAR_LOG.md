@@ -161,3 +161,10 @@
 - Result: meetings upload now shows 3-stage progress (presign/upload/transcript create), elapsed time, and cancel action.
 - Result: per-stage timeout added (20s/5m/45s) with specific user-facing error messages.
 - Validation: `npm run build` passed.
+
+## 2026-02-27 Upload Runtime Update
+- Current meeting upload pipeline: Browser -> (R2 presigned or worker_direct fallback) -> R2 -> AssemblyAI(audio_url) -> webhook -> transcript detail/publish.
+- Upload timeout handling was updated: dynamic timeout by file size (min 5m, max 30m).
+- Upload retry policy was updated: retry once on retryable upload errors (total up to 2 attempts).
+- worker_direct is a fallback path when R2 presigned URL is not available. Hard size blocking was removed; warning-only behavior remains.
+- Deployment note: manual Cloudflare Pages deploy via Wrangler requires CLOUDFLARE_API_TOKEN in non-interactive environments.
