@@ -670,14 +670,14 @@ export function MeetingsView() {
                 {set.name} ({set.keywordCount})
               </button>
               <div className="meetingsKeywordSetActions">
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onRenameKeywordSet(set)}>
-                  편집
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onRenameKeywordSet(set)} title="이름 수정" aria-label="이름 수정">
+                  E
                 </Button>
                 <Button type="button" variant="secondary" size="mini" onClick={() => void onToggleKeywordSetActive(set)}>
                   {set.isActive ? 'Off' : 'On'}
                 </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeywordSet(set.id)}>
-                  Del
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeywordSet(set.id)} title="세트 삭제" aria-label="세트 삭제">
+                  X
                 </Button>
               </div>
             </div>
@@ -702,11 +702,11 @@ export function MeetingsView() {
                 </span>
               </div>
               <div className="meetingsKeywordSetActions">
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onEditKeyword(keyword)}>
-                  편집
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onEditKeyword(keyword)} title="키워드 수정" aria-label="키워드 수정">
+                  E
                 </Button>
-                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeyword(keyword.id)}>
-                  Del
+                <Button type="button" variant="secondary" size="mini" onClick={() => void onDeleteKeyword(keyword.id)} title="키워드 삭제" aria-label="키워드 삭제">
+                  X
                 </Button>
               </div>
             </div>

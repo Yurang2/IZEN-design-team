@@ -72,3 +72,7 @@
 - Task: add Notion date property compatibility (`일자`/`날짜`) to prevent missing date.
 - Task: wire optional GPT summary generation on publish using OpenAI (`gpt-5-mini` default).
 - Verification: `npm run build` passed.
+### 2026-02-27 (keyword panel ultra-compact)
+- Task: reduce keyword set/keyword UI footprint aggressively in meetings page.
+- Result: compact chip-style layout, lower max-height, smaller paddings/buttons, E/X icon labels.
+- Validation: `npm run build` passed.

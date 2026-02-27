@@ -65,3 +65,8 @@
 - Scenario: meetings upload uses filename-only title + Notion date field alias + build verification
 - Expected: compile success and no manual title dependency
 - Actual: PASS (`npm run build`)
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: meetings keyword panel compactness update
+- Expected: keyword panel occupies substantially less area; build passes
+- Actual: PASS (`npm run build`)

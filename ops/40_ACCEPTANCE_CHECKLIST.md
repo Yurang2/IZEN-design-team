@@ -49,3 +49,7 @@
 - [x] Notion date property alias handling added (`일자`/`날짜`)
 - [x] optional GPT summary wiring added (OPENAI_API_KEY)
 - [x] build/typecheck passed
+### 2026-02-27 Meetings Keyword Compactness Update
+- [x] keyword set/item boxes compacted to chip-like layout
+- [x] small action buttons applied (E/X)
+- [x] build/typecheck passed
