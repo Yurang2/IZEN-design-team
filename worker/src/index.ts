@@ -1770,6 +1770,33 @@ function getMeetingAudioBucket(env: Env): NonNullable<Env['MEETING_AUDIO_BUCKET'
   return bucket
 }
 
+async function readR2ObjectForResponse(object: unknown): Promise<{ body: BodyInit; contentType?: string } | null> {
+  if (!object || typeof object !== 'object') return null
+  const value = object as Record<string, unknown>
+  const httpMetadata = value.httpMetadata as Record<string, unknown> | undefined
+  const contentType = asString(httpMetadata?.contentType)
+
+  const stream = value.body as unknown
+  if (stream && typeof stream === 'object') {
+    // Workers R2 runtime commonly exposes a ReadableStream body directly.
+    return {
+      body: stream as BodyInit,
+      contentType,
+    }
+  }
+
+  const asArrayBuffer = value.arrayBuffer
+  if (typeof asArrayBuffer === 'function') {
+    const buffer = (await (asArrayBuffer as () => Promise<ArrayBuffer>)()) as ArrayBuffer
+    return {
+      body: buffer,
+      contentType,
+    }
+  }
+
+  return null
+}
+
 async function createR2PresignedUrl(
   env: Env,
   key: string,
@@ -3244,14 +3271,14 @@ async function handleMeetingRoutesNotion(
 
       const bucket = getMeetingAudioBucket(env)
       const object = await bucket.get(key)
-      const body = await object?.body?.arrayBuffer()
-      if (!object || !body) {
+      const resolved = await readR2ObjectForResponse(object)
+      if (!resolved) {
         return respond.json({ ok: false, error: 'audio_not_found' }, 404)
       }
-      return new Response(body, {
+      return new Response(resolved.body, {
         status: 200,
         headers: {
-          'Content-Type': inferAudioContentType(key),
+          'Content-Type': resolved.contentType ?? inferAudioContentType(key),
           'Cache-Control': 'private, max-age=300',
         },
       })

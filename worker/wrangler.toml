@@ -42,8 +42,7 @@ REQUIRE_CF_ACCESS = "false"
 # D1 binding is appended at runtime by `scripts/run-worker.sh` when:
 # - CHECKLIST_DB_ID is set
 # - CHECKLIST_DB_NAME (optional, default: izen-design-checklist)
-#
-# Optional R2 binding is appended at runtime by `scripts/run-worker.sh` when:
-# - MEETING_AUDIO_BUCKET_NAME is set
-# - MEETING_AUDIO_PREVIEW_BUCKET_NAME (optional) for local preview
-# binding name: MEETING_AUDIO_BUCKET
+
+[[r2_buckets]]
+binding = "MEETING_AUDIO_BUCKET"
+bucket_name = "izen-meeting-audio"
