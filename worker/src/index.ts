@@ -38,6 +38,7 @@ const DEFAULT_MAX_SPEAKERS = 10
 const MIN_ALLOWED_SPEAKERS = 1
 const MAX_ALLOWED_SPEAKERS = 10
 const TRANSCRIPT_POLL_LIMIT = 50
+const UPLOAD_SESSION_LIST_LIMIT = 100
 const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -321,7 +322,7 @@ async function signMeetingUploadPayload(payloadBase64: string, env: Env): Promis
   return base64UrlEncode(new Uint8Array(signature))
 }
 
-async function createMeetingUploadToken(env: Env, params: { key: string; method: 'GET' | 'PUT'; expiresInSec: number }): Promise<string> {
+async function createMeetingUploadToken(env: Env, params: { key: string; method: 'GET' | 'PUT' | 'EVENT'; expiresInSec: number }): Promise<string> {
   const payload = {
     key: params.key,
     method: params.method,
@@ -335,7 +336,7 @@ async function createMeetingUploadToken(env: Env, params: { key: string; method:
 async function verifyMeetingUploadToken(
   env: Env,
   token: string | undefined,
-  expected: { key: string; method: 'GET' | 'PUT' },
+  expected: { key: string; method: 'GET' | 'PUT' | 'EVENT' },
 ): Promise<boolean> {
   if (!token) return false
   const [payloadBase64, signatureBase64] = token.split('.')
@@ -351,7 +352,7 @@ async function verifyMeetingUploadToken(
   if (!payloadBytes) return false
 
   try {
-    const parsed = JSON.parse(utf8Decode(payloadBytes)) as Partial<{ key: string; method: 'GET' | 'PUT'; exp: number }>
+    const parsed = JSON.parse(utf8Decode(payloadBytes)) as Partial<{ key: string; method: 'GET' | 'PUT' | 'EVENT'; exp: number }>
     if (parsed.key !== expected.key) return false
     if (parsed.method !== expected.method) return false
     if (typeof parsed.exp !== 'number' || parsed.exp <= Date.now()) return false
@@ -910,6 +911,7 @@ function parseMeetingTranscriptBody(body: unknown): {
   minSpeakers: number
   maxSpeakers: number
   keywordSetId: string | null
+  uploadId: string | null
 } {
   const payload = parsePatchBody(body)
   const key = asString(payload.key)
@@ -939,6 +941,67 @@ function parseMeetingTranscriptBody(body: unknown): {
     minSpeakers,
     maxSpeakers,
     keywordSetId: asString(payload.keywordSetId) ?? null,
+    uploadId: asString(payload.uploadId) ?? null,
+  }
+}
+
+type MeetingUploadEventBody = {
+  uploadId: string
+  key: string
+  token: string
+  eventType: string
+  stage: string | null
+  state: string | null
+  reasonCode: string | null
+  reasonMessage: string | null
+  elapsedMs: number | null
+  payloadJson: string | null
+}
+
+function parseMeetingUploadEventBody(body: unknown): MeetingUploadEventBody {
+  const payload = parsePatchBody(body)
+  const uploadId = asString(payload.uploadId) ?? asString(payload.id)
+  if (!uploadId) throw new Error('upload_id_required')
+
+  const key = asString(payload.key)
+  if (!key) throw new Error('key_required')
+  if (!isValidMeetingAudioKey(key)) throw new Error('key_invalid')
+
+  const token = asString(payload.token) ?? asString(payload.eventToken)
+  if (!token) throw new Error('upload_event_token_required')
+
+  const eventType = truncateText(asString(payload.eventType) ?? asString(payload.type) ?? 'client_event', 80) ?? 'client_event'
+  const stage = normalizeUploadStage(asString(payload.stage))
+  const state = normalizeUploadState(asString(payload.state))
+  const reasonCode = truncateText(asString(payload.reasonCode) ?? asString(payload.reason), 80)
+  const reasonMessage = truncateText(asString(payload.reasonMessage) ?? asString(payload.message), 600)
+
+  let elapsedMs: number | null = null
+  const elapsedCandidate = Number(payload.elapsedMs ?? payload.elapsed)
+  if (Number.isFinite(elapsedCandidate) && elapsedCandidate >= 0) {
+    elapsedMs = Math.min(Math.floor(elapsedCandidate), 86_400_000)
+  }
+
+  let payloadJson: string | null = null
+  if (payload.payload !== undefined) {
+    try {
+      payloadJson = JSON.stringify(payload.payload).slice(0, 4000)
+    } catch {
+      payloadJson = truncateText(String(payload.payload), 4000)
+    }
+  }
+
+  return {
+    uploadId: uploadId.slice(0, 120),
+    key,
+    token,
+    eventType,
+    stage,
+    state,
+    reasonCode,
+    reasonMessage,
+    elapsedMs,
+    payloadJson,
   }
 }
 
@@ -1772,6 +1835,75 @@ async function ensureMeetingDbTables(env: Env): Promise<void> {
       )
       .bind()
       .run()
+
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS meeting_upload_sessions (
+          id TEXT PRIMARY KEY,
+          audio_key TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          content_type TEXT,
+          upload_mode TEXT,
+          stage TEXT NOT NULL,
+          state TEXT NOT NULL,
+          reason_code TEXT,
+          reason_message TEXT,
+          transcript_id TEXT,
+          meeting_id TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )`,
+      )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS meeting_upload_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          upload_id TEXT NOT NULL,
+          audio_key TEXT NOT NULL,
+          event_type TEXT NOT NULL,
+          stage TEXT,
+          state TEXT,
+          reason_code TEXT,
+          reason_message TEXT,
+          elapsed_ms INTEGER,
+          payload_json TEXT,
+          created_at INTEGER NOT NULL
+        )`,
+      )
+      .bind()
+      .run()
+
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_upload_sessions_updated_at
+         ON meeting_upload_sessions(updated_at DESC)`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_upload_sessions_audio_key
+         ON meeting_upload_sessions(audio_key)`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_upload_events_upload_id_created
+         ON meeting_upload_events(upload_id, created_at DESC)`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_upload_events_created_at
+         ON meeting_upload_events(created_at DESC)`,
+      )
+      .bind()
+      .run()
   })()
 
   try {
@@ -2045,6 +2177,8 @@ function isSensitivePath(path: string): boolean {
     path === '/meta' ||
     path === '/tasks' ||
     path === '/uploads/presign' ||
+    path === '/uploads/events' ||
+    path === '/uploads/sessions' ||
     path === '/uploads/direct' ||
     path === '/uploads/fetch' ||
     path === '/transcripts' ||
@@ -2136,6 +2270,20 @@ async function readJsonBody(request: Request): Promise<unknown> {
     throw new Error('content_type_must_be_application_json')
   }
   return request.json()
+}
+
+async function readFlexibleJsonBody(request: Request): Promise<unknown> {
+  const contentType = (request.headers.get('Content-Type') || '').toLowerCase()
+  if (contentType.includes('application/json')) {
+    return request.json()
+  }
+  const raw = (await request.text()).trim()
+  if (!raw) throw new Error('invalid_body')
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('invalid_body')
+  }
 }
 
 function serviceFromEnv(env: Env): NotionWorkService {
@@ -3545,6 +3693,224 @@ async function buildMeetingAudioFileAttachment(
   }
 }
 
+function normalizeUploadStage(value: string | undefined | null): string | null {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized === 'presign' || normalized === 'upload' || normalized === 'transcript' || normalized === 'done') {
+    return normalized
+  }
+  return 'unknown'
+}
+
+function normalizeUploadState(value: string | undefined | null): string | null {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (!normalized) return null
+  if (
+    normalized === 'presigned' ||
+    normalized === 'uploading' ||
+    normalized === 'uploaded' ||
+    normalized === 'transcript_requested' ||
+    normalized === 'completed' ||
+    normalized === 'cancelled' ||
+    normalized === 'failed'
+  ) {
+    return normalized
+  }
+  return 'unknown'
+}
+
+function truncateText(value: string | undefined | null, max: number): string | null {
+  const text = asString(value ?? undefined)
+  if (!text) return null
+  return text.slice(0, max)
+}
+
+function deriveUploadSessionState(input: {
+  eventType: string
+  stage: string | null
+  state: string | null
+  reasonCode: string | null
+}): { stage: string; state: string } {
+  const eventType = input.eventType.trim().toLowerCase()
+  let stage = input.stage
+  let state = input.state
+  const reason = (input.reasonCode ?? '').trim().toLowerCase()
+
+  if (!stage) {
+    if (eventType.includes('presign')) stage = 'presign'
+    else if (eventType.includes('upload')) stage = 'upload'
+    else if (eventType.includes('transcript')) stage = 'transcript'
+    else if (eventType.includes('complete')) stage = 'done'
+  }
+  if (!state) {
+    if (eventType === 'presign_issued') state = 'presigned'
+    else if (eventType === 'upload_started') state = 'uploading'
+    else if (eventType === 'upload_completed') state = 'uploaded'
+    else if (eventType === 'transcript_requested') state = 'transcript_requested'
+    else if (eventType === 'transcript_completed') state = 'completed'
+    else if (eventType === 'browser_unload' || eventType === 'upload_cancelled') state = 'cancelled'
+  }
+
+  if (reason.includes('cancel') || reason.includes('abort') || reason === 'browser_closed') {
+    state = 'cancelled'
+  } else if (reason.includes('timeout') || reason.includes('fail') || reason.includes('error')) {
+    state = 'failed'
+  }
+
+  return {
+    stage: stage ?? 'unknown',
+    state: state ?? 'unknown',
+  }
+}
+
+async function upsertMeetingUploadSession(
+  env: Env,
+  input: {
+    uploadId: string
+    key: string
+    filename: string
+    contentType: string | null
+    uploadMode: string | null
+    stage: string
+    state: string
+    reasonCode?: string | null
+    reasonMessage?: string | null
+    transcriptId?: string | null
+    meetingId?: string | null
+    now?: number
+  },
+): Promise<void> {
+  if (!env.CHECKLIST_DB) return
+  await ensureMeetingDbTables(env)
+  const db = requireMeetingsDb(env)
+  const now = input.now ?? Date.now()
+  await db
+    .prepare(
+      `INSERT INTO meeting_upload_sessions (
+         id, audio_key, filename, content_type, upload_mode, stage, state, reason_code, reason_message, transcript_id, meeting_id, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         audio_key = excluded.audio_key,
+         filename = excluded.filename,
+         content_type = excluded.content_type,
+         upload_mode = excluded.upload_mode,
+         stage = excluded.stage,
+         state = excluded.state,
+         reason_code = excluded.reason_code,
+         reason_message = excluded.reason_message,
+         transcript_id = COALESCE(excluded.transcript_id, meeting_upload_sessions.transcript_id),
+         meeting_id = COALESCE(excluded.meeting_id, meeting_upload_sessions.meeting_id),
+         updated_at = excluded.updated_at`,
+    )
+    .bind(
+      input.uploadId,
+      input.key,
+      input.filename,
+      input.contentType,
+      input.uploadMode,
+      input.stage,
+      input.state,
+      input.reasonCode ?? null,
+      input.reasonMessage ?? null,
+      input.transcriptId ?? null,
+      input.meetingId ?? null,
+      now,
+      now,
+    )
+    .run()
+}
+
+async function appendMeetingUploadEvent(
+  env: Env,
+  input: {
+    uploadId: string
+    key: string
+    eventType: string
+    stage: string | null
+    state: string | null
+    reasonCode: string | null
+    reasonMessage: string | null
+    elapsedMs: number | null
+    payloadJson: string | null
+    createdAt?: number
+  },
+): Promise<void> {
+  if (!env.CHECKLIST_DB) return
+  await ensureMeetingDbTables(env)
+  const db = requireMeetingsDb(env)
+  const createdAt = input.createdAt ?? Date.now()
+  await db
+    .prepare(
+      `INSERT INTO meeting_upload_events (
+         upload_id, audio_key, event_type, stage, state, reason_code, reason_message, elapsed_ms, payload_json, created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      input.uploadId,
+      input.key,
+      input.eventType,
+      input.stage,
+      input.state,
+      input.reasonCode,
+      input.reasonMessage,
+      input.elapsedMs,
+      input.payloadJson,
+      createdAt,
+    )
+    .run()
+}
+
+async function markMeetingUploadFromEvent(
+  env: Env,
+  input: {
+    uploadId: string
+    key: string
+    filename?: string | null
+    contentType?: string | null
+    uploadMode?: string | null
+    eventType: string
+    stage: string | null
+    state: string | null
+    reasonCode: string | null
+    reasonMessage: string | null
+    elapsedMs: number | null
+    payloadJson: string | null
+  },
+): Promise<void> {
+  if (!env.CHECKLIST_DB) return
+  const now = Date.now()
+  const resolved = deriveUploadSessionState({
+    eventType: input.eventType,
+    stage: input.stage,
+    state: input.state,
+    reasonCode: input.reasonCode,
+  })
+  await upsertMeetingUploadSession(env, {
+    uploadId: input.uploadId,
+    key: input.key,
+    filename: input.filename ?? input.key.split('/').pop() ?? 'recording.m4a',
+    contentType: input.contentType ?? null,
+    uploadMode: input.uploadMode ?? null,
+    stage: resolved.stage,
+    state: resolved.state,
+    reasonCode: input.reasonCode,
+    reasonMessage: input.reasonMessage,
+    now,
+  })
+  await appendMeetingUploadEvent(env, {
+    uploadId: input.uploadId,
+    key: input.key,
+    eventType: input.eventType,
+    stage: resolved.stage,
+    state: resolved.state,
+    reasonCode: input.reasonCode,
+    reasonMessage: input.reasonMessage,
+    elapsedMs: input.elapsedMs,
+    payloadJson: input.payloadJson,
+    createdAt: now,
+  })
+}
+
 async function listNotionKeywordSets(
   env: Env,
 ): Promise<
@@ -3777,6 +4143,8 @@ async function updateMeetingNotionTranscriptFromAssembly(
 function isMeetingRoutePath(path: string): boolean {
   return (
     path === '/uploads/presign' ||
+    path === '/uploads/events' ||
+    path === '/uploads/sessions' ||
     path === '/uploads/direct' ||
     path === '/uploads/fetch' ||
     path === '/transcripts' ||
@@ -3792,6 +4160,7 @@ function isMeetingRoutePath(path: string): boolean {
 function isMeetingPreAuthRoute(method: string, path: string): boolean {
   return (
     (method === 'POST' && path === '/assemblyai/webhook') ||
+    (method === 'POST' && path === '/uploads/events') ||
     (method === 'PUT' && path === '/uploads/direct') ||
     (method === 'GET' && path === '/uploads/fetch')
   )
@@ -3825,6 +4194,8 @@ async function handleMeetingRoutesNotion(
     if (message.includes('notion_file_too_large')) return 413
     if (message.includes('notion_file_upload_')) return 502
     if (message.includes('transcript_not_completed')) return 409
+    if (message.includes('meetings_db_not_configured')) return 503
+    if (message.includes('upload_event_token_invalid')) return 401
     if (message.toLowerCase().includes('too many subrequests')) return 503
     if (message.includes('not_found') || message.includes('object_not_found')) return 404
     if (message.includes('assemblyai_http_')) return 502
@@ -3847,9 +4218,45 @@ async function handleMeetingRoutesNotion(
       const contentTypeRaw = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
       const contentType = normalizeAudioContentType(contentTypeRaw, filename)
       const key = buildMeetingAudioKey(filename)
+      const uploadId = truncateText(asString(payload.uploadId), 120) ?? crypto.randomUUID()
       const upload = await resolveMeetingUploadTarget(env, url, key, contentType)
+      const eventToken = await createMeetingUploadToken(env, {
+        key,
+        method: 'EVENT',
+        expiresInSec: 24 * 60 * 60,
+      })
+
+      if (env.CHECKLIST_DB) {
+        try {
+          await upsertMeetingUploadSession(env, {
+            uploadId,
+            key,
+            filename,
+            contentType,
+            uploadMode: upload.uploadMode,
+            stage: 'presign',
+            state: 'presigned',
+          })
+          await appendMeetingUploadEvent(env, {
+            uploadId,
+            key,
+            eventType: 'presign_issued',
+            stage: 'presign',
+            state: 'presigned',
+            reasonCode: null,
+            reasonMessage: null,
+            elapsedMs: null,
+            payloadJson: null,
+          })
+        } catch {
+          // Upload should continue even if logging storage is temporarily unavailable.
+        }
+      }
+
       return respond.ok({
         ok: true,
+        uploadId,
+        eventToken,
         key,
         putUrl: upload.url,
         requiredHeaders: upload.requiredHeaders ?? {},
@@ -3909,6 +4316,119 @@ async function handleMeetingRoutesNotion(
       })
     }
 
+    if (request.method === 'POST' && path === '/uploads/events') {
+      if (!env.CHECKLIST_DB) {
+        return respond.json({ ok: false, error: 'meetings_db_not_configured' }, 503)
+      }
+      const eventBody = parseMeetingUploadEventBody(await readFlexibleJsonBody(request))
+      const validToken = await verifyMeetingUploadToken(env, eventBody.token, {
+        key: eventBody.key,
+        method: 'EVENT',
+      })
+      if (!validToken) {
+        return respond.json({ ok: false, error: 'upload_event_token_invalid' }, 401)
+      }
+
+      await markMeetingUploadFromEvent(env, {
+        uploadId: eventBody.uploadId,
+        key: eventBody.key,
+        eventType: eventBody.eventType,
+        stage: eventBody.stage,
+        state: eventBody.state,
+        reasonCode: eventBody.reasonCode,
+        reasonMessage: eventBody.reasonMessage,
+        elapsedMs: eventBody.elapsedMs,
+        payloadJson: eventBody.payloadJson,
+      })
+
+      return respond.ok({
+        ok: true,
+        uploadId: eventBody.uploadId,
+      })
+    }
+
+    if (request.method === 'GET' && path === '/uploads/sessions') {
+      if (!env.CHECKLIST_DB) {
+        return respond.ok({ ok: true, sessions: [] })
+      }
+      await ensureMeetingDbTables(env)
+      const db = requireMeetingsDb(env)
+      const limit = parseBoundedLimit(asString(url.searchParams.get('limit')), 20, UPLOAD_SESSION_LIST_LIMIT)
+      const rows = await db
+        .prepare(
+          `SELECT
+             s.id,
+             s.audio_key,
+             s.filename,
+             s.content_type,
+             s.upload_mode,
+             s.stage,
+             s.state,
+             s.reason_code,
+             s.reason_message,
+             s.transcript_id,
+             s.meeting_id,
+             s.created_at,
+             s.updated_at,
+             e.event_type AS last_event_type,
+             e.reason_code AS last_reason_code,
+             e.reason_message AS last_reason_message,
+             e.created_at AS last_event_at
+           FROM meeting_upload_sessions s
+           LEFT JOIN meeting_upload_events e
+             ON e.id = (
+               SELECT ee.id
+               FROM meeting_upload_events ee
+               WHERE ee.upload_id = s.id
+               ORDER BY ee.id DESC
+               LIMIT 1
+             )
+           ORDER BY s.updated_at DESC
+           LIMIT ?`,
+        )
+        .bind(limit)
+        .all<{
+          id: string
+          audio_key: string
+          filename: string
+          content_type: string | null
+          upload_mode: string | null
+          stage: string
+          state: string
+          reason_code: string | null
+          reason_message: string | null
+          transcript_id: string | null
+          meeting_id: string | null
+          created_at: number
+          updated_at: number
+          last_event_type: string | null
+          last_reason_code: string | null
+          last_reason_message: string | null
+          last_event_at: number | null
+        }>()
+
+      return respond.ok({
+        ok: true,
+        sessions: (rows.results ?? []).map((row) => ({
+          id: row.id,
+          key: row.audio_key,
+          filename: row.filename,
+          contentType: row.content_type,
+          uploadMode: row.upload_mode,
+          stage: row.stage,
+          state: row.state,
+          reasonCode: row.reason_code ?? row.last_reason_code,
+          reasonMessage: row.reason_message ?? row.last_reason_message,
+          transcriptId: row.transcript_id,
+          meetingId: row.meeting_id,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          lastEventType: row.last_event_type,
+          lastEventAt: row.last_event_at,
+        })),
+      })
+    }
+
     if (request.method === 'POST' && path === '/transcripts') {
       const payload = parseMeetingTranscriptBody(await readJsonBody(request))
       const keywordInfo = await readKeywordPhrasesBySetIdFromNotion(env, payload.keywordSetId)
@@ -3918,6 +4438,38 @@ async function handleMeetingRoutesNotion(
       const meetingId = crypto.randomUUID()
       const transcriptId = crypto.randomUUID()
       const now = Date.now()
+      if (env.CHECKLIST_DB && payload.uploadId) {
+        try {
+          await upsertMeetingUploadSession(env, {
+            uploadId: payload.uploadId,
+            key: payload.key,
+            filename: stripMeetingUploadKeyPrefix(payload.key.split('/').pop() ?? 'recording.m4a'),
+            contentType: null,
+            uploadMode: null,
+            stage: 'transcript',
+            state: 'transcript_requested',
+            meetingId,
+            transcriptId,
+            reasonCode: null,
+            reasonMessage: null,
+            now,
+          })
+          await appendMeetingUploadEvent(env, {
+            uploadId: payload.uploadId,
+            key: payload.key,
+            eventType: 'transcript_requested',
+            stage: 'transcript',
+            state: 'transcript_requested',
+            reasonCode: null,
+            reasonMessage: null,
+            elapsedMs: null,
+            payloadJson: null,
+            createdAt: now,
+          })
+        } catch {
+          // Keep transcript flow resilient even if D1 write fails.
+        }
+      }
       let keywordSetName = ''
       if (payload.keywordSetId) {
         const keywordSet = await findMeetingNotionKeywordSetPageById(env, payload.keywordSetId)
@@ -3996,6 +4548,21 @@ async function handleMeetingRoutesNotion(
             [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
           },
         })
+        if (env.CHECKLIST_DB && payload.uploadId) {
+          try {
+            await markMeetingUploadFromEvent(env, {
+              uploadId: payload.uploadId,
+              key: payload.key,
+              eventType: 'transcript_request_failed',
+              stage: 'transcript',
+              state: 'failed',
+              reasonCode: 'assembly_request_failed',
+              reasonMessage: message.slice(0, 600),
+              elapsedMs: null,
+              payloadJson: null,
+            })
+          } catch {}
+        }
         throw error
       }
 
@@ -4008,6 +4575,21 @@ async function handleMeetingRoutesNotion(
             [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
           },
         })
+        if (env.CHECKLIST_DB && payload.uploadId) {
+          try {
+            await markMeetingUploadFromEvent(env, {
+              uploadId: payload.uploadId,
+              key: payload.key,
+              eventType: 'transcript_request_failed',
+              stage: 'transcript',
+              state: 'failed',
+              reasonCode: 'assembly_transcript_id_missing',
+              reasonMessage: 'assembly_transcript_id_missing_[UNKNOWN]',
+              elapsedMs: null,
+              payloadJson: null,
+            })
+          } catch {}
+        }
         throw new Error('assembly_transcript_id_missing_[UNKNOWN]')
       }
       const status = normalizeMeetingStatus(asString(created.status))
@@ -4020,6 +4602,35 @@ async function handleMeetingRoutesNotion(
           [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
         },
       })
+
+      if (env.CHECKLIST_DB && payload.uploadId) {
+        try {
+          await upsertMeetingUploadSession(env, {
+            uploadId: payload.uploadId,
+            key: payload.key,
+            filename: stripMeetingUploadKeyPrefix(payload.key.split('/').pop() ?? 'recording.m4a'),
+            contentType: null,
+            uploadMode: null,
+            stage: 'transcript',
+            state: 'transcript_requested',
+            meetingId,
+            transcriptId,
+            reasonCode: null,
+            reasonMessage: null,
+          })
+          await appendMeetingUploadEvent(env, {
+            uploadId: payload.uploadId,
+            key: payload.key,
+            eventType: 'assembly_submitted',
+            stage: 'transcript',
+            state: 'transcript_requested',
+            reasonCode: null,
+            reasonMessage: null,
+            elapsedMs: null,
+            payloadJson: null,
+          })
+        } catch {}
+      }
 
       return respond.json(
         {
@@ -4376,6 +4987,42 @@ async function handleMeetingRoutesNotion(
             [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(errorMessage ?? '', 1200),
           },
         })
+        if (env.CHECKLIST_DB) {
+          try {
+            await ensureMeetingDbTables(env)
+            const db = requireMeetingsDb(env)
+            const state = status === 'completed' ? 'completed' : status === 'failed' || status === 'error' ? 'failed' : 'transcript_requested'
+            const stage = status === 'completed' ? 'done' : 'transcript'
+            const reasonCode = status === 'failed' || status === 'error' ? 'assembly_transcript_failed' : null
+            await db
+              .prepare(
+                `UPDATE meeting_upload_sessions
+                 SET stage = ?, state = ?, reason_code = ?, reason_message = ?, updated_at = ?
+                 WHERE transcript_id = ?`,
+              )
+              .bind(stage, state, reasonCode, truncateText(errorMessage, 600), Date.now(), found.row.id)
+              .run()
+            await db
+              .prepare(
+                `INSERT INTO meeting_upload_events (
+                   upload_id, audio_key, event_type, stage, state, reason_code, reason_message, elapsed_ms, payload_json, created_at
+                 )
+                 SELECT id, audio_key, ?, ?, ?, ?, ?, NULL, NULL, ?
+                 FROM meeting_upload_sessions
+                 WHERE transcript_id = ?`,
+              )
+              .bind(
+                status === 'completed' ? 'transcript_completed' : 'transcript_status_updated',
+                stage,
+                state,
+                reasonCode,
+                truncateText(errorMessage, 600),
+                Date.now(),
+                found.row.id,
+              )
+              .run()
+          } catch {}
+        }
       }
 
       return respond.ok({
@@ -5049,6 +5696,8 @@ export default {
               'GET /api/checklist-assignment-logs?limit=100',
               'POST /api/checklist-assignments',
               'POST /api/uploads/presign',
+              'POST /api/uploads/events',
+              'GET /api/uploads/sessions?limit=20',
               'PUT /api/uploads/direct?key=...&token=...',
               'GET /api/uploads/fetch?key=...&token=...',
               'GET /api/transcripts?limit=20',
