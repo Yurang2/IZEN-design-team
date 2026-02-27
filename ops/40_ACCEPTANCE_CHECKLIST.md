@@ -70,3 +70,7 @@
 - [x] Notion utterance bullets include timestamp prefix
 - [x] docs synchronized (hook-master / meetings guides)
 - [x] build/typecheck passed
+### 2026-02-27 m4a MIME Compatibility Fix
+- [x] audio/x-m4a normalized to audio/mp4
+- [x] upload + notion attach paths both covered
+- [x] build/typecheck passed

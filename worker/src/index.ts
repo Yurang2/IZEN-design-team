@@ -1940,6 +1940,19 @@ function inferAudioContentType(key: string): string {
   return 'application/octet-stream'
 }
 
+function normalizeAudioContentType(value: string | undefined, hintKeyOrFilename: string): string {
+  const fallback = inferAudioContentType(hintKeyOrFilename)
+  const base = (value ?? '')
+    .trim()
+    .toLowerCase()
+    .split(';')[0]
+    .trim()
+  if (!base) return fallback
+  if (base === 'audio/x-m4a' || base === 'audio/m4a') return 'audio/mp4'
+  if (base === 'audio/x-wav') return 'audio/wav'
+  return base
+}
+
 async function assemblyRequest<T>(
   env: Env,
   path: string,
@@ -2156,7 +2169,8 @@ async function handleMeetingRoutes(
     if (request.method === 'POST' && path === '/uploads/presign') {
       const payload = parsePatchBody(await readJsonBody(request))
       const filename = asString(payload.filename) ?? asString(payload.name) ?? 'recording.m4a'
-      const contentType = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
+      const contentTypeRaw = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
+      const contentType = normalizeAudioContentType(contentTypeRaw, filename)
       const key = buildMeetingAudioKey(filename)
       const signed = await createR2PresignedUrl(env, key, 'PUT', {
         expiresIn: 15 * 60,
@@ -3251,7 +3265,7 @@ async function buildMeetingAudioFileBlock(api: NotionApi, env: Env, audioKey: st
   }
 
   const filename = extractFilenameFromAudioKey(audioKey)
-  const contentType = resolved.contentType ?? inferAudioContentType(audioKey)
+  const contentType = normalizeAudioContentType(resolved.contentType, filename)
   const created = await api.createFileUpload(filename, contentType)
   const fileUploadId = asString((created as Record<string, unknown>)?.id)
   if (!fileUploadId) {
@@ -3511,7 +3525,8 @@ async function handleMeetingRoutesNotion(
     if (request.method === 'POST' && path === '/uploads/presign') {
       const payload = parsePatchBody(await readJsonBody(request))
       const filename = asString(payload.filename) ?? asString(payload.name) ?? 'recording.m4a'
-      const contentType = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
+      const contentTypeRaw = asString(payload.contentType) ?? asString(payload.mimeType) ?? 'audio/m4a'
+      const contentType = normalizeAudioContentType(contentTypeRaw, filename)
       const key = buildMeetingAudioKey(filename)
       const upload = await resolveMeetingUploadTarget(env, url, key, contentType)
       return respond.ok({
@@ -3536,7 +3551,7 @@ async function handleMeetingRoutesNotion(
       if (!body || body.byteLength <= 0) {
         return respond.json({ ok: false, error: 'upload_body_required' }, 400)
       }
-      const contentType = asString(request.headers.get('content-type')) ?? inferAudioContentType(key)
+      const contentType = normalizeAudioContentType(asString(request.headers.get('content-type')), key)
       const bucket = getMeetingAudioBucket(env)
       await bucket.put(key, body, {
         httpMetadata: {

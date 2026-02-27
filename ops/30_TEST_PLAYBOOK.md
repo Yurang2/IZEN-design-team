@@ -90,3 +90,8 @@
 - Scenario: Notion publish body includes utterance timestamps
 - Expected: mapped utterance bullets prefixed with timestamp range when available
 - Actual: PASS (code path updated, build passed)
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: m4a MIME normalization for Notion File Upload API compatibility
+- Expected: no 500 on audio/x-m4a path; build pass
+- Actual: PASS (`npm run build`)

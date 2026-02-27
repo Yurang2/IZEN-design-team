@@ -87,3 +87,8 @@
 - 가능합니다. AssemblyAI utterance에는 `start`/`end`(ms) 값이 포함됩니다.
 - 현재 웹 상세 화면에는 타임스탬프가 표시되고 있습니다.
 - Notion 본문 `전문 > 화자별 발화`에도 `[HH:MM:SS-HH:MM:SS] 화자: 발화` 형식으로 기록됩니다.
+
+## 10) m4a 업로드 MIME 주의
+- 일부 브라우저는 m4a를 `audio/x-m4a`로 전송합니다.
+- Worker는 업로드/Notion 첨부 단계에서 이를 `audio/mp4`로 자동 정규화합니다.
+- 따라서 `The content type audio/x-m4a is not supported for the File Upload API` 오류를 회피합니다.

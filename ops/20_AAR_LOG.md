@@ -94,3 +94,7 @@
 - Task: include utterance timestamps in Notion body transcript bullets.
 - Result: Notion `전문 > 화자별 발화` now writes `[HH:MM:SS-HH:MM:SS] 화자: 발화` format.
 - Validation: `npm run build` passed.
+### 2026-02-27 (m4a content-type normalization)
+- Task: fix Notion file upload failure on `audio/x-m4a`.
+- Result: Worker normalizes `audio/x-m4a`/`audio/m4a` to `audio/mp4` for presign, direct upload metadata, and Notion file upload.
+- Validation: `npm run build` passed.
