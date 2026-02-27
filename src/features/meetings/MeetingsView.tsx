@@ -110,7 +110,6 @@ export function MeetingsView() {
   const [keywordTags, setKeywordTags] = useState('')
 
   const [file, setFile] = useState<File | null>(null)
-  const [meetingTitle, setMeetingTitle] = useState('')
   const [minSpeakers, setMinSpeakers] = useState(2)
   const [maxSpeakers, setMaxSpeakers] = useState(10)
   const [uploading, setUploading] = useState(false)
@@ -265,7 +264,7 @@ export function MeetingsView() {
         method: 'POST',
         body: JSON.stringify({
           key: presign.key,
-          title: meetingTitle.trim() || file.name,
+          title: file.name,
           minSpeakers,
           maxSpeakers,
           keywordSetId: selectedKeywordSetId || null,
@@ -274,7 +273,6 @@ export function MeetingsView() {
 
       setUploadMessage(`전사 요청이 생성되었습니다. Transcript ID: ${created.transcriptId}`)
       setSelectedTranscriptId(created.transcriptId)
-      setMeetingTitle('')
       setFile(null)
       await loadTranscripts()
       await loadTranscriptDetail(created.transcriptId)
@@ -491,10 +489,6 @@ export function MeetingsView() {
       <article className="meetingsCard">
         <h2>회의록 업로드 및 전사</h2>
         <form className="meetingsUploadForm" onSubmit={onSubmitUpload}>
-          <label>
-            회의 제목
-            <input value={meetingTitle} onChange={(event) => setMeetingTitle(event.target.value)} placeholder="예: 주간 디자인 회의" />
-          </label>
           <label>
             녹음 파일
             <input

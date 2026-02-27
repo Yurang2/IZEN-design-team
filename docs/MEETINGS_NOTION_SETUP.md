@@ -17,6 +17,8 @@
 - `ASSEMBLYAI_API_KEY` (Secret)
 - `ASSEMBLYAI_WEBHOOK_SECRET` (Secret)
 - `NOTION_TOKEN` (Secret)
+- 선택: `OPENAI_API_KEY` (Secret, publish 시 요약 생성)
+- 선택: `OPENAI_SUMMARY_MODEL` (Variable, 기본값 `gpt-5-mini`)
 - 선택: `ASSEMBLYAI_WEBHOOK_URL` (Variable, 미설정 시 자동 `/api/assemblyai/webhook`)
 
 참고:
@@ -64,11 +66,18 @@
 - 화자 이름 매핑은 별도 속성으로 저장합니다.
 - 화면/내보내기에서는 매핑 이름으로 치환해 보여줍니다.
 - Notion 페이지 본문은 `요약` / `전문` 섹션으로 기록됩니다.
-- `요약`은 placeholder로 먼저 생성되고, 추후 GPT 요약 연동으로 채웁니다.
-- `전문`에는 AssemblyAI 원문/발화(화자 라벨 원본) 결과를 기록합니다.
+- `요약`은 `POST /api/transcripts/:id/publish` 시점에 생성됩니다. (`OPENAI_API_KEY` 미설정 시 placeholder 유지)
+- `전문`에는 매핑 확정된 화자 이름 기준 `화자별 발화`만 기록합니다. (`원문 텍스트` 섹션은 생성하지 않음)
 
 ## 7) 파일명 규칙
-- 업로드 제목(또는 파일명)이 `yymmdd <제목>` 형식이면:
+- 업로드 시 제목 입력 없이 파일명을 그대로 사용합니다.
+- 파일명이 `yymmdd <제목>` 형식이면:
 - Notion `날짜` 속성에 `YYYY-MM-DD`로 저장합니다.
 - Notion 페이지 제목은 `<제목>`으로 저장합니다.
 - 예: `260227 디자인팀 주간보고` -> 날짜: `2026-02-27`, 제목: `디자인팀 주간보고`
+- 날짜 컬럼명은 `날짜`/`일자` 중 실제 DB 필드를 자동 인식합니다.
+
+## 8) 비용 메모
+- `POST /api/transcripts`를 다시 호출하면 AssemblyAI 재전사 비용이 다시 발생합니다.
+- 같은 transcript에 대해 `매핑 저장 + publish`만 반복하면 AssemblyAI 재전사 비용은 추가되지 않습니다.
+- 단, `OPENAI_API_KEY`가 설정된 경우 publish마다 요약 호출 비용이 발생합니다.

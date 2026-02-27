@@ -59,3 +59,9 @@
 - 절차: 완료 transcript 선택 -> speakers PATCH -> publish POST
 - 기대 결과: 200 OK, completed, audioFileAttached=true
 - 실제 결과: PASS (transcriptId=`c5202f34-c298-4ed2-8a7b-8876aea99ce0`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: meetings upload uses filename-only title + Notion date field alias + build verification
+- Expected: compile success and no manual title dependency
+- Actual: PASS (`npm run build`)

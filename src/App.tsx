@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { AssignmentModal } from './features/checklist/AssignmentModal'
 import { ChecklistView } from './features/checklist/ChecklistView'
 import { MeetingsView } from './features/meetings/MeetingsView'
@@ -6,7 +6,7 @@ import { ProjectsView } from './features/projects/ProjectsView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 import { TasksView } from './features/tasks/TasksView'
-import { api, API_BASE_URL, USE_MOCK_DATA } from './shared/api/client'
+import { api, USE_MOCK_DATA } from './shared/api/client'
 import { formatProjectIconLabel } from './shared/emoji'
 import { useDebouncedValue } from './shared/hooks/useDebouncedValue'
 import { useKeybinding } from './shared/hooks/useKeybinding'
@@ -148,34 +148,6 @@ type ChecklistAssignmentsResponse = {
   syncing?: boolean
 }
 
-type ChecklistAssignmentsExportResponse = {
-  ok: boolean
-  exportedAt: string
-  storageMode: 'd1' | 'cache'
-  counts: {
-    assignments: number
-    logs: number
-  }
-  limits: {
-    logLimit: number
-  }
-  assignments: Record<string, string>
-  logs: Array<{
-    id: number
-    key: string
-    projectId?: string
-    eventCategory: string
-    itemId: string
-    previousTaskId: string | null
-    taskId: string | null
-    action: string
-    actor: string | null
-    ip: string | null
-    userAgent: string | null
-    createdAt: number
-  }>
-}
-
 type MetaResponse = {
   ok: boolean
   databases: {
@@ -260,7 +232,6 @@ type DetailForm = {
   issue: string
 }
 
-type ApiCheckState = 'idle' | 'checking' | 'ok' | 'error'
 type QuickSearchScope = 'project' | 'task'
 type ThemeKey = 'v1' | 'v2' | 'v3'
 
@@ -742,17 +713,6 @@ function asSortDate(value: string | undefined): string {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '9999-12-31'
 }
 
-function toExportFilename(prefix: string): string {
-  const now = new Date()
-  const yyyy = String(now.getFullYear())
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mi = String(now.getMinutes()).padStart(2, '0')
-  const ss = String(now.getSeconds()).padStart(2, '0')
-  return `${prefix}-${yyyy}${mm}${dd}-${hh}${mi}${ss}.json`
-}
-
 function addDays(date: Date, days: number): Date {
   const copied = new Date(date.getTime())
   copied.setUTCDate(copied.getUTCDate() + days)
@@ -939,10 +899,6 @@ function App() {
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
   const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
-  const [apiCheckState, setApiCheckState] = useState<ApiCheckState>('idle')
-  const [apiCheckMessage, setApiCheckMessage] = useState<string>('')
-  const [exporting, setExporting] = useState(false)
-  const [exportMessage, setExportMessage] = useState<string>('')
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastTimerRef = useRef<Record<number, number>>({})
   const projectSchemaSyncDoneRef = useRef(false)
@@ -1291,52 +1247,6 @@ function App() {
       setAssignmentLoading(false)
     }
   }, [])
-
-  const runApiConnectionTest = useCallback(async () => {
-    setApiCheckState('checking')
-    setApiCheckMessage('API 연결 확인 중...')
-    try {
-      const [projects, checklists] = await Promise.all([
-        api<ProjectsResponse>('/projects'),
-        api<ChecklistPreviewResponse>('/checklists'),
-      ])
-      setApiCheckState('ok')
-      setApiCheckMessage(`정상 연결: 프로젝트 ${projects.projects.length}건, 체크리스트 ${checklists.items.length}건`)
-    } catch (error: unknown) {
-      setApiCheckState('error')
-      setApiCheckMessage(toErrorMessage(error, 'API 연결 확인 실패'))
-    }
-  }, [])
-
-  const onManualExport = useCallback(async () => {
-    setExporting(true)
-    setExportMessage('')
-    try {
-      const response = await api<ChecklistAssignmentsExportResponse>('/checklist-assignments/export?logLimit=5000')
-      const blob = new Blob([JSON.stringify(response, null, 2)], { type: 'application/json;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = toExportFilename('checklist-assignments-export')
-      document.body.append(anchor)
-      anchor.click()
-      anchor.remove()
-      URL.revokeObjectURL(url)
-      const summary = `내보내기 완료: assignments ${response.counts.assignments}건, logs ${response.counts.logs}건 (${response.storageMode})`
-      setExportMessage(
-        response.storageMode === 'cache'
-          ? `${summary} · D1 미연결이라 로그가 누적되지 않습니다.`
-          : summary,
-      )
-      pushToast('success', summary)
-    } catch (error: unknown) {
-      const message = toErrorMessage(error, '내보내기에 실패했습니다.')
-      setExportMessage(message)
-      pushToast('error', message)
-    } finally {
-      setExporting(false)
-    }
-  }, [pushToast])
 
   const onAuthSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -2597,7 +2507,6 @@ function App() {
             </div>
           </form>
           {authError ? <p className="error">{authError}</p> : null}
-          <p className="authGateHint">API Base: {API_BASE_URL}</p>
         </section>
         <ToastStack toasts={toasts} onDismiss={dismissToast} />
       </div>
@@ -2975,22 +2884,6 @@ function App() {
               <span>새로고침</span>
             </span>
           </button>
-          <button type="button" className="secondary" onClick={() => void runApiConnectionTest()} disabled={apiCheckState === 'checking'}>
-            <span className="iconLabel">
-              <span className="uiIcon">
-                <UiGlyph name="pulse" />
-              </span>
-              <span>{apiCheckState === 'checking' ? '연결 확인 중...' : 'API 연결 테스트'}</span>
-            </span>
-          </button>
-          <button type="button" className="secondary" onClick={() => void onManualExport()} disabled={exporting}>
-            <span className="iconLabel">
-              <span className="uiIcon">
-                <UiGlyph name="download" />
-              </span>
-              <span>{exporting ? '내보내는 중...' : '수동 Export'}</span>
-            </span>
-          </button>
           <div className="themePicker" role="group" aria-label="Theme 선택">
             <span className="themePickerLabel">Theme</span>
             <div className="themePickerButtons">
@@ -3008,12 +2901,8 @@ function App() {
             </div>
           </div>
           {USE_MOCK_DATA ? <span className="apiModePill">DEMO DATA</span> : null}
-          <span className="apiBaseLabel">API Base: {API_BASE_URL}</span>
           <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
         </section>
-
-        {apiCheckMessage ? <p className={apiCheckState === 'error' ? 'error' : 'muted'}>{apiCheckMessage}</p> : null}
-        {exportMessage ? <p className={exportMessage.includes('실패') ? 'error' : 'muted'}>{exportMessage}</p> : null}
 
       {activeView === 'tasks' ? (
         <TasksView

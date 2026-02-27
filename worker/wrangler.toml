@@ -34,6 +34,11 @@ RATE_LIMIT_BLOCK_SECONDS = "30"
 MEETING_KEYWORD_LIMIT = "120"
 # Optional: override default webhook callback target
 # ASSEMBLYAI_WEBHOOK_URL = "https://your-domain/api/assemblyai/webhook"
+# Optional: GPT summary (used on POST /api/transcripts/:id/publish)
+# Set as secret:
+# npx wrangler secret put OPENAI_API_KEY --config worker/wrangler.toml
+# Optional model override (default: gpt-5-mini)
+# OPENAI_SUMMARY_MODEL = "gpt-5-mini"
 
 # Optional Cloudflare Access gate on top of session/API-key auth.
 REQUIRE_CF_ACCESS = "false"

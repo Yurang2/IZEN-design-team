@@ -58,6 +58,8 @@ export interface Env {
   ASSEMBLYAI_WEBHOOK_SECRET?: string
   ASSEMBLYAI_WEBHOOK_URL?: string
   MEETING_KEYWORD_LIMIT?: string
+  OPENAI_API_KEY?: string
+  OPENAI_SUMMARY_MODEL?: string
 }
 
 export type FieldStatus = 'exact' | 'fallback' | 'missing' | 'mismatch'

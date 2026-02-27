@@ -42,6 +42,8 @@ const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
+const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
+const MAX_SUMMARY_SOURCE_CHARS = 18_000
 const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
@@ -51,7 +53,7 @@ let meetingDbInitInFlight: Promise<void> | null = null
 let lastRateLimitCleanupAt = 0
 let sessionSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
 let meetingUploadSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
-let meetingNotionSchemaCache: { databaseId: string; titlePropertyName: string; checkedAt: number } | null = null
+let meetingNotionSchemaCache: { databaseId: string; titlePropertyName: string; datePropertyName: string; checkedAt: number } | null = null
 
 type RateLimitBucket = {
   count: number
@@ -885,6 +887,10 @@ function parseMeetingKeywordLimit(env: Env): number {
   return parseBoundedInt(asString(env.MEETING_KEYWORD_LIMIT), DEFAULT_MEETING_KEYWORD_LIMIT, MIN_MEETING_KEYWORD_LIMIT, MAX_MEETING_KEYWORD_LIMIT)
 }
 
+function stripMeetingUploadKeyPrefix(filename: string): string {
+  return filename.replace(/^[0-9a-f]{32}-/i, '')
+}
+
 function parseMeetingTranscriptBody(body: unknown): {
   key: string
   title: string
@@ -898,7 +904,8 @@ function parseMeetingTranscriptBody(body: unknown): {
   if (!key) throw new Error('key_required')
   if (!isValidMeetingAudioKey(key)) throw new Error('key_invalid')
 
-  const titleInput = asString(payload.title) ?? key.split('/').pop() ?? '회의록'
+  const fallbackTitle = stripMeetingUploadKeyPrefix(key.split('/').pop() ?? '회의록')
+  const titleInput = asString(payload.title) ?? fallbackTitle
   const parsedTitle = parseMeetingTitleMetadata(titleInput)
   const minSpeakersRaw = Number(payload.minSpeakers ?? DEFAULT_MIN_SPEAKERS)
   const maxSpeakersRaw = Number(payload.maxSpeakers ?? DEFAULT_MAX_SPEAKERS)
@@ -936,7 +943,7 @@ function toIsoDateFromYyMmDd(value: string): string | null {
 function parseMeetingTitleMetadata(input: string): { title: string; meetingDate: string | null } {
   const withoutExtension = input.replace(/\.[a-z0-9]{2,5}$/i, '').trim()
   const compact = withoutExtension.replace(/\s+/g, ' ').trim()
-  const match = compact.match(/^(\d{6})[\s_-]+(.+)$/)
+  const match = compact.match(/^(\d{6})(?:[\s_-]+(.*))?$/)
   if (!match) {
     return {
       title: compact || '회의록',
@@ -945,7 +952,7 @@ function parseMeetingTitleMetadata(input: string): { title: string; meetingDate:
   }
 
   const isoDate = toIsoDateFromYyMmDd(match[1])
-  const tailTitle = match[2].trim()
+  const tailTitle = (match[2] ?? '').trim()
   if (!isoDate) {
     return {
       title: compact || '회의록',
@@ -2631,6 +2638,7 @@ type MeetingNotionContext = {
   api: NotionApi
   databaseId: string
   titlePropertyName: string
+  datePropertyName: string
 }
 
 type MeetingNotionTranscriptRow = {
@@ -2761,6 +2769,20 @@ function safeParseStringArray(value: string): string[] {
   }
 }
 
+function resolveMeetingDatePropertyName(properties: Record<string, unknown>): string {
+  const aliases = [MEETING_NOTION_FIELD.date, '일자', 'Date']
+  for (const name of aliases) {
+    const prop = properties[name]
+    if (!prop || typeof prop !== 'object') continue
+    if ((prop as Record<string, unknown>).type === 'date') return name
+  }
+  const firstDate = Object.entries(properties).find(([, prop]) => {
+    if (!prop || typeof prop !== 'object') return false
+    return (prop as Record<string, unknown>).type === 'date'
+  })?.[0]
+  return firstDate || MEETING_NOTION_FIELD.date
+}
+
 async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext> {
   const databaseId = getMeetingNotionDbId(env)
   const now = Date.now()
@@ -2773,6 +2795,7 @@ async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext
       api: new NotionApi(env),
       databaseId,
       titlePropertyName: meetingNotionSchemaCache.titlePropertyName,
+      datePropertyName: meetingNotionSchemaCache.datePropertyName,
     }
   }
 
@@ -2785,6 +2808,7 @@ async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext
       return (prop as Record<string, unknown>).type === 'title'
     })?.[0] ?? ''
   if (!titlePropertyName) throw new Error('notion_meeting_db_title_property_missing')
+  const datePropertyName = resolveMeetingDatePropertyName(properties)
 
   const patch: Record<string, unknown> = {}
   const ensure = (name: string, spec: Record<string, unknown>): void => {
@@ -2805,7 +2829,7 @@ async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext
     },
   })
   ensure(MEETING_NOTION_FIELD.audioKey, { rich_text: {} })
-  ensure(MEETING_NOTION_FIELD.date, { date: {} })
+  ensure(datePropertyName, { date: {} })
   ensure(MEETING_NOTION_FIELD.speakerMapJson, { rich_text: {} })
   ensure(MEETING_NOTION_FIELD.keywordsUsedJson, { rich_text: {} })
   ensure(MEETING_NOTION_FIELD.errorMessage, { rich_text: {} })
@@ -2830,10 +2854,11 @@ async function ensureMeetingNotionSchema(env: Env): Promise<MeetingNotionContext
   meetingNotionSchemaCache = {
     databaseId,
     titlePropertyName,
+    datePropertyName,
     checkedAt: now,
   }
 
-  return { api, databaseId, titlePropertyName }
+  return { api, databaseId, titlePropertyName, datePropertyName }
 }
 
 async function queryAllMeetingNotionPages(ctx: MeetingNotionContext, input: Record<string, unknown>): Promise<any[]> {
@@ -2869,14 +2894,14 @@ function transcriptFilterByAssemblyId(assemblyId: string): Record<string, unknow
   }
 }
 
-function mapMeetingNotionTranscriptPage(page: any, titlePropertyName: string): MeetingNotionTranscriptRow {
+function mapMeetingNotionTranscriptPage(page: any, titlePropertyName: string, datePropertyName: string): MeetingNotionTranscriptRow {
   const props = (page?.properties ?? {}) as Record<string, unknown>
   const transcriptId = notionReadRichText(props[MEETING_NOTION_FIELD.transcriptId]) || asString(page?.id) || ''
   return {
     pageId: asString(page?.id) ?? '',
     id: transcriptId,
     meetingId: notionReadRichText(props[MEETING_NOTION_FIELD.meetingId]),
-    meetingDate: notionReadDateStart(props[MEETING_NOTION_FIELD.date]),
+    meetingDate: notionReadDateStart(props[datePropertyName]),
     assemblyId: notionReadRichText(props[MEETING_NOTION_FIELD.assemblyId]) || null,
     status: notionReadSelect(props[MEETING_NOTION_FIELD.status]) || 'queued',
     createdAt: notionReadNumber(props[MEETING_NOTION_FIELD.createdAt]),
@@ -2895,14 +2920,14 @@ async function getMeetingNotionTranscriptById(env: Env, transcriptId: string): P
   const ctx = await ensureMeetingNotionSchema(env)
   const pages = await queryAllMeetingNotionPages(ctx, { filter: transcriptFilterById(transcriptId) })
   if (pages.length === 0) return null
-  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName), ctx }
+  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName, ctx.datePropertyName), ctx }
 }
 
 async function getMeetingNotionTranscriptByAssemblyId(env: Env, assemblyId: string): Promise<{ row: MeetingNotionTranscriptRow; ctx: MeetingNotionContext } | null> {
   const ctx = await ensureMeetingNotionSchema(env)
   const pages = await queryAllMeetingNotionPages(ctx, { filter: transcriptFilterByAssemblyId(assemblyId) })
   if (pages.length === 0) return null
-  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName), ctx }
+  return { row: mapMeetingNotionTranscriptPage(pages[0], ctx.titlePropertyName, ctx.datePropertyName), ctx }
 }
 
 async function listMeetingNotionTranscripts(env: Env, limit: number): Promise<MeetingNotionTranscriptRow[]> {
@@ -2918,7 +2943,7 @@ async function listMeetingNotionTranscripts(env: Env, limit: number): Promise<Me
   const pages = Array.isArray(result?.results) ? result.results : []
   return pages
     .filter((page) => page && !page.archived && !page.in_trash)
-    .map((page) => mapMeetingNotionTranscriptPage(page, ctx.titlePropertyName))
+    .map((page) => mapMeetingNotionTranscriptPage(page, ctx.titlePropertyName, ctx.datePropertyName))
 }
 
 function keywordSetFilterById(setId: string): Record<string, unknown> {
@@ -3010,6 +3035,99 @@ function bulletBlock(text: string): Record<string, unknown> {
   }
 }
 
+function buildMeetingSummarySource(
+  utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
+  speakerMap: Record<string, string>,
+  rawText: string,
+): string {
+  const lines: string[] = []
+  for (const row of utterances) {
+    const speaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
+    const text = row.text.trim()
+    if (!text) continue
+    lines.push(`${speaker}: ${text}`)
+    if (lines.join('\n').length >= MAX_SUMMARY_SOURCE_CHARS) break
+  }
+
+  const fromUtterances = lines.join('\n').trim()
+  if (fromUtterances) return fromUtterances.slice(0, MAX_SUMMARY_SOURCE_CHARS)
+  return rawText.trim().slice(0, MAX_SUMMARY_SOURCE_CHARS)
+}
+
+function extractOpenAiResponseText(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return ''
+  const obj = payload as Record<string, unknown>
+  const direct = asString(obj.output_text)
+  if (direct) return direct
+
+  const output = Array.isArray(obj.output) ? obj.output : []
+  const chunks: string[] = []
+  for (const item of output) {
+    if (!item || typeof item !== 'object') continue
+    const content = Array.isArray((item as Record<string, unknown>).content) ? ((item as Record<string, unknown>).content as unknown[]) : []
+    for (const block of content) {
+      if (!block || typeof block !== 'object') continue
+      const text = asString((block as Record<string, unknown>).text)
+      if (text) chunks.push(text)
+    }
+  }
+  return chunks.join('\n').trim()
+}
+
+async function generateMeetingSummary(
+  env: Env,
+  utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
+  speakerMap: Record<string, string>,
+  rawText: string,
+): Promise<string | null> {
+  const apiKey = asString(env.OPENAI_API_KEY)
+  if (!apiKey) return null
+
+  const source = buildMeetingSummarySource(utterances, speakerMap, rawText)
+  if (!source) return null
+
+  const model = asString(env.OPENAI_SUMMARY_MODEL) ?? DEFAULT_OPENAI_SUMMARY_MODEL
+  const systemPrompt =
+    '당신은 한국어 회의록 요약 보조 도우미다. 핵심 결정/이슈/액션아이템 중심으로 간결하게 정리한다.'
+  const userPrompt = [
+    '다음 회의 발화를 요약해 주세요.',
+    '- 형식: 한국어',
+    '- 섹션: 핵심 논의 / 결정사항 / 액션아이템',
+    '- 액션아이템은 담당자(알 수 없으면 미지정)와 기한(없으면 미정) 포함',
+    '- 불필요한 장식 문구 금지',
+    '',
+    source,
+  ].join('\n')
+
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
+        { role: 'user', content: [{ type: 'input_text', text: userPrompt }] },
+      ],
+      max_output_tokens: 700,
+    }),
+  })
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`openai_summary_failed:${response.status}:${detail.slice(0, 200)}`)
+  }
+
+  const payload = (await response.json()) as unknown
+  const summary = extractOpenAiResponseText(payload)
+  if (!summary) {
+    throw new Error('openai_summary_empty')
+  }
+  return summary.slice(0, 6000)
+}
+
 function findUnmappedSpeakers(
   utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
   speakerMap: Record<string, string>,
@@ -3024,12 +3142,27 @@ function findUnmappedSpeakers(
 function buildTranscriptBodyBlocks(
   detail: Record<string, unknown>,
   speakerMap: Record<string, string>,
+  summaryText: string | null,
 ): Record<string, unknown>[] {
   const status = asString(detail.status) ?? 'completed'
   const utterances = normalizeUtterances(detail.utterances)
   const blocks: Record<string, unknown>[] = []
   blocks.push(headingBlock('heading_2', '요약'))
-  blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 mini 연동 후 이 섹션에 자동 요약을 기록합니다.'))
+  if (summaryText && summaryText.trim()) {
+    const paragraphs = summaryText
+      .split(/\n{2,}/g)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+    if (paragraphs.length === 0) {
+      blocks.push(paragraphBlock(summaryText))
+    } else {
+      for (const paragraph of paragraphs.slice(0, 12)) {
+        blocks.push(paragraphBlock(paragraph))
+      }
+    }
+  } else {
+    blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 mini 연동 후 이 섹션에 자동 요약을 기록합니다.'))
+  }
   blocks.push(headingBlock('heading_2', '전문'))
   blocks.push(paragraphBlock(`status=${status} generated_at=${new Date().toISOString()}`))
 
@@ -3226,14 +3359,22 @@ async function updateMeetingNotionTranscriptFromAssembly(
   const status = normalizeMeetingStatus(asString(detail.status) ?? 'processing')
   const text = asString(detail.text) ?? ''
   const utterances = normalizeUtterances(detail.utterances)
+  const inferredMeetingDate =
+    found.row.meetingDate ||
+    parseMeetingTitleMetadata(stripMeetingUploadKeyPrefix(extractFilenameFromAudioKey(found.row.audioKey))).meetingDate
+
+  const statusPatch: Record<string, unknown> = {
+    [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+    [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+    [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
+    [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
+  }
+  if (inferredMeetingDate) {
+    statusPatch[found.ctx.datePropertyName] = { date: { start: inferredMeetingDate } }
+  }
 
   await found.ctx.api.updatePage(found.row.pageId, {
-    properties: {
-      [MEETING_NOTION_FIELD.status]: { select: { name: status } },
-      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
-      [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
-      [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
-    },
+    properties: statusPatch,
   })
 
   if (status !== 'completed') {
@@ -3245,8 +3386,13 @@ async function updateMeetingNotionTranscriptFromAssembly(
     throw new Error(`speaker_mapping_incomplete:${unmappedSpeakers.join(',')}`)
   }
 
+  let summaryText: string | null = null
+  try {
+    summaryText = await generateMeetingSummary(env, utterances, found.row.speakerMap, text)
+  } catch {}
+
   const audioBlock = await buildMeetingAudioFileBlock(found.ctx.api, env, found.row.audioKey)
-  const blocks = [audioBlock, ...buildTranscriptBodyBlocks(detail, found.row.speakerMap)]
+  const blocks = [audioBlock, ...buildTranscriptBodyBlocks(detail, found.row.speakerMap, summaryText)]
   await clearPageBlocks(found.ctx.api, found.row.pageId)
   if (blocks.length > 0) {
     await appendBlocksInChunks(found.ctx.api, found.row.pageId, blocks)
@@ -3423,7 +3569,7 @@ async function handleMeetingRoutesNotion(
         parent: { database_id: notionCtx.databaseId },
         properties: {
           [notionCtx.titlePropertyName]: { title: toNotionRichText(payload.title || transcriptId, 300) },
-          [MEETING_NOTION_FIELD.date]: payload.meetingDate ? { date: { start: payload.meetingDate } } : { date: null },
+          [notionCtx.datePropertyName]: payload.meetingDate ? { date: { start: payload.meetingDate } } : { date: null },
           [MEETING_NOTION_FIELD.recordType]: { select: { name: MEETING_RECORD_TYPE.transcript } },
           [MEETING_NOTION_FIELD.transcriptId]: notionRichTextValue(transcriptId, 200),
           [MEETING_NOTION_FIELD.meetingId]: notionRichTextValue(meetingId, 200),

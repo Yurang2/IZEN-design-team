@@ -43,3 +43,9 @@
 - [x] 상세 상단 불필요 정보(내보내기/Assembly ID) 제거
 - [x] 최근 전사 선택 하이라이트 반영
 - [x] publish Illegal invocation 이슈 재현/수정/재검증 완료
+
+### 2026-02-27 Meetings Date/Title/Summary Update
+- [x] filename-based title/date parsing path enforced in UI + worker
+- [x] Notion date property alias handling added (`일자`/`날짜`)
+- [x] optional GPT summary wiring added (OPENAI_API_KEY)
+- [x] build/typecheck passed

@@ -125,10 +125,13 @@
   "keywordSetId": "string | null"
 }
 ```
+- 프론트 업로드 폼은 `title` 수동 입력을 받지 않고, 업로드 파일명(`file.name`)을 `title`로 전송한다.
 - `title`이 `yymmdd <제목>` 패턴이면:
 - Notion `날짜` 속성(date)에 `YYYY-MM-DD`로 저장한다.
 - Notion 페이지 제목은 `yymmdd` 이후 텍스트를 사용한다.
 - 패턴이 아니면 기존 제목을 그대로 사용하고 `날짜`는 비운다.
+- 서버는 R2 key의 UUID prefix(`<32hex>-`)를 제거한 파일명을 기준으로도 동일 파싱한다.
+- Notion 날짜 컬럼은 `날짜` 또는 `일자`를 자동 인식해 기록한다.
 
 ### 4.7 Meeting Upload Presign Response
 ```json
@@ -161,12 +164,14 @@
 
 ### 4.9 Meeting Transcript Publish (manual Notion sync)
 - Endpoint: `POST /api/transcripts/:id/publish`
-- Purpose: after speaker mapping is completed in web UI, publish mapped utterances to Notion body.
+- Purpose: after speaker mapping is completed in web UI, publish mapped utterances to Notion body and generate summary.
 - Rule:
 - webhook/GET polling must not auto-publish transcript body.
 - publish is rejected when transcript status is not `completed`.
 - publish is rejected when any speaker label is unmapped.
 - Notion `전문` section writes only `화자별 발화` (mapped names). `원문 텍스트` section is not written.
+- `OPENAI_API_KEY`가 설정된 경우 `요약` 섹션은 GPT 요약으로 채운다. 미설정 시 placeholder를 유지한다.
+- publish 반복 실행은 AssemblyAI 재전사 비용을 만들지 않는다. 단, `OPENAI_API_KEY`가 설정된 경우 요약 호출 비용은 실행 횟수만큼 발생한다.
 
 ```json
 {
