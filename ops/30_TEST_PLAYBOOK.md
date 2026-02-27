@@ -106,3 +106,9 @@
 - Scenario: summary failure diagnostics + Korean-output prompt enforcement
 - Expected: publish response includes summaryGenerated/summaryError and build passes
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: openai_summary_empty diagnostics and extractor hardening
+- Expected: build pass; richer summary error context when text extraction fails
+- Actual: PASS (`npm run build`)

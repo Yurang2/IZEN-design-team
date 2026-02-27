@@ -3104,6 +3104,19 @@ function extractOpenAiResponseText(payload: unknown): string {
   const obj = payload as Record<string, unknown>
   const direct = asString(obj.output_text)
   if (direct) return direct
+  if (Array.isArray(obj.output_text)) {
+    const merged = (obj.output_text as unknown[])
+      .map((entry) => {
+        if (typeof entry === 'string') return entry
+        if (!entry || typeof entry !== 'object') return ''
+        const asObj = entry as Record<string, unknown>
+        return asString(asObj.text) ?? asString(asObj.value) ?? ''
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim()
+    if (merged) return merged
+  }
 
   const output = Array.isArray(obj.output) ? obj.output : []
   const chunks: string[] = []
@@ -3112,11 +3125,53 @@ function extractOpenAiResponseText(payload: unknown): string {
     const content = Array.isArray((item as Record<string, unknown>).content) ? ((item as Record<string, unknown>).content as unknown[]) : []
     for (const block of content) {
       if (!block || typeof block !== 'object') continue
-      const text = asString((block as Record<string, unknown>).text)
-      if (text) chunks.push(text)
+      const blockObj = block as Record<string, unknown>
+      const directText = asString(blockObj.text)
+      if (directText) {
+        chunks.push(directText)
+        continue
+      }
+      if (blockObj.text && typeof blockObj.text === 'object') {
+        const textObj = blockObj.text as Record<string, unknown>
+        const nested = asString(textObj.value) ?? asString(textObj.text)
+        if (nested) {
+          chunks.push(nested)
+          continue
+        }
+      }
+      const altText = asString(blockObj.output_text) ?? asString(blockObj.value)
+      if (altText) chunks.push(altText)
     }
   }
   return chunks.join('\n').trim()
+}
+
+function summarizeOpenAiResponsePayload(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return 'payload=invalid'
+  const obj = payload as Record<string, unknown>
+  const status = asString(obj.status) ?? 'unknown'
+  const output = Array.isArray(obj.output) ? obj.output : []
+  const contentTypes: string[] = []
+  for (const item of output.slice(0, 3)) {
+    if (!item || typeof item !== 'object') continue
+    const content = Array.isArray((item as Record<string, unknown>).content) ? ((item as Record<string, unknown>).content as unknown[]) : []
+    for (const block of content.slice(0, 4)) {
+      if (!block || typeof block !== 'object') continue
+      const type = asString((block as Record<string, unknown>).type)
+      if (type) contentTypes.push(type)
+    }
+  }
+  const incompleteReason =
+    obj.incomplete_details && typeof obj.incomplete_details === 'object'
+      ? asString((obj.incomplete_details as Record<string, unknown>).reason)
+      : null
+  const fields = [
+    `status=${status}`,
+    `outputItems=${output.length}`,
+    `contentTypes=${contentTypes.join('|') || 'none'}`,
+  ]
+  if (incompleteReason) fields.push(`incomplete=${incompleteReason}`)
+  return fields.join(',')
 }
 
 async function generateMeetingSummary(
@@ -3221,6 +3276,7 @@ async function generateMeetingSummary(
         { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
         { role: 'user', content: [{ type: 'input_text', text: userPrompt }] },
       ],
+      text: { format: { type: 'text' } },
       max_output_tokens: 1400,
     }),
   })
@@ -3233,7 +3289,7 @@ async function generateMeetingSummary(
   const payload = (await response.json()) as unknown
   const summary = extractOpenAiResponseText(payload)
   if (!summary) {
-    throw new Error('openai_summary_empty')
+    throw new Error(`openai_summary_empty:${summarizeOpenAiResponsePayload(payload)}`)
   }
   return summary.slice(0, 6000)
 }

@@ -84,3 +84,8 @@
 - [x] publish response includes summaryGenerated/summaryError
 - [x] GPT prompt enforces Korean output language
 - [x] build/typecheck passed
+### 2026-02-27 OpenAI Summary Empty Diagnostics Hardening
+- [x] response text extractor supports additional payload shapes
+- [x] empty-summary error includes status/output/content type diagnostics
+- [x] responses request enforces text format
+- [x] build/typecheck passed

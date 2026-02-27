@@ -109,3 +109,9 @@
   - `summaryError: string | null`
 - If summary generation fails, Notion summary section includes a failure hint.
 - GPT summary prompt enforces output language as Korean (`ko-KR`).
+
+## 13) openai_summary_empty Diagnostics (2026-02-27)
+- Worker now parses additional OpenAI Responses payload shapes (`output_text` array / nested text objects).
+- `openai_summary_empty` error now includes payload diagnostics:
+  - `status`, `outputItems`, `contentTypes`, optional `incomplete` reason.
+- Request includes `text.format.type = "text"` to stabilize text output extraction.

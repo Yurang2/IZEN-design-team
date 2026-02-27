@@ -109,3 +109,9 @@
 - Result: publish response now includes `summaryGenerated`/`summaryError`; Notion summary block shows failure reason when generation fails.
 - UI: publish completion message now distinguishes summary success/failure.
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (openai_summary_empty parser hardening)
+- Task: address `openai_summary_empty` despite valid OPENAI_API_KEY.
+- Result: expanded OpenAI response text extraction and added payload diagnostics in empty-summary error.
+- Protocol: responses call now requests explicit text format (`text.format.type=text`).
+- Validation: `npm run build` passed.
