@@ -22,3 +22,8 @@
 - 통과 여부: PASS
 - 판정자: Codex
 - 판정 일시: 2026-02-27
+
+### 2026-02-27 Korean Transcript Verification
+- [x] Korean transcript recognition enforced (`language_code=ko`)
+- [x] E2E scenario passed with real WAV input
+- [x] AAR and test logs updated
