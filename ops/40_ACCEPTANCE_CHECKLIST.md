@@ -99,3 +99,9 @@
 - [x] English labels normalized to Korean in post-processing
 - [x] token-incomplete first output now retries before accept
 - [x] build/typecheck passed
+### 2026-02-27 Markdown Contract + Notion Rendering
+- [x] GPT summary markdown contract fixed with required heading order
+- [x] server-side heading validation + one retry implemented
+- [x] missing sections auto-patched on final fallback
+- [x] markdown-to-Notion block mapping implemented
+- [x] build/typecheck and publish smoke test passed

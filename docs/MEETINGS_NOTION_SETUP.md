@@ -128,3 +128,15 @@
 - Prompt now explicitly forces Korean-only section headings and concise output bounds.
 - Summary text is normalized to Korean labels for common headings/keywords (Meta, Participants, Confidence, Evidence, etc.).
 - Partial first output with `incomplete=max_output_tokens` no longer passes through immediately; retry output is preferred.
+
+## 16) Markdown Output Contract + Server Validation (2026-02-27)
+- Summary prompt now requires GitHub-flavored Markdown with fixed heading order.
+- Server validation:
+  - required headers check (`##/###` contract)
+  - one retry when contract is violated
+  - auto-patch missing headers when retry still fails
+- Notion rendering:
+  - `## ` -> heading_2
+  - `### ` -> heading_3
+  - `- ` -> bulleted_list_item
+  - others -> paragraph

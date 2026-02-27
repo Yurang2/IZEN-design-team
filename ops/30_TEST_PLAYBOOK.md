@@ -124,3 +124,9 @@
 - Scenario: Korean summary heading enforcement and normalized label output
 - Expected: build pass and first-pass partial outputs not preferred
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: markdown contract + heading validation + notion markdown block mapping
+- Expected: build pass and publish success with summaryGenerated=true
+- Actual: PASS (`npm run build`, publish OK)

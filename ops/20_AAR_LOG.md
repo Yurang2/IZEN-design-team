@@ -125,3 +125,9 @@
 - Task: reduce English leakage in Notion summary and avoid truncated first-pass outputs.
 - Result: Korean heading enforcement + English-to-Korean normalization + retry preference on token-incomplete first output.
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (markdown contract + server validation + notion block rendering)
+- Task: enforce strict markdown summary structure and reduce operator confusion in Notion body.
+- Result: required heading contract, one retry on format violation, and fallback auto-patch for missing sections.
+- Rendering: markdown prefixes now map to Notion heading/list/paragraph blocks.
+- Validation: `npm run build` passed; publish smoke test passed.

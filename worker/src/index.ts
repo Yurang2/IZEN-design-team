@@ -3182,34 +3182,95 @@ function getOpenAiIncompleteReason(payload: unknown): string | null {
   return asString((obj.incomplete_details as Record<string, unknown>).reason)
 }
 
+const REQUIRED_SUMMARY_HEADERS = [
+  '## \uBA54\uD0C0',
+  '### \uCC38\uC11D\uC790(\uCD94\uC815)',
+  '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4',
+  '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D',
+  '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694',
+  '## \uCC38\uC5EC\uC790\uBCC4 \uD574\uC57C \uD560 \uC77C',
+  '## \uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04',
+] as const
+
 function normalizeMeetingSummaryText(summary: string): string {
   let text = summary.trim()
   if (!text) return text
+
   const lineReplacements: Array<[RegExp, string]> = [
-    [/^Meta\s*$/gim, '메타'],
-    [/^Participants \(estimated\)\s*:/gim, '참석자(추정):'],
-    [/^Draft note\s*:/gim, '자동 초안 안내:'],
-    [/^Key agenda summary\s*$/gim, '핵심 안건 요약'],
-    [/^Decided items \/ Needs confirmation \(table\)\s*$/gim, '정해진 내용 / 확인 필요'],
-    [/^Action items by participant \(table\)\s*$/gim, '참여자별 해야 할 일'],
-    [/^Uncertain \/ needs additional confirmation segments\s*$/gim, '불확실/추가 확인 필요 구간'],
+    [/^Meta\s*$/gim, '## \uBA54\uD0C0'],
+    [/^Participants \(estimated\)\s*:?/gim, '### \uCC38\uC11D\uC790(\uCD94\uC815)'],
+    [/^Draft note\s*:?/gim, '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4'],
+    [/^Key agenda summary\s*$/gim, '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D'],
+    [/^Decided items \/ Needs confirmation \(table\)\s*$/gim, '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694'],
+    [/^Action items by participant \(table\)\s*$/gim, '## \uCC38\uC5EC\uC790\uBCC4 \uD574\uC57C \uD560 \uC77C'],
+    [/^Uncertain \/ needs additional confirmation segments\s*$/gim, '## \uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04'],
   ]
   for (const [pattern, replacement] of lineReplacements) {
     text = text.replace(pattern, replacement)
   }
+
   const inlineReplacements: Array<[RegExp, string]> = [
-    [/\bPriority\b/g, '우선순위'],
-    [/\bConfidence\b/g, '확신도'],
-    [/\bEvidence\b/g, '근거'],
-    [/\bHigh\b/g, '높음'],
-    [/\bMedium\b/g, '보통'],
-    [/\bLow\b/g, '낮음'],
-    [/\[Uncertain\]/g, '[불확실]'],
+    [/\bPriority\b/g, '\uC6B0\uC120\uC21C\uC704'],
+    [/\bConfidence\b/g, '\uD655\uC2E0\uB3C4'],
+    [/\bEvidence\b/g, '\uADFC\uAC70'],
+    [/\bHigh\b/g, '\uB192\uC74C'],
+    [/\bMedium\b/g, '\uBCF4\uD1B5'],
+    [/\bLow\b/g, '\uB0AE\uC74C'],
+    [/\[Uncertain\]/g, '[\uBD88\uD655\uC2E4]'],
   ]
   for (const [pattern, replacement] of inlineReplacements) {
     text = text.replace(pattern, replacement)
   }
+
   return text.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function hasRequiredSummaryHeaders(markdown: string): boolean {
+  const normalized = normalizeMeetingSummaryText(markdown)
+  return REQUIRED_SUMMARY_HEADERS.every((header) => normalized.includes(header))
+}
+
+function ensureRequiredSummaryHeaders(markdown: string): string {
+  const normalized = normalizeMeetingSummaryText(markdown)
+  if (!normalized) {
+    return [
+      ...REQUIRED_SUMMARY_HEADERS,
+      '- [\uBD88\uD655\uC2E4] \uC694\uC57D \uB0B4\uC6A9\uC774 \uBE44\uC5B4 \uC788\uC5B4 \uC7AC\uD655\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. / \uADFC\uAC70: [00:00:00-00:00:00]',
+    ].join('\n')
+  }
+
+  const parts = [normalized]
+  for (const header of REQUIRED_SUMMARY_HEADERS) {
+    if (!normalized.includes(header)) {
+      parts.push('')
+      parts.push(header)
+      parts.push('- [\uBD88\uD655\uC2E4] \uC790\uB3D9 \uBCF4\uC815\uB41C \uC139\uC158\uC785\uB2C8\uB2E4. \uB0B4\uC6A9\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694. / \uADFC\uAC70: [00:00:00-00:00:00]')
+    }
+  }
+  return parts.join('\n').trim()
+}
+
+function summaryMarkdownToNotionBlocks(markdown: string): Record<string, unknown>[] {
+  const blocks: Record<string, unknown>[] = []
+  const lines = markdown.split(/\r?\n/g)
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line.startsWith('## ')) {
+      blocks.push(headingBlock('heading_2', line.slice(3).trim()))
+      continue
+    }
+    if (line.startsWith('### ')) {
+      blocks.push(headingBlock('heading_3', line.slice(4).trim()))
+      continue
+    }
+    if (line.startsWith('- ')) {
+      blocks.push(bulletBlock(line.slice(2).trim()))
+      continue
+    }
+    blocks.push(paragraphBlock(line))
+  }
+  return blocks
 }
 
 async function generateMeetingSummary(
@@ -3227,83 +3288,35 @@ async function generateMeetingSummary(
   const model = asString(env.OPENAI_SUMMARY_MODEL) ?? DEFAULT_OPENAI_SUMMARY_MODEL
   const systemPrompt = [
     'You are a meeting-minutes draft assistant.',
-    'Produce a structured draft that is easy for humans to review and edit, not a final confirmed document.',
+    'Return a reviewable draft, not a final confirmed record.',
   ].join('\n')
-  const buildUserPrompt = (sourceText: string, condensed: boolean): string =>
+
+  const buildUserPrompt = (sourceText: string, condensed: boolean, repairDraft?: string | null): string =>
     [
-      'Input assumptions:',
-      'Output language: Korean (ko-KR) only.',
-      'Use Korean section headers only. Avoid English labels/headings.',
+      '\uBC18\uB4DC\uC2DC GitHub-flavored Markdown\uC73C\uB85C\uB9CC \uCD9C\uB825\uD558\uC138\uC694.',
+      '\uBC18\uB4DC\uC2DC \uC544\uB798 \uC21C\uC11C/\uD5E4\uB354\uB97C \uADF8\uB300\uB85C \uC0AC\uC6A9\uD558\uC138\uC694.',
+      '## \uBA54\uD0C0',
+      '### \uCC38\uC11D\uC790(\uCD94\uC815)',
+      '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4',
+      '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D',
+      '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694',
+      '## \uCC38\uC5EC\uC790\uBCC4 \uD574\uC57C \uD560 \uC77C',
+      '## \uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04',
       '',
-      'Every utterance uses this timestamp format:',
-      '[00:00:01-00:00:24] Name: Utterance',
+      '\uACB0\uC815/\uC694\uCCAD/\uBCC0\uACBD/\uB9C8\uAC10/\uB9AC\uC2A4\uD06C/\uC5ED\uD560 \uC9C0\uC815\uC5D0\uB294 \uBC18\uB4DC\uC2DC \uD0C0\uC784\uC2A4\uD0EC\uD504 \uADFC\uAC70\uB97C 1\uAC1C \uC774\uC0C1 \uD3EC\uD568\uD558\uC138\uC694.',
+      '\uADFC\uAC70\uAC00 \uBD88\uBD84\uBA85\uD558\uBA74 [\uBD88\uD655\uC2E4]\uB85C \uD45C\uAE30\uD558\uC138\uC694.',
+      '\uC6D0\uBB38\uC5D0 \uC5C6\uB294 \uB0B4\uC6A9\uC740 \uCD94\uAC00\uD558\uC9C0 \uB9C8\uC138\uC694.',
+      '\uD55C\uAD6D\uC5B4\uB9CC \uC0AC\uC6A9\uD558\uACE0 \uC601\uBB38 \uD5E4\uB354/\uB77C\uBCA8\uC744 \uC4F0\uC9C0 \uB9C8\uC138\uC694.',
+      '\uD45C\uAC00 \uD544\uC694\uD55C \uC139\uC158\uC740 Markdown \uD45C \uBB38\uBC95\uC744 \uC0AC\uC6A9\uD558\uC138\uC694.',
+      condensed ? '\uCD9C\uB825 \uBD84\uB7C9\uC744 \uC904\uC774\uACE0 \uD575\uC2EC \uD56D\uBAA9\uB9CC \uAC04\uACB0\uD558\uAC8C \uC791\uC131\uD558\uC138\uC694.' : '',
       '',
-      'Timestamps are always accurate and must be used as evidence.',
+      repairDraft
+        ? '\uC774\uC804 \uC751\uB2F5\uC740 \uD615\uC2DD \uACC4\uC57D\uC744 \uC704\uBC18\uD588\uC2B5\uB2C8\uB2E4. \uC544\uB798 \uC774\uC804 \uC751\uB2F5\uC758 \uC0AC\uC2E4\uC744 \uC720\uC9C0\uD558\uB418 \uD615\uC2DD \uACC4\uC57D\uC5D0 \uB9DE\uAC8C \uB2E4\uC2DC \uC791\uC131\uD558\uC138\uC694.'
+        : '',
+      repairDraft ? '\uC774\uC804 \uC751\uB2F5:' : '',
+      repairDraft ?? '',
       '',
-      'Use each speaker name exactly as provided.',
-      '',
-      'Absolute rules:',
-      '',
-      'For decisions, requests, changes, deadlines, risks, and role assignments, include at least one supporting timestamp.',
-      '',
-      'If evidence is ambiguous, do not assert; mark as [Uncertain].',
-      '',
-      'Do not use fixed tags. Generate tags based on meeting context.',
-      '',
-      'Confidence must be exactly one of: High, Medium, Low.',
-      '',
-      'Never add information that is not in the source utterances.',
-      '',
-      'Output format:',
-      '',
-      'Meta',
-      '',
-      'Participants (estimated): name list',
-      '',
-      'Draft note: Auto-generated draft summary; omissions or interpretation errors may exist.',
-      '',
-      'Key agenda summary',
-      'Format:',
-      '[Tag] Agenda title (Priority 1~3) / Confidence: High|Medium|Low / Evidence: [00:00:00-00:00:00]',
-      '',
-      '2-3 line summary',
-      '',
-      'Priority criteria:',
-      '1 = immediate risk/decision required',
-      '2 = important in-progress matter',
-      '3 = reference/future discussion',
-      '',
-      'Decided items / Needs confirmation (table)',
-      'Columns:',
-      'Agenda | Decided item | Needs confirmation (question form) | Related person | Evidence timestamp | Confidence',
-      '',
-      'Action items by participant (table)',
-      'Columns:',
-      'Person | Action item | Evidence timestamp | Confidence',
-      '',
-      'Uncertain / needs additional confirmation segments',
-      '',
-      'Item',
-      '',
-      'Reason',
-      '',
-      'Confirmation question',
-      '',
-      'Evidence timestamp',
-      '',
-      'Notes:',
-      '',
-      'Keep timestamps exactly in square-bracket format.',
-      '',
-      'If an agenda has multiple evidence timestamps, include only one representative timestamp.',
-      '',
-      'No excessive interpretation.',
-      'Keep output concise: key agenda max 4 items, action items max 8 items.',
-      'Use these exact Korean headings: 메타 / 참석자(추정): / 자동 초안 안내: / 핵심 안건 요약 / 정해진 내용 / 확인 필요 / 참여자별 해야 할 일 / 불확실/추가 확인 필요 구간',
-      condensed ? 'Keep wording concise and focus on top-priority items first.' : '',
-      '',
-      'Source utterances:',
-      '',
+      '\uC6D0\uBB38 \uBC1C\uD654:',
       sourceText,
     ]
       .filter((line) => line !== '')
@@ -3313,12 +3326,13 @@ async function generateMeetingSummary(
     sourceText: string,
     maxOutputTokens: number,
     condensed: boolean,
-  ): Promise<{ summary: string; payload: unknown } | { summary: null; payload: unknown }> => {
-    const userPrompt = buildUserPrompt(sourceText, condensed)
+    repairDraft?: string | null,
+  ): Promise<{ summary: string | null; payload: unknown; valid: boolean }> => {
+    const userPrompt = buildUserPrompt(sourceText, condensed, repairDraft)
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: 'Bearer ' + apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -3334,30 +3348,29 @@ async function generateMeetingSummary(
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
-      throw new Error(`openai_summary_failed:${response.status}:${detail.slice(0, 200)}`)
+      throw new Error('openai_summary_failed:' + response.status + ':' + detail.slice(0, 200))
     }
 
     const payload = (await response.json()) as unknown
     const summary = extractOpenAiResponseText(payload)
-    if (!summary) return { summary: null, payload }
-    return { summary: summary.slice(0, 6000), payload }
+    if (!summary) return { summary: null, payload, valid: false }
+    const normalized = normalizeMeetingSummaryText(summary).slice(0, 6000)
+    return { summary: normalized, payload, valid: hasRequiredSummaryHeaders(normalized) }
   }
 
-  const first = await requestSummary(source, 2200, false)
+  const first = await requestSummary(source, 2600, false)
   const firstIncomplete = getOpenAiIncompleteReason(first.payload) === 'max_output_tokens'
-  if (first.summary && !firstIncomplete) return normalizeMeetingSummaryText(first.summary)
+  if (first.summary && first.valid && !firstIncomplete) return first.summary
 
-  if (firstIncomplete || !first.summary) {
-    const retrySource = source.slice(0, SUMMARY_RETRY_SOURCE_CHARS)
-    const second = await requestSummary(retrySource, 3600, true)
-    if (second.summary) return normalizeMeetingSummaryText(second.summary)
-    if (first.summary) return normalizeMeetingSummaryText(first.summary)
-    throw new Error(
-      `openai_summary_empty_retry:${summarizeOpenAiResponsePayload(first.payload)}=>${summarizeOpenAiResponsePayload(second.payload)}`,
-    )
-  }
+  const retrySource = source.slice(0, SUMMARY_RETRY_SOURCE_CHARS)
+  const second = await requestSummary(retrySource, 3800, true, first.summary)
+  if (second.summary && second.valid) return second.summary
+  if (second.summary) return ensureRequiredSummaryHeaders(second.summary)
+  if (first.summary) return ensureRequiredSummaryHeaders(first.summary)
 
-  throw new Error(`openai_summary_empty:${summarizeOpenAiResponsePayload(first.payload)}`)
+  throw new Error(
+    'openai_summary_empty_retry:' + summarizeOpenAiResponsePayload(first.payload) + '=>' + summarizeOpenAiResponsePayload(second.payload),
+  )
 }
 
 function findUnmappedSpeakers(
@@ -3380,36 +3393,34 @@ function buildTranscriptBodyBlocks(
   const status = asString(detail.status) ?? 'completed'
   const utterances = normalizeUtterances(detail.utterances)
   const blocks: Record<string, unknown>[] = []
-  blocks.push(headingBlock('heading_2', '요약'))
+  blocks.push(headingBlock('heading_2', '\uC694\uC57D'))
   if (summaryText && summaryText.trim()) {
-    const paragraphs = summaryText
-      .split(/\n{2,}/g)
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-    if (paragraphs.length === 0) {
-      blocks.push(paragraphBlock(summaryText))
+    const markdown = ensureRequiredSummaryHeaders(summaryText)
+    const summaryBlocks = summaryMarkdownToNotionBlocks(markdown)
+    if (summaryBlocks.length === 0) {
+      blocks.push(paragraphBlock(markdown))
     } else {
-      for (const paragraph of paragraphs.slice(0, 12)) {
-        blocks.push(paragraphBlock(paragraph))
+      for (const block of summaryBlocks.slice(0, 80)) {
+        blocks.push(block)
       }
     }
   } else if (summaryError) {
-    blocks.push(paragraphBlock(`요약 생성 실패: ${summaryError}. OPENAI_API_KEY / OPENAI_SUMMARY_MODEL 확인 후 다시 Notion 반영을 실행해 주세요.`))
+    blocks.push(paragraphBlock('\uC694\uC57D \uC0DD\uC131 \uC2E4\uD328: ' + summaryError + '. OPENAI_API_KEY / OPENAI_SUMMARY_MODEL \uD655\uC778 \uD6C4 \uB2E4\uC2DC Notion \uBC18\uC601\uC744 \uC2E4\uD589\uD574 \uC8FC\uC138\uC694.'))
   } else {
-    blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 mini 연동 후 이 섹션에 자동 요약을 기록합니다.'))
+    blocks.push(paragraphBlock('\uC694\uC57D \uC0DD\uC131 \uC804\uC785\uB2C8\uB2E4. GPT-5 mini \uC5F0\uB3D9 \uD6C4 \uC774 \uC139\uC158\uC5D0 \uC790\uB3D9 \uC694\uC57D\uC744 \uAE30\uB85D\uD569\uB2C8\uB2E4.'))
   }
-  blocks.push(headingBlock('heading_2', '전문'))
-  blocks.push(paragraphBlock(`status=${status} generated_at=${new Date().toISOString()}`))
+  blocks.push(headingBlock('heading_2', '\uC804\uBB38'))
+  blocks.push(paragraphBlock('status=' + status + ' generated_at=' + new Date().toISOString()))
 
   if (utterances.length > 0) {
-    blocks.push(headingBlock('heading_3', `화자별 발화 (${Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)}/${utterances.length})`))
+    blocks.push(headingBlock('heading_3', '\uD654\uC790\uBCC4 \uBC1C\uD654 (' + Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS) + '/' + utterances.length + ')'))
     for (const row of utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)) {
       const displaySpeaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
       const timestamp = toUtteranceTimestampRange(row.start, row.end)
-      blocks.push(bulletBlock(`${timestamp}${displaySpeaker}: ${row.text}`))
+      blocks.push(bulletBlock(timestamp + displaySpeaker + ': ' + row.text))
     }
   } else {
-    blocks.push(paragraphBlock('화자별 발화가 아직 없습니다.'))
+    blocks.push(paragraphBlock('\uD654\uC790\uBCC4 \uBC1C\uD654\uAC00 \uC544\uC9C1 \uC5C6\uC2B5\uB2C8\uB2E4.'))
   }
   return blocks
 }
