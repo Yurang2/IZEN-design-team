@@ -45,6 +45,7 @@ const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
 const MAX_SUMMARY_SOURCE_CHARS = 18_000
 const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
+const DEFAULT_ASSEMBLY_SPEECH_MODELS = ['universal-2']
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
@@ -885,6 +886,16 @@ function isValidMeetingAudioKey(key: string): boolean {
 
 function parseMeetingKeywordLimit(env: Env): number {
   return parseBoundedInt(asString(env.MEETING_KEYWORD_LIMIT), DEFAULT_MEETING_KEYWORD_LIMIT, MIN_MEETING_KEYWORD_LIMIT, MAX_MEETING_KEYWORD_LIMIT)
+}
+
+function parseAssemblySpeechModels(env: Env): string[] {
+  const configured = asString(env.ASSEMBLYAI_SPEECH_MODELS)
+  if (!configured) return [...DEFAULT_ASSEMBLY_SPEECH_MODELS]
+  const list = configured
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+  return list.length > 0 ? Array.from(new Set(list)) : [...DEFAULT_ASSEMBLY_SPEECH_MODELS]
 }
 
 function stripMeetingUploadKeyPrefix(filename: string): string {
@@ -2190,9 +2201,11 @@ async function handleMeetingRoutes(
 
       const webhookUrl = asString(env.ASSEMBLYAI_WEBHOOK_URL) ?? `${url.origin}/api/assemblyai/webhook`
       const webhookSecret = getAssemblyWebhookSecret(env)
+      const speechModels = parseAssemblySpeechModels(env)
       const assemblyPayload: Record<string, unknown> = {
         audio_url: getSigned.url,
         language_code: 'ko',
+        speech_models: speechModels,
         speaker_labels: true,
         webhook_url: webhookUrl,
         webhook_auth_header_name: 'x-assemblyai-webhook-secret',
@@ -3596,9 +3609,11 @@ async function handleMeetingRoutesNotion(
 
       const webhookUrl = asString(env.ASSEMBLYAI_WEBHOOK_URL) ?? `${url.origin}/api/assemblyai/webhook`
       const webhookSecret = getAssemblyWebhookSecret(env)
+      const speechModels = parseAssemblySpeechModels(env)
       const assemblyPayload: Record<string, unknown> = {
         audio_url: audioUrl,
         language_code: 'ko',
+        speech_models: speechModels,
         speaker_labels: true,
         webhook_url: webhookUrl,
         webhook_auth_header_name: 'x-assemblyai-webhook-secret',

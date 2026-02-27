@@ -62,3 +62,7 @@
 - [x] default summary model reverted to gpt-5-mini
 - [x] wrangler/docs default text synchronized
 - [x] build/typecheck passed
+### 2026-02-27 Assembly Speech Model Default Update
+- [x] default speech model routing set to universal-2
+- [x] optional override env (`ASSEMBLYAI_SPEECH_MODELS`) documented
+- [x] build/typecheck passed

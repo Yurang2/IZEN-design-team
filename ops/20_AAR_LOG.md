@@ -85,3 +85,8 @@
 - Task: rollback default summary model from gpt-5 to gpt-5-mini to avoid implicit cost/behavior change.
 - Result: OPENAI_API_KEY-only 환경에서는 gpt-5-mini 사용, gpt-5는 OPENAI_SUMMARY_MODEL로 명시 설정.
 - Validation: `npm run build` passed.
+### 2026-02-27 (assembly speech model default to universal-2)
+- Task: fix AssemblyAI speech model routing default to universal-2 for meetings transcripts.
+- Result: transcript create payload now sends `speech_models: ["universal-2"]` by default (override via ASSEMBLYAI_SPEECH_MODELS).
+- Note: OPENAI summary default remains gpt-5-mini.
+- Validation: `npm run build` passed.

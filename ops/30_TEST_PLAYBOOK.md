@@ -80,3 +80,8 @@
 - Scenario: summary default model rollback to gpt-5-mini
 - Expected: build pass and docs/wrangler default alignment
 - Actual: PASS (`npm run build`)
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: assembly speech_models default and docs sync
+- Expected: build pass and speech_models field included in transcript create payload path
+- Actual: PASS (`npm run build`)

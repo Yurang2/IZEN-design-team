@@ -20,6 +20,7 @@
 - 선택: `OPENAI_API_KEY` (Secret, publish 시 요약 생성)
 - 선택: `OPENAI_SUMMARY_MODEL` (Variable, 기본값 `gpt-5-mini`)
 - 선택: `ASSEMBLYAI_WEBHOOK_URL` (Variable, 미설정 시 자동 `/api/assemblyai/webhook`)
+- 선택: `ASSEMBLYAI_SPEECH_MODELS` (Variable, 쉼표 구분. 기본값 `universal-2`)
 
 참고:
 - 기존 프로젝트/업무 API를 계속 쓴다면 아래도 이미 설정되어 있어야 합니다.
@@ -81,3 +82,8 @@
 - `POST /api/transcripts`를 다시 호출하면 AssemblyAI 재전사 비용이 다시 발생합니다.
 - 같은 transcript에 대해 `매핑 저장 + publish`만 반복하면 AssemblyAI 재전사 비용은 추가되지 않습니다.
 - 단, `OPENAI_API_KEY`가 설정된 경우 publish마다 요약 호출 비용이 발생합니다.
+
+## 9) 타임스탬프 출력
+- 가능합니다. AssemblyAI utterance에는 `start`/`end`(ms) 값이 포함됩니다.
+- 현재 웹 상세 화면에는 타임스탬프가 표시되고 있습니다.
+- Notion 본문에도 `[hh:mm:ss] 화자: 발화` 형식으로 확장 가능합니다.

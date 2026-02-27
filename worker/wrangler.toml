@@ -34,6 +34,8 @@ RATE_LIMIT_BLOCK_SECONDS = "30"
 MEETING_KEYWORD_LIMIT = "120"
 # Optional: override default webhook callback target
 # ASSEMBLYAI_WEBHOOK_URL = "https://your-domain/api/assemblyai/webhook"
+# Optional: speech model routing list (comma-separated, default: universal-2)
+# ASSEMBLYAI_SPEECH_MODELS = "universal-2"
 # Optional: GPT summary (used on POST /api/transcripts/:id/publish)
 # Set as secret:
 # npx wrangler secret put OPENAI_API_KEY --config worker/wrangler.toml
