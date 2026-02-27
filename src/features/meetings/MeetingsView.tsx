@@ -108,6 +108,11 @@ function toTranscriptStatusLabel(status: string, bodySynced: boolean): string {
   return status
 }
 
+function isTranscriptInProgress(status: string): boolean {
+  const normalized = status.trim().toLowerCase()
+  return normalized === 'queued' || normalized === 'submitted' || normalized === 'processing'
+}
+
 function sanitizeSpeakerMap(values: Record<string, string>): Array<{ speakerLabel: string; displayName: string }> {
   return Object.entries(values)
     .map(([speakerLabel, displayName]) => ({
@@ -198,6 +203,7 @@ export function MeetingsView() {
   const [maxSpeakers, setMaxSpeakers] = useState(10)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
+  const [uploadErrorMessage, setUploadErrorMessage] = useState('')
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle')
   const [uploadElapsedSec, setUploadElapsedSec] = useState(0)
   const uploadAbortRef = useRef<AbortController | null>(null)
@@ -314,14 +320,19 @@ export function MeetingsView() {
     [keywordSets],
   )
 
+  const inProgressTranscriptCount = useMemo(
+    () => transcripts.filter((row) => isTranscriptInProgress(row.status)).length,
+    [transcripts],
+  )
+
   const onSubmitUpload = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!file) {
-      setErrorMessage('업로드할 음성 파일을 선택해 주세요.')
+      setUploadErrorMessage('업로드할 음성 파일을 선택해 주세요.')
       return
     }
     if (maxSpeakers < minSpeakers) {
-      setErrorMessage('최대 화자 수는 최소 화자 수 이상이어야 합니다.')
+      setUploadErrorMessage('최대 화자 수는 최소 화자 수 이상이어야 합니다.')
       return
     }
 
@@ -334,6 +345,7 @@ export function MeetingsView() {
     uploadAbortRef.current = flowAbort
 
     setUploadMessage('')
+    setUploadErrorMessage('')
     setErrorMessage('')
     const selectedFile = file
 
@@ -428,7 +440,7 @@ export function MeetingsView() {
       } else if (raw.includes('upload_cancelled') || isAbortError(error)) {
         message = '요청을 취소했습니다.'
       }
-      setErrorMessage(message)
+      setUploadErrorMessage(message)
     } finally {
       uploadAbortRef.current = null
       uploadStartedAtRef.current = null
@@ -453,6 +465,14 @@ export function MeetingsView() {
     }, 1000)
     return () => window.clearInterval(timer)
   }, [uploading])
+
+  useEffect(() => {
+    if (inProgressTranscriptCount <= 0) return
+    const timer = window.setInterval(() => {
+      void loadTranscripts()
+    }, POLL_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [inProgressTranscriptCount, loadTranscripts])
 
   const persistSpeakerMap = useCallback(
     async (transcriptId: string) => {
@@ -722,6 +742,7 @@ export function MeetingsView() {
           </div>
         ) : null}
         {uploadMessage ? <p className="muted small">{uploadMessage}</p> : null}
+        {uploadErrorMessage ? <p className="error">{uploadErrorMessage}</p> : null}
         {errorMessage ? <p className="error">{errorMessage}</p> : null}
       </article>
 
@@ -733,6 +754,7 @@ export function MeetingsView() {
               새로고침
             </Button>
           </div>
+          {inProgressTranscriptCount > 0 ? <p className="muted small">진행중 {inProgressTranscriptCount}건 · 목록 자동 갱신 중</p> : null}
           <TableWrap className="meetingsListTable">
             <table>
               <thead>
