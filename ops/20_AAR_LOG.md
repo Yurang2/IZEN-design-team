@@ -120,3 +120,8 @@
 - Task: fix persistent `openai_summary_empty ... incomplete=max_output_tokens`.
 - Result: reduced source cap (10k chars) + one automatic retry with shorter source (6k) and larger output budget.
 - Validation: `npm run build` passed.
+
+### 2026-02-27 (korean summary quality + partial-output retry preference)
+- Task: reduce English leakage in Notion summary and avoid truncated first-pass outputs.
+- Result: Korean heading enforcement + English-to-Korean normalization + retry preference on token-incomplete first output.
+- Validation: `npm run build` passed.

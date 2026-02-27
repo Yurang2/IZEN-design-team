@@ -118,3 +118,9 @@
 - Scenario: summary generation retry path for `incomplete=max_output_tokens`
 - Expected: build pass and retry logic compiled
 - Actual: PASS (`npm run build`)
+
+- Date: 2026-02-27
+- Executor: Codex
+- Scenario: Korean summary heading enforcement and normalized label output
+- Expected: build pass and first-pass partial outputs not preferred
+- Actual: PASS (`npm run build`)

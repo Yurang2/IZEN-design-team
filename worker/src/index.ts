@@ -3182,6 +3182,36 @@ function getOpenAiIncompleteReason(payload: unknown): string | null {
   return asString((obj.incomplete_details as Record<string, unknown>).reason)
 }
 
+function normalizeMeetingSummaryText(summary: string): string {
+  let text = summary.trim()
+  if (!text) return text
+  const lineReplacements: Array<[RegExp, string]> = [
+    [/^Meta\s*$/gim, '메타'],
+    [/^Participants \(estimated\)\s*:/gim, '참석자(추정):'],
+    [/^Draft note\s*:/gim, '자동 초안 안내:'],
+    [/^Key agenda summary\s*$/gim, '핵심 안건 요약'],
+    [/^Decided items \/ Needs confirmation \(table\)\s*$/gim, '정해진 내용 / 확인 필요'],
+    [/^Action items by participant \(table\)\s*$/gim, '참여자별 해야 할 일'],
+    [/^Uncertain \/ needs additional confirmation segments\s*$/gim, '불확실/추가 확인 필요 구간'],
+  ]
+  for (const [pattern, replacement] of lineReplacements) {
+    text = text.replace(pattern, replacement)
+  }
+  const inlineReplacements: Array<[RegExp, string]> = [
+    [/\bPriority\b/g, '우선순위'],
+    [/\bConfidence\b/g, '확신도'],
+    [/\bEvidence\b/g, '근거'],
+    [/\bHigh\b/g, '높음'],
+    [/\bMedium\b/g, '보통'],
+    [/\bLow\b/g, '낮음'],
+    [/\[Uncertain\]/g, '[불확실]'],
+  ]
+  for (const [pattern, replacement] of inlineReplacements) {
+    text = text.replace(pattern, replacement)
+  }
+  return text.replace(/\n{3,}/g, '\n\n').trim()
+}
+
 async function generateMeetingSummary(
   env: Env,
   utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
@@ -3203,6 +3233,7 @@ async function generateMeetingSummary(
     [
       'Input assumptions:',
       'Output language: Korean (ko-KR) only.',
+      'Use Korean section headers only. Avoid English labels/headings.',
       '',
       'Every utterance uses this timestamp format:',
       '[00:00:01-00:00:24] Name: Utterance',
@@ -3267,6 +3298,8 @@ async function generateMeetingSummary(
       'If an agenda has multiple evidence timestamps, include only one representative timestamp.',
       '',
       'No excessive interpretation.',
+      'Keep output concise: key agenda max 4 items, action items max 8 items.',
+      'Use these exact Korean headings: 메타 / 참석자(추정): / 자동 초안 안내: / 핵심 안건 요약 / 정해진 내용 / 확인 필요 / 참여자별 해야 할 일 / 불확실/추가 확인 필요 구간',
       condensed ? 'Keep wording concise and focus on top-priority items first.' : '',
       '',
       'Source utterances:',
@@ -3311,12 +3344,14 @@ async function generateMeetingSummary(
   }
 
   const first = await requestSummary(source, 2200, false)
-  if (first.summary) return first.summary
+  const firstIncomplete = getOpenAiIncompleteReason(first.payload) === 'max_output_tokens'
+  if (first.summary && !firstIncomplete) return normalizeMeetingSummaryText(first.summary)
 
-  if (getOpenAiIncompleteReason(first.payload) === 'max_output_tokens') {
+  if (firstIncomplete || !first.summary) {
     const retrySource = source.slice(0, SUMMARY_RETRY_SOURCE_CHARS)
-    const second = await requestSummary(retrySource, 3200, true)
-    if (second.summary) return second.summary
+    const second = await requestSummary(retrySource, 3600, true)
+    if (second.summary) return normalizeMeetingSummaryText(second.summary)
+    if (first.summary) return normalizeMeetingSummaryText(first.summary)
     throw new Error(
       `openai_summary_empty_retry:${summarizeOpenAiResponsePayload(first.payload)}=>${summarizeOpenAiResponsePayload(second.payload)}`,
     )
@@ -3359,7 +3394,7 @@ function buildTranscriptBodyBlocks(
       }
     }
   } else if (summaryError) {
-    blocks.push(paragraphBlock(`Summary unavailable (${summaryError}). Check OPENAI_API_KEY / OPENAI_SUMMARY_MODEL and republish this transcript.`))
+    blocks.push(paragraphBlock(`요약 생성 실패: ${summaryError}. OPENAI_API_KEY / OPENAI_SUMMARY_MODEL 확인 후 다시 Notion 반영을 실행해 주세요.`))
   } else {
     blocks.push(paragraphBlock('요약 생성 전입니다. GPT-5 mini 연동 후 이 섹션에 자동 요약을 기록합니다.'))
   }

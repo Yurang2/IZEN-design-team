@@ -94,3 +94,8 @@
 - [x] retry on `incomplete=max_output_tokens` implemented
 - [x] retry uses shorter source + higher output token budget
 - [x] build/typecheck passed
+### 2026-02-27 Korean Summary Quality Guard
+- [x] Korean section-heading enforcement strengthened
+- [x] English labels normalized to Korean in post-processing
+- [x] token-incomplete first output now retries before accept
+- [x] build/typecheck passed

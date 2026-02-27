@@ -123,3 +123,8 @@
   - higher output token budget (3200)
   - condensed phrasing hint while preserving required structure/evidence rules
 - Base source limit reduced to `MAX_SUMMARY_SOURCE_CHARS=10000`.
+
+## 15) Korean Output Quality Guard (2026-02-27)
+- Prompt now explicitly forces Korean-only section headings and concise output bounds.
+- Summary text is normalized to Korean labels for common headings/keywords (Meta, Participants, Confidence, Evidence, etc.).
+- Partial first output with `incomplete=max_output_tokens` no longer passes through immediately; retry output is preferred.
