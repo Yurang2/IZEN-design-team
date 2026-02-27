@@ -66,6 +66,7 @@ type UploadPresignResponse = {
   eventToken: string
   key: string
   putUrl: string
+  uploadMode?: 'r2_presigned' | 'worker_direct'
   requiredHeaders?: Record<string, string>
 }
 
@@ -93,7 +94,11 @@ type TranscriptPublishResponse = {
 const POLL_INTERVAL_MS = 4_000
 const PRESIGN_TIMEOUT_MS = 20_000
 const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000
+const MAX_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000
 const TRANSCRIPT_CREATE_TIMEOUT_MS = 45_000
+const ASSUMED_MIN_UPLOAD_BYTES_PER_SEC = 128 * 1024
+const UPLOAD_TIMEOUT_BUFFER_MS = 30_000
+const MAX_WORKER_DIRECT_UPLOAD_BYTES = 25 * 1024 * 1024
 
 type UploadStage = 'idle' | 'presign' | 'upload' | 'transcript'
 
@@ -161,6 +166,29 @@ function getUploadStageLabel(stage: UploadStage): string {
   if (stage === 'upload') return '2/3 파일 업로드'
   if (stage === 'transcript') return '3/3 전사 요청 생성'
   return '대기'
+}
+
+function computeUploadTimeoutMs(fileSizeBytes: number): number {
+  if (!Number.isFinite(fileSizeBytes) || fileSizeBytes <= 0) return UPLOAD_TIMEOUT_MS
+  const estimatedMs = Math.ceil(fileSizeBytes / ASSUMED_MIN_UPLOAD_BYTES_PER_SEC) * 1000 + UPLOAD_TIMEOUT_BUFFER_MS
+  return Math.max(UPLOAD_TIMEOUT_MS, Math.min(MAX_UPLOAD_TIMEOUT_MS, estimatedMs))
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0MB'
+  const mb = bytes / (1024 * 1024)
+  return `${mb.toFixed(1)}MB`
+}
+
+function isRetryableUploadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  if (message.includes('upload_cancelled') || message.includes('AbortError')) return false
+  if (message.includes('upload_timeout')) return true
+  if (message.includes('Failed to fetch') || message.includes('NetworkError')) return true
+  const statusMatch = message.match(/HTTP\s+(\d{3})/)
+  if (!statusMatch) return false
+  const status = Number(statusMatch[1])
+  return status >= 500 || status === 408 || status === 429
 }
 
 function toUploadSessionStageLabel(stage: string): string {
@@ -512,33 +540,68 @@ export function MeetingsView() {
       if (!putHeaders.has('Content-Type')) {
         putHeaders.set('Content-Type', selectedFile.type || 'audio/m4a')
       }
+      if (presign.uploadMode === 'worker_direct' && selectedFile.size > MAX_WORKER_DIRECT_UPLOAD_BYTES) {
+        throw new Error('worker_direct_file_too_large')
+      }
+      if (presign.uploadMode === 'worker_direct') {
+        setUploadMessage('현재 업로드 경로가 fallback(worker_direct)입니다. 대용량 파일은 실패할 수 있습니다.')
+      }
 
       setUploadStage('upload')
       currentStage = 'upload'
       const uploadStartedAt = uploadStartedAtRef.current
+      const uploadTimeoutMs = computeUploadTimeoutMs(selectedFile.size)
       if (activeSession) {
         void reportUploadEvent(activeSession, {
           eventType: 'upload_started',
           stage: 'upload',
           state: 'uploading',
           elapsedMs: uploadStartedAt ? Math.max(0, Date.now() - uploadStartedAt) : undefined,
+          payload: {
+            uploadMode: presign.uploadMode ?? 'unknown',
+            uploadTimeoutMs,
+          },
         })
       }
-      const uploadResponse = await runStageWithTimeout(
-        (signal) =>
-          fetch(presign.putUrl, {
-            method: 'PUT',
-            signal,
-            headers: putHeaders,
-            credentials: 'include',
-            body: selectedFile,
-          }),
-        UPLOAD_TIMEOUT_MS,
-        'upload_timeout',
-      )
-      if (!uploadResponse.ok) {
-        throw new Error(`오디오 업로드 실패: HTTP ${uploadResponse.status}`)
+      let uploadResponse: Response | null = null
+      let lastUploadError: unknown = null
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          uploadResponse = await runStageWithTimeout(
+            (signal) =>
+              fetch(presign.putUrl, {
+                method: 'PUT',
+                signal,
+                headers: putHeaders,
+                credentials: 'include',
+                body: selectedFile,
+              }),
+            uploadTimeoutMs,
+            'upload_timeout',
+          )
+          if (!uploadResponse.ok) {
+            throw new Error(`오디오 업로드 실패: HTTP ${uploadResponse.status}`)
+          }
+          break
+        } catch (uploadError: unknown) {
+          lastUploadError = uploadError
+          if (attempt >= 2 || !isRetryableUploadError(uploadError)) {
+            throw uploadError
+          }
+          if (activeSession) {
+            const startedAt = uploadStartedAtRef.current
+            void reportUploadEvent(activeSession, {
+              eventType: 'upload_retry',
+              stage: 'upload',
+              state: 'uploading',
+              reasonCode: 'retry_once',
+              reasonMessage: 'upload_retry_after_failure',
+              elapsedMs: startedAt ? Math.max(0, Date.now() - startedAt) : undefined,
+            })
+          }
+        }
       }
+      if (!uploadResponse?.ok && lastUploadError) throw lastUploadError
       if (activeSession) {
         const startedAt = uploadStartedAtRef.current
         void reportUploadEvent(activeSession, {
@@ -605,6 +668,9 @@ export function MeetingsView() {
       } else if (raw.includes('upload_timeout')) {
         message = '파일 업로드 시간이 너무 오래 걸립니다. 네트워크 상태를 확인하고 다시 시도해 주세요.'
         reasonCode = 'upload_timeout'
+      } else if (raw.includes('worker_direct_file_too_large')) {
+        message = `현재 fallback 업로드 경로(worker_direct)에서는 ${formatBytes(MAX_WORKER_DIRECT_UPLOAD_BYTES)} 초과 파일 업로드를 제한합니다. 파일을 줄이거나 네트워크 상태 확인 후 다시 시도해 주세요.`
+        reasonCode = 'worker_direct_file_too_large'
       } else if (raw.includes('transcript_create_timeout')) {
         message = '전사 요청 생성이 지연되고 있습니다. 새로고침 후 최근 전사 목록을 확인해 주세요.'
         reasonCode = 'transcript_create_timeout'
