@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { AssignmentModal } from './features/checklist/AssignmentModal'
 import { ChecklistView } from './features/checklist/ChecklistView'
+import { DashboardView } from './features/dashboard/DashboardView'
 import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
@@ -184,7 +185,7 @@ type TaskViewFilters = {
   hideDone: boolean
 }
 
-type TopView = 'projects' | 'tasks' | 'schedule' | 'checklist' | 'meetings' | 'guide'
+type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'checklist' | 'meetings' | 'guide'
 
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
@@ -279,8 +280,8 @@ function createDefaultTaskViewFilters(): TaskViewFilters {
 }
 
 function parseTopView(value: string | null): TopView {
-  if (value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist' || value === 'meetings' || value === 'guide') return value
-  return 'tasks'
+  if (value === 'dashboard' || value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist' || value === 'meetings' || value === 'guide') return value
+  return 'dashboard'
 }
 
 function parseTaskLayout(value: string | null): TaskLayoutMode {
@@ -532,6 +533,7 @@ function UiGlyph({ name }: { name: UiGlyphName }) {
 }
 
 function toTopViewPath(view: TopView): string {
+  if (view === 'dashboard') return 'Team Dashboard'
   if (view === 'projects') return 'Projects'
   if (view === 'tasks') return 'Tasks'
   if (view === 'schedule') return 'Schedule'
@@ -541,6 +543,7 @@ function toTopViewPath(view: TopView): string {
 }
 
 function toTopViewTitle(view: TopView): string {
+  if (view === 'dashboard') return '팀 운영 대시보드'
   if (view === 'projects') return '프로젝트'
   if (view === 'tasks') return '업무'
   if (view === 'schedule') return '일정'
@@ -942,6 +945,24 @@ function App() {
       toastTimerRef.current[id] = timerId
     },
     [dismissToast],
+  )
+
+  const copyText = useCallback(
+    async (text: string) => {
+      const normalized = text.trim()
+      if (!normalized) {
+        pushToast('error', '복사할 내용이 없습니다.')
+        return
+      }
+
+      try {
+        await navigator.clipboard.writeText(normalized)
+        pushToast('success', '보고 문구를 복사했습니다.')
+      } catch {
+        pushToast('error', '클립보드 복사에 실패했습니다.')
+      }
+    },
+    [pushToast],
   )
 
   useEffect(() => {
@@ -1945,6 +1966,7 @@ function App() {
   )
 
   const selectedViewDbUrl = useMemo(() => {
+    if (activeView === 'dashboard') return null
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
     if (activeView === 'checklist') return dbLinks.checklist
@@ -2650,6 +2672,19 @@ function App() {
             <div className="viewTabs">
               <button
                 type="button"
+                className={activeView === 'dashboard' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('dashboard')}
+                title="팀 운영 대시보드"
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">
+                    <UiGlyph name="pulse" />
+                  </span>
+                  <span>대시보드</span>
+                </span>
+              </button>
+              <button
+                type="button"
                 className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('projects')}
                 title="프로젝트"
@@ -2904,6 +2939,22 @@ function App() {
           <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
         </section>
 
+      {activeView === 'dashboard' ? (
+        <DashboardView
+          tasks={tasks}
+          projects={projects}
+          checklistRows={checklistRows}
+          selectedChecklistProject={selectedChecklistProject}
+          lastSyncedAt={lastSyncedAt}
+          onOpenView={setActiveView}
+          onOpenTask={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
+          onCopyReportSummary={copyText}
+          formatDateLabel={formatDateLabel}
+          joinOrDash={joinOrDash}
+          toStatusTone={toStatusTone}
+        />
+      ) : null}
+
       {activeView === 'tasks' ? (
         <TasksView
           taskLayout={taskLayout}
@@ -2963,6 +3014,13 @@ function App() {
           <article className="guideCard guideCardTabs">
             <h3>탭별 기능 안내</h3>
             <div className="guideTabGrid">
+              <section className="guideTabItem">
+                <h4>대시보드</h4>
+                <p>협업, 관리, 보고 흐름을 한 화면에서 고를 수 있는 팀 운영 시작점입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('dashboard')}>
+                  대시보드 열기
+                </button>
+              </section>
               <section className="guideTabItem">
                 <h4>프로젝트</h4>
                 <p>행사/전시회 전체를 조망하는 탭입니다. 진행일, 분류, 대표 업무 타임라인을 확인합니다.</p>
