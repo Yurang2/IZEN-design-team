@@ -2032,7 +2032,9 @@ async function createR2PresignedUrl(
 }
 
 function isWorkerDirectUploadAllowed(env: Env): boolean {
-  return isTruthy(asString(env.ALLOW_WORKER_DIRECT_UPLOADS))
+  const configured = asString(env.ALLOW_WORKER_DIRECT_UPLOADS)
+  if (configured === undefined) return true
+  return isTruthy(configured)
 }
 
 async function resolveMeetingUploadTarget(
@@ -4228,6 +4230,7 @@ async function handleMeetingRoutesNotion(
   }
 
   const toErrorStatus = (message: string): number => {
+    if (message.includes('r2_presign_required')) return 503
     if (
       message.includes('_required') ||
       message.includes('_invalid') ||
@@ -4242,7 +4245,6 @@ async function handleMeetingRoutesNotion(
     if (message.includes('notion_external_file_import_failed')) return 502
     if (message.includes('transcript_not_completed')) return 409
     if (message.includes('meetings_db_not_configured')) return 503
-    if (message.includes('r2_presign_required')) return 503
     if (message.includes('upload_event_token_invalid')) return 401
     if (message.toLowerCase().includes('too many subrequests')) return 503
     if (message.includes('not_found') || message.includes('object_not_found')) return 404
@@ -4321,21 +4323,22 @@ async function handleMeetingRoutesNotion(
       const validToken = await verifyMeetingUploadToken(env, token, { key, method: 'PUT' })
       if (!validToken) return respond.json({ ok: false, error: 'upload_token_invalid' }, 401)
 
-      const body = await request.arrayBuffer()
-      if (!body || body.byteLength <= 0) {
+      if (!request.body) {
         return respond.json({ ok: false, error: 'upload_body_required' }, 400)
       }
       const contentType = normalizeAudioContentType(asString(request.headers.get('content-type')), key)
       const bucket = getMeetingAudioBucket(env)
-      await bucket.put(key, body, {
+      await bucket.put(key, request.body, {
         httpMetadata: {
           contentType,
         },
       })
+      const contentLengthHeader = asString(request.headers.get('content-length'))
+      const bytes = contentLengthHeader && /^\d+$/.test(contentLengthHeader) ? Number(contentLengthHeader) : null
       return respond.ok({
         ok: true,
         key,
-        bytes: body.byteLength,
+        bytes,
         uploadMode: 'worker_direct',
       })
     }
