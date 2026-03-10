@@ -2060,8 +2060,8 @@ async function createR2PresignedUrl(
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '')
   const dateStamp = amzDate.slice(0, 8)
   const credentialScope = `${dateStamp}/${R2_PRESIGN_REGION}/${R2_PRESIGN_SERVICE}/aws4_request`
-  const host = `${accountId}.r2.cloudflarestorage.com`
-  const canonicalUri = `/${encodeRfc3986(bucketName)}/${encodeR2ObjectKey(key)}`
+  const host = `${bucketName}.${accountId}.r2.cloudflarestorage.com`
+  const canonicalUri = `/${encodeR2ObjectKey(key)}`
   const query = new URLSearchParams({
     'X-Amz-Algorithm': R2_PRESIGN_ALGORITHM,
     'X-Amz-Credential': `${accessKeyId}/${credentialScope}`,
