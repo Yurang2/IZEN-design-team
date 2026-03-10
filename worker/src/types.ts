@@ -25,12 +25,6 @@ export type R2BucketBinding = {
   put: (key: string, value: ArrayBuffer | ArrayBufferView | ReadableStream | string | Blob, options?: Record<string, unknown>) => Promise<R2ObjectLike | null>
   get: (key: string, options?: Record<string, unknown>) => Promise<R2ObjectLike | null>
   delete: (key: string | string[]) => Promise<void>
-  createPresignedUrl?: (
-    request: Request,
-    options?: {
-      expiresIn?: number
-    },
-  ) => Promise<URL | string>
 }
 
 export interface Env {
@@ -54,12 +48,15 @@ export interface Env {
   API_CACHE_TTL_SECONDS?: string
   CHECKLIST_DB?: ChecklistDbBinding
   MEETING_AUDIO_BUCKET?: R2BucketBinding
+  MEETING_AUDIO_BUCKET_NAME?: string
+  R2_ACCOUNT_ID?: string
+  R2_ACCESS_KEY_ID?: string
+  R2_SECRET_ACCESS_KEY?: string
   ASSEMBLYAI_API_KEY?: string
   ASSEMBLYAI_WEBHOOK_SECRET?: string
   ASSEMBLYAI_WEBHOOK_URL?: string
   ASSEMBLYAI_SPEECH_MODELS?: string
   MEETING_KEYWORD_LIMIT?: string
-  ALLOW_WORKER_DIRECT_UPLOADS?: string
   OPENAI_API_KEY?: string
   OPENAI_SUMMARY_MODEL?: string
 }

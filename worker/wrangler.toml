@@ -32,10 +32,16 @@ RATE_LIMIT_WINDOW_SECONDS = "10"
 RATE_LIMIT_MAX_REQUESTS = "180"
 RATE_LIMIT_BLOCK_SECONDS = "30"
 MEETING_KEYWORD_LIMIT = "120"
+MEETING_AUDIO_BUCKET_NAME = "izen-meeting-audio"
 # Optional: override default webhook callback target
 # ASSEMBLYAI_WEBHOOK_URL = "https://your-domain/api/assemblyai/webhook"
 # Optional: speech model routing list (comma-separated, default: universal-2)
 # ASSEMBLYAI_SPEECH_MODELS = "universal-2"
+# Required for R2 presigned upload/download signing:
+# R2_ACCOUNT_ID = "your-cloudflare-account-id"
+# Set as secrets:
+# npx wrangler secret put R2_ACCESS_KEY_ID --config worker/wrangler.toml
+# npx wrangler secret put R2_SECRET_ACCESS_KEY --config worker/wrangler.toml
 # Optional: GPT summary (used on POST /api/transcripts/:id/publish)
 # Set as secret:
 # npx wrangler secret put OPENAI_API_KEY --config worker/wrangler.toml

@@ -66,7 +66,7 @@ type UploadPresignResponse = {
   eventToken: string
   key: string
   putUrl: string
-  uploadMode?: 'r2_presigned' | 'worker_direct'
+  uploadMode?: 'r2_presigned'
   requiredHeaders?: Record<string, string>
 }
 
@@ -534,10 +534,6 @@ export function MeetingsView() {
       if (!putHeaders.has('Content-Type')) {
         putHeaders.set('Content-Type', selectedFile.type || 'audio/m4a')
       }
-      if (presign.uploadMode === 'worker_direct') {
-        setUploadMessage('현재 업로드 경로가 fallback(worker_direct)입니다. 대용량 파일은 업로드 시간이 길어질 수 있습니다.')
-      }
-
       setUploadStage('upload')
       currentStage = 'upload'
       const uploadStartedAt = uploadStartedAtRef.current
@@ -656,8 +652,8 @@ export function MeetingsView() {
       if (raw.includes('presign_timeout')) {
         message = '업로드 준비 단계가 지연되었습니다. 잠시 후 다시 시도해 주세요.'
         reasonCode = 'presign_timeout'
-      } else if (raw.includes('r2_presign_required')) {
-        message = '현재 배포 환경에서는 R2 presigned 업로드가 필요합니다. Worker direct 업로드는 비활성화되어 있어 스토리지 설정을 먼저 확인해야 합니다.'
+      } else if (raw.includes('r2_presign_required') || raw.includes('r2_presign_config_missing')) {
+        message = 'R2 presigned 업로드 설정이 완료되지 않았습니다. Cloudflare Worker에 R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY를 설정해야 합니다.'
         reasonCode = 'r2_presign_required'
       } else if (raw.includes('upload_timeout')) {
         message = '파일 업로드 시간이 너무 오래 걸립니다. 네트워크 상태를 확인하고 다시 시도해 주세요.'

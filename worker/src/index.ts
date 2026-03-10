@@ -50,6 +50,11 @@ const MAX_SUMMARY_SOURCE_CHARS = 10_000
 const SUMMARY_RETRY_SOURCE_CHARS = 6_000
 const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
 const DEFAULT_ASSEMBLY_SPEECH_MODELS = ['universal-2']
+const R2_PRESIGN_ALGORITHM = 'AWS4-HMAC-SHA256'
+const R2_PRESIGN_REGION = 'auto'
+const R2_PRESIGN_SERVICE = 's3'
+const R2_UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD'
+const DEFAULT_MEETING_AUDIO_BUCKET_NAME = 'izen-meeting-audio'
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
@@ -67,6 +72,7 @@ type RateLimitBucket = {
 }
 
 const rateLimitBuckets = new Map<string, RateLimitBucket>()
+const textEncoder = new TextEncoder()
 
 type AuthSessionPayload = {
   exp: number
@@ -1974,6 +1980,42 @@ function r2ObjectSize(object: unknown): number | null {
   return typeof size === 'number' && Number.isFinite(size) && size >= 0 ? size : null
 }
 
+function encodeRfc3986(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
+}
+
+function encodeR2ObjectKey(key: string): string {
+  return key
+    .split('/')
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeRfc3986(segment))
+    .join('/')
+}
+
+function toHex(bytes: ArrayBuffer | Uint8Array): string {
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  return Array.from(view, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(value))
+  return toHex(digest)
+}
+
+async function signHmacSha256(secret: string | Uint8Array, value: string): Promise<Uint8Array> {
+  const keyData = typeof secret === 'string' ? textEncoder.encode(secret) : secret
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, textEncoder.encode(value))
+  return new Uint8Array(signature)
+}
+
+async function buildR2SigningKey(secretAccessKey: string, dateStamp: string): Promise<Uint8Array> {
+  const dateKey = await signHmacSha256(`AWS4${secretAccessKey}`, dateStamp)
+  const regionKey = await signHmacSha256(dateKey, R2_PRESIGN_REGION)
+  const serviceKey = await signHmacSha256(regionKey, R2_PRESIGN_SERVICE)
+  return signHmacSha256(serviceKey, 'aws4_request')
+}
+
 async function readR2ObjectAsArrayBuffer(object: unknown): Promise<{ bytes: ArrayBuffer; contentType?: string } | null> {
   if (!object || typeof object !== 'object') return null
   const value = object as {
@@ -2006,24 +2048,37 @@ async function createR2PresignedUrl(
     contentType?: string
   },
 ): Promise<{ url: string; requiredHeaders?: Record<string, string> }> {
-  const bucket = getMeetingAudioBucket(env)
-  const r2Bucket = bucket as {
-    createPresignedUrl?: (request: Request, options?: { expiresIn?: number }) => Promise<URL | string>
-  }
-  if (typeof r2Bucket.createPresignedUrl !== 'function') {
-    throw new Error('r2_presign_not_supported_[UNKNOWN]')
-  }
-
-  const headers = new Headers()
-  if (options?.contentType) {
-    headers.set('content-type', options.contentType)
-  }
-  const unsigned = new Request(`https://r2-upload.local/${key}`, {
-    method,
-    headers,
+  const accountId = asString(env.R2_ACCOUNT_ID)
+  if (!accountId) throw new Error('r2_presign_config_missing:R2_ACCOUNT_ID')
+  const accessKeyId = asString(env.R2_ACCESS_KEY_ID)
+  if (!accessKeyId) throw new Error('r2_presign_config_missing:R2_ACCESS_KEY_ID')
+  const secretAccessKey = asString(env.R2_SECRET_ACCESS_KEY)
+  if (!secretAccessKey) throw new Error('r2_presign_config_missing:R2_SECRET_ACCESS_KEY')
+  const bucketName = asString(env.MEETING_AUDIO_BUCKET_NAME) ?? DEFAULT_MEETING_AUDIO_BUCKET_NAME
+  const expiresIn = Math.max(1, Math.min(options?.expiresIn ?? 60 * 15, 60 * 60))
+  const now = new Date()
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '')
+  const dateStamp = amzDate.slice(0, 8)
+  const credentialScope = `${dateStamp}/${R2_PRESIGN_REGION}/${R2_PRESIGN_SERVICE}/aws4_request`
+  const host = `${accountId}.r2.cloudflarestorage.com`
+  const canonicalUri = `/${encodeRfc3986(bucketName)}/${encodeR2ObjectKey(key)}`
+  const query = new URLSearchParams({
+    'X-Amz-Algorithm': R2_PRESIGN_ALGORITHM,
+    'X-Amz-Credential': `${accessKeyId}/${credentialScope}`,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': String(expiresIn),
+    'X-Amz-SignedHeaders': 'host',
   })
-  const signed = await r2Bucket.createPresignedUrl(unsigned, { expiresIn: options?.expiresIn ?? 60 * 15 })
-  const url = typeof signed === 'string' ? signed : signed.toString()
+  const canonicalQuery = Array.from(query.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${encodeRfc3986(name)}=${encodeRfc3986(value)}`)
+    .join('&')
+  const canonicalRequest = [method, canonicalUri, canonicalQuery, `host:${host}\n`, 'host', R2_UNSIGNED_PAYLOAD].join('\n')
+  const stringToSign = [R2_PRESIGN_ALGORITHM, amzDate, credentialScope, await sha256Hex(canonicalRequest)].join('\n')
+  const signingKey = await buildR2SigningKey(secretAccessKey, dateStamp)
+  const signature = toHex(await signHmacSha256(signingKey, stringToSign))
+  query.set('X-Amz-Signature', signature)
+  const url = `https://${host}${canonicalUri}?${query.toString()}`
   const requiredHeaders = options?.contentType ? { 'Content-Type': options.contentType } : undefined
   return {
     url,
@@ -2031,67 +2086,27 @@ async function createR2PresignedUrl(
   }
 }
 
-function isWorkerDirectUploadAllowed(env: Env): boolean {
-  const configured = asString(env.ALLOW_WORKER_DIRECT_UPLOADS)
-  if (configured === undefined) return true
-  return isTruthy(configured)
-}
-
 async function resolveMeetingUploadTarget(
   env: Env,
-  requestUrl: URL,
   key: string,
   contentType: string | undefined,
-): Promise<{ url: string; requiredHeaders?: Record<string, string>; uploadMode: 'r2_presigned' | 'worker_direct' }> {
-  try {
-    const signed = await createR2PresignedUrl(env, key, 'PUT', {
-      expiresIn: 15 * 60,
-      contentType,
-    })
-    return {
-      url: signed.url,
-      requiredHeaders: signed.requiredHeaders ?? {},
-      uploadMode: 'r2_presigned',
-    }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'unknown_error'
-    if (message !== 'r2_presign_not_supported_[UNKNOWN]') {
-      throw error
-    }
-
-    if (!isWorkerDirectUploadAllowed(env)) {
-      throw new Error('r2_presign_required')
-    }
-
-    const directUrl = new URL('/api/uploads/direct', requestUrl.origin)
-    directUrl.searchParams.set('key', key)
-    directUrl.searchParams.set('token', await createMeetingUploadToken(env, { key, method: 'PUT', expiresInSec: 15 * 60 }))
-    const requiredHeaders: Record<string, string> = {}
-    if (contentType) requiredHeaders['Content-Type'] = contentType
-    return {
-      url: directUrl.toString(),
-      requiredHeaders,
-      uploadMode: 'worker_direct',
-    }
+): Promise<{ url: string; requiredHeaders?: Record<string, string>; uploadMode: 'r2_presigned' }> {
+  const signed = await createR2PresignedUrl(env, key, 'PUT', {
+    expiresIn: 15 * 60,
+    contentType,
+  })
+  return {
+    url: signed.url,
+    requiredHeaders: signed.requiredHeaders ?? {},
+    uploadMode: 'r2_presigned',
   }
 }
 
-async function resolveMeetingFetchUrl(env: Env, requestUrl: URL, key: string): Promise<string> {
-  try {
-    const signed = await createR2PresignedUrl(env, key, 'GET', {
-      expiresIn: 60 * 60,
-    })
-    return signed.url
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'unknown_error'
-    if (message !== 'r2_presign_not_supported_[UNKNOWN]') {
-      throw error
-    }
-    const fetchUrl = new URL('/api/uploads/fetch', requestUrl.origin)
-    fetchUrl.searchParams.set('key', key)
-    fetchUrl.searchParams.set('token', await createMeetingUploadToken(env, { key, method: 'GET', expiresInSec: 60 * 60 }))
-    return fetchUrl.toString()
-  }
+async function resolveMeetingFetchUrl(env: Env, key: string): Promise<string> {
+  const signed = await createR2PresignedUrl(env, key, 'GET', {
+    expiresIn: 60 * 60,
+  })
+  return signed.url
 }
 
 function inferAudioContentType(key: string): string {
@@ -2201,8 +2216,6 @@ function isSensitivePath(path: string): boolean {
     path === '/uploads/presign' ||
     path === '/uploads/events' ||
     path === '/uploads/sessions' ||
-    path === '/uploads/direct' ||
-    path === '/uploads/fetch' ||
     path === '/transcripts' ||
     path === '/keyword-sets' ||
     path === '/keywords' ||
@@ -3669,7 +3682,6 @@ function extractFilenameFromAudioKey(audioKey: string): string {
 async function buildMeetingAudioFileAttachment(
   api: NotionApi,
   env: Env,
-  requestUrl: URL,
   audioKey: string,
 ): Promise<{ block: Record<string, unknown>; propertyFile: Record<string, unknown> }> {
   const bucket = getMeetingAudioBucket(env)
@@ -3685,7 +3697,7 @@ async function buildMeetingAudioFileAttachment(
 
   const created =
     objectSize !== null && objectSize > MAX_NOTION_FILE_UPLOAD_BYTES
-      ? await api.createExternalUrlFileUpload(filename, await resolveMeetingFetchUrl(env, requestUrl, audioKey))
+      ? await api.createExternalUrlFileUpload(filename, await resolveMeetingFetchUrl(env, audioKey))
       : await api.createFileUpload(filename, contentType)
   const fileUploadId = asString((created as Record<string, unknown>)?.id)
   if (!fileUploadId) {
@@ -4151,7 +4163,7 @@ async function updateMeetingNotionTranscriptFromAssembly(
   let audioAttachment: { block: Record<string, unknown>; propertyFile: Record<string, unknown> } | null = null
   let audioAttachmentError: string | null = null
   try {
-    audioAttachment = await buildMeetingAudioFileAttachment(found.ctx.api, env, url, found.row.audioKey)
+    audioAttachment = await buildMeetingAudioFileAttachment(found.ctx.api, env, found.row.audioKey)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (!message.includes('audio_not_found')) {
@@ -4193,8 +4205,6 @@ function isMeetingRoutePath(path: string): boolean {
     path === '/uploads/presign' ||
     path === '/uploads/events' ||
     path === '/uploads/sessions' ||
-    path === '/uploads/direct' ||
-    path === '/uploads/fetch' ||
     path === '/transcripts' ||
     path === '/keyword-sets' ||
     path === '/keywords' ||
@@ -4208,9 +4218,7 @@ function isMeetingRoutePath(path: string): boolean {
 function isMeetingPreAuthRoute(method: string, path: string): boolean {
   return (
     (method === 'POST' && path === '/assemblyai/webhook') ||
-    (method === 'POST' && path === '/uploads/events') ||
-    (method === 'PUT' && path === '/uploads/direct') ||
-    (method === 'GET' && path === '/uploads/fetch')
+    (method === 'POST' && path === '/uploads/events')
   )
 }
 
@@ -4230,7 +4238,7 @@ async function handleMeetingRoutesNotion(
   }
 
   const toErrorStatus = (message: string): number => {
-    if (message.includes('r2_presign_required')) return 503
+    if (message.includes('r2_presign_required') || message.includes('r2_presign_config_missing')) return 503
     if (
       message.includes('_required') ||
       message.includes('_invalid') ||
@@ -4269,7 +4277,7 @@ async function handleMeetingRoutesNotion(
       const contentType = normalizeAudioContentType(contentTypeRaw, filename)
       const key = buildMeetingAudioKey(filename)
       const uploadId = truncateText(asString(payload.uploadId), 120) ?? crypto.randomUUID()
-      const upload = await resolveMeetingUploadTarget(env, url, key, contentType)
+      const upload = await resolveMeetingUploadTarget(env, key, contentType)
       const eventToken = await createMeetingUploadToken(env, {
         key,
         method: 'EVENT',
@@ -4311,74 +4319,6 @@ async function handleMeetingRoutesNotion(
         putUrl: upload.url,
         requiredHeaders: upload.requiredHeaders ?? {},
         uploadMode: upload.uploadMode,
-      })
-    }
-
-    if (request.method === 'PUT' && path === '/uploads/direct') {
-      const key = asString(url.searchParams.get('key'))
-      if (!key) return respond.json({ ok: false, error: 'key_required' }, 400)
-      if (!isValidMeetingAudioKey(key)) return respond.json({ ok: false, error: 'key_invalid' }, 400)
-
-      const token = asString(url.searchParams.get('token'))
-      const validToken = await verifyMeetingUploadToken(env, token, { key, method: 'PUT' })
-      if (!validToken) return respond.json({ ok: false, error: 'upload_token_invalid' }, 401)
-
-      if (!request.body) {
-        return respond.json({ ok: false, error: 'upload_body_required' }, 400)
-      }
-      const contentType = normalizeAudioContentType(asString(request.headers.get('content-type')), key)
-      const bucket = getMeetingAudioBucket(env)
-      await bucket.put(key, request.body, {
-        httpMetadata: {
-          contentType,
-        },
-      })
-      const contentLengthHeader = asString(request.headers.get('content-length'))
-      const bytes = contentLengthHeader && /^\d+$/.test(contentLengthHeader) ? Number(contentLengthHeader) : null
-      return respond.ok({
-        ok: true,
-        key,
-        bytes,
-        uploadMode: 'worker_direct',
-      })
-    }
-
-    if ((request.method === 'GET' || request.method === 'HEAD') && path === '/uploads/fetch') {
-      const key = asString(url.searchParams.get('key'))
-      if (!key) return respond.json({ ok: false, error: 'key_required' }, 400)
-      if (!isValidMeetingAudioKey(key)) return respond.json({ ok: false, error: 'key_invalid' }, 400)
-
-      const token = asString(url.searchParams.get('token'))
-      const validToken = await verifyMeetingUploadToken(env, token, { key, method: 'GET' })
-      if (!validToken) return respond.json({ ok: false, error: 'upload_token_invalid' }, 401)
-
-      const bucket = getMeetingAudioBucket(env)
-      const object = await bucket.get(key)
-      if (!object) {
-        return respond.json({ ok: false, error: 'audio_not_found' }, 404)
-      }
-      const baseHeaders = new Headers({
-        'Content-Type': asString((object as { httpMetadata?: Record<string, unknown> }).httpMetadata?.contentType) ?? inferAudioContentType(key),
-        'Cache-Control': 'private, max-age=300',
-        'Accept-Ranges': 'bytes',
-      })
-      const objectSize = r2ObjectSize(object)
-      if (objectSize !== null) {
-        baseHeaders.set('Content-Length', String(objectSize))
-      }
-      if (request.method === 'HEAD') {
-        return new Response(null, {
-          status: 200,
-          headers: baseHeaders,
-        })
-      }
-      const resolved = await readR2ObjectForResponse(object)
-      if (!resolved) {
-        return respond.json({ ok: false, error: 'audio_not_found' }, 404)
-      }
-      return new Response(resolved.body, {
-        status: 200,
-        headers: baseHeaders,
       })
     }
 
@@ -4498,7 +4438,7 @@ async function handleMeetingRoutesNotion(
     if (request.method === 'POST' && path === '/transcripts') {
       const payload = parseMeetingTranscriptBody(await readJsonBody(request))
       const keywordInfo = await readKeywordPhrasesBySetIdFromNotion(env, payload.keywordSetId)
-      const audioUrl = await resolveMeetingFetchUrl(env, url, payload.key)
+      const audioUrl = await resolveMeetingFetchUrl(env, payload.key)
       const notionCtx = await ensureMeetingNotionSchema(env)
 
       const meetingId = crypto.randomUUID()
@@ -5764,8 +5704,6 @@ export default {
               'POST /api/uploads/presign',
               'POST /api/uploads/events',
               'GET /api/uploads/sessions?limit=20',
-              'PUT /api/uploads/direct?key=...&token=...',
-              'GET /api/uploads/fetch?key=...&token=...',
               'GET /api/transcripts?limit=20',
               'POST /api/transcripts',
               'GET /api/transcripts/:id',
