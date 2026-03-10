@@ -1452,6 +1452,7 @@ button.boardCard:hover {
 .dashboardSidebar {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .dashboardMetricStrip {
@@ -1542,6 +1543,8 @@ button.boardCard:hover {
   display: grid;
   gap: 10px;
   min-height: 260px;
+  min-width: 0;
+  overflow: hidden;
   padding: 12px;
 }
 
@@ -1572,17 +1575,30 @@ button.boardCard:hover {
   padding-bottom: 10px;
 }
 
-.dashboardFocusLaneHeader strong {
-  color: var(--text-main);
-  font-size: 28px;
-  letter-spacing: -0.03em;
-  line-height: 1;
+.dashboardFocusLaneHeaderMain {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .dashboardFocusLaneLabel {
   color: var(--text-main);
   font-size: 13px;
   font-weight: 700;
+}
+
+.dashboardFocusLaneCount {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  color: var(--text-main);
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 8px;
 }
 
 .dashboardLaneList,
@@ -1598,6 +1614,8 @@ button.boardCard:hover {
   border-radius: 10px;
   display: grid;
   gap: 5px;
+  min-width: 0;
+  overflow: hidden;
   padding: 10px;
   text-align: left;
   width: 100%;
@@ -1624,6 +1642,7 @@ button.dashboardNavButton:hover {
   display: flex;
   gap: 8px;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .dashboardTaskCardTop strong,
@@ -1631,6 +1650,8 @@ button.dashboardNavButton:hover {
 .dashboardNavButton strong {
   color: var(--text-main);
   font-size: 13px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dashboardSplitGrid {
@@ -1664,6 +1685,8 @@ button.dashboardNavButton {
   display: grid;
   gap: 4px;
   min-height: 84px;
+  min-width: 0;
+  overflow: hidden;
   padding: 12px;
   text-align: left;
 }
@@ -1671,6 +1694,7 @@ button.dashboardNavButton {
 .dashboardNavButton span {
   color: var(--text-sub);
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .dashboardPulseGrid {
@@ -1711,6 +1735,7 @@ button.dashboardNavButton {
   font: inherit;
   line-height: 1.6;
   min-height: 180px;
+  min-width: 0;
   padding: 12px;
   resize: vertical;
   width: 100%;
@@ -1758,6 +1783,11 @@ button.dashboardNavButton {
   border-color: #304054;
 }
 
+[data-theme='v2'] .dashboardFocusLaneCount {
+  background: #202a38;
+  border-color: #334358;
+}
+
 [data-theme='v2'] .dashboardFocusLane.tone-red,
 [data-theme='v2'] .dashboardFocusLane.tone-blue,
 [data-theme='v2'] .dashboardFocusLane.tone-green,
@@ -1803,6 +1833,11 @@ button.dashboardNavButton {
   .dashboardListItemTop,
   .dashboardHeaderActions,
   .dashboardSummaryFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboardFocusLaneHeaderMain {
     align-items: flex-start;
     flex-direction: column;
   }

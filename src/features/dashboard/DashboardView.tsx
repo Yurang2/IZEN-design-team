@@ -341,9 +341,9 @@ export function DashboardView({
               {dashboardSummary.focusBuckets.map((bucket) => (
                 <article key={bucket.key} className={`dashboardFocusLane tone-${bucket.tone}`}>
                   <div className="dashboardFocusLaneHeader">
-                    <div>
+                    <div className="dashboardFocusLaneHeaderMain">
                       <span className="dashboardFocusLaneLabel">{bucket.label}</span>
-                      <strong>{bucket.tasks.length}</strong>
+                      <span className="dashboardFocusLaneCount">{bucket.tasks.length}건</span>
                     </div>
                     <span className="dashboardFocusLaneHelper">{bucket.helper}</span>
                   </div>
@@ -482,7 +482,7 @@ export function DashboardView({
                 <strong>{dashboardSummary.urgentTasks.length}</strong>
               </div>
               <div>
-                <span>할당 커버리지</span>
+                <span>체크리스트 할당률</span>
                 <strong>{dashboardSummary.checklistCoveragePct}%</strong>
               </div>
             </div>
