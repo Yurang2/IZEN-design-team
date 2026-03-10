@@ -4324,7 +4324,7 @@ async function handleMeetingRoutesNotion(
 
     if (request.method === 'POST' && path === '/uploads/events') {
       if (!env.CHECKLIST_DB) {
-        return respond.json({ ok: false, error: 'meetings_db_not_configured' }, 503)
+        return respond.ok({ ok: true, skipped: true })
       }
       const eventBody = parseMeetingUploadEventBody(await readFlexibleJsonBody(request))
       const validToken = await verifyMeetingUploadToken(env, eventBody.token, {

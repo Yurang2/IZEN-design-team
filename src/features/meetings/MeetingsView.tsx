@@ -560,7 +560,7 @@ export function MeetingsView() {
                 method: 'PUT',
                 signal,
                 headers: putHeaders,
-                credentials: 'include',
+                credentials: 'omit',
                 body: selectedFile,
               }),
             uploadTimeoutMs,
