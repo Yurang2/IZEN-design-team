@@ -109,6 +109,21 @@ export class NotionApi {
     )
   }
 
+  async createExternalUrlFileUpload(filename: string, externalUrl: string): Promise<any> {
+    return this.request(
+      '/file_uploads',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          mode: 'external_url',
+          filename,
+          external_url: externalUrl,
+        }),
+      },
+      NOTION_FILE_UPLOAD_VERSION,
+    )
+  }
+
   async sendFileUpload(fileUploadId: string, bytes: ArrayBuffer, filename: string, contentType: string): Promise<any> {
     const form = new FormData()
     const blob = new Blob([bytes], { type: contentType })

@@ -87,6 +87,7 @@ type TranscriptPublishResponse = {
   status: string
   utteranceCount: number
   audioFileAttached: boolean
+  audioAttachmentError: string | null
   summaryGenerated: boolean
   summaryError: string | null
 }
@@ -655,6 +656,9 @@ export function MeetingsView() {
       if (raw.includes('presign_timeout')) {
         message = '업로드 준비 단계가 지연되었습니다. 잠시 후 다시 시도해 주세요.'
         reasonCode = 'presign_timeout'
+      } else if (raw.includes('r2_presign_required')) {
+        message = '현재 배포 환경에서는 R2 presigned 업로드가 필요합니다. Worker direct 업로드는 비활성화되어 있어 스토리지 설정을 먼저 확인해야 합니다.'
+        reasonCode = 'r2_presign_required'
       } else if (raw.includes('upload_timeout')) {
         message = '파일 업로드 시간이 너무 오래 걸립니다. 네트워크 상태를 확인하고 다시 시도해 주세요.'
         reasonCode = 'upload_timeout'
@@ -812,6 +816,13 @@ export function MeetingsView() {
         setUploadMessage(`Notion 반영은 완료되었지만 요약은 생성되지 않았습니다: ${published.summaryError}`)
       } else {
         setUploadMessage('라벨링된 화자 발화를 Notion에 반영했습니다. (요약 미생성)')
+      }
+      if (published.audioAttachmentError) {
+        setUploadMessage((current) =>
+          current
+            ? `${current} 오디오 파일 첨부는 건너뛰었습니다: ${published.audioAttachmentError}`
+            : `Notion 반영은 완료되었지만 오디오 파일 첨부는 건너뛰었습니다: ${published.audioAttachmentError}`,
+        )
       }
       await loadTranscriptDetail(selectedTranscriptId)
       await loadTranscripts()

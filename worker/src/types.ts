@@ -59,6 +59,7 @@ export interface Env {
   ASSEMBLYAI_WEBHOOK_URL?: string
   ASSEMBLYAI_SPEECH_MODELS?: string
   MEETING_KEYWORD_LIMIT?: string
+  ALLOW_WORKER_DIRECT_UPLOADS?: string
   OPENAI_API_KEY?: string
   OPENAI_SUMMARY_MODEL?: string
 }

@@ -33,6 +33,8 @@ const MEETING_AUDIO_PREFIX = 'meetings/audio'
 const DEFAULT_MEETING_KEYWORD_LIMIT = 120
 const MIN_MEETING_KEYWORD_LIMIT = 50
 const MAX_MEETING_KEYWORD_LIMIT = 150
+const LARGE_NOTION_IMPORT_POLL_ATTEMPTS = 8
+const LARGE_NOTION_IMPORT_POLL_MS = 1_500
 const DEFAULT_MIN_SPEAKERS = 2
 const DEFAULT_MAX_SPEAKERS = 10
 const MIN_ALLOWED_SPEAKERS = 1
@@ -103,6 +105,10 @@ function isTruthy(value: string | undefined): boolean {
   if (!value) return false
   const normalized = value.trim().toLowerCase()
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on'
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function isAuthDisabled(env: Env): boolean {
@@ -1962,6 +1968,12 @@ async function readR2ObjectForResponse(object: unknown): Promise<{ body: BodyIni
   return null
 }
 
+function r2ObjectSize(object: unknown): number | null {
+  if (!object || typeof object !== 'object') return null
+  const size = (object as { size?: unknown }).size
+  return typeof size === 'number' && Number.isFinite(size) && size >= 0 ? size : null
+}
+
 async function readR2ObjectAsArrayBuffer(object: unknown): Promise<{ bytes: ArrayBuffer; contentType?: string } | null> {
   if (!object || typeof object !== 'object') return null
   const value = object as {
@@ -2019,6 +2031,10 @@ async function createR2PresignedUrl(
   }
 }
 
+function isWorkerDirectUploadAllowed(env: Env): boolean {
+  return isTruthy(asString(env.ALLOW_WORKER_DIRECT_UPLOADS))
+}
+
 async function resolveMeetingUploadTarget(
   env: Env,
   requestUrl: URL,
@@ -2039,6 +2055,10 @@ async function resolveMeetingUploadTarget(
     const message = error instanceof Error ? error.message : 'unknown_error'
     if (message !== 'r2_presign_not_supported_[UNKNOWN]') {
       throw error
+    }
+
+    if (!isWorkerDirectUploadAllowed(env)) {
+      throw new Error('r2_presign_required')
     }
 
     const directUrl = new URL('/api/uploads/direct', requestUrl.origin)
@@ -3647,31 +3667,52 @@ function extractFilenameFromAudioKey(audioKey: string): string {
 async function buildMeetingAudioFileAttachment(
   api: NotionApi,
   env: Env,
+  requestUrl: URL,
   audioKey: string,
 ): Promise<{ block: Record<string, unknown>; propertyFile: Record<string, unknown> }> {
   const bucket = getMeetingAudioBucket(env)
   const object = await bucket.get(audioKey)
-  const resolved = await readR2ObjectAsArrayBuffer(object)
-  if (!resolved) {
+  if (!object) {
     throw new Error('audio_not_found')
-  }
-  if (resolved.bytes.byteLength > MAX_NOTION_FILE_UPLOAD_BYTES) {
-    throw new Error('notion_file_too_large')
   }
 
   const filename = extractFilenameFromAudioKey(audioKey)
-  const contentType = normalizeAudioContentType(resolved.contentType, filename)
-  const created = await api.createFileUpload(filename, contentType)
+  const objectSize = r2ObjectSize(object)
+  const resolved = objectSize !== null && objectSize > MAX_NOTION_FILE_UPLOAD_BYTES ? null : await readR2ObjectAsArrayBuffer(object)
+  const contentType = normalizeAudioContentType(resolved?.contentType, filename)
+
+  const created =
+    objectSize !== null && objectSize > MAX_NOTION_FILE_UPLOAD_BYTES
+      ? await api.createExternalUrlFileUpload(filename, await resolveMeetingFetchUrl(env, requestUrl, audioKey))
+      : await api.createFileUpload(filename, contentType)
   const fileUploadId = asString((created as Record<string, unknown>)?.id)
   if (!fileUploadId) {
     throw new Error('notion_file_upload_create_failed')
   }
 
-  await api.sendFileUpload(fileUploadId, resolved.bytes, filename, contentType)
-  const uploaded = await api.retrieveFileUpload(fileUploadId)
-  const status = asString((uploaded as Record<string, unknown>)?.status)
-  if (status && status !== 'uploaded') {
-    throw new Error('notion_file_upload_send_failed')
+  if (resolved) {
+    await api.sendFileUpload(fileUploadId, resolved.bytes, filename, contentType)
+  }
+
+  let uploaded = await api.retrieveFileUpload(fileUploadId)
+  let status = asString((uploaded as Record<string, unknown>)?.status)
+  if (resolved) {
+    if (status && status !== 'uploaded') {
+      throw new Error('notion_file_upload_send_failed')
+    }
+  } else {
+    for (let attempt = 0; attempt < LARGE_NOTION_IMPORT_POLL_ATTEMPTS; attempt += 1) {
+      if (!status || status === 'uploaded') break
+      if (status === 'failed' || status === 'expired') {
+        throw new Error('notion_external_file_import_failed')
+      }
+      await delay(LARGE_NOTION_IMPORT_POLL_MS)
+      uploaded = await api.retrieveFileUpload(fileUploadId)
+      status = asString((uploaded as Record<string, unknown>)?.status)
+    }
+    if (status === 'failed' || status === 'expired') {
+      throw new Error('notion_external_file_import_failed')
+    }
   }
 
   const fileUploadRef = {
@@ -4051,6 +4092,7 @@ async function updateMeetingNotionTranscriptFromAssembly(
   utteranceCount: number
   unmappedSpeakers: string[]
   audioFileAttached: boolean
+  audioAttachmentError: string | null
   summaryGenerated: boolean
   summaryError: string | null
 }> {
@@ -4105,11 +4147,14 @@ async function updateMeetingNotionTranscriptFromAssembly(
   }
 
   let audioAttachment: { block: Record<string, unknown>; propertyFile: Record<string, unknown> } | null = null
+  let audioAttachmentError: string | null = null
   try {
-    audioAttachment = await buildMeetingAudioFileAttachment(found.ctx.api, env, found.row.audioKey)
+    audioAttachment = await buildMeetingAudioFileAttachment(found.ctx.api, env, url, found.row.audioKey)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    if (!message.includes('audio_not_found')) throw error
+    if (!message.includes('audio_not_found')) {
+      audioAttachmentError = message.trim().slice(0, 240) || 'audio_attachment_failed'
+    }
   }
 
   const blocks = [
@@ -4135,6 +4180,7 @@ async function updateMeetingNotionTranscriptFromAssembly(
     utteranceCount: utterances.length,
     unmappedSpeakers: [],
     audioFileAttached: Boolean(audioAttachment),
+    audioAttachmentError,
     summaryGenerated: Boolean(summaryText && summaryText.trim()),
     summaryError,
   }
@@ -4193,8 +4239,10 @@ async function handleMeetingRoutesNotion(
     }
     if (message.includes('notion_file_too_large')) return 413
     if (message.includes('notion_file_upload_')) return 502
+    if (message.includes('notion_external_file_import_failed')) return 502
     if (message.includes('transcript_not_completed')) return 409
     if (message.includes('meetings_db_not_configured')) return 503
+    if (message.includes('r2_presign_required')) return 503
     if (message.includes('upload_event_token_invalid')) return 401
     if (message.toLowerCase().includes('too many subrequests')) return 503
     if (message.includes('not_found') || message.includes('object_not_found')) return 404
@@ -4292,7 +4340,7 @@ async function handleMeetingRoutesNotion(
       })
     }
 
-    if (request.method === 'GET' && path === '/uploads/fetch') {
+    if ((request.method === 'GET' || request.method === 'HEAD') && path === '/uploads/fetch') {
       const key = asString(url.searchParams.get('key'))
       if (!key) return respond.json({ ok: false, error: 'key_required' }, 400)
       if (!isValidMeetingAudioKey(key)) return respond.json({ ok: false, error: 'key_invalid' }, 400)
@@ -4303,16 +4351,31 @@ async function handleMeetingRoutesNotion(
 
       const bucket = getMeetingAudioBucket(env)
       const object = await bucket.get(key)
+      if (!object) {
+        return respond.json({ ok: false, error: 'audio_not_found' }, 404)
+      }
+      const baseHeaders = new Headers({
+        'Content-Type': asString((object as { httpMetadata?: Record<string, unknown> }).httpMetadata?.contentType) ?? inferAudioContentType(key),
+        'Cache-Control': 'private, max-age=300',
+        'Accept-Ranges': 'bytes',
+      })
+      const objectSize = r2ObjectSize(object)
+      if (objectSize !== null) {
+        baseHeaders.set('Content-Length', String(objectSize))
+      }
+      if (request.method === 'HEAD') {
+        return new Response(null, {
+          status: 200,
+          headers: baseHeaders,
+        })
+      }
       const resolved = await readR2ObjectForResponse(object)
       if (!resolved) {
         return respond.json({ ok: false, error: 'audio_not_found' }, 404)
       }
       return new Response(resolved.body, {
         status: 200,
-        headers: {
-          'Content-Type': resolved.contentType ?? inferAudioContentType(key),
-          'Cache-Control': 'private, max-age=300',
-        },
+        headers: baseHeaders,
       })
     }
 
