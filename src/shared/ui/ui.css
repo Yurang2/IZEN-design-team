@@ -1361,27 +1361,32 @@ button.boardCard:hover {
 
 .dashboardView {
   display: grid;
-  gap: 12px;
-}
-
-.dashboardHero {
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 32%),
-    linear-gradient(180deg, #f8fbff 0%, #f2f7ff 100%);
-  border: 1px solid #d8e4f8;
-  border-radius: 14px;
-  display: grid;
   gap: 14px;
-  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
-  padding: 16px;
 }
 
-.dashboardHeroMain {
+.dashboardHeader {
+  align-items: flex-start;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+  border: 1px solid #d7e3f7;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 18px;
+}
+
+.dashboardHeaderMain,
+.dashboardHeaderMeta,
+.dashboardSectionHeader > div {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
-.dashboardEyebrow {
+.dashboardEyebrow,
+.dashboardSectionEyebrow {
   color: #2563eb;
   font-size: 11px;
   font-weight: 700;
@@ -1389,158 +1394,206 @@ button.boardCard:hover {
   text-transform: uppercase;
 }
 
-.dashboardHero h2 {
+.dashboardHeader h2,
+.dashboardCard h3 {
   color: var(--text-main);
-  font-size: 24px;
-  line-height: 1.2;
   margin: 0;
 }
 
-.dashboardHero p {
+.dashboardHeader h2 {
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.dashboardHeader p,
+.dashboardCard p,
+.dashboardListMeta,
+.dashboardFocusLaneHelper,
+.dashboardEmptyState {
   color: var(--text-sub);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.55;
   margin: 0;
-  max-width: 720px;
 }
 
-.dashboardHeroActions,
-.dashboardCardActions,
+.dashboardHeaderMeta {
+  justify-items: end;
+  min-width: 280px;
+}
+
+.dashboardHeaderChip,
+.dashboardSummaryChip {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #d8e4f8;
+  border-radius: 999px;
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+
+.dashboardHeaderActions,
 .dashboardSummaryFooter {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
 }
 
-.dashboardSnapshotGrid,
-.dashboardWorkflowGrid {
+.dashboardPrimaryGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.9fr);
+}
+
+.dashboardMainColumn,
+.dashboardSidebar {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboardMetricStrip {
   display: grid;
   gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.dashboardSnapshotGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.dashboardSnapshotCard,
-.dashboardWorkflowCard,
+.dashboardMetricCard,
 .dashboardCard {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: var(--shadow-sm);
 }
 
-.dashboardSnapshotCard {
+.dashboardMetricCard {
   display: grid;
-  gap: 4px;
-  padding: 12px;
+  gap: 6px;
+  min-height: 128px;
+  padding: 14px;
 }
 
-.dashboardSnapshotCard span,
-.dashboardSnapshotCard small {
-  color: var(--text-sub);
-  font-size: 12px;
-}
-
-.dashboardSnapshotCard strong {
+.dashboardMetricCard strong {
   color: var(--text-main);
-  font-size: 24px;
+  font-size: 32px;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
-.dashboardSnapshotCard.danger {
-  border-color: #fecaca;
-}
-
-.dashboardSnapshotCard.warning {
-  border-color: #fed7aa;
-}
-
-.dashboardWorkflowGrid {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.dashboardWorkflowCard,
-.dashboardCard {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-}
-
-.dashboardWorkflowTag {
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.dashboardWorkflowCard h3,
-.dashboardCard h3 {
-  color: var(--text-main);
-  font-size: 16px;
-  margin: 0;
-}
-
-.dashboardWorkflowCard p,
-.dashboardCard p,
-.dashboardListMeta {
+.dashboardMetricLabel {
   color: var(--text-sub);
   font-size: 12px;
-  line-height: 1.5;
-  margin: 0;
+  font-weight: 700;
 }
 
-.dashboardMetricGrid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0;
-}
-
-.dashboardMetricGrid div {
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-}
-
-.dashboardMetricGrid dt {
-  color: var(--text-sub);
+.dashboardMetricCard small {
+  color: var(--text-muted);
   font-size: 11px;
 }
 
-.dashboardMetricGrid dd {
-  color: var(--text-main);
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0;
+.dashboardMetricCard.tone-red {
+  border-color: #fecaca;
+  box-shadow: 0 10px 28px rgba(185, 28, 28, 0.08);
 }
 
-.dashboardColumns {
+.dashboardMetricCard.tone-blue {
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
+}
+
+.dashboardMetricCard.tone-amber {
+  border-color: #fed7aa;
+  box-shadow: 0 10px 28px rgba(194, 65, 12, 0.08);
+}
+
+.dashboardCard {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding: 14px;
 }
 
-.dashboardCardHeader {
-  align-items: start;
+.dashboardSectionHeader {
+  align-items: flex-start;
   display: flex;
-  gap: 8px;
+  gap: 12px;
   justify-content: space-between;
 }
 
+.dashboardSectionHeader.compact {
+  align-items: flex-start;
+}
+
+.dashboardFocusBoard {
+  gap: 14px;
+}
+
+.dashboardFocusGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboardFocusLane {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  min-height: 260px;
+  padding: 12px;
+}
+
+.dashboardFocusLane.tone-red {
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.92) 0%, rgba(255, 255, 255, 0.96) 100%);
+  border-color: #fecaca;
+}
+
+.dashboardFocusLane.tone-blue {
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
+  border-color: #bfdbfe;
+}
+
+.dashboardFocusLane.tone-green {
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.94) 0%, rgba(255, 255, 255, 0.96) 100%);
+  border-color: #bbf7d0;
+}
+
+.dashboardFocusLane.tone-gray {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
+  border-color: #dbe2ea;
+}
+
+.dashboardFocusLaneHeader {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+}
+
+.dashboardFocusLaneHeader strong {
+  color: var(--text-main);
+  font-size: 28px;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.dashboardFocusLaneLabel {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboardLaneList,
 .dashboardList {
   display: grid;
   gap: 8px;
 }
 
+.dashboardTaskCard,
 .dashboardListItem {
-  background: var(--surface-soft);
+  background: rgba(255, 255, 255, 0.88);
   border: 1px solid var(--border);
   border-radius: 10px;
   display: grid;
@@ -1550,20 +1603,22 @@ button.boardCard:hover {
   width: 100%;
 }
 
-button.dashboardListItem {
+.dashboardTaskCard {
   color: inherit;
   cursor: pointer;
 }
 
-button.dashboardListItem:hover {
+.dashboardTaskCard:hover,
+button.dashboardNavButton:hover {
   border-color: var(--primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .dashboardListItem.is-static {
   cursor: default;
 }
 
+.dashboardTaskCardTop,
 .dashboardListItemTop {
   align-items: center;
   display: flex;
@@ -1571,9 +1626,17 @@ button.dashboardListItem:hover {
   justify-content: space-between;
 }
 
-.dashboardListItemTop strong {
+.dashboardTaskCardTop strong,
+.dashboardListItemTop strong,
+.dashboardNavButton strong {
   color: var(--text-main);
   font-size: 13px;
+}
+
+.dashboardSplitGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .dashboardDateChip {
@@ -1586,39 +1649,120 @@ button.dashboardListItem:hover {
   padding: 4px 8px;
 }
 
-.dashboardSummaryBox {
+.dashboardNavGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+button.dashboardNavButton {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  min-height: 84px;
+  padding: 12px;
+  text-align: left;
+}
+
+.dashboardNavButton span {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+
+.dashboardPulseGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboardPulseGrid div {
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: 10px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.dashboardPulseGrid span {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+
+.dashboardPulseGrid strong {
+  color: var(--text-main);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.dashboardSummaryCard {
+  gap: 10px;
+}
+
+.dashboardSummaryBox {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   color: var(--text-main);
   font: inherit;
-  line-height: 1.55;
-  min-height: 120px;
-  padding: 10px 12px;
+  line-height: 1.6;
+  min-height: 180px;
+  padding: 12px;
   resize: vertical;
   width: 100%;
 }
 
-[data-theme='v2'] .dashboardHero {
+.dashboardSummaryFooter {
+  justify-content: flex-start;
+}
+
+.dashboardEmptyState {
+  align-self: start;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed rgba(148, 163, 184, 0.42);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+[data-theme='v2'] .dashboardHeader {
   background:
-    radial-gradient(circle at top right, rgba(96, 165, 250, 0.14), transparent 34%),
-    linear-gradient(180deg, #17202c 0%, #131a24 100%);
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 32%),
+    linear-gradient(180deg, #16202b 0%, #121a24 100%);
   border-color: var(--border);
 }
 
 [data-theme='v2'] .dashboardEyebrow,
-[data-theme='v2'] .dashboardWorkflowTag {
+[data-theme='v2'] .dashboardSectionEyebrow {
   color: #93c5fd;
 }
 
-[data-theme='v2'] .dashboardSnapshotCard,
-[data-theme='v2'] .dashboardWorkflowCard,
+[data-theme='v2'] .dashboardMetricCard,
 [data-theme='v2'] .dashboardCard,
+[data-theme='v2'] .dashboardFocusLane,
+[data-theme='v2'] .dashboardTaskCard,
 [data-theme='v2'] .dashboardListItem,
-[data-theme='v2'] .dashboardMetricGrid div,
-[data-theme='v2'] .dashboardSummaryBox {
+[data-theme='v2'] .dashboardSummaryBox,
+[data-theme='v2'] .dashboardPulseGrid div,
+[data-theme='v2'] button.dashboardNavButton {
   background: var(--surface2);
   border-color: var(--border);
+}
+
+[data-theme='v2'] .dashboardHeaderChip,
+[data-theme='v2'] .dashboardSummaryChip {
+  background: #1d2735;
+  border-color: #304054;
+}
+
+[data-theme='v2'] .dashboardFocusLane.tone-red,
+[data-theme='v2'] .dashboardFocusLane.tone-blue,
+[data-theme='v2'] .dashboardFocusLane.tone-green,
+[data-theme='v2'] .dashboardFocusLane.tone-gray {
+  background: var(--surface2);
 }
 
 [data-theme='v2'] .dashboardDateChip {
@@ -1627,37 +1771,52 @@ button.dashboardListItem:hover {
   color: #dbeafe;
 }
 
+@media (max-width: 1280px) {
+  .dashboardPrimaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboardSidebar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1100px) {
-  .dashboardHero,
-  .dashboardColumns {
+  .dashboardFocusGrid,
+  .dashboardMetricStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboardSplitGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboardSidebar {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
-  .dashboardSnapshotGrid,
-  .dashboardMetricGrid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 560px) {
-  .dashboardHeroActions,
-  .dashboardCardActions,
+  .dashboardHeader,
+  .dashboardSectionHeader,
+  .dashboardTaskCardTop,
+  .dashboardListItemTop,
+  .dashboardHeaderActions,
   .dashboardSummaryFooter {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .dashboardSnapshotGrid,
-  .dashboardMetricGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboardCardHeader,
-  .dashboardListItemTop {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dashboardHeaderMeta {
+    justify-items: start;
+    min-width: 0;
+  }
+
+  .dashboardFocusGrid,
+  .dashboardMetricStrip,
+  .dashboardNavGrid,
+  .dashboardPulseGrid {
+    grid-template-columns: 1fr;
   }
 }
 
