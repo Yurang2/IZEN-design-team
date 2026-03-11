@@ -45,6 +45,9 @@ const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
+const MAX_TRANSCRIPT_PARAGRAPH_CHARS = 1_500
+const MAX_TRANSCRIPT_PARAGRAPH_LINES = 12
+const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
 const MAX_SUMMARY_SOURCE_CHARS = 180_000
 const SUMMARY_RETRY_SOURCE_CHARS = 120_000
@@ -3253,11 +3256,11 @@ async function findMeetingNotionKeywordPageById(
   }
 }
 
-function paragraphBlock(text: string): Record<string, unknown> {
+function paragraphBlock(text: string, maxChars = NOTION_RICH_TEXT_CHUNK): Record<string, unknown> {
   return {
     object: 'block',
     type: 'paragraph',
-    paragraph: { rich_text: toNotionRichText(text, NOTION_RICH_TEXT_CHUNK) },
+    paragraph: { rich_text: toNotionRichText(text, maxChars) },
   }
 }
 
@@ -3274,6 +3277,17 @@ function bulletBlock(text: string): Record<string, unknown> {
     object: 'block',
     type: 'bulleted_list_item',
     bulleted_list_item: { rich_text: toNotionRichText(text, NOTION_RICH_TEXT_CHUNK) },
+  }
+}
+
+function toggleBlock(text: string, children: Record<string, unknown>[] = []): Record<string, unknown> {
+  return {
+    object: 'block',
+    type: 'toggle',
+    toggle: {
+      rich_text: toNotionRichText(text, NOTION_RICH_TEXT_CHUNK),
+      children,
+    },
   }
 }
 
@@ -3630,18 +3644,49 @@ function buildTranscriptBodyBlocks(
   blocks.push(headingBlock('heading_2', '\uC694\uC57D'))
   blocks.push(...buildTranscriptSummaryBlocks(summaryText, summaryError))
   blocks.push(headingBlock('heading_2', '\uC804\uBB38'))
-
-  if (utterances.length > 0) {
-    blocks.push(headingBlock('heading_3', '\uD654\uC790\uBCC4 \uBC1C\uD654 (' + Math.min(utterances.length, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS) + '/' + utterances.length + ')'))
-    for (const row of utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)) {
-      const displaySpeaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
-      const timestamp = toUtteranceTimestampRange(row.start, row.end)
-      blocks.push(bulletBlock(timestamp + displaySpeaker + ': ' + row.text))
-    }
-  } else {
-    blocks.push(paragraphBlock('\uD654\uC790\uBCC4 \uBC1C\uD654\uAC00 \uC544\uC9C1 \uC5C6\uC2B5\uB2C8\uB2E4.'))
-  }
+  blocks.push(...buildTranscriptUtteranceBlocks(utterances, speakerMap))
   return blocks
+}
+
+function buildTranscriptUtteranceBlocks(
+  utterances: Array<{ speaker: string; text: string; start: number | null; end: number | null }>,
+  speakerMap: Record<string, string>,
+): Record<string, unknown>[] {
+  if (utterances.length === 0) {
+    return [paragraphBlock('\uD654\uC790\uBCC4 \uBC1C\uD654\uAC00 \uC544\uC9C1 \uC5C6\uC2B5\uB2C8\uB2E4.')]
+  }
+
+  const limitedUtterances = utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)
+  const paragraphBlocks: Record<string, unknown>[] = []
+  let currentLines: string[] = []
+  let currentChars = 0
+
+  const pushCurrentParagraph = () => {
+    if (currentLines.length === 0) return
+    paragraphBlocks.push(paragraphBlock(currentLines.join('\n'), 6_000))
+    currentLines = []
+    currentChars = 0
+  }
+
+  for (const row of limitedUtterances) {
+    const displaySpeaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
+    const timestamp = toUtteranceTimestampRange(row.start, row.end)
+    const line = timestamp + displaySpeaker + ': ' + row.text
+    const nextChars = currentChars + line.length + (currentLines.length > 0 ? 1 : 0)
+    if (
+      currentLines.length > 0 &&
+      (currentLines.length >= MAX_TRANSCRIPT_PARAGRAPH_LINES || nextChars > MAX_TRANSCRIPT_PARAGRAPH_CHARS)
+    ) {
+      pushCurrentParagraph()
+    }
+    currentLines.push(line)
+    currentChars += line.length + (currentLines.length > 1 ? 1 : 0)
+  }
+  pushCurrentParagraph()
+
+  return [
+    toggleBlock('\uD654\uC790\uBCC4 \uBC1C\uD654 (' + limitedUtterances.length + '/' + utterances.length + ')', paragraphBlocks),
+  ]
 }
 
 function buildTranscriptSummaryBlocks(summaryText: string | null, summaryError: string | null): Record<string, unknown>[] {
@@ -3688,6 +3733,10 @@ function isHeading2WithText(block: Record<string, unknown>, expected: string): b
   return readBlockPlainText(block, type) === expected
 }
 
+function isHeading2Block(block: Record<string, unknown>): boolean {
+  return asString(block.type) === 'heading_2'
+}
+
 async function replaceMeetingSummarySection(
   api: NotionApi,
   pageId: string,
@@ -3699,7 +3748,8 @@ async function replaceMeetingSummarySection(
   const summaryIndex = topLevelBlocks.findIndex((block) => isHeading2WithText(block, '\uC694\uC57D'))
   const transcriptIndex = topLevelBlocks.findIndex((block, index) => index > summaryIndex && isHeading2WithText(block, '\uC804\uBB38'))
   if (summaryIndex < 0 || transcriptIndex < 0) {
-    throw new Error('summary_section_not_found')
+    await appendBlocksInChunks(api, pageId, [headingBlock('heading_2', '\uC694\uC57D'), ...buildTranscriptSummaryBlocks(summaryText, summaryError)])
+    return
   }
 
   const summaryHeadingId = asString(topLevelBlocks[summaryIndex]?.id)
@@ -3717,6 +3767,59 @@ async function replaceMeetingSummarySection(
   const nextBlocks = buildTranscriptSummaryBlocks(summaryText, summaryError)
   if (nextBlocks.length === 0) return
   let anchorId = summaryHeadingId
+  for (let i = 0; i < nextBlocks.length; i += 80) {
+    const chunk = nextBlocks.slice(i, i + 80)
+    const appended = await api.appendBlockChildren(pageId, chunk, anchorId)
+    const results = Array.isArray(appended?.results) ? (appended.results as Array<Record<string, unknown>>) : []
+    const lastAppendedId = asString(results.at(-1)?.id)
+    if (lastAppendedId) anchorId = lastAppendedId
+  }
+}
+
+async function replaceMeetingTranscriptSection(
+  api: NotionApi,
+  pageId: string,
+  detail: Record<string, unknown>,
+  speakerMap: Record<string, string>,
+): Promise<void> {
+  const response = await api.listBlockChildren(pageId)
+  const topLevelBlocks = Array.isArray(response?.results) ? (response.results as Array<Record<string, unknown>>) : []
+  const transcriptIndex = topLevelBlocks.findIndex((block) => isHeading2WithText(block, '\uC804\uBB38'))
+  const transcriptBlocks = buildTranscriptUtteranceBlocks(normalizeUtterances(detail.utterances), speakerMap)
+
+  if (transcriptIndex < 0) {
+    const appendBlocks = [headingBlock('heading_2', '\uC804\uBB38'), ...transcriptBlocks]
+    await appendBlocksInChunks(api, pageId, appendBlocks)
+    return
+  }
+
+  const transcriptHeadingId = asString(topLevelBlocks[transcriptIndex]?.id)
+  if (!transcriptHeadingId) {
+    throw new Error('transcript_section_not_found')
+  }
+
+  const nextHeading2Index = topLevelBlocks.findIndex((block, index) => index > transcriptIndex && isHeading2Block(block))
+  const transcriptContentBlocks =
+    nextHeading2Index > transcriptIndex ? topLevelBlocks.slice(transcriptIndex + 1, nextHeading2Index) : topLevelBlocks.slice(transcriptIndex + 1)
+
+  let cleanReplace = transcriptContentBlocks.length <= MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS
+  if (cleanReplace) {
+    for (const block of transcriptContentBlocks) {
+      const blockId = asString(block.id)
+      if (!blockId) continue
+      await api.updateBlock(blockId, { archived: true })
+    }
+  }
+
+  let nextBlocks = transcriptBlocks
+  if (!cleanReplace && transcriptContentBlocks.length > 0) {
+    nextBlocks = [
+      paragraphBlock('\uAE30\uC874 \uC804\uBB38 \uBE14\uB85D \uC218\uAC00 \uB9CE\uC544 \uC774\uBC88 \uBCF5\uAD6C\uBCF8\uC744 \uC0C1\uB2E8\uC5D0 \uCD94\uAC00\uD588\uC2B5\uB2C8\uB2E4. \uC544\uB798 \uAE30\uC874 \uBE14\uB85D\uC740 \uBCF4\uAD00\uBCF8\uC785\uB2C8\uB2E4.', 6_000),
+      ...transcriptBlocks,
+    ]
+  }
+
+  let anchorId = transcriptHeadingId
   for (let i = 0; i < nextBlocks.length; i += 80) {
     const chunk = nextBlocks.slice(i, i + 80)
     const appended = await api.appendBlockChildren(pageId, chunk, anchorId)
@@ -4334,6 +4437,79 @@ async function retryMeetingNotionSummaryFromAssembly(
   return {
     status,
     utteranceCount: utterances.length,
+    summaryGenerated: Boolean(summaryText && summaryText.trim()),
+    summaryError,
+  }
+}
+
+async function rebuildMeetingNotionBodyFromAssembly(
+  env: Env,
+  assemblyId: string,
+): Promise<{
+  status: string
+  utteranceCount: number
+  audioFileAttached: boolean
+  audioAttachmentError: string | null
+  summaryGenerated: boolean
+  summaryError: string | null
+}> {
+  const found = await getMeetingNotionTranscriptByAssemblyId(env, assemblyId)
+  if (!found) throw new Error('transcript_not_found')
+  const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(assemblyId)}`)
+  const status = normalizeMeetingStatus(asString(detail.status) ?? 'processing')
+  const text = asString(detail.text) ?? ''
+  const utterances = normalizeUtterances(detail.utterances)
+
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
+      [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
+      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+    },
+  })
+
+  if (status !== 'completed') {
+    throw new Error('transcript_not_completed')
+  }
+
+  const invalidSimpleAlphaSpeakers = findInvalidSimpleAlphabetMappedSpeakers(utterances, found.row.speakerMap)
+  if (invalidSimpleAlphaSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_invalid_simple_alpha:${invalidSimpleAlphaSpeakers.join(',')}`)
+  }
+
+  const unmappedSpeakers = findUnmappedSpeakers(utterances, found.row.speakerMap)
+  if (unmappedSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_incomplete:${unmappedSpeakers.join(',')}`)
+  }
+
+  let summaryText: string | null = null
+  let summaryError: string | null = null
+  try {
+    summaryText = await generateMeetingSummary(env, utterances, found.row.speakerMap, text)
+  } catch (error) {
+    const detailMessage = error instanceof Error ? error.message : String(error)
+    summaryError = detailMessage.trim().slice(0, 240) || 'summary_generation_failed'
+  }
+  if (!summaryText && !summaryError && !asString(env.OPENAI_API_KEY)) {
+    summaryError = 'openai_api_key_missing'
+  }
+
+  await replaceMeetingSummarySection(found.ctx.api, found.row.pageId, summaryText, summaryError)
+  await replaceMeetingTranscriptSection(found.ctx.api, found.row.pageId, detail, found.row.speakerMap)
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+    },
+  })
+
+  return {
+    status,
+    utteranceCount: utterances.length,
+    audioFileAttached: false,
+    audioAttachmentError: null,
     summaryGenerated: Boolean(summaryText && summaryText.trim()),
     summaryError,
   }
@@ -4976,7 +5152,7 @@ async function handleMeetingRoutesNotion(
       if (!found.row.assemblyId) {
         return respond.json({ ok: false, error: 'assembly_id_missing' }, 400)
       }
-      const rebuilt = await updateMeetingNotionTranscriptFromAssembly(env, found.row.assemblyId)
+      const rebuilt = await rebuildMeetingNotionBodyFromAssembly(env, found.row.assemblyId)
       return respond.ok({
         ok: true,
         transcriptId,
