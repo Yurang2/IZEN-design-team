@@ -104,7 +104,7 @@ const MEETING_ACTION_TRACKING_KEY = 'meetings-pending-actions'
 const MEETING_ACTION_STALE_MS = 10 * 60 * 1000
 
 type UploadStage = 'idle' | 'presign' | 'upload' | 'transcript'
-type MeetingActionKey = 'summaryRetryAt' | 'bodyRebuildAt'
+type MeetingActionKey = 'summaryRetryAt' | 'pageRegenerateAt'
 type PendingMeetingActionMap = Record<string, Partial<Record<MeetingActionKey, number>>>
 
 type ActiveUploadSession = {
@@ -145,7 +145,7 @@ function readPendingMeetingActionMap(): PendingMeetingActionMap {
         const typedValue = value as Record<string, unknown>
         const next: Partial<Record<MeetingActionKey, number>> = {}
         if (typeof typedValue.summaryRetryAt === 'number') next.summaryRetryAt = typedValue.summaryRetryAt
-        if (typeof typedValue.bodyRebuildAt === 'number') next.bodyRebuildAt = typedValue.bodyRebuildAt
+        if (typeof typedValue.pageRegenerateAt === 'number') next.pageRegenerateAt = typedValue.pageRegenerateAt
         return Object.keys(next).length > 0 ? [[transcriptId, next]] : []
       }),
     )
@@ -335,7 +335,7 @@ export function MeetingsView() {
   const [savingSpeakers, setSavingSpeakers] = useState(false)
   const [publishingToNotion, setPublishingToNotion] = useState(false)
   const [retryingSummary, setRetryingSummary] = useState(false)
-  const [rebuildingBody, setRebuildingBody] = useState(false)
+  const [regeneratingPage, setRegeneratingPage] = useState(false)
   const [pendingMeetingActions, setPendingMeetingActions] = useState<PendingMeetingActionMap>(() => readPendingMeetingActionMap())
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingTranscripts, setLoadingTranscripts] = useState(false)
@@ -413,8 +413,8 @@ export function MeetingsView() {
             delete nextPending.summaryRetryAt
             changed = true
           }
-          if (typeof nextPending.bodyRebuildAt === 'number' && nextTranscript.updatedAt >= nextPending.bodyRebuildAt) {
-            delete nextPending.bodyRebuildAt
+          if (typeof nextPending.pageRegenerateAt === 'number' && nextTranscript.updatedAt >= nextPending.pageRegenerateAt) {
+            delete nextPending.pageRegenerateAt
             changed = true
           }
           if (!changed) return current
@@ -571,7 +571,7 @@ export function MeetingsView() {
 
   const selectedPendingActions = selectedTranscriptId ? pendingMeetingActions[selectedTranscriptId] : undefined
   const isSelectedTranscriptRetryPending = typeof selectedPendingActions?.summaryRetryAt === 'number'
-  const isSelectedTranscriptRebuildPending = typeof selectedPendingActions?.bodyRebuildAt === 'number'
+  const isSelectedTranscriptRegeneratePending = typeof selectedPendingActions?.pageRegenerateAt === 'number'
 
   const onSubmitUpload = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1004,54 +1004,54 @@ export function MeetingsView() {
     }
   }
 
-  const onRebuildBody = async () => {
+  const onRegeneratePage = async () => {
     if (!selectedTranscriptId || !transcriptDetail) return
     if (!transcriptDetail.bodySynced) {
-      setErrorMessage('먼저 Notion 반영을 완료한 뒤 본문 복구를 실행해 주세요.')
+      setErrorMessage('먼저 Notion 반영을 완료한 뒤 페이지 재생성을 실행해 주세요.')
       return
     }
     if (transcriptDetail.status !== 'completed') {
-      setErrorMessage('전사가 completed 상태일 때만 본문 복구가 가능합니다.')
+      setErrorMessage('전사가 completed 상태일 때만 페이지 재생성이 가능합니다.')
       return
     }
-    const confirmed = window.confirm('기존 Notion 본문을 다시 구성합니다. 요약 API 비용이 발생할 수 있습니다. 계속하시겠습니까?')
+    const confirmed = window.confirm('새 Notion 페이지를 다시 생성하고 기존 페이지는 보관 처리합니다. 요약 API 비용이 발생할 수 있습니다. 계속하시겠습니까?')
     if (!confirmed) return
 
-    setRebuildingBody(true)
+    setRegeneratingPage(true)
     setErrorMessage('')
     updatePendingMeetingActions((current) => ({
       ...current,
       [selectedTranscriptId]: {
         ...current[selectedTranscriptId],
-        bodyRebuildAt: Date.now(),
+        pageRegenerateAt: Date.now(),
       },
     }))
     try {
-      const rebuilt = await api<TranscriptPublishResponse>(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/rebuild-body`, {
+      const rebuilt = await api<TranscriptPublishResponse>(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/regenerate-page`, {
         method: 'POST',
       })
       if (rebuilt.summaryGenerated) {
-        setUploadMessage('기존 Notion 본문을 다시 구성하고 요약도 함께 복구했습니다.')
+        setUploadMessage('새 Notion 페이지를 생성하고 기존 페이지를 보관 처리했습니다.')
       } else if (rebuilt.summaryError) {
-        setUploadMessage(`본문 복구는 완료되었지만 요약은 다시 생성되지 않았습니다: ${rebuilt.summaryError}`)
+        setUploadMessage(`페이지 재생성은 완료되었지만 요약은 다시 생성되지 않았습니다: ${rebuilt.summaryError}`)
       } else {
-        setUploadMessage('기존 Notion 본문을 다시 구성했습니다. (요약 미생성)')
+        setUploadMessage('새 Notion 페이지를 생성했습니다. (요약 미생성)')
       }
       if (rebuilt.audioAttachmentError) {
         setUploadMessage((current) =>
           current
             ? `${current} 오디오 파일 첨부는 건너뛰었습니다: ${rebuilt.audioAttachmentError}`
-            : `본문 복구는 완료되었지만 오디오 파일 첨부는 건너뛰었습니다: ${rebuilt.audioAttachmentError}`,
+            : `페이지 재생성은 완료되었지만 오디오 파일 첨부는 건너뛰었습니다: ${rebuilt.audioAttachmentError}`,
         )
       }
       await loadTranscriptDetail(selectedTranscriptId)
       await loadTranscripts()
     } catch (error: unknown) {
       updatePendingMeetingActions((current) => {
-        if (!current[selectedTranscriptId]?.bodyRebuildAt) return current
+        if (!current[selectedTranscriptId]?.pageRegenerateAt) return current
         const next = { ...current }
         const pending = { ...(next[selectedTranscriptId] ?? {}) }
-        delete pending.bodyRebuildAt
+        delete pending.pageRegenerateAt
         if (Object.keys(pending).length > 0) {
           next[selectedTranscriptId] = pending
         } else {
@@ -1059,10 +1059,10 @@ export function MeetingsView() {
         }
         return next
       })
-      const message = error instanceof Error ? error.message : '본문 복구에 실패했습니다.'
+      const message = error instanceof Error ? error.message : '페이지 재생성에 실패했습니다.'
       setErrorMessage(message)
     } finally {
-      setRebuildingBody(false)
+      setRegeneratingPage(false)
     }
   }
 
@@ -1405,9 +1405,9 @@ export function MeetingsView() {
                     />
                   </label>
                 ))}
-                {isSelectedTranscriptRetryPending || isSelectedTranscriptRebuildPending ? (
+                {isSelectedTranscriptRetryPending || isSelectedTranscriptRegeneratePending ? (
                   <p className="muted small">
-                    {isSelectedTranscriptRetryPending ? '요약 재시도 진행 상태를 추적 중입니다.' : '본문 복구 진행 상태를 추적 중입니다.'} 완료되면 상세 갱신 시 자동으로 해제됩니다.
+                    {isSelectedTranscriptRetryPending ? '요약 재시도 진행 상태를 추적 중입니다.' : '페이지 재생성 진행 상태를 추적 중입니다.'} 완료되면 상세 갱신 시 자동으로 해제됩니다.
                   </p>
                 ) : null}
                 <div className="meetingsActions">
@@ -1421,9 +1421,9 @@ export function MeetingsView() {
                     disabled={
                       publishingToNotion ||
                       retryingSummary ||
-                      rebuildingBody ||
+                      regeneratingPage ||
                       isSelectedTranscriptRetryPending ||
-                      isSelectedTranscriptRebuildPending ||
+                      isSelectedTranscriptRegeneratePending ||
                       savingSpeakers ||
                       transcriptDetail.bodySynced ||
                       transcriptDetail.status !== 'completed' ||
@@ -1438,10 +1438,10 @@ export function MeetingsView() {
                     onClick={() => void onRetrySummary()}
                     disabled={
                       retryingSummary ||
-                      rebuildingBody ||
+                      regeneratingPage ||
                       publishingToNotion ||
                       savingSpeakers ||
-                      isSelectedTranscriptRebuildPending ||
+                      isSelectedTranscriptRegeneratePending ||
                       !transcriptDetail.bodySynced ||
                       transcriptDetail.status !== 'completed'
                     }
@@ -1451,9 +1451,9 @@ export function MeetingsView() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => void onRebuildBody()}
+                    onClick={() => void onRegeneratePage()}
                     disabled={
-                      rebuildingBody ||
+                      regeneratingPage ||
                       retryingSummary ||
                       publishingToNotion ||
                       savingSpeakers ||
@@ -1462,7 +1462,7 @@ export function MeetingsView() {
                       transcriptDetail.status !== 'completed'
                     }
                   >
-                    {rebuildingBody || isSelectedTranscriptRebuildPending ? '본문 복구 중...' : '본문 복구'}
+                    {regeneratingPage || isSelectedTranscriptRegeneratePending ? '페이지 재생성 중...' : '페이지 재생성'}
                   </Button>
                   <Button
                     type="button"

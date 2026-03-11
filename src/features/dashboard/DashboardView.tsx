@@ -252,7 +252,7 @@ export function DashboardView({
   }, [checklistRows, projects, tasks, today, todayIso])
 
   const reportSummary = useMemo(() => {
-    const headline = `${formatDateLabel(todayIso)} 기준 프로젝트 ${projects.length}건, 활성 업무 ${dashboardSummary.activeTasks.length}건, 오늘 마감 ${dashboardSummary.todayDueTasks.length}건, 지연 ${dashboardSummary.delayedTasks.length}건, 체크리스트 미할당 ${dashboardSummary.checklistUnassigned.length}건입니다.`
+    const headline = `${formatDateLabel(todayIso)} 기준 활성 업무 ${dashboardSummary.activeTasks.length}건, 오늘 마감 ${dashboardSummary.todayDueTasks.length}건, 지연 ${dashboardSummary.delayedTasks.length}건, 체크리스트 미할당 ${dashboardSummary.checklistUnassigned.length}건입니다.`
     const projectLine =
       dashboardSummary.upcomingProjects.length > 0
         ? `이번 주 주요 일정은 ${dashboardSummary.upcomingProjects
@@ -276,7 +276,6 @@ export function DashboardView({
     dashboardSummary.todayDueTasks.length,
     dashboardSummary.upcomingProjects,
     formatDateLabel,
-    projects.length,
     today,
     todayIso,
   ])

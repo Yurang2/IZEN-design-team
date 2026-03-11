@@ -4558,7 +4558,7 @@ async function retryMeetingNotionSummaryFromAssembly(
   }
 }
 
-async function rebuildMeetingNotionBodyFromAssembly(
+async function regenerateMeetingNotionPageFromAssembly(
   env: Env,
   assemblyId: string,
 ): Promise<{
@@ -4575,16 +4575,11 @@ async function rebuildMeetingNotionBodyFromAssembly(
   const status = normalizeMeetingStatus(asString(detail.status) ?? 'processing')
   const text = asString(detail.text) ?? ''
   const utterances = normalizeUtterances(detail.utterances)
-
-  await found.ctx.api.updatePage(found.row.pageId, {
-    properties: {
-      [MEETING_NOTION_FIELD.status]: { select: { name: status } },
-      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
-      [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
-      [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
-      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
-    },
-  })
+  const inferredMeetingDate =
+    found.row.meetingDate ||
+    parseMeetingTitleMetadata(stripMeetingUploadKeyPrefix(extractFilenameFromAudioKey(found.row.audioKey))).meetingDate
+  const existingPage = await found.ctx.api.retrievePage(found.row.pageId)
+  const existingProps = ((existingPage as Record<string, unknown>)?.properties ?? {}) as Record<string, unknown>
 
   if (status !== 'completed') {
     throw new Error('transcript_not_completed')
@@ -4612,20 +4607,67 @@ async function rebuildMeetingNotionBodyFromAssembly(
     summaryError = 'openai_api_key_missing'
   }
 
-  await replaceMeetingSummarySection(found.ctx.api, found.row.pageId, summaryText, summaryError)
-  await replaceMeetingTranscriptSection(found.ctx.api, found.row.pageId, detail, found.row.speakerMap)
-  await found.ctx.api.updatePage(found.row.pageId, {
+  let audioAttachment: { block: Record<string, unknown>; propertyFile: Record<string, unknown> } | null = null
+  let audioAttachmentError: string | null = null
+  try {
+    audioAttachment = await buildMeetingAudioFileAttachment(found.ctx.api, env, found.row.audioKey)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.includes('audio_not_found')) {
+      audioAttachmentError = message.trim().slice(0, 240) || 'audio_attachment_failed'
+    }
+  }
+
+  const blocks = [
+    ...(audioAttachment ? [audioAttachment.block] : []),
+    ...buildTranscriptBodyBlocks(detail, found.row.speakerMap, summaryText, summaryError),
+  ]
+  const now = Date.now()
+  const createdPage = await found.ctx.api.createPage({
+    parent: { database_id: found.ctx.databaseId },
     properties: {
-      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [found.ctx.titlePropertyName]: { title: toNotionRichText(found.row.title || found.row.id, 300) },
+      [found.ctx.datePropertyName]: inferredMeetingDate ? { date: { start: inferredMeetingDate } } : { date: null },
+      [MEETING_NOTION_FIELD.recordType]: { select: { name: MEETING_RECORD_TYPE.transcript } },
+      [MEETING_NOTION_FIELD.transcriptId]: notionRichTextValue(found.row.id, 200),
+      [MEETING_NOTION_FIELD.meetingId]: notionRichTextValue(found.row.meetingId, 200),
+      [MEETING_NOTION_FIELD.assemblyId]: notionRichTextValue(assemblyId, 200),
+      [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+      [MEETING_NOTION_FIELD.audioKey]: notionRichTextValue(found.row.audioKey, 600),
+      [MEETING_NOTION_FIELD.audioFile]: { files: audioAttachment ? [audioAttachment.propertyFile] : [] },
+      [MEETING_NOTION_FIELD.speakerMapJson]: notionRichTextValue(JSON.stringify(found.row.speakerMap), 6000),
+      [MEETING_NOTION_FIELD.keywordsUsedJson]: notionRichTextValue(JSON.stringify(found.row.keywordsUsed), 6000),
+      [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
+      [MEETING_NOTION_FIELD.createdAt]: { number: found.row.createdAt || now },
+      [MEETING_NOTION_FIELD.updatedAt]: { number: now },
+      [MEETING_NOTION_FIELD.minSpeakers]: { number: notionReadNumber(existingProps[MEETING_NOTION_FIELD.minSpeakers]) },
+      [MEETING_NOTION_FIELD.maxSpeakers]: { number: notionReadNumber(existingProps[MEETING_NOTION_FIELD.maxSpeakers]) },
+      [MEETING_NOTION_FIELD.keywordSetId]: notionRichTextValue(notionReadRichText(existingProps[MEETING_NOTION_FIELD.keywordSetId]), 200),
+      [MEETING_NOTION_FIELD.keywordSetName]: notionRichTextValue(notionReadRichText(existingProps[MEETING_NOTION_FIELD.keywordSetName]), 500),
       [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+      [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
     },
   })
+  const newPageId = asString(createdPage?.id)
+  if (!newPageId) {
+    throw new Error('notion_transcript_regenerate_failed_[UNKNOWN]')
+  }
+  if (blocks.length > 0) {
+    await appendBlocksInChunks(found.ctx.api, newPageId, blocks)
+  }
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.transcriptId]: notionRichTextValue(`${found.row.id}__archived__${now}`, 200),
+      [MEETING_NOTION_FIELD.updatedAt]: { number: now },
+    },
+  })
+  await found.ctx.api.updatePage(found.row.pageId, { archived: true })
 
   return {
     status,
     utteranceCount: utterances.length,
-    audioFileAttached: false,
-    audioAttachmentError: null,
+    audioFileAttached: Boolean(audioAttachment),
+    audioAttachmentError,
     summaryGenerated: Boolean(summaryText && summaryText.trim()),
     summaryError,
   }
@@ -4644,7 +4686,7 @@ function isMeetingRoutePath(path: string): boolean {
     /^\/transcripts\/[^/]+\/speakers$/.test(path) ||
     /^\/transcripts\/[^/]+\/publish$/.test(path) ||
     /^\/transcripts\/[^/]+\/retry-summary$/.test(path) ||
-    /^\/transcripts\/[^/]+\/rebuild-body$/.test(path)
+    /^\/transcripts\/[^/]+\/regenerate-page$/.test(path)
   )
 }
 
@@ -4702,7 +4744,7 @@ async function handleMeetingRoutesNotion(
   const speakerMatch = path.match(/^\/transcripts\/([^/]+)\/speakers$/)
   const publishMatch = path.match(/^\/transcripts\/([^/]+)\/publish$/)
   const retrySummaryMatch = path.match(/^\/transcripts\/([^/]+)\/retry-summary$/)
-  const rebuildBodyMatch = path.match(/^\/transcripts\/([^/]+)\/rebuild-body$/)
+  const regeneratePageMatch = path.match(/^\/transcripts\/([^/]+)\/regenerate-page$/)
 
   try {
     if (request.method === 'POST' && path === '/uploads/presign') {
@@ -5256,8 +5298,8 @@ async function handleMeetingRoutesNotion(
       })
     }
 
-    if (request.method === 'POST' && rebuildBodyMatch) {
-      const transcriptId = decodeURIComponent(rebuildBodyMatch[1])
+    if (request.method === 'POST' && regeneratePageMatch) {
+      const transcriptId = decodeURIComponent(regeneratePageMatch[1])
       const found = await getMeetingNotionTranscriptById(env, transcriptId)
       if (!found) {
         return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
@@ -5268,7 +5310,7 @@ async function handleMeetingRoutesNotion(
       if (!found.row.assemblyId) {
         return respond.json({ ok: false, error: 'assembly_id_missing' }, 400)
       }
-      const rebuilt = await rebuildMeetingNotionBodyFromAssembly(env, found.row.assemblyId)
+      const rebuilt = await regenerateMeetingNotionPageFromAssembly(env, found.row.assemblyId)
       return respond.ok({
         ok: true,
         transcriptId,
