@@ -1000,12 +1000,14 @@ export class NotionWorkService {
           if (byName) return byName
           return findFirstByTypes(entries, ['date'])
         }),
-        actualStartDate: pickField('actualStartDate', properties, '???', ['date'], true, (entries) => {
+        actualStartDate: pickField('actualStartDate', properties, '\uCC29\uC218\uC77C', ['date'], true, (entries) => {
           const byName = entries.find(
-            ([name, prop]) => prop?.type === 'date' && (name.includes('??') || name.includes('?? ??') || name.includes('????')),
+            ([name, prop]) =>
+              prop?.type === 'date' &&
+              (name.includes('\uCC29\uC218') || name.includes('\uC2E4\uC81C \uCC29\uC218') || name.includes('\uC2E4\uC81C\uCC29\uC218')),
           )
           if (byName) return byName
-          return entries.find(([name, prop]) => prop?.type === 'date' && name.includes('??'))
+          return entries.find(([name, prop]) => prop?.type === 'date' && name.includes('\uCC29\uC218'))
         }),
         actualEndDate: pickField('actualEndDate', properties, '실제 종료일', ['date'], true, (entries) => {
           const byName = entries.find(
@@ -1037,22 +1039,43 @@ export class NotionWorkService {
           if (byName) return byName
           return findFirstByTypes(entries, ['rich_text'])
         }),
-        predecessorTask: pickField('predecessorTask', properties, '?? ??', ['relation', 'rich_text', 'title', 'select'], true, (entries) => {
+        predecessorTask: pickField(
+          'predecessorTask',
+          properties,
+          '\uC120\uD589 \uC791\uC5C5',
+          ['relation', 'rich_text', 'title', 'select'],
+          true,
+          (entries) => {
           const byName = entries.find(
-            ([name, prop]) => name.includes('??') && name.includes('??') && ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
+            ([name, prop]) =>
+              (name.includes('\uC120\uD589') || name.includes('\uC120\uD589\uC791\uC5C5')) &&
+              ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
           )
           if (byName) return byName
-          return entries.find(([name, prop]) => name.includes('??') && ['relation', 'rich_text', 'title', 'select'].includes(prop?.type))
+          return entries.find(
+            ([name, prop]) => name.includes('\uC120\uD589') && ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
+          )
         }),
-        predecessorPending: pickField('predecessorPending', properties, '?? ???', ['checkbox', 'formula', 'select', 'status', 'rich_text'], true, (entries) => {
+        predecessorPending: pickField(
+          'predecessorPending',
+          properties,
+          '\uC120\uD589 \uBBF8\uC644\uB8CC',
+          ['checkbox', 'formula', 'select', 'status', 'rich_text'],
+          true,
+          (entries) => {
           const byName = entries.find(
-            ([name, prop]) => (name.includes('??') || name.includes('???')) && ['checkbox', 'formula', 'select', 'status', 'rich_text'].includes(prop?.type),
+            ([name, prop]) =>
+              (name.includes('\uBBF8\uC644\uB8CC') || name.includes('\uC120\uD589')) &&
+              ['checkbox', 'formula', 'select', 'status', 'rich_text'].includes(prop?.type),
           )
           if (byName) return byName
           return findFirstByTypes(entries, ['checkbox', 'formula'])
         }),
-        outputLink: pickField('outputLink', properties, '??? ??', ['url', 'rich_text', 'formula'], true, (entries) => {
-          const byName = entries.find(([name, prop]) => name.includes('???') && ['url', 'rich_text', 'formula'].includes(prop?.type))
+        outputLink: pickField('outputLink', properties, '\uC0B0\uCD9C\uBB3C \uB9C1\uD06C', ['url', 'rich_text', 'formula'], true, (entries) => {
+          const byName = entries.find(
+            ([name, prop]) =>
+              (name.includes('\uC0B0\uCD9C\uBB3C') || name.includes('\uB9C1\uD06C')) && ['url', 'rich_text', 'formula'].includes(prop?.type),
+          )
           if (byName) return byName
           return findFirstByTypes(entries, ['url'])
         }),
