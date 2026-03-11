@@ -1,5 +1,7 @@
 const DEFAULT_KEEP = 3
 const DEFAULT_PROJECT = 'izen-design-team'
+const DEFAULT_PER_PAGE = 20
+const MAX_PAGES = 100
 const API_BASE = 'https://api.cloudflare.com/client/v4'
 
 function readArg(name, fallback) {
@@ -57,12 +59,20 @@ async function cfRequest(path, init = {}) {
 
 async function listDeployments(accountId, projectName) {
   const deployments = []
-  for (let page = 1; page <= 20; page += 1) {
-    const payload = await cfRequest(`/accounts/${accountId}/pages/projects/${projectName}/deployments?page=${page}&per_page=100`)
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: String(DEFAULT_PER_PAGE),
+    })
+    const payload = await cfRequest(`/accounts/${accountId}/pages/projects/${projectName}/deployments?${params.toString()}`)
     const rows = Array.isArray(payload?.result) ? payload.result : []
     deployments.push(...rows)
-    const totalPages = Number(payload?.result_info?.total_pages ?? page)
-    if (page >= totalPages || rows.length === 0) break
+    const totalCount = Number(payload?.result_info?.total_count)
+    const perPage = Number(payload?.result_info?.per_page ?? DEFAULT_PER_PAGE)
+    const totalPages = Number.isFinite(totalCount) && perPage > 0
+      ? Math.ceil(totalCount / perPage)
+      : null
+    if (rows.length === 0 || rows.length < perPage || (totalPages !== null && page >= totalPages)) break
   }
   return deployments.sort((a, b) => {
     const aTime = new Date(a?.created_on ?? a?.modified_on ?? 0).getTime()
