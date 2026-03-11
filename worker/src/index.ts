@@ -46,8 +46,10 @@ const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
-const MAX_SUMMARY_SOURCE_CHARS = 10_000
-const SUMMARY_RETRY_SOURCE_CHARS = 6_000
+const MAX_SUMMARY_SOURCE_CHARS = 180_000
+const SUMMARY_RETRY_SOURCE_CHARS = 120_000
+const SUMMARY_OUTPUT_TOKENS = 12_000
+const SUMMARY_RETRY_OUTPUT_TOKENS = 16_000
 const FIXED_MEETING_NOTION_DB_ID = '3f3c1cc7ec278216b5e881744612ed6b'
 const DEFAULT_ASSEMBLY_SPEECH_MODELS = ['universal-2']
 const R2_PRESIGN_ALGORITHM = 'AWS4-HMAC-SHA256'
@@ -3556,6 +3558,7 @@ async function generateMeetingSummary(
           { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
           { role: 'user', content: [{ type: 'input_text', text: userPrompt }] },
         ],
+        reasoning: { effort: 'low' },
         text: { format: { type: 'text' } },
         max_output_tokens: maxOutputTokens,
       }),
@@ -3573,12 +3576,12 @@ async function generateMeetingSummary(
     return { summary: normalized, payload, valid: hasRequiredSummaryHeaders(normalized) }
   }
 
-  const first = await requestSummary(source, 2600, false)
+  const first = await requestSummary(source, SUMMARY_OUTPUT_TOKENS, false)
   const firstIncomplete = getOpenAiIncompleteReason(first.payload) === 'max_output_tokens'
   if (first.summary && first.valid && !firstIncomplete) return first.summary
 
   const retrySource = source.slice(0, SUMMARY_RETRY_SOURCE_CHARS)
-  const second = await requestSummary(retrySource, 3800, true, first.summary)
+  const second = await requestSummary(retrySource, SUMMARY_RETRY_OUTPUT_TOKENS, true, first.summary)
   if (second.summary && second.valid) return second.summary
   if (second.summary) return ensureRequiredSummaryHeaders(second.summary)
   if (first.summary) return ensureRequiredSummaryHeaders(first.summary)

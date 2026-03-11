@@ -119,10 +119,11 @@
 ## 14) Summary Token Incomplete Auto-Retry (2026-02-27)
 - When first summary call ends with `incomplete=max_output_tokens`, Worker retries once automatically.
 - Retry strategy:
-  - shorter source slice (`SUMMARY_RETRY_SOURCE_CHARS=6000`)
-  - higher output token budget (3200)
+  - shorter source slice (`SUMMARY_RETRY_SOURCE_CHARS=120000`)
+  - higher output token budget (`SUMMARY_RETRY_OUTPUT_TOKENS=16000`)
   - condensed phrasing hint while preserving required structure/evidence rules
-- Base source limit reduced to `MAX_SUMMARY_SOURCE_CHARS=10000`.
+- Base source limit is `MAX_SUMMARY_SOURCE_CHARS=180000`.
+- Summary requests set `reasoning.effort = "low"` so more budget is preserved for visible output.
 
 ## 15) Korean Output Quality Guard (2026-02-27)
 - Prompt now explicitly forces Korean-only section headings and concise output bounds.
