@@ -3628,21 +3628,7 @@ function buildTranscriptBodyBlocks(
   const utterances = normalizeUtterances(detail.utterances)
   const blocks: Record<string, unknown>[] = []
   blocks.push(headingBlock('heading_2', '\uC694\uC57D'))
-  if (summaryText && summaryText.trim()) {
-    const markdown = ensureRequiredSummaryHeaders(summaryText)
-    const summaryBlocks = summaryMarkdownToNotionBlocks(markdown)
-    if (summaryBlocks.length === 0) {
-      blocks.push(paragraphBlock(markdown))
-    } else {
-      for (const block of summaryBlocks.slice(0, 80)) {
-        blocks.push(block)
-      }
-    }
-  } else if (summaryError) {
-    blocks.push(paragraphBlock('\uC694\uC57D \uC0DD\uC131 \uC2E4\uD328: ' + summaryError + '. OPENAI_API_KEY / OPENAI_SUMMARY_MODEL \uD655\uC778 \uD6C4 \uB2E4\uC2DC Notion \uBC18\uC601\uC744 \uC2E4\uD589\uD574 \uC8FC\uC138\uC694.'))
-  } else {
-    blocks.push(paragraphBlock('\uC694\uC57D \uC0DD\uC131 \uC804\uC785\uB2C8\uB2E4. GPT-5 mini \uC5F0\uB3D9 \uD6C4 \uC774 \uC139\uC158\uC5D0 \uC790\uB3D9 \uC694\uC57D\uC744 \uAE30\uB85D\uD569\uB2C8\uB2E4.'))
-  }
+  blocks.push(...buildTranscriptSummaryBlocks(summaryText, summaryError))
   blocks.push(headingBlock('heading_2', '\uC804\uBB38'))
 
   if (utterances.length > 0) {
@@ -3658,9 +3644,85 @@ function buildTranscriptBodyBlocks(
   return blocks
 }
 
+function buildTranscriptSummaryBlocks(summaryText: string | null, summaryError: string | null): Record<string, unknown>[] {
+  if (summaryText && summaryText.trim()) {
+    const markdown = ensureRequiredSummaryHeaders(summaryText)
+    const summaryBlocks = summaryMarkdownToNotionBlocks(markdown)
+    if (summaryBlocks.length === 0) {
+      return [paragraphBlock(markdown)]
+    }
+    return summaryBlocks.slice(0, 80)
+  }
+  if (summaryError) {
+    return [paragraphBlock('\uC694\uC57D \uC0DD\uC131 \uC2E4\uD328: ' + summaryError + '. OPENAI_API_KEY / OPENAI_SUMMARY_MODEL \uD655\uC778 \uD6C4 \uB2E4\uC2DC Notion \uBC18\uC601\uC744 \uC2E4\uD589\uD574 \uC8FC\uC138\uC694.')]
+  }
+  return [paragraphBlock('\uC694\uC57D \uC0DD\uC131 \uC804\uC785\uB2C8\uB2E4. GPT-5 mini \uC5F0\uB3D9 \uD6C4 \uC774 \uC139\uC158\uC5D0 \uC790\uB3D9 \uC694\uC57D\uC744 \uAE30\uB85D\uD569\uB2C8\uB2E4.')]
+}
+
 async function appendBlocksInChunks(api: NotionApi, pageId: string, blocks: Array<Record<string, unknown>>): Promise<void> {
   for (let i = 0; i < blocks.length; i += 80) {
     await api.appendBlockChildren(pageId, blocks.slice(i, i + 80))
+  }
+}
+
+function readBlockPlainText(block: Record<string, unknown>, type: string): string {
+  const payload = block[type]
+  if (!payload || typeof payload !== 'object') return ''
+  const richText = Array.isArray((payload as Record<string, unknown>).rich_text) ? ((payload as Record<string, unknown>).rich_text as unknown[]) : []
+  return richText
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return ''
+      const text = (entry as Record<string, unknown>).text
+      if (text && typeof text === 'object') {
+        return asString((text as Record<string, unknown>).content) ?? ''
+      }
+      return asString((entry as Record<string, unknown>).plain_text) ?? ''
+    })
+    .join('')
+    .trim()
+}
+
+function isHeading2WithText(block: Record<string, unknown>, expected: string): boolean {
+  const type = asString(block.type)
+  if (type !== 'heading_2') return false
+  return readBlockPlainText(block, type) === expected
+}
+
+async function replaceMeetingSummarySection(
+  api: NotionApi,
+  pageId: string,
+  summaryText: string | null,
+  summaryError: string | null,
+): Promise<void> {
+  const response = await api.listBlockChildren(pageId)
+  const topLevelBlocks = Array.isArray(response?.results) ? (response.results as Array<Record<string, unknown>>) : []
+  const summaryIndex = topLevelBlocks.findIndex((block) => isHeading2WithText(block, '\uC694\uC57D'))
+  const transcriptIndex = topLevelBlocks.findIndex((block, index) => index > summaryIndex && isHeading2WithText(block, '\uC804\uBB38'))
+  if (summaryIndex < 0 || transcriptIndex < 0) {
+    throw new Error('summary_section_not_found')
+  }
+
+  const summaryHeadingId = asString(topLevelBlocks[summaryIndex]?.id)
+  if (!summaryHeadingId) {
+    throw new Error('summary_section_not_found')
+  }
+
+  const summaryContentBlocks = topLevelBlocks.slice(summaryIndex + 1, transcriptIndex)
+  for (const block of summaryContentBlocks) {
+    const blockId = asString(block.id)
+    if (!blockId) continue
+    await api.updateBlock(blockId, { archived: true })
+  }
+
+  const nextBlocks = buildTranscriptSummaryBlocks(summaryText, summaryError)
+  if (nextBlocks.length === 0) return
+  let anchorId = summaryHeadingId
+  for (let i = 0; i < nextBlocks.length; i += 80) {
+    const chunk = nextBlocks.slice(i, i + 80)
+    const appended = await api.appendBlockChildren(pageId, chunk, anchorId)
+    const results = Array.isArray(appended?.results) ? (appended.results as Array<Record<string, unknown>>) : []
+    const lastAppendedId = asString(results.at(-1)?.id)
+    if (lastAppendedId) anchorId = lastAppendedId
   }
 }
 
@@ -4204,6 +4266,74 @@ async function updateMeetingNotionTranscriptFromAssembly(
     unmappedSpeakers: [],
     audioFileAttached: Boolean(audioAttachment),
     audioAttachmentError,
+    summaryGenerated: Boolean(summaryText && summaryText.trim()),
+    summaryError,
+  }
+}
+
+async function retryMeetingNotionSummaryFromAssembly(
+  env: Env,
+  assemblyId: string,
+): Promise<{
+  status: string
+  utteranceCount: number
+  summaryGenerated: boolean
+  summaryError: string | null
+}> {
+  const found = await getMeetingNotionTranscriptByAssemblyId(env, assemblyId)
+  if (!found) throw new Error('transcript_not_found')
+  const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(assemblyId)}`)
+  const status = normalizeMeetingStatus(asString(detail.status) ?? 'processing')
+  const text = asString(detail.text) ?? ''
+  const utterances = normalizeUtterances(detail.utterances)
+
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
+      [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
+      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+    },
+  })
+
+  if (status !== 'completed') {
+    throw new Error('transcript_not_completed')
+  }
+
+  const invalidSimpleAlphaSpeakers = findInvalidSimpleAlphabetMappedSpeakers(utterances, found.row.speakerMap)
+  if (invalidSimpleAlphaSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_invalid_simple_alpha:${invalidSimpleAlphaSpeakers.join(',')}`)
+  }
+
+  const unmappedSpeakers = findUnmappedSpeakers(utterances, found.row.speakerMap)
+  if (unmappedSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_incomplete:${unmappedSpeakers.join(',')}`)
+  }
+
+  let summaryText: string | null = null
+  let summaryError: string | null = null
+  try {
+    summaryText = await generateMeetingSummary(env, utterances, found.row.speakerMap, text)
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    summaryError = detail.trim().slice(0, 240) || 'summary_generation_failed'
+  }
+  if (!summaryText && !summaryError && !asString(env.OPENAI_API_KEY)) {
+    summaryError = 'openai_api_key_missing'
+  }
+
+  await replaceMeetingSummarySection(found.ctx.api, found.row.pageId, summaryText, summaryError)
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+    },
+  })
+
+  return {
+    status,
+    utteranceCount: utterances.length,
     summaryGenerated: Boolean(summaryText && summaryText.trim()),
     summaryError,
   }
@@ -4818,15 +4948,15 @@ async function handleMeetingRoutesNotion(
       if (!found.row.assemblyId) {
         return respond.json({ ok: false, error: 'assembly_id_missing' }, 400)
       }
-      const retried = await updateMeetingNotionTranscriptFromAssembly(env, found.row.assemblyId)
+      const retried = await retryMeetingNotionSummaryFromAssembly(env, found.row.assemblyId)
       return respond.ok({
         ok: true,
         transcriptId,
         assemblyId: found.row.assemblyId,
         status: retried.status,
         utteranceCount: retried.utteranceCount,
-        audioFileAttached: retried.audioFileAttached,
-        audioAttachmentError: retried.audioAttachmentError,
+        audioFileAttached: false,
+        audioAttachmentError: null,
         summaryGenerated: retried.summaryGenerated,
         summaryError: retried.summaryError,
       })

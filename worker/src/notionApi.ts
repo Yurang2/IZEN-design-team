@@ -80,10 +80,10 @@ export class NotionApi {
     return this.request(`/blocks/${blockId}/children${query}`)
   }
 
-  async appendBlockChildren(blockId: string, children: unknown[]): Promise<any> {
+  async appendBlockChildren(blockId: string, children: unknown[], after?: string): Promise<any> {
     return this.request(`/blocks/${blockId}/children`, {
       method: 'PATCH',
-      body: JSON.stringify({ children }),
+      body: JSON.stringify(after ? { children, after } : { children }),
     })
   }
 
