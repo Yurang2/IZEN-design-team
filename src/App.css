@@ -70,6 +70,38 @@
   padding: 20px 22px;
 }
 
+.buildUpdateBanner {
+  align-items: center;
+  background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+  border: 1px solid #fdba74;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 12px 14px;
+}
+
+.buildUpdateBannerText {
+  display: grid;
+  gap: 4px;
+}
+
+.buildUpdateBannerText strong {
+  color: #9a3412;
+  font-size: 14px;
+}
+
+.buildUpdateBannerText span,
+.buildUpdateBannerText small {
+  color: #7c2d12;
+}
+
+.buildUpdateBanner button {
+  flex-shrink: 0;
+}
+
 @media (max-width: 1160px) {
   .page {
     padding: 10px;
@@ -78,6 +110,11 @@
   .mondayShell {
     gap: 10px;
     grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .buildUpdateBanner {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

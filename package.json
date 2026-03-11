@@ -11,6 +11,7 @@
     "prebuild": "node -e \"require('fs').copyFileSync('index.template.html','index.html')\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "pages:prune": "node scripts/prune-pages-deployments.mjs --keep=3",
     "preview": "vite preview",
     "publish:web": "bash ./scripts/publish-web.sh"
   },

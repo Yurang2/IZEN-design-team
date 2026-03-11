@@ -24,6 +24,11 @@ type Route =
       id: string
     }
 
+type AppVersionManifest = {
+  id: string
+  builtAt: string
+}
+
 type ApiSchemaField = {
   key: string
   expectedName: string
@@ -593,6 +598,12 @@ function splitByComma(value: string): string[] {
     .filter(Boolean)
 }
 
+function formatBuildTimestamp(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString('ko-KR', { hour12: false })
+}
+
 function toProjectLabel(project: ProjectRecord): string {
   const iconLabel = formatProjectIconLabel(project.iconEmoji)
   if (iconLabel) return `${iconLabel} ${project.name}`
@@ -836,7 +847,15 @@ function toErrorMessage(error: unknown, fallback: string): string {
 
 function App() {
   const initialListUiState = readListUiStateFromSearch(window.location.search)
+  const currentBuild = useMemo<AppVersionManifest>(
+    () => ({
+      id: __APP_BUILD_ID__,
+      builtAt: __APP_BUILD_TIME__,
+    }),
+    [],
+  )
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname))
+  const [latestAvailableBuild, setLatestAvailableBuild] = useState<AppVersionManifest | null>(null)
   const [theme, setTheme] = useState<ThemeKey>(() => resolveThemeFromSearch(window.location.search))
   const [activeView, setActiveView] = useState<TopView>(initialListUiState.activeView)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -1051,6 +1070,49 @@ function App() {
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [applyListUiStateFromSearch])
+
+  useEffect(() => {
+    let disposed = false
+    const versionUrl = new URL(/* @vite-ignore */ '../app-version.json', import.meta.url)
+
+    const checkLatestBuild = async () => {
+      try {
+        const response = await fetch(`${versionUrl.toString()}?t=${Date.now()}`, { cache: 'no-store' })
+        if (!response.ok) return
+        const manifest = (await response.json()) as Partial<AppVersionManifest>
+        if (!manifest.id || !manifest.builtAt || disposed) return
+        if (manifest.id !== currentBuild.id) {
+          setLatestAvailableBuild({
+            id: manifest.id,
+            builtAt: manifest.builtAt,
+          })
+          return
+        }
+        setLatestAvailableBuild(null)
+      } catch {
+        // Non-blocking: deployment checks should never break the workspace.
+      }
+    }
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void checkLatestBuild()
+      }
+    }
+
+    void checkLatestBuild()
+    const timer = window.setInterval(() => {
+      void checkLatestBuild()
+    }, 30_000)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      disposed = true
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [currentBuild.id])
 
   useEffect(() => {
     if (route.kind !== 'list') return
@@ -2903,6 +2965,19 @@ function App() {
             </div>
           ) : null}
         </header>
+
+        {latestAvailableBuild ? (
+          <section className="buildUpdateBanner" aria-live="polite">
+            <div className="buildUpdateBannerText">
+              <strong>새 버전이 배포되었습니다.</strong>
+              <span>현재 열려 있는 화면은 최신이 아닐 수 있습니다. 새로고침 후 공유해 주세요.</span>
+              <small>배포 시각 {formatBuildTimestamp(latestAvailableBuild.builtAt)}</small>
+            </div>
+            <button type="button" onClick={() => window.location.reload()}>
+              새로고침
+            </button>
+          </section>
+        ) : null}
 
         <section className="toolbar toolbarWrap">
           {activeView === 'tasks' ? (
