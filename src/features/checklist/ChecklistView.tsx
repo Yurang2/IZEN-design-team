@@ -220,7 +220,7 @@ function ChecklistSkeletonTable({ isAssignmentMode }: { isAssignmentMode: boolea
             <th>디자인 소요(일)</th>
             <th>실물 제작 소요(일)</th>
             <th>총 소요(일)</th>
-            <th>역산 완료 예정일</th>
+            <th>완료 예정일</th>
             <th>최종 완료 시점</th>
             {!isAssignmentMode ? <th>행사일 기준</th> : null}
             {isAssignmentMode ? <th>오늘 기준</th> : null}
@@ -578,7 +578,7 @@ export function ChecklistView({
         <p>
           {isAssignmentMode
             ? '노션 프로젝트 DB 값을 기준으로 항목을 생성/할당/해당없음 처리합니다.'
-            : '행사진행일 기준으로 D-day 역산 일정을 빠르게 공유할 수 있습니다.'}
+            : '행사진행일 기준으로 전후 일정을 빠르게 공유할 수 있습니다.'}
         </p>
       </div>
 
@@ -733,7 +733,7 @@ export function ChecklistView({
           {showAssignmentTimeline ? (
             <>
               <p className="muted small assignmentTimelineGuide">
-                해당없음 제외 · 할당여부 무관 전체 표시 · 위험(역산 경과) 업무는 빨간색 강조
+                해당없음 제외 · 할당여부 무관 전체 표시 · 위험(완료 예정일 경과) 업무는 빨간색 강조
               </p>
               <p className="muted small assignmentTimelineGuide">
                 전체 {assignmentTimelineModel.totalCount}건 / 표시 {assignmentTimelineModel.bars.length}건 / 날짜 미확정 {assignmentTimelineModel.unscheduledCount}건 /
@@ -918,7 +918,7 @@ export function ChecklistView({
                 <th>디자인 소요(일)</th>
                 <th>실물 제작 소요(일)</th>
                 <th>총 소요(일)</th>
-                <th>역산 완료 예정일</th>
+                <th>완료 예정일</th>
                 <th>최종 완료 시점</th>
                 {!isAssignmentMode ? <th>행사일 기준</th> : null}
                 {isAssignmentMode ? <th>오늘 기준</th> : null}

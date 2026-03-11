@@ -628,8 +628,8 @@ function pickChecklistOffset(
 ): number | undefined {
   const normalizeOffset = (value: unknown): number | undefined => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
-    // Positive lead-day input from checklist DB means "N business days before base date".
-    return value > 0 ? -value : value
+    // Preserve DB sign semantics: negative = before base date, positive = after base date.
+    return value
   }
 
   const defaultOffset = normalizeOffset(item.defaultOffsetBusinessDays)
