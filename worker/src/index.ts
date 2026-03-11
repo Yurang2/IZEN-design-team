@@ -3513,6 +3513,18 @@ function normalizeMeetingSummaryText(summary: string): string {
     text = text.replace(pattern, replacement)
   }
 
+  const lines = text.split(/\r?\n/g)
+  let seenSummaryHeading = false
+  text = lines
+    .filter((line) => {
+      const trimmed = line.trim()
+      if (!/^#{1,2}\s+\uC694\uC57D$/.test(trimmed)) return true
+      if (seenSummaryHeading) return false
+      seenSummaryHeading = true
+      return true
+    })
+    .join('\n')
+
   return text.replace(/\n{3,}/g, '\n\n').trim()
 }
 
@@ -3740,7 +3752,6 @@ function buildTranscriptBodyBlocks(
 ): Record<string, unknown>[] {
   const utterances = normalizeUtterances(detail.utterances)
   const blocks: Record<string, unknown>[] = []
-  blocks.push(headingBlock('heading_2', '\uC694\uC57D'))
   blocks.push(...buildTranscriptSummaryBlocks(summaryText, summaryError))
   blocks.push(headingBlock('heading_2', '\uC804\uBB38'))
   blocks.push(...buildTranscriptUtteranceBlocks(utterances, speakerMap))
@@ -3826,6 +3837,12 @@ function readBlockPlainText(block: Record<string, unknown>, type: string): strin
     .trim()
 }
 
+function isHeadingWithText(block: Record<string, unknown>, expected: string): boolean {
+  const type = asString(block.type)
+  if (type !== 'heading_1' && type !== 'heading_2') return false
+  return readBlockPlainText(block, type) === expected
+}
+
 function isHeading2WithText(block: Record<string, unknown>, expected: string): boolean {
   const type = asString(block.type)
   if (type !== 'heading_2') return false
@@ -3844,10 +3861,10 @@ async function replaceMeetingSummarySection(
 ): Promise<void> {
   const response = await api.listBlockChildren(pageId)
   const topLevelBlocks = Array.isArray(response?.results) ? (response.results as Array<Record<string, unknown>>) : []
-  const summaryIndex = topLevelBlocks.findIndex((block) => isHeading2WithText(block, '\uC694\uC57D'))
+  const summaryIndex = topLevelBlocks.findIndex((block) => isHeadingWithText(block, '\uC694\uC57D'))
   const transcriptIndex = topLevelBlocks.findIndex((block, index) => index > summaryIndex && isHeading2WithText(block, '\uC804\uBB38'))
   if (summaryIndex < 0 || transcriptIndex < 0) {
-    await appendBlocksInChunks(api, pageId, [headingBlock('heading_2', '\uC694\uC57D'), ...buildTranscriptSummaryBlocks(summaryText, summaryError)])
+    await appendBlocksInChunks(api, pageId, buildTranscriptSummaryBlocks(summaryText, summaryError))
     return
   }
 
