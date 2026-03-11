@@ -57,6 +57,7 @@ type TranscriptDetail = {
   meeting: {
     title: string
     audioKey: string
+    notionPageUrl: string | null
   }
 }
 
@@ -288,6 +289,7 @@ export function MeetingsView() {
   const [speakerMapDraft, setSpeakerMapDraft] = useState<Record<string, string>>({})
   const [savingSpeakers, setSavingSpeakers] = useState(false)
   const [publishingToNotion, setPublishingToNotion] = useState(false)
+  const [retryingSummary, setRetryingSummary] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingTranscripts, setLoadingTranscripts] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -830,6 +832,49 @@ export function MeetingsView() {
     }
   }
 
+  const onRetrySummary = async () => {
+    if (!selectedTranscriptId || !transcriptDetail) return
+    if (!transcriptDetail.bodySynced) {
+      setErrorMessage('먼저 Notion 반영을 완료한 뒤 요약 재시도를 실행해 주세요.')
+      return
+    }
+    if (transcriptDetail.status !== 'completed') {
+      setErrorMessage('전사가 completed 상태일 때만 요약 재시도가 가능합니다.')
+      return
+    }
+    const confirmed = window.confirm('정말 재시도하겠습니까? API 비용이 발생합니다.')
+    if (!confirmed) return
+
+    setRetryingSummary(true)
+    setErrorMessage('')
+    try {
+      const retried = await api<TranscriptPublishResponse>(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/retry-summary`, {
+        method: 'POST',
+      })
+      if (retried.summaryGenerated) {
+        setUploadMessage('요약을 다시 생성해 기존 Notion 회의록에 반영했습니다.')
+      } else if (retried.summaryError) {
+        setUploadMessage(`요약 재시도 후에도 생성되지 않았습니다: ${retried.summaryError}`)
+      } else {
+        setUploadMessage('요약 재시도를 완료했지만 새 요약이 생성되지는 않았습니다.')
+      }
+      if (retried.audioAttachmentError) {
+        setUploadMessage((current) =>
+          current
+            ? `${current} 오디오 파일 첨부는 건너뛰었습니다: ${retried.audioAttachmentError}`
+            : `요약 재시도는 완료되었지만 오디오 파일 첨부는 건너뛰었습니다: ${retried.audioAttachmentError}`,
+        )
+      }
+      await loadTranscriptDetail(selectedTranscriptId)
+      await loadTranscripts()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '요약 재시도에 실패했습니다.'
+      setErrorMessage(message)
+    } finally {
+      setRetryingSummary(false)
+    }
+  }
+
   const onCreateKeywordSet = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!keywordSetName.trim()) {
@@ -1176,9 +1221,35 @@ export function MeetingsView() {
                     type="button"
                     variant="secondary"
                     onClick={() => void onPublishToNotion()}
-                    disabled={publishingToNotion || savingSpeakers || transcriptDetail.status !== 'completed' || speakerLabels.length === 0}
+                    disabled={
+                      publishingToNotion ||
+                      retryingSummary ||
+                      savingSpeakers ||
+                      transcriptDetail.bodySynced ||
+                      transcriptDetail.status !== 'completed' ||
+                      speakerLabels.length === 0
+                    }
                   >
-                    {publishingToNotion ? 'Notion 반영 중...' : '라벨 확정 후 Notion 반영'}
+                    {publishingToNotion ? 'Notion 반영 중...' : transcriptDetail.bodySynced ? '이미 Notion 반영 완료' : '라벨 확정 후 Notion 반영'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void onRetrySummary()}
+                    disabled={retryingSummary || publishingToNotion || savingSpeakers || !transcriptDetail.bodySynced || transcriptDetail.status !== 'completed'}
+                  >
+                    {retryingSummary ? '요약 재시도 중...' : '요약 재시도'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      if (!transcriptDetail.meeting.notionPageUrl) return
+                      window.open(transcriptDetail.meeting.notionPageUrl, '_blank', 'noopener,noreferrer')
+                    }}
+                    disabled={!transcriptDetail.meeting.notionPageUrl}
+                  >
+                    Notion에서 열기
                   </Button>
                 </div>
               </section>

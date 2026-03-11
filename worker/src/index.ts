@@ -2182,6 +2182,12 @@ function notionDatabaseUrl(databaseId: string | undefined): string | null {
   return `https://www.notion.so/${normalized}`
 }
 
+function notionPageUrl(pageId: string | undefined): string | null {
+  const normalized = normalizeNotionId(pageId)
+  if (!normalized) return null
+  return `https://www.notion.so/${normalized}`
+}
+
 async function getSnapshot(service: NotionWorkService, env: Env, ctx: ExecutionContext): Promise<TaskSnapshot> {
   const cacheTtlMs = getCacheTtlMs(env)
   const cached = await loadSnapshotFromCache(cacheTtlMs)
@@ -4214,7 +4220,8 @@ function isMeetingRoutePath(path: string): boolean {
     path === '/assemblyai/webhook' ||
     /^\/transcripts\/[^/]+$/.test(path) ||
     /^\/transcripts\/[^/]+\/speakers$/.test(path) ||
-    /^\/transcripts\/[^/]+\/publish$/.test(path)
+    /^\/transcripts\/[^/]+\/publish$/.test(path) ||
+    /^\/transcripts\/[^/]+\/retry-summary$/.test(path)
   )
 }
 
@@ -4271,6 +4278,7 @@ async function handleMeetingRoutesNotion(
   const transcriptMatch = path.match(/^\/transcripts\/([^/]+)$/)
   const speakerMatch = path.match(/^\/transcripts\/([^/]+)\/speakers$/)
   const publishMatch = path.match(/^\/transcripts\/([^/]+)\/publish$/)
+  const retrySummaryMatch = path.match(/^\/transcripts\/([^/]+)\/retry-summary$/)
 
   try {
     if (request.method === 'POST' && path === '/uploads/presign') {
@@ -4745,6 +4753,7 @@ async function handleMeetingRoutesNotion(
           meeting: {
             title: found.row.title,
             audioKey: found.row.audioKey,
+            notionPageUrl: notionPageUrl(found.row.pageId),
           },
         },
       })
@@ -4791,8 +4800,35 @@ async function handleMeetingRoutesNotion(
         status: published.status,
         utteranceCount: published.utteranceCount,
         audioFileAttached: published.audioFileAttached,
+        audioAttachmentError: published.audioAttachmentError,
         summaryGenerated: published.summaryGenerated,
         summaryError: published.summaryError,
+      })
+    }
+
+    if (request.method === 'POST' && retrySummaryMatch) {
+      const transcriptId = decodeURIComponent(retrySummaryMatch[1])
+      const found = await getMeetingNotionTranscriptById(env, transcriptId)
+      if (!found) {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+      if (!found.row.bodySynced) {
+        return respond.json({ ok: false, error: 'transcript_not_published' }, 409)
+      }
+      if (!found.row.assemblyId) {
+        return respond.json({ ok: false, error: 'assembly_id_missing' }, 400)
+      }
+      const retried = await updateMeetingNotionTranscriptFromAssembly(env, found.row.assemblyId)
+      return respond.ok({
+        ok: true,
+        transcriptId,
+        assemblyId: found.row.assemblyId,
+        status: retried.status,
+        utteranceCount: retried.utteranceCount,
+        audioFileAttached: retried.audioFileAttached,
+        audioAttachmentError: retried.audioAttachmentError,
+        summaryGenerated: retried.summaryGenerated,
+        summaryError: retried.summaryError,
       })
     }
 

@@ -61,6 +61,10 @@
 - publish 동작 주의:
 - `POST /api/transcripts/:id/publish`는 기존 transcript를 재사용해 Notion 본문만 다시 반영합니다.
 - 따라서 publish 반복 실행은 AssemblyAI 재전사 비용을 추가로 발생시키지 않습니다.
+- `bodySynced=true`인 transcript는 웹 UI에서 초기 publish 버튼이 비활성화됩니다.
+- 이미 반영된 transcript의 요약만 다시 시도할 때는 `POST /api/transcripts/:id/retry-summary`를 사용합니다.
+- summary retry는 기존 같은 Notion 페이지를 다시 갱신하며, 새 row를 만들지 않습니다.
+- 단, `OPENAI_API_KEY`가 설정된 경우 summary retry 실행마다 GPT 요약 비용은 다시 발생합니다.
 
 ## 6) 현재 저장 방식
 - 원본 전사(화자 라벨 A/B/C)는 그대로 유지합니다.
