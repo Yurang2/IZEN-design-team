@@ -50,6 +50,7 @@ MEETING_AUDIO_BUCKET_NAME = "izen-meeting-audio"
 #
 # LINE reminder secrets:
 # npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN --config worker/wrangler.toml
+# npx wrangler secret put LINE_CHANNEL_SECRET --config worker/wrangler.toml
 # npx wrangler secret put LINE_NOTIFY_TARGET_USER_ID --config worker/wrangler.toml
 # Optional override (default: 조정훈)
 # LINE_NOTIFY_ASSIGNEE_NAME = "조정훈"

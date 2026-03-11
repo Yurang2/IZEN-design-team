@@ -783,6 +783,56 @@ function getLineChannelAccessToken(env: Env): string {
   return value
 }
 
+async function verifyLineWebhookSignature(request: Request, env: Env, rawBody: string): Promise<boolean> {
+  const secret = asString(env.LINE_CHANNEL_SECRET)
+  if (!secret) return true
+
+  const signature = asString(request.headers.get('x-line-signature'))
+  if (!signature) return false
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(secret).buffer,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const digest = await crypto.subtle.sign('HMAC', key, textEncoder.encode(rawBody).buffer)
+  const bytes = new Uint8Array(digest)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  const expected = btoa(binary)
+  return expected === signature
+}
+
+async function handleLineWebhook(request: Request, env: Env): Promise<{ ok: boolean; verified: boolean; eventCount: number }> {
+  if (request.method === 'GET') {
+    return { ok: true, verified: true, eventCount: 0 }
+  }
+
+  const rawBody = await request.text()
+  const verified = await verifyLineWebhookSignature(request, env, rawBody)
+  if (!verified) {
+    throw new Error('line_webhook_signature_invalid')
+  }
+
+  let eventCount = 0
+  if (rawBody.trim()) {
+    try {
+      const parsed = JSON.parse(rawBody) as { events?: unknown[] }
+      eventCount = Array.isArray(parsed.events) ? parsed.events.length : 0
+    } catch {
+      eventCount = 0
+    }
+  }
+
+  return {
+    ok: true,
+    verified,
+    eventCount,
+  }
+}
+
 function matchesAssignee(task: TaskRecord, assigneeName: string): boolean {
   const target = normalizeNameToken(assigneeName)
   if (!target) return false
@@ -2401,6 +2451,7 @@ type ResponseContext = {
 
 function isSensitivePath(path: string): boolean {
   return (
+    path === '/line/webhook' ||
     path === '/projects' ||
     path === '/meta' ||
     path === '/admin/line/reminders/send' ||
@@ -5870,6 +5921,16 @@ export default {
       )
     }
 
+    if ((request.method === 'GET' || request.method === 'POST') && path === '/line/webhook') {
+      try {
+        const result = await handleLineWebhook(request, env)
+        return ok(result, origin)
+      } catch (error: unknown) {
+        const message = error instanceof Error && error.message ? error.message : 'line_webhook_failed'
+        return json({ ok: false, error: message }, 401, origin)
+      }
+    }
+
     const missingAuth = requiredAuthEnv(env)
     if (missingAuth) {
       return json({ ok: false, error: 'config_missing', message: `Missing environment variable: ${missingAuth}` }, 500, origin)
@@ -6519,6 +6580,7 @@ export default {
               'GET /api/auth/session',
               'POST /api/auth/login',
               'POST /api/auth/logout',
+              'GET|POST /api/line/webhook',
               'POST /api/admin/line/reminders/send?kind=morning|evening',
               'GET /api/projects',
               'GET /api/meta',

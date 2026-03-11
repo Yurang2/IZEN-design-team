@@ -61,6 +61,7 @@ export interface Env {
   OPENAI_API_KEY?: string
   OPENAI_SUMMARY_MODEL?: string
   LINE_CHANNEL_ACCESS_TOKEN?: string
+  LINE_CHANNEL_SECRET?: string
   LINE_NOTIFY_TARGET_USER_ID?: string
   LINE_NOTIFY_ASSIGNEE_NAME?: string
 }
