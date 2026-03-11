@@ -60,6 +60,9 @@ export interface Env {
   MEETING_KEYWORD_LIMIT?: string
   OPENAI_API_KEY?: string
   OPENAI_SUMMARY_MODEL?: string
+  LINE_CHANNEL_ACCESS_TOKEN?: string
+  LINE_NOTIFY_TARGET_USER_ID?: string
+  LINE_NOTIFY_ASSIGNEE_NAME?: string
 }
 
 export type FieldStatus = 'exact' | 'fallback' | 'missing' | 'mismatch'

@@ -59,6 +59,12 @@ const R2_PRESIGN_REGION = 'auto'
 const R2_PRESIGN_SERVICE = 's3'
 const R2_UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD'
 const DEFAULT_MEETING_AUDIO_BUCKET_NAME = 'izen-meeting-audio'
+const SEOUL_TIME_ZONE = 'Asia/Seoul'
+const LINE_PUSH_API_URL = 'https://api.line.me/v2/bot/message/push'
+const LINE_MORNING_CRON_UTC = '0 0 * * *'
+const LINE_EVENING_CRON_UTC = '30 8 * * *'
+const DEFAULT_LINE_NOTIFY_ASSIGNEE_NAME = '조정훈'
+const MAX_LINE_REMINDER_TASKS = 20
 
 let snapshotInFlight: Promise<TaskSnapshot> | null = null
 let holidayCache: { expiresAt: number; dates: Set<string> } | null = null
@@ -715,6 +721,181 @@ function resolveChecklistAssignedTaskId(taskPageId: string | null, validTaskIds?
 function containsText(source: string, keyword?: string): boolean {
   if (!keyword) return true
   return source.toLowerCase().includes(keyword.toLowerCase())
+}
+
+function getSeoulDateParts(date: Date): { year: string; month: string; day: string; hour: string; minute: string } {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SEOUL_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const parts = formatter.formatToParts(date)
+  const read = (type: string) => parts.find((entry) => entry.type === type)?.value ?? '00'
+  return {
+    year: read('year'),
+    month: read('month'),
+    day: read('day'),
+    hour: read('hour'),
+    minute: read('minute'),
+  }
+}
+
+function toSeoulDateIso(date: Date): string {
+  const parts = getSeoulDateParts(date)
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+function toSeoulTimeLabel(date: Date): string {
+  const parts = getSeoulDateParts(date)
+  return `${parts.hour}:${parts.minute}`
+}
+
+function normalizeNameToken(value: string | undefined): string {
+  return (value ?? '')
+    .normalize('NFKC')
+    .replace(/\s+/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function isTaskClosed(status: string | undefined): boolean {
+  const normalized = normalizeNameToken(status)
+  return normalized.includes('완료') || normalized.includes('보관') || normalized.includes('done') || normalized.includes('archive')
+}
+
+function getLineNotifyAssigneeName(env: Env): string {
+  return asString(env.LINE_NOTIFY_ASSIGNEE_NAME) ?? DEFAULT_LINE_NOTIFY_ASSIGNEE_NAME
+}
+
+function getLineNotifyTargetUserId(env: Env): string {
+  const value = asString(env.LINE_NOTIFY_TARGET_USER_ID)
+  if (!value) throw new Error('line_notify_target_user_id_missing')
+  return value
+}
+
+function getLineChannelAccessToken(env: Env): string {
+  const value = asString(env.LINE_CHANNEL_ACCESS_TOKEN)
+  if (!value) throw new Error('line_channel_access_token_missing')
+  return value
+}
+
+function matchesAssignee(task: TaskRecord, assigneeName: string): boolean {
+  const target = normalizeNameToken(assigneeName)
+  if (!target) return false
+  return task.assignee.some((entry) => normalizeNameToken(entry) === target)
+}
+
+function compareReminderTask(a: TaskRecord, b: TaskRecord): number {
+  const dueA = a.dueDate ?? '9999-12-31'
+  const dueB = b.dueDate ?? '9999-12-31'
+  if (dueA !== dueB) return dueA.localeCompare(dueB)
+  return `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')
+}
+
+function collectReminderTasks(tasks: TaskRecord[], assigneeName: string): TaskRecord[] {
+  return tasks.filter((task) => matchesAssignee(task, assigneeName)).filter((task) => !isTaskClosed(task.status)).sort(compareReminderTask)
+}
+
+function formatReminderTaskLine(task: TaskRecord, options?: { prefix?: string; includeDueDate?: boolean }): string {
+  const prefix = options?.prefix ? `${options.prefix} ` : '- '
+  const pieces = [`[${task.status || '상태 미지정'}]`, task.projectName || '프로젝트 미지정', task.taskName]
+  if (options?.includeDueDate && task.dueDate) {
+    pieces.push(`마감 ${task.dueDate}`)
+  }
+  return `${prefix}${pieces.join(' / ')}`
+}
+
+function limitReminderLines(lines: string[], suffix: string): string[] {
+  if (lines.length <= MAX_LINE_REMINDER_TASKS) return lines
+  return [...lines.slice(0, MAX_LINE_REMINDER_TASKS), `- 외 ${lines.length - MAX_LINE_REMINDER_TASKS}건 ${suffix}`]
+}
+
+function buildMorningReminderText(assigneeName: string, tasks: TaskRecord[], todayIso: string, now: Date): string {
+  const dueToday = tasks.filter((task) => task.dueDate === todayIso)
+  const overdue = tasks.filter((task) => Boolean(task.dueDate && task.dueDate < todayIso))
+  const inProgress = tasks.filter((task) => !dueToday.includes(task) && !overdue.includes(task))
+  const lines: string[] = ['[오늘 할 일]', `${todayIso} ${toSeoulTimeLabel(now)} 기준 ${assigneeName}님 업무입니다.`]
+
+  if (tasks.length === 0) {
+    lines.push('', '오늘 열려 있는 업무가 없습니다.')
+    return lines.join('\n')
+  }
+
+  if (dueToday.length > 0) {
+    lines.push('', '★ 오늘 마감')
+    lines.push(...limitReminderLines(dueToday.map((task) => formatReminderTaskLine(task, { prefix: '★' })), '더 있습니다.'))
+  }
+
+  if (overdue.length > 0) {
+    lines.push('', '! 지연')
+    lines.push(...limitReminderLines(overdue.map((task) => formatReminderTaskLine(task, { prefix: '!', includeDueDate: true })), '더 있습니다.'))
+  }
+
+  if (inProgress.length > 0) {
+    lines.push('', '진행중 / 확인 필요')
+    lines.push(...limitReminderLines(inProgress.map((task) => formatReminderTaskLine(task, { includeDueDate: true })), '더 있습니다.'))
+  }
+
+  return lines.join('\n')
+}
+
+function buildEveningReminderText(assigneeName: string, tasks: TaskRecord[], todayIso: string, now: Date): string {
+  const lines: string[] = ['[오늘의 업무 상태]', `${todayIso} ${toSeoulTimeLabel(now)} 기준 ${assigneeName}님 업무 상태입니다.`]
+
+  if (tasks.length === 0) {
+    lines.push('', '현재 열려 있는 업무가 없습니다.', '', '틀린 게 있으면 수정해주세요.')
+    return lines.join('\n')
+  }
+
+  lines.push('')
+  lines.push(...limitReminderLines(tasks.map((task) => formatReminderTaskLine(task, { includeDueDate: true })), '더 있습니다.'))
+  lines.push('', '틀린 게 있으면 수정해주세요.')
+  return lines.join('\n')
+}
+
+async function pushLineTextMessage(env: Env, userId: string, text: string): Promise<void> {
+  const response = await fetch(LINE_PUSH_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getLineChannelAccessToken(env)}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      to: userId,
+      messages: [{ type: 'text', text }],
+    }),
+  })
+
+  if (!response.ok) {
+    const body = (await response.text()).trim()
+    throw new Error(body ? `line_push_failed:${response.status}:${body.slice(0, 200)}` : `line_push_failed:${response.status}`)
+  }
+}
+
+async function sendLineReminder(
+  env: Env,
+  ctx: ExecutionContext,
+  kind: 'morning' | 'evening',
+  now = new Date(),
+): Promise<{ ok: true; kind: 'morning' | 'evening'; assigneeName: string; taskCount: number }> {
+  const assigneeName = getLineNotifyAssigneeName(env)
+  const targetUserId = getLineNotifyTargetUserId(env)
+  const service = serviceFromEnv(env)
+  const snapshot = await getSnapshot(service, env, ctx)
+  const todayIso = toSeoulDateIso(now)
+  const tasks = collectReminderTasks(snapshot.tasks, assigneeName)
+  const text = kind === 'morning' ? buildMorningReminderText(assigneeName, tasks, todayIso, now) : buildEveningReminderText(assigneeName, tasks, todayIso, now)
+  await pushLineTextMessage(env, targetUserId, text)
+  return {
+    ok: true,
+    kind,
+    assigneeName,
+    taskCount: tasks.length,
+  }
 }
 
 function unique(values: string[]): string[] {
@@ -2222,6 +2403,7 @@ function isSensitivePath(path: string): boolean {
   return (
     path === '/projects' ||
     path === '/meta' ||
+    path === '/admin/line/reminders/send' ||
     path === '/tasks' ||
     path === '/uploads/presign' ||
     path === '/uploads/events' ||
@@ -5829,6 +6011,13 @@ export default {
         )
       }
 
+      if (request.method === 'POST' && path === '/admin/line/reminders/send') {
+        const kindValue = asString(url.searchParams.get('kind'))
+        const kind = kindValue === 'evening' ? 'evening' : 'morning'
+        const result = await sendLineReminder(env, ctx, kind)
+        return ok(result, origin)
+      }
+
       if (request.method === 'GET' && path === '/meta') {
         return ok(
           {
@@ -6330,6 +6519,7 @@ export default {
               'GET /api/auth/session',
               'POST /api/auth/login',
               'POST /api/auth/logout',
+              'POST /api/admin/line/reminders/send?kind=morning|evening',
               'GET /api/projects',
               'GET /api/meta',
               'GET /api/checklists?eventName=...&eventCategory=...',
@@ -6370,6 +6560,24 @@ export default {
         status,
         origin,
       )
+    }
+  },
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    try {
+      const missingNotion = requiredNotionEnv(env)
+      if (missingNotion) throw new Error(`Missing environment variable: ${missingNotion}`)
+
+      if (controller.cron === LINE_MORNING_CRON_UTC) {
+        await sendLineReminder(env, ctx, 'morning')
+        return
+      }
+
+      if (controller.cron === LINE_EVENING_CRON_UTC) {
+        await sendLineReminder(env, ctx, 'evening')
+      }
+    } catch (error: unknown) {
+      console.error('scheduled_task_failed', error instanceof Error ? error.message : error)
+      throw error
     }
   },
 }

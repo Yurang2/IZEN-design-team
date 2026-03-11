@@ -47,6 +47,12 @@ MEETING_AUDIO_BUCKET_NAME = "izen-meeting-audio"
 # npx wrangler secret put OPENAI_API_KEY --config worker/wrangler.toml
 # Optional model override (default: gpt-5-mini)
 # OPENAI_SUMMARY_MODEL = "gpt-5-mini"
+#
+# LINE reminder secrets:
+# npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN --config worker/wrangler.toml
+# npx wrangler secret put LINE_NOTIFY_TARGET_USER_ID --config worker/wrangler.toml
+# Optional override (default: 조정훈)
+# LINE_NOTIFY_ASSIGNEE_NAME = "조정훈"
 
 # Optional Cloudflare Access gate on top of session/API-key auth.
 REQUIRE_CF_ACCESS = "false"
@@ -59,3 +65,6 @@ REQUIRE_CF_ACCESS = "false"
 [[r2_buckets]]
 binding = "MEETING_AUDIO_BUCKET"
 bucket_name = "izen-meeting-audio"
+
+[triggers]
+crons = ["0 0 * * *", "30 8 * * *"]

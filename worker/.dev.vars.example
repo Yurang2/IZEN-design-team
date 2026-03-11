@@ -3,6 +3,9 @@ NOTION_TASK_DB_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 NOTION_PROJECT_DB_ID=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
 NOTION_CHECKLIST_DB_ID=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
 API_CACHE_TTL_SECONDS=60
+LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
+LINE_NOTIFY_TARGET_USER_ID=your_line_user_id
+LINE_NOTIFY_ASSIGNEE_NAME=조정훈
 ASSEMBLYAI_API_KEY=your_assemblyai_api_key
 ASSEMBLYAI_WEBHOOK_SECRET=replace_with_random_secret
 # Optional: override webhook URL (default: ${origin}/api/assemblyai/webhook)
