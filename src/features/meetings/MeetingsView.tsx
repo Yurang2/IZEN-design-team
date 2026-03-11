@@ -162,6 +162,15 @@ function formatDurationSeconds(totalSeconds: number): string {
   return `${minutes}m ${String(seconds).padStart(2, '0')}s`
 }
 
+function formatTranscriptTimecode(value: number | null): string {
+  if (!Number.isFinite(value) || value == null || value < 0) return '-'
+  const totalSeconds = Math.floor(value / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 function getUploadStageLabel(stage: UploadStage): string {
   if (stage === 'presign') return '1/3 업로드 준비'
   if (stage === 'upload') return '2/3 파일 업로드'
@@ -1160,6 +1169,26 @@ export function MeetingsView() {
               </tbody>
             </table>
           </TableWrap>
+          {selectedTranscriptId && !loadingDetail && transcriptDetail ? (
+            <section className="meetingsMetaGrid">
+              <article>
+                <span>상태</span>
+                <strong>{toTranscriptStatusLabel(transcriptDetail.status, transcriptDetail.bodySynced)}</strong>
+              </article>
+              <article>
+                <span>생성 시각</span>
+                <strong>{toDateTimeLabel(transcriptDetail.createdAt)}</strong>
+              </article>
+              <article>
+                <span>최종 갱신</span>
+                <strong>{toDateTimeLabel(transcriptDetail.updatedAt)}</strong>
+              </article>
+              <article>
+                <span>Notion 반영</span>
+                <strong>{transcriptDetail.bodySynced ? '완료' : '대기'}</strong>
+              </article>
+            </section>
+          ) : null}
         </article>
         <article className="meetingsCard meetingsDetailCard">
           <div className="meetingsCardHeader">
@@ -1171,25 +1200,6 @@ export function MeetingsView() {
             <p className="muted">상세 조회 중...</p>
           ) : transcriptDetail ? (
             <>
-              <section className="meetingsMetaGrid">
-                <article>
-                  <span>상태</span>
-                  <strong>{toTranscriptStatusLabel(transcriptDetail.status, transcriptDetail.bodySynced)}</strong>
-                </article>
-                <article>
-                  <span>생성 시각</span>
-                  <strong>{toDateTimeLabel(transcriptDetail.createdAt)}</strong>
-                </article>
-                <article>
-                  <span>최종 갱신</span>
-                  <strong>{toDateTimeLabel(transcriptDetail.updatedAt)}</strong>
-                </article>
-                <article>
-                  <span>Notion 반영</span>
-                  <strong>{transcriptDetail.bodySynced ? '완료' : '대기'}</strong>
-                </article>
-              </section>
-
               {transcriptDetail.keywordsUsed.length > 0 ? (
                 <p className="muted small">전사에 적용된 Word Boost: {transcriptDetail.keywordsUsed.join(', ')}</p>
               ) : null}
@@ -1262,7 +1272,7 @@ export function MeetingsView() {
                     <header>
                       <strong>{entry.displaySpeaker ?? entry.speaker}</strong>
                       <span className="muted small">
-                        {entry.start ?? '-'} ~ {entry.end ?? '-'}
+                        {formatTranscriptTimecode(entry.start)} ~ {formatTranscriptTimecode(entry.end)}
                       </span>
                     </header>
                     <p>{entry.text}</p>

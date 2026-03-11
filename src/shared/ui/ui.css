@@ -2089,6 +2089,11 @@ button.dashboardNavButton {
   min-height: 0;
 }
 
+.meetingsListCard {
+  display: grid;
+  gap: 12px;
+}
+
 .meetingsListTable {
   max-height: 540px;
   overflow: auto;
@@ -2108,7 +2113,7 @@ button.dashboardNavButton {
 }
 
 .meetingsDetailCard .meetingsUtterances {
-  max-height: 320px;
+  max-height: 60vh;
   overflow: auto;
   padding-right: 2px;
 }
