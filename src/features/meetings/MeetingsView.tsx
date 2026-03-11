@@ -100,8 +100,12 @@ const MAX_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000
 const TRANSCRIPT_CREATE_TIMEOUT_MS = 45_000
 const ASSUMED_MIN_UPLOAD_BYTES_PER_SEC = 128 * 1024
 const UPLOAD_TIMEOUT_BUFFER_MS = 30_000
+const MEETING_ACTION_TRACKING_KEY = 'meetings-pending-actions'
+const MEETING_ACTION_STALE_MS = 10 * 60 * 1000
 
 type UploadStage = 'idle' | 'presign' | 'upload' | 'transcript'
+type MeetingActionKey = 'summaryRetryAt' | 'bodyRebuildAt'
+type PendingMeetingActionMap = Record<string, Partial<Record<MeetingActionKey, number>>>
 
 type ActiveUploadSession = {
   id: string
@@ -125,6 +129,38 @@ type UploadSessionRow = {
   updatedAt: number
   lastEventType: string | null
   lastEventAt: number | null
+}
+
+function readPendingMeetingActionMap(): PendingMeetingActionMap {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.sessionStorage.getItem(MEETING_ACTION_TRACKING_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return {}
+    const entries = Object.entries(parsed as Record<string, unknown>)
+    return Object.fromEntries(
+      entries.flatMap(([transcriptId, value]) => {
+        if (!value || typeof value !== 'object') return []
+        const typedValue = value as Record<string, unknown>
+        const next: Partial<Record<MeetingActionKey, number>> = {}
+        if (typeof typedValue.summaryRetryAt === 'number') next.summaryRetryAt = typedValue.summaryRetryAt
+        if (typeof typedValue.bodyRebuildAt === 'number') next.bodyRebuildAt = typedValue.bodyRebuildAt
+        return Object.keys(next).length > 0 ? [[transcriptId, next]] : []
+      }),
+    )
+  } catch {
+    return {}
+  }
+}
+
+function writePendingMeetingActionMap(value: PendingMeetingActionMap): void {
+  if (typeof window === 'undefined') return
+  if (Object.keys(value).length === 0) {
+    window.sessionStorage.removeItem(MEETING_ACTION_TRACKING_KEY)
+    return
+  }
+  window.sessionStorage.setItem(MEETING_ACTION_TRACKING_KEY, JSON.stringify(value))
 }
 
 function toDateTimeLabel(timestamp: number): string {
@@ -299,6 +335,8 @@ export function MeetingsView() {
   const [savingSpeakers, setSavingSpeakers] = useState(false)
   const [publishingToNotion, setPublishingToNotion] = useState(false)
   const [retryingSummary, setRetryingSummary] = useState(false)
+  const [rebuildingBody, setRebuildingBody] = useState(false)
+  const [pendingMeetingActions, setPendingMeetingActions] = useState<PendingMeetingActionMap>(() => readPendingMeetingActionMap())
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingTranscripts, setLoadingTranscripts] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -308,6 +346,17 @@ export function MeetingsView() {
   const [deletingKeywordSetId, setDeletingKeywordSetId] = useState<string | null>(null)
   const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null)
   const [deletingKeywordId, setDeletingKeywordId] = useState<string | null>(null)
+
+  const updatePendingMeetingActions = useCallback(
+    (updater: (current: PendingMeetingActionMap) => PendingMeetingActionMap) => {
+      setPendingMeetingActions((current) => {
+        const next = updater(current)
+        writePendingMeetingActionMap(next)
+        return next
+      })
+    },
+    [],
+  )
 
   const loadKeywordSets = useCallback(async () => {
     try {
@@ -351,8 +400,33 @@ export function MeetingsView() {
     setLoadingDetail(true)
     try {
       const response = await api<{ ok: boolean; transcript: TranscriptDetail }>(`/transcripts/${encodeURIComponent(transcriptId)}`)
-      setTranscriptDetail(response.transcript ?? null)
-      setSpeakerMapDraft(response.transcript?.speakerMap ?? {})
+      const nextTranscript = response.transcript ?? null
+      setTranscriptDetail(nextTranscript)
+      setSpeakerMapDraft(nextTranscript?.speakerMap ?? {})
+      if (nextTranscript) {
+        updatePendingMeetingActions((current) => {
+          const pending = current[transcriptId]
+          if (!pending) return current
+          let changed = false
+          const nextPending: Partial<Record<MeetingActionKey, number>> = { ...pending }
+          if (typeof nextPending.summaryRetryAt === 'number' && nextTranscript.updatedAt >= nextPending.summaryRetryAt) {
+            delete nextPending.summaryRetryAt
+            changed = true
+          }
+          if (typeof nextPending.bodyRebuildAt === 'number' && nextTranscript.updatedAt >= nextPending.bodyRebuildAt) {
+            delete nextPending.bodyRebuildAt
+            changed = true
+          }
+          if (!changed) return current
+          const next = { ...current }
+          if (Object.keys(nextPending).length > 0) {
+            next[transcriptId] = nextPending
+          } else {
+            delete next[transcriptId]
+          }
+          return next
+        })
+      }
       setErrorMessage('')
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '회의록 상세를 불러오지 못했습니다.'
@@ -360,7 +434,7 @@ export function MeetingsView() {
     } finally {
       setLoadingDetail(false)
     }
-  }, [])
+  }, [updatePendingMeetingActions])
 
   const reportUploadEvent = useCallback(
     async (
@@ -442,6 +516,29 @@ export function MeetingsView() {
   }, [loadTranscriptDetail, selectedTranscriptId])
 
   useEffect(() => {
+    const pruneStaleActions = () => {
+      const now = Date.now()
+      updatePendingMeetingActions((current) => {
+        const next = Object.fromEntries(
+          Object.entries(current).flatMap(([transcriptId, pending]) => {
+            const trimmed = Object.fromEntries(
+              Object.entries(pending).filter(([, startedAt]) => typeof startedAt === 'number' && now - startedAt < MEETING_ACTION_STALE_MS),
+            ) as Partial<Record<MeetingActionKey, number>>
+            return Object.keys(trimmed).length > 0 ? [[transcriptId, trimmed]] : []
+          }),
+        )
+        const currentJson = JSON.stringify(current)
+        const nextJson = JSON.stringify(next)
+        return currentJson === nextJson ? current : next
+      })
+    }
+
+    pruneStaleActions()
+    const timer = window.setInterval(pruneStaleActions, 60_000)
+    return () => window.clearInterval(timer)
+  }, [updatePendingMeetingActions])
+
+  useEffect(() => {
     if (!selectedTranscriptId) return
     if (!transcriptDetail) return
     if (!(transcriptDetail.status === 'queued' || transcriptDetail.status === 'processing' || transcriptDetail.status === 'submitted')) return
@@ -471,6 +568,10 @@ export function MeetingsView() {
     () => sharedUploadSessions.filter((row) => isUploadSessionInProgress(row.state)).length,
     [sharedUploadSessions],
   )
+
+  const selectedPendingActions = selectedTranscriptId ? pendingMeetingActions[selectedTranscriptId] : undefined
+  const isSelectedTranscriptRetryPending = typeof selectedPendingActions?.summaryRetryAt === 'number'
+  const isSelectedTranscriptRebuildPending = typeof selectedPendingActions?.bodyRebuildAt === 'number'
 
   const onSubmitUpload = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -856,6 +957,13 @@ export function MeetingsView() {
 
     setRetryingSummary(true)
     setErrorMessage('')
+    updatePendingMeetingActions((current) => ({
+      ...current,
+      [selectedTranscriptId]: {
+        ...current[selectedTranscriptId],
+        summaryRetryAt: Date.now(),
+      },
+    }))
     try {
       const retried = await api<TranscriptPublishResponse>(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/retry-summary`, {
         method: 'POST',
@@ -877,10 +985,84 @@ export function MeetingsView() {
       await loadTranscriptDetail(selectedTranscriptId)
       await loadTranscripts()
     } catch (error: unknown) {
+      updatePendingMeetingActions((current) => {
+        if (!current[selectedTranscriptId]?.summaryRetryAt) return current
+        const next = { ...current }
+        const pending = { ...(next[selectedTranscriptId] ?? {}) }
+        delete pending.summaryRetryAt
+        if (Object.keys(pending).length > 0) {
+          next[selectedTranscriptId] = pending
+        } else {
+          delete next[selectedTranscriptId]
+        }
+        return next
+      })
       const message = error instanceof Error ? error.message : '요약 재시도에 실패했습니다.'
       setErrorMessage(message)
     } finally {
       setRetryingSummary(false)
+    }
+  }
+
+  const onRebuildBody = async () => {
+    if (!selectedTranscriptId || !transcriptDetail) return
+    if (!transcriptDetail.bodySynced) {
+      setErrorMessage('먼저 Notion 반영을 완료한 뒤 본문 복구를 실행해 주세요.')
+      return
+    }
+    if (transcriptDetail.status !== 'completed') {
+      setErrorMessage('전사가 completed 상태일 때만 본문 복구가 가능합니다.')
+      return
+    }
+    const confirmed = window.confirm('기존 Notion 본문을 다시 구성합니다. 요약 API 비용이 발생할 수 있습니다. 계속하시겠습니까?')
+    if (!confirmed) return
+
+    setRebuildingBody(true)
+    setErrorMessage('')
+    updatePendingMeetingActions((current) => ({
+      ...current,
+      [selectedTranscriptId]: {
+        ...current[selectedTranscriptId],
+        bodyRebuildAt: Date.now(),
+      },
+    }))
+    try {
+      const rebuilt = await api<TranscriptPublishResponse>(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/rebuild-body`, {
+        method: 'POST',
+      })
+      if (rebuilt.summaryGenerated) {
+        setUploadMessage('기존 Notion 본문을 다시 구성하고 요약도 함께 복구했습니다.')
+      } else if (rebuilt.summaryError) {
+        setUploadMessage(`본문 복구는 완료되었지만 요약은 다시 생성되지 않았습니다: ${rebuilt.summaryError}`)
+      } else {
+        setUploadMessage('기존 Notion 본문을 다시 구성했습니다. (요약 미생성)')
+      }
+      if (rebuilt.audioAttachmentError) {
+        setUploadMessage((current) =>
+          current
+            ? `${current} 오디오 파일 첨부는 건너뛰었습니다: ${rebuilt.audioAttachmentError}`
+            : `본문 복구는 완료되었지만 오디오 파일 첨부는 건너뛰었습니다: ${rebuilt.audioAttachmentError}`,
+        )
+      }
+      await loadTranscriptDetail(selectedTranscriptId)
+      await loadTranscripts()
+    } catch (error: unknown) {
+      updatePendingMeetingActions((current) => {
+        if (!current[selectedTranscriptId]?.bodyRebuildAt) return current
+        const next = { ...current }
+        const pending = { ...(next[selectedTranscriptId] ?? {}) }
+        delete pending.bodyRebuildAt
+        if (Object.keys(pending).length > 0) {
+          next[selectedTranscriptId] = pending
+        } else {
+          delete next[selectedTranscriptId]
+        }
+        return next
+      })
+      const message = error instanceof Error ? error.message : '본문 복구에 실패했습니다.'
+      setErrorMessage(message)
+    } finally {
+      setRebuildingBody(false)
     }
   }
 
@@ -1223,6 +1405,11 @@ export function MeetingsView() {
                     />
                   </label>
                 ))}
+                {isSelectedTranscriptRetryPending || isSelectedTranscriptRebuildPending ? (
+                  <p className="muted small">
+                    {isSelectedTranscriptRetryPending ? '요약 재시도 진행 상태를 추적 중입니다.' : '본문 복구 진행 상태를 추적 중입니다.'} 완료되면 상세 갱신 시 자동으로 해제됩니다.
+                  </p>
+                ) : null}
                 <div className="meetingsActions">
                   <Button type="button" onClick={() => void onSaveSpeakerMap()} disabled={savingSpeakers || speakerLabels.length === 0}>
                     {savingSpeakers ? '저장 중...' : '매핑 저장'}
@@ -1234,6 +1421,9 @@ export function MeetingsView() {
                     disabled={
                       publishingToNotion ||
                       retryingSummary ||
+                      rebuildingBody ||
+                      isSelectedTranscriptRetryPending ||
+                      isSelectedTranscriptRebuildPending ||
                       savingSpeakers ||
                       transcriptDetail.bodySynced ||
                       transcriptDetail.status !== 'completed' ||
@@ -1246,9 +1436,33 @@ export function MeetingsView() {
                     type="button"
                     variant="secondary"
                     onClick={() => void onRetrySummary()}
-                    disabled={retryingSummary || publishingToNotion || savingSpeakers || !transcriptDetail.bodySynced || transcriptDetail.status !== 'completed'}
+                    disabled={
+                      retryingSummary ||
+                      rebuildingBody ||
+                      publishingToNotion ||
+                      savingSpeakers ||
+                      isSelectedTranscriptRebuildPending ||
+                      !transcriptDetail.bodySynced ||
+                      transcriptDetail.status !== 'completed'
+                    }
                   >
-                    {retryingSummary ? '요약 재시도 중...' : '요약 재시도'}
+                    {retryingSummary || isSelectedTranscriptRetryPending ? '요약 재시도 중...' : '요약 재시도'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void onRebuildBody()}
+                    disabled={
+                      rebuildingBody ||
+                      retryingSummary ||
+                      publishingToNotion ||
+                      savingSpeakers ||
+                      isSelectedTranscriptRetryPending ||
+                      !transcriptDetail.bodySynced ||
+                      transcriptDetail.status !== 'completed'
+                    }
+                  >
+                    {rebuildingBody || isSelectedTranscriptRebuildPending ? '본문 복구 중...' : '본문 복구'}
                   </Button>
                   <Button
                     type="button"

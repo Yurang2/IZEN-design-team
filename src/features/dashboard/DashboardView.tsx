@@ -35,6 +35,7 @@ type FocusBucket = {
   label: string
   helper: string
   tone: FocusBucketTone
+  totalCount: number
   tasks: TaskRecord[]
 }
 
@@ -198,8 +199,9 @@ export function DashboardView({
       {
         key: 'delayed',
         label: '지연',
-        helper: '먼저 정리해야 하는 업무',
+        helper: delayedTasks.length > 4 ? `먼저 정리해야 하는 업무 · 추가 ${delayedTasks.length - 4}건 요약` : '먼저 정리해야 하는 업무',
         tone: 'red',
+        totalCount: delayedTasks.length,
         tasks: delayedTasks.slice(0, 4),
       },
       {
@@ -207,6 +209,7 @@ export function DashboardView({
         label: '오늘 마감',
         helper: '오늘 안에 닫아야 하는 업무',
         tone: 'blue',
+        totalCount: todayDueTasks.length,
         tasks: todayDueTasks.slice(0, 4),
       },
       {
@@ -214,6 +217,7 @@ export function DashboardView({
         label: '긴급',
         helper: '별도 긴급 표시가 붙은 업무',
         tone: 'green',
+        totalCount: urgentTasks.length,
         tasks: urgentTasks.slice(0, 4),
       },
       {
@@ -221,6 +225,7 @@ export function DashboardView({
         label: '담당 미지정',
         helper: '바로 담당자를 붙여야 하는 업무',
         tone: 'gray',
+        totalCount: unassignedTasks.length,
         tasks: unassignedTasks.slice(0, 4),
       },
     ]
@@ -343,9 +348,12 @@ export function DashboardView({
                   <div className="dashboardFocusLaneHeader">
                     <div className="dashboardFocusLaneHeaderMain">
                       <span className="dashboardFocusLaneLabel">{bucket.label}</span>
-                      <span className="dashboardFocusLaneCount">{bucket.tasks.length}건</span>
+                      <span className="dashboardFocusLaneCount">{bucket.totalCount}건</span>
                     </div>
-                    <span className="dashboardFocusLaneHelper">{bucket.helper}</span>
+                    <span className="dashboardFocusLaneHelper">
+                      {bucket.helper}
+                      {bucket.totalCount > bucket.tasks.length ? ` · 상위 ${bucket.tasks.length}건만 표시` : ''}
+                    </span>
                   </div>
                   {bucket.tasks.length > 0 ? (
                     <div className="dashboardLaneList">

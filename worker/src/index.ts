@@ -4351,7 +4351,8 @@ function isMeetingRoutePath(path: string): boolean {
     /^\/transcripts\/[^/]+$/.test(path) ||
     /^\/transcripts\/[^/]+\/speakers$/.test(path) ||
     /^\/transcripts\/[^/]+\/publish$/.test(path) ||
-    /^\/transcripts\/[^/]+\/retry-summary$/.test(path)
+    /^\/transcripts\/[^/]+\/retry-summary$/.test(path) ||
+    /^\/transcripts\/[^/]+\/rebuild-body$/.test(path)
   )
 }
 
@@ -4409,6 +4410,7 @@ async function handleMeetingRoutesNotion(
   const speakerMatch = path.match(/^\/transcripts\/([^/]+)\/speakers$/)
   const publishMatch = path.match(/^\/transcripts\/([^/]+)\/publish$/)
   const retrySummaryMatch = path.match(/^\/transcripts\/([^/]+)\/retry-summary$/)
+  const rebuildBodyMatch = path.match(/^\/transcripts\/([^/]+)\/rebuild-body$/)
 
   try {
     if (request.method === 'POST' && path === '/uploads/presign') {
@@ -4959,6 +4961,32 @@ async function handleMeetingRoutesNotion(
         audioAttachmentError: null,
         summaryGenerated: retried.summaryGenerated,
         summaryError: retried.summaryError,
+      })
+    }
+
+    if (request.method === 'POST' && rebuildBodyMatch) {
+      const transcriptId = decodeURIComponent(rebuildBodyMatch[1])
+      const found = await getMeetingNotionTranscriptById(env, transcriptId)
+      if (!found) {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+      if (!found.row.bodySynced) {
+        return respond.json({ ok: false, error: 'transcript_not_published' }, 409)
+      }
+      if (!found.row.assemblyId) {
+        return respond.json({ ok: false, error: 'assembly_id_missing' }, 400)
+      }
+      const rebuilt = await updateMeetingNotionTranscriptFromAssembly(env, found.row.assemblyId)
+      return respond.ok({
+        ok: true,
+        transcriptId,
+        assemblyId: found.row.assemblyId,
+        status: rebuilt.status,
+        utteranceCount: rebuilt.utteranceCount,
+        audioFileAttached: rebuilt.audioFileAttached,
+        audioAttachmentError: rebuilt.audioAttachmentError,
+        summaryGenerated: rebuilt.summaryGenerated,
+        summaryError: rebuilt.summaryError,
       })
     }
 
