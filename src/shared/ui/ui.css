@@ -1,10 +1,10 @@
 :root,
 :root[data-theme='v3'],
 [data-theme='v3'] {
-  --bg: #dadff7;
+  --bg: #eef8f8;
   --surface1: #f9fbff;
-  --surface2: #eef4ff;
-  --border: #b9caee;
+  --surface2: #f3fbfb;
+  --border: #b9dedd;
   --text1: #104547;
   --text2: #416879;
   --muted: #6f8da3;
@@ -18,7 +18,7 @@
   --bg-soft: #e6f7f7;
   --border-strong: #8eb9cf;
   --primary-strong-token: #104547;
-  --primary-soft-token: #dadff7;
+  --primary-soft-token: #d8f6f5;
   --primary-soft-border-token: #8fd6d5;
   --primary-soft-text-token: #104547;
   --success-bg-token: #dcfce7;
@@ -31,25 +31,25 @@
   --focus-border-token: #4cc6c3;
   --focus-shadow-token: 0 0 0 3px rgba(0, 179, 176, 0.18);
   --sidebar-grad-start: #f5fbff;
-  --sidebar-grad-end: #dadff7;
+  --sidebar-grad-end: #eef8f8;
   --workspace-mark-grad: linear-gradient(140deg, #104547, #00b3b0 45%, #3b82f6);
   --workspace-mark-shadow: 0 8px 18px rgba(16, 69, 71, 0.24);
   --workspace-mark-text: #ffffff;
   --control-soft: #edf7fb;
   --control-soft-hover: #e2f2fb;
-  --control-soft-border: #c2d9ef;
+  --control-soft-border: #bfe7e6;
   --control-accent-bg: #d8f6f5;
   --control-accent-border: #78d7d5;
   --control-accent-text: #104547;
-  --table-header-bg: #edf3ff;
+  --table-header-bg: #ecf8f8;
   --table-hover-bg: #f7fbff;
   --modal-backdrop: rgba(15, 23, 42, 0.44);
   --auth-shell-bg:
     radial-gradient(circle at 18% 12%, rgba(0, 179, 176, 0.22), transparent 36%),
     radial-gradient(circle at 84% 84%, rgba(59, 130, 246, 0.16), transparent 34%),
-    linear-gradient(180deg, #f5fbff 0%, #dadff7 100%);
+    linear-gradient(180deg, #f5fbff 0%, #eef8f8 100%);
   --auth-card-bg: #ffffff;
-  --auth-card-border: #c9d6f3;
+  --auth-card-border: #cbeaea;
   --auth-card-shadow: 0 12px 34px rgba(16, 69, 71, 0.12);
   --input-bg: #ffffff;
   --button-shadow: 0 1px 0 rgba(16, 69, 71, 0.1);
