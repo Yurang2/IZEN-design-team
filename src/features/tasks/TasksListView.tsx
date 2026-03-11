@@ -49,6 +49,10 @@ function compactText(value: string | undefined, max = 80): string {
   return normalized.length > max ? `${normalized.slice(0, max - 1)}...` : normalized
 }
 
+function hasBlockingPredecessor(predecessorTask: string | undefined, predecessorPending: boolean | undefined): boolean {
+  return Boolean(predecessorTask?.trim()) && predecessorPending === true
+}
+
 function isDoneStatus(status: string | undefined): boolean {
   const normalized = (status ?? '').trim()
   return normalized === '완료' || normalized === '보관'
@@ -105,9 +109,9 @@ function LinkCell({ href }: { href: string | undefined }) {
   )
 }
 
-function PredecessorPendingCell({ value }: { value: boolean | undefined }) {
+function PredecessorPendingCell({ value, blocked }: { value: boolean | undefined; blocked: boolean }) {
   if (value === undefined) return <span className="muted">-</span>
-  if (value) return <Badge tone="red">미완료</Badge>
+  if (blocked) return <Badge tone="red">미완료</Badge>
   return <Badge tone="green">완료</Badge>
 }
 
@@ -285,7 +289,10 @@ export function TasksListView({
                 </tr>
               </thead>
               <tbody>
-                {group.tasks.map((task) => (
+                {group.tasks.map((task) => {
+                  const blockedByPredecessor = hasBlockingPredecessor(task.predecessorTask, task.predecessorPending)
+
+                  return (
                   <tr key={task.id}>
                     <td className="taskNameColumn">
                       <div className="taskPrimaryCell">
@@ -344,16 +351,20 @@ export function TasksListView({
                     <td className="dateCell taskDateCompactColumn">{task.actualStartDate || '-'}</td>
                     <td className="dateCell taskDateCompactColumn">{task.actualEndDate || '-'}</td>
                     <td className="taskDependencyColumn">
-                      <div className="taskTextPreviewCell clampTwoLines">{compactText(task.predecessorTask, 88)}</div>
+                      <div className={`taskTextPreviewCell clampTwoLines taskDependencyCell${blockedByPredecessor ? ' taskDependencyCell-blocked' : ''}`}>
+                        {compactText(task.predecessorTask, 88)}
+                      </div>
                     </td>
                     <td className="taskCompactColumn">
-                      <PredecessorPendingCell value={task.predecessorPending} />
+                      <div className={`taskDependencyFlag${blockedByPredecessor ? ' taskDependencyFlag-blocked' : ''}`}>
+                        <PredecessorPendingCell value={task.predecessorPending} blocked={blockedByPredecessor} />
+                      </div>
                     </td>
                     <td className="taskCompactColumn">
                       <LinkCell href={task.outputLink} />
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </TableWrap>
