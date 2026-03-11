@@ -32,17 +32,22 @@ export type TaskRecord = {
   projectSource: 'relation' | 'select' | 'unknown'
   requester: string[]
   workType: string
+  workTypeColor?: string
   taskName: string
   status: string
   statusColor?: string
   assignee: string[]
   startDate?: string
   dueDate?: string
+  actualStartDate?: string
   actualEndDate?: string
   detail: string
   priority?: string
   urgent?: boolean
   issue?: string
+  predecessorTask?: string
+  predecessorPending?: boolean
+  outputLink?: string
 }
 
 export type ProjectRecord = {
@@ -160,12 +165,46 @@ export type ChecklistAssignmentsExportResponse = {
   }>
 }
 
+export type ScheduleColumn = {
+  id: string
+  name: string
+  type: string
+}
+
+export type ScheduleCell = {
+  columnId: string
+  type: string
+  text: string
+  href?: string | null
+}
+
+export type ScheduleRow = {
+  id: string
+  url: string | null
+  cells: ScheduleCell[]
+}
+
+export type ScheduleResponse = {
+  ok: boolean
+  configured: boolean
+  database: {
+    id: string | null
+    url: string | null
+    title: string
+  }
+  columns: ScheduleColumn[]
+  rows: ScheduleRow[]
+  cacheTtlMs: number
+}
+
 export type MetaResponse = {
   ok: boolean
   databases: {
     project: { id: string; url: string | null }
     task: { id: string; url: string | null }
     checklist: { id: string | null; url: string | null }
+    schedule?: { id: string | null; url: string | null }
+    meeting?: { id: string; url: string | null }
   }
 }
 

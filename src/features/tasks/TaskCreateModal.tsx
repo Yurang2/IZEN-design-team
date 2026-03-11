@@ -60,7 +60,7 @@ export function TaskCreateModal({
         </label>
 
         <label>
-          시작일
+          접수일
           <input type="date" name="startDate" value={createForm.startDate} onChange={onCreateInput} />
         </label>
 

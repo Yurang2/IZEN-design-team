@@ -105,7 +105,7 @@ export function TaskDetailView({
           </label>
 
           <label>
-            시작일
+            접수일
             <input type="date" name="startDate" value={detailForm.startDate} onChange={onDetailInput} />
           </label>
 

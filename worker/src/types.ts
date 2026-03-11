@@ -32,6 +32,7 @@ export interface Env {
   NOTION_TASK_DB_ID: string
   NOTION_PROJECT_DB_ID: string
   NOTION_CHECKLIST_DB_ID?: string
+  NOTION_SCHEDULE_DB_ID?: string
   NOTION_MEETING_DB_ID?: string
   NOTION_CHECKLIST_ASSIGNMENT_DB_ID?: string
   PAGE_PASSWORD: string
@@ -84,12 +85,16 @@ export type TaskSchema = {
     assignee: FieldSchema
     startDate: FieldSchema
     dueDate: FieldSchema
+    actualStartDate: FieldSchema
     actualEndDate: FieldSchema
     detail: FieldSchema
     requester: FieldSchema
     priority: FieldSchema
     urgent: FieldSchema
     issue: FieldSchema
+    predecessorTask: FieldSchema
+    predecessorPending: FieldSchema
+    outputLink: FieldSchema
   }
 }
 
@@ -135,17 +140,22 @@ export type TaskRecord = {
   projectSource: 'relation' | 'unknown'
   requester: string[]
   workType: string
+  workTypeColor?: string
   taskName: string
   status: string
   statusColor?: string
   assignee: string[]
   startDate?: string
   dueDate?: string
+  actualStartDate?: string
   actualEndDate?: string
   detail: string
   priority?: string
   urgent?: boolean
   issue?: string
+  predecessorTask?: string
+  predecessorPending?: boolean
+  outputLink?: string
 }
 
 export type TaskSnapshot = {
@@ -153,6 +163,25 @@ export type TaskSnapshot = {
   tasks: TaskRecord[]
   schema: TaskSchema
   updatedAt: number
+}
+
+export type ScheduleColumn = {
+  id: string
+  name: string
+  type: string
+}
+
+export type ScheduleCell = {
+  columnId: string
+  type: string
+  text: string
+  href?: string | null
+}
+
+export type ScheduleRow = {
+  id: string
+  url: string | null
+  cells: ScheduleCell[]
 }
 
 export type ChecklistPreviewItem = {

@@ -4192,14 +4192,15 @@ tr:hover td {
 }
 
 .notionGridTable {
-  min-width: 1380px;
+  min-width: 1710px;
 }
 
 .notionGridTable .taskNameColumn {
   background: var(--surface);
   left: 0;
-  min-width: 260px;
+  min-width: 290px;
   position: sticky;
+  width: 290px;
   z-index: 2;
 }
 
@@ -4212,9 +4213,87 @@ tr:hover td {
   background: var(--table-hover-bg);
 }
 
+.taskCompactColumn {
+  min-width: 92px;
+  width: 92px;
+}
+
+.taskStatusColumn {
+  min-width: 138px;
+  width: 138px;
+}
+
+.taskAssigneeColumn {
+  min-width: 132px;
+  width: 132px;
+}
+
+.taskDateCompactColumn {
+  min-width: 94px;
+  width: 94px;
+}
+
+.taskDetailColumn {
+  min-width: 190px;
+  width: 190px;
+}
+
+.taskIssueColumn {
+  min-width: 170px;
+  width: 170px;
+}
+
+.taskDependencyColumn {
+  min-width: 152px;
+  width: 152px;
+}
+
+.taskColumnHeader {
+  display: grid;
+  gap: 3px;
+}
+
+.taskColumnHeader strong {
+  color: var(--text-main);
+  font-size: 11px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.taskColumnGroup {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 7px;
+  width: fit-content;
+}
+
+.taskColumnGroup-plan {
+  background: #eef4ff;
+  color: #1d4ed8;
+}
+
+.taskColumnGroup-actual {
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .taskPrimaryCell {
   display: grid;
-  gap: 5px;
+  gap: 6px;
+}
+
+.taskPrimaryTopRow {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+}
+
+.taskPrimaryTopRow .statusPill {
+  flex: 0 0 auto;
+  margin-top: 1px;
 }
 
 .taskPrimaryMeta {
@@ -4245,7 +4324,13 @@ tr:hover td {
 .taskTextPreviewCell {
   color: var(--text-sub);
   line-height: 1.45;
-  min-width: 180px;
+}
+
+.clampTwoLines {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .taskPriorityCell {
@@ -4253,7 +4338,49 @@ tr:hover td {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  min-width: 92px;
+  min-width: 0;
+}
+
+.taskStatusCell {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.taskStatusSelect {
+  max-width: 130px;
+  min-width: 0;
+  width: 100%;
+}
+
+.taskAssigneeList {
+  display: grid;
+  gap: 6px;
+}
+
+.taskAssigneeChip {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.taskAssigneeAvatar {
+  border: 1px solid #d7e0ec;
+  border-radius: 50%;
+  height: 18px;
+  object-fit: cover;
+  width: 18px;
+}
+
+.taskOutputLink {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.taskOutputLink:hover {
+  text-decoration: underline;
 }
 
 .pillDanger {

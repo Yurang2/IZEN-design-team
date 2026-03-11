@@ -10,6 +10,9 @@ import type {
   FieldSchema,
   FieldStatus,
   ProjectRecord,
+  ScheduleCell,
+  ScheduleColumn,
+  ScheduleRow,
   TaskRecord,
   TaskSchema,
   TaskSnapshot,
@@ -349,6 +352,35 @@ function extractCheckbox(props: AnyMap, field: FieldSchema): boolean | undefined
   return Boolean(prop.checkbox)
 }
 
+function extractBooleanLike(props: AnyMap, field: FieldSchema): boolean | undefined {
+  if (field.status === 'missing' || field.status === 'mismatch') return undefined
+  const prop = props[field.actualName]
+  if (!prop || typeof prop !== 'object') return undefined
+
+  const direct = extractBooleanFromProperty(prop)
+  if (direct !== undefined) return direct
+
+  if (prop.type === 'select') {
+    const normalized = normalizeCompactText(prop.select?.name)
+    if (['true', 'yes', 'y', '1', '완료', '있음'].includes(normalized)) return true
+    if (['false', 'no', 'n', '0', '없음'].includes(normalized)) return false
+  }
+
+  if (prop.type === 'status') {
+    const normalized = normalizeCompactText(prop.status?.name)
+    if (['true', 'yes', 'y', '1', '완료', '있음'].includes(normalized)) return true
+    if (['false', 'no', 'n', '0', '없음'].includes(normalized)) return false
+  }
+
+  if (prop.type === 'rich_text') {
+    const normalized = normalizeCompactText(joinRichText(prop.rich_text ?? []))
+    if (['true', 'yes', 'y', '1', '완료', '있음'].includes(normalized)) return true
+    if (['false', 'no', 'n', '0', '없음'].includes(normalized)) return false
+  }
+
+  return undefined
+}
+
 function extractTitle(props: AnyMap, field: FieldSchema): string {
   if (field.status === 'missing' || field.status === 'mismatch') return '[UNKNOWN]'
   const prop = props[field.actualName]
@@ -396,6 +428,14 @@ function extractTextLike(props: AnyMap, field: FieldSchema, fallback = ''): stri
     return (prop.multi_select ?? []).map((entry: any) => entry?.name).filter(Boolean).join(', ')
   }
 
+  if (prop.type === 'url') {
+    return normalizeText(prop.url) || fallback
+  }
+
+  if (prop.type === 'formula' && prop.formula?.type === 'string') {
+    return normalizeText(prop.formula.string) || fallback
+  }
+
   return '[UNKNOWN]'
 }
 
@@ -434,6 +474,168 @@ function extractRelationIds(props: AnyMap, field: FieldSchema): string[] {
   const prop = props[field.actualName]
   if (!prop || prop.type !== 'relation') return []
   return (prop.relation ?? []).map((entry: any) => entry?.id).filter(Boolean)
+}
+
+function extractRelationOrText(props: AnyMap, field: FieldSchema, relationNameMap: Record<string, string>, fallback = ''): string | undefined {
+  if (field.status === 'missing' || field.status === 'mismatch') return undefined
+  const prop = props[field.actualName]
+  if (!prop) return fallback || undefined
+
+  if (prop.type === 'relation') {
+    const labels = (prop.relation ?? [])
+      .map((entry: any) => normalizeText(relationNameMap[normalizeNotionId(entry?.id)] ?? relationNameMap[entry?.id] ?? ''))
+      .filter(Boolean)
+    return labels.join(', ') || fallback || undefined
+  }
+
+  const text = extractTextLike(props, field, fallback)
+  return text && text !== '[UNKNOWN]' ? text : fallback || undefined
+}
+
+function extractUrlLike(props: AnyMap, field: FieldSchema): string | undefined {
+  if (field.status === 'missing' || field.status === 'mismatch') return undefined
+  const prop = props[field.actualName]
+  if (!prop || typeof prop !== 'object') return undefined
+
+  if (prop.type === 'url') {
+    return normalizeText(prop.url) || undefined
+  }
+
+  if (prop.type === 'rich_text') {
+    for (const entry of prop.rich_text ?? []) {
+      const href = normalizeText(entry?.href)
+      if (href) return href
+      const plain = normalizeText(entry?.plain_text)
+      if (/^https?:\/\//i.test(plain)) return plain
+    }
+    return undefined
+  }
+
+  if (prop.type === 'formula' && prop.formula?.type === 'string') {
+    const value = normalizeText(prop.formula.string)
+    return /^https?:\/\//i.test(value) ? value : undefined
+  }
+
+  return undefined
+}
+
+function formatNotionDateRange(value: { start?: string | null; end?: string | null } | undefined | null): string {
+  if (!value) return ''
+  const start = normalizeText(value.start ?? undefined)
+  const end = normalizeText(value.end ?? undefined)
+  if (start && end) return `${start} -> ${end}`
+  return start || end
+}
+
+function firstNonEmptyText(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    const normalized = normalizeText(value)
+    if (normalized) return normalized
+  }
+  return ''
+}
+
+function serializeScheduleArrayValue(values: any[]): string {
+  return values
+    .map((value) => serializeScheduleInlineValue(value))
+    .filter(Boolean)
+    .join(', ')
+}
+
+function serializeScheduleInlineValue(value: any): string {
+  if (value == null) return ''
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  if (Array.isArray(value)) {
+    return serializeScheduleArrayValue(value)
+  }
+  if (typeof value !== 'object') return ''
+
+  const typed = value as AnyMap
+  if (typed.type === 'title') return joinRichText(typed.title ?? [])
+  if (typed.type === 'rich_text') return joinRichText(typed.rich_text ?? [])
+  if (typed.type === 'number') return typed.number == null ? '' : String(typed.number)
+  if (typed.type === 'select') return normalizeText(typed.select?.name)
+  if (typed.type === 'multi_select') return (typed.multi_select ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean).join(', ')
+  if (typed.type === 'status') return normalizeText(typed.status?.name)
+  if (typed.type === 'date') return formatNotionDateRange(typed.date)
+  if (typed.type === 'checkbox') return typed.checkbox === true ? 'true' : typed.checkbox === false ? 'false' : ''
+  if (typed.type === 'url') return normalizeText(typed.url)
+  if (typed.type === 'email') return normalizeText(typed.email)
+  if (typed.type === 'phone_number') return normalizeText(typed.phone_number)
+  if (typed.type === 'people') return (typed.people ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean).join(', ')
+  if (typed.type === 'relation') return (typed.relation ?? []).map((entry: any) => normalizeText(entry?.id)).filter(Boolean).join(', ')
+  if (typed.type === 'files') {
+    return (typed.files ?? [])
+      .map((entry: any) => firstNonEmptyText(entry?.name, extractFileUrl(entry)))
+      .filter(Boolean)
+      .join(', ')
+  }
+  if (typed.type === 'created_by') return normalizeText(typed.created_by?.name)
+  if (typed.type === 'last_edited_by') return normalizeText(typed.last_edited_by?.name)
+  if (typed.type === 'created_time') return normalizeText(typed.created_time)
+  if (typed.type === 'last_edited_time') return normalizeText(typed.last_edited_time)
+  if (typed.type === 'unique_id') {
+    const number = typed.unique_id?.number
+    const prefix = normalizeText(typed.unique_id?.prefix)
+    if (number == null) return prefix
+    return prefix ? `${prefix}-${number}` : String(number)
+  }
+  if (typed.type === 'formula') {
+    if (typed.formula?.type === 'string') return normalizeText(typed.formula.string)
+    if (typed.formula?.type === 'number') return typed.formula.number == null ? '' : String(typed.formula.number)
+    if (typed.formula?.type === 'boolean') return typed.formula.boolean === true ? 'true' : typed.formula.boolean === false ? 'false' : ''
+    if (typed.formula?.type === 'date') return formatNotionDateRange(typed.formula.date)
+    return ''
+  }
+  if (typed.type === 'rollup') {
+    if (typed.rollup?.type === 'array') return serializeScheduleArrayValue(typed.rollup.array ?? [])
+    if (typed.rollup?.type === 'number') return typed.rollup.number == null ? '' : String(typed.rollup.number)
+    if (typed.rollup?.type === 'date') return formatNotionDateRange(typed.rollup.date)
+    if (typed.rollup?.type === 'incomplete') return '[incomplete]'
+    if (typed.rollup?.type === 'unsupported') return '[unsupported]'
+  }
+  if (typed.type === 'button') return normalizeText(typed.button?.label)
+  if (typed.type === 'verification') return normalizeText(typed.verification?.state)
+
+  return firstNonEmptyText(extractTextFromProperty(typed), typed.id ? String(typed.id) : undefined)
+}
+
+function serializeScheduleCell(prop: any, column: ScheduleColumn): ScheduleCell {
+  const href =
+    prop?.type === 'url'
+      ? normalizeText(prop.url) || null
+      : prop?.type === 'email'
+        ? normalizeText(prop.email)
+          ? `mailto:${normalizeText(prop.email)}`
+          : null
+        : prop?.type === 'phone_number'
+          ? normalizeText(prop.phone_number)
+            ? `tel:${normalizeText(prop.phone_number)}`
+            : null
+          : prop?.type === 'files'
+            ? (() => {
+                const firstFile = (prop.files ?? []).find((entry: any) => Boolean(extractFileUrl(entry)))
+                return firstFile ? extractFileUrl(firstFile) ?? null : null
+              })()
+            : prop?.type === 'rich_text' || prop?.type === 'title'
+              ? (() => {
+                  const entries = prop.type === 'rich_text' ? prop.rich_text ?? [] : prop.title ?? []
+                  for (const entry of entries) {
+                    const candidate = normalizeText(entry?.href)
+                    if (candidate) return candidate
+                  }
+                  return null
+                })()
+              : null
+
+  return {
+    columnId: column.id,
+    type: column.type,
+    text: serializeScheduleInlineValue(prop),
+    href,
+  }
 }
 
 function parseDbTitle(db: any): string {
@@ -788,8 +990,8 @@ export class NotionWorkService {
         }),
         status: pickField('status', properties, '상태', ['status', 'select', 'rich_text'], false, statusFallback),
         assignee: pickField('assignee', properties, '담당자', ['people', 'multi_select', 'select', 'rich_text', 'title'], false, assigneeFallback),
-        startDate: pickField('startDate', properties, '시작일', ['date'], false, (entries) => {
-          const byName = entries.find(([name, prop]) => name.includes('시작') && prop?.type === 'date')
+        startDate: pickField('startDate', properties, '접수일', ['date'], false, (entries) => {
+          const byName = entries.find(([name, prop]) => prop?.type === 'date' && (name.includes('접수') || name.includes('시작')))
           if (byName) return byName
           return findFirstByTypes(entries, ['date'])
         }),
@@ -797,6 +999,13 @@ export class NotionWorkService {
           const byName = entries.find(([name, prop]) => name.includes('마감') && prop?.type === 'date')
           if (byName) return byName
           return findFirstByTypes(entries, ['date'])
+        }),
+        actualStartDate: pickField('actualStartDate', properties, '???', ['date'], true, (entries) => {
+          const byName = entries.find(
+            ([name, prop]) => prop?.type === 'date' && (name.includes('??') || name.includes('?? ??') || name.includes('????')),
+          )
+          if (byName) return byName
+          return entries.find(([name, prop]) => prop?.type === 'date' && name.includes('??'))
         }),
         actualEndDate: pickField('actualEndDate', properties, '실제 종료일', ['date'], true, (entries) => {
           const byName = entries.find(
@@ -827,6 +1036,25 @@ export class NotionWorkService {
           const byName = entries.find(([name, prop]) => name.includes('이슈') && ['rich_text', 'title', 'select'].includes(prop?.type))
           if (byName) return byName
           return findFirstByTypes(entries, ['rich_text'])
+        }),
+        predecessorTask: pickField('predecessorTask', properties, '?? ??', ['relation', 'rich_text', 'title', 'select'], true, (entries) => {
+          const byName = entries.find(
+            ([name, prop]) => name.includes('??') && name.includes('??') && ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
+          )
+          if (byName) return byName
+          return entries.find(([name, prop]) => name.includes('??') && ['relation', 'rich_text', 'title', 'select'].includes(prop?.type))
+        }),
+        predecessorPending: pickField('predecessorPending', properties, '?? ???', ['checkbox', 'formula', 'select', 'status', 'rich_text'], true, (entries) => {
+          const byName = entries.find(
+            ([name, prop]) => (name.includes('??') || name.includes('???')) && ['checkbox', 'formula', 'select', 'status', 'rich_text'].includes(prop?.type),
+          )
+          if (byName) return byName
+          return findFirstByTypes(entries, ['checkbox', 'formula'])
+        }),
+        outputLink: pickField('outputLink', properties, '??? ??', ['url', 'rich_text', 'formula'], true, (entries) => {
+          const byName = entries.find(([name, prop]) => name.includes('???') && ['url', 'rich_text', 'formula'].includes(prop?.type))
+          if (byName) return byName
+          return findFirstByTypes(entries, ['url'])
         }),
       },
     }
@@ -1065,6 +1293,57 @@ export class NotionWorkService {
         overseasOffsetBusinessDays,
       }
     })
+  }
+
+  async listScheduleView(): Promise<{
+    configured: boolean
+    database: {
+      id: string | null
+      title: string
+    }
+    columns: ScheduleColumn[]
+    rows: ScheduleRow[]
+  }> {
+    const databaseId = normalizeText(this.env.NOTION_SCHEDULE_DB_ID)
+    if (!databaseId) {
+      return {
+        configured: false,
+        database: {
+          id: null,
+          title: '',
+        },
+        columns: [],
+        rows: [],
+      }
+    }
+
+    const db: any = await this.api.retrieveDatabase(databaseId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    const columns = Object.entries(properties).map(([name, prop]) => ({
+      id: normalizeText(String(prop?.id ?? name)) || name,
+      name,
+      type: normalizeText(String(prop?.type ?? 'unknown')) || 'unknown',
+    }))
+
+    const pages = await this.queryAll(databaseId)
+    const rows = pages.map((page) => {
+      const props = (page.properties ?? {}) as AnyMap
+      return {
+        id: page.id,
+        url: normalizeText(page.url) || null,
+        cells: columns.map((column) => serializeScheduleCell(props[column.name], column)),
+      }
+    })
+
+    return {
+      configured: true,
+      database: {
+        id: databaseId,
+        title: parseDbTitle(db),
+      },
+      columns,
+      rows,
+    }
   }
 
   private checklistAssignmentKey(projectPageId: string, checklistItemPageId: string): string {
@@ -1483,7 +1762,12 @@ export class NotionWorkService {
     return this.mapChecklistAssignmentPage(created, schema)
   }
 
-  private mapTaskPage(page: any, schema: TaskSchema, projectNameMap: Record<string, string>): TaskRecord {
+  private mapTaskPage(
+    page: any,
+    schema: TaskSchema,
+    projectNameMap: Record<string, string>,
+    taskNameMap: Record<string, string> = {},
+  ): TaskRecord {
     const props = (page.properties ?? {}) as AnyMap
 
     const relationIds = extractRelationIds(props, schema.fields.projectRelation)
@@ -1500,6 +1784,7 @@ export class NotionWorkService {
 
     const taskName = extractTitle(props, schema.fields.taskName)
     const workType = extractTextLike(props, schema.fields.workType, '[UNKNOWN]') || '[UNKNOWN]'
+    const workTypeColor = extractSelectOrStatusColor(props[schema.fields.workType.actualName])
     const status = extractTextLike(props, schema.fields.status, '[UNKNOWN]') || '[UNKNOWN]'
     const statusColor = extractSelectOrStatusColor(props[schema.fields.status.actualName])
     const assignee = unique(extractStringArray(props, schema.fields.assignee))
@@ -1507,6 +1792,9 @@ export class NotionWorkService {
     const detail = extractTextLike(props, schema.fields.detail, '')
     const priority = extractTextLike(props, schema.fields.priority, '') || undefined
     const issue = extractTextLike(props, schema.fields.issue, '') || undefined
+    const predecessorTask = extractRelationOrText(props, schema.fields.predecessorTask, taskNameMap)
+    const predecessorPending = extractBooleanLike(props, schema.fields.predecessorPending)
+    const outputLink = extractUrlLike(props, schema.fields.outputLink)
 
     return {
       id: page.id,
@@ -1516,17 +1804,22 @@ export class NotionWorkService {
       projectSource,
       requester,
       workType,
+      workTypeColor,
       taskName,
       status,
       statusColor,
       assignee,
       startDate: extractDate(props, schema.fields.startDate),
       dueDate: extractDate(props, schema.fields.dueDate),
+      actualStartDate: extractDate(props, schema.fields.actualStartDate),
       actualEndDate: extractDate(props, schema.fields.actualEndDate),
       detail,
       priority,
       urgent: extractCheckbox(props, schema.fields.urgent),
       issue,
+      predecessorTask,
+      predecessorPending,
+      outputLink,
     }
   }
 
@@ -1543,7 +1836,15 @@ export class NotionWorkService {
       projectNameMap[normalizeNotionId(project.id)] = project.name
     }
 
-    const tasks = taskPages.map((page) => this.mapTaskPage(page, schema, projectNameMap))
+    const taskNameMap: Record<string, string> = {}
+    for (const taskPage of taskPages) {
+      const normalizedId = normalizeNotionId(taskPage.id)
+      const title = extractTitle((taskPage.properties ?? {}) as AnyMap, schema.fields.taskName)
+      taskNameMap[taskPage.id] = title
+      taskNameMap[normalizedId] = title
+    }
+
+    const tasks = taskPages.map((page) => this.mapTaskPage(page, schema, projectNameMap, taskNameMap))
 
     return {
       projects,

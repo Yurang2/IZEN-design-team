@@ -11,6 +11,14 @@ const GROUP_BASE_ESTIMATE = 84
 const GROUP_COLLAPSED_ESTIMATE = 68
 const GROUP_ESTIMATE_CAP = 12
 
+const ASSIGNEE_AVATARS: Record<string, string> = {
+  강수민: '/assignees/kang-sumin.png',
+  김지은: '/assignees/kim-jieun.png',
+  이다경: '/assignees/lee-dagyeong.png',
+  정현지: '/assignees/jeong-hyeonji.png',
+  조정훈: '/assignees/jo-jeonghun.png',
+}
+
 type TasksListViewProps = {
   groupedTasks: TaskGroup[]
   taskQuickGroupBy: TaskQuickGroupBy
@@ -35,7 +43,7 @@ function todayIso(): string {
   return `${year}-${month}-${day}`
 }
 
-function compactText(value: string | undefined, max = 88): string {
+function compactText(value: string | undefined, max = 80): string {
   const normalized = (value ?? '').replace(/\s+/g, ' ').trim()
   if (!normalized) return '-'
   return normalized.length > max ? `${normalized.slice(0, max - 1)}...` : normalized
@@ -64,6 +72,45 @@ function summarizeGroup(tasks: TaskGroup['tasks']): { delayed: number; todayDue:
   return { delayed, todayDue, urgent, inProgress }
 }
 
+function DateHeader({ scope, label }: { scope: 'plan' | 'actual'; label: string }) {
+  return (
+    <div className="taskColumnHeader">
+      <span className={`taskColumnGroup taskColumnGroup-${scope}`}>{scope === 'plan' ? '계획' : '실제'}</span>
+      <strong>{label}</strong>
+    </div>
+  )
+}
+
+function AssigneeCell({ names }: { names: string[] }) {
+  if (names.length === 0) return <span className="muted">-</span>
+
+  return (
+    <div className="taskAssigneeList">
+      {names.map((name) => (
+        <span key={name} className="taskAssigneeChip">
+          {ASSIGNEE_AVATARS[name] ? <img className="taskAssigneeAvatar" src={ASSIGNEE_AVATARS[name]} alt="" /> : null}
+          <span>{name}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function LinkCell({ href }: { href: string | undefined }) {
+  if (!href) return <span className="muted">-</span>
+  return (
+    <a className="taskOutputLink" href={href} target="_blank" rel="noreferrer">
+      열기
+    </a>
+  )
+}
+
+function PredecessorPendingCell({ value }: { value: boolean | undefined }) {
+  if (value === undefined) return <span className="muted">-</span>
+  if (value) return <Badge tone="red">미완료</Badge>
+  return <Badge tone="green">완료</Badge>
+}
+
 function ListSkeleton() {
   return (
     <section className="projectGroups" aria-hidden="true">
@@ -88,21 +135,24 @@ function ListSkeleton() {
               <thead>
                 <tr>
                   <th className="taskNameColumn">업무</th>
-                  <th>요청주체</th>
-                  <th>업무상세</th>
-                  <th>우선</th>
-                  <th>상태</th>
-                  <th>담당자</th>
-                  <th>시작일</th>
-                  <th>마감일</th>
-                  <th>실제종료일</th>
-                  <th>이슈</th>
+                  <th className="taskDetailColumn">업무상세</th>
+                  <th className="taskIssueColumn">이슈</th>
+                  <th className="taskCompactColumn">우선순위</th>
+                  <th className="taskStatusColumn">상태</th>
+                  <th className="taskAssigneeColumn">담당자</th>
+                  <th className="taskDateCompactColumn">접수일</th>
+                  <th className="taskDateCompactColumn">마감일</th>
+                  <th className="taskDateCompactColumn">착수일</th>
+                  <th className="taskDateCompactColumn">실제종료일</th>
+                  <th className="taskDependencyColumn">선행 작업</th>
+                  <th className="taskCompactColumn">선행 미완료</th>
+                  <th className="taskCompactColumn">산출물 링크</th>
                 </tr>
               </thead>
               <tbody>
                 {Array.from({ length: 4 }).map((__, rowIdx) => (
                   <tr key={`tasks-list-skeleton-row-${idx}-${rowIdx}`}>
-                    {Array.from({ length: 10 }).map((___, colIdx) => (
+                    {Array.from({ length: 13 }).map((___, colIdx) => (
                       <td key={`tasks-list-skeleton-col-${idx}-${rowIdx}-${colIdx}`}>
                         <Skeleton width="100%" height="14px" />
                       </td>
@@ -212,15 +262,26 @@ export function TasksListView({
               <thead>
                 <tr>
                   <th className="taskNameColumn">업무</th>
-                  <th>요청주체</th>
-                  <th>업무상세</th>
-                  <th>우선</th>
-                  <th>상태</th>
-                  <th>담당자</th>
-                  <th>시작일</th>
-                  <th>마감일</th>
-                  <th>실제종료일</th>
-                  <th>이슈</th>
+                  <th className="taskDetailColumn">업무상세</th>
+                  <th className="taskIssueColumn">이슈</th>
+                  <th className="taskCompactColumn">우선순위</th>
+                  <th className="taskStatusColumn">상태</th>
+                  <th className="taskAssigneeColumn">담당자</th>
+                  <th className="taskDateCompactColumn">
+                    <DateHeader scope="plan" label="접수일" />
+                  </th>
+                  <th className="taskDateCompactColumn">
+                    <DateHeader scope="plan" label="마감일" />
+                  </th>
+                  <th className="taskDateCompactColumn">
+                    <DateHeader scope="actual" label="착수일" />
+                  </th>
+                  <th className="taskDateCompactColumn">
+                    <DateHeader scope="actual" label="실제종료일" />
+                  </th>
+                  <th className="taskDependencyColumn">선행 작업</th>
+                  <th className="taskCompactColumn">선행 미완료</th>
+                  <th className="taskCompactColumn">산출물 링크</th>
                 </tr>
               </thead>
               <tbody>
@@ -228,27 +289,35 @@ export function TasksListView({
                   <tr key={task.id}>
                     <td className="taskNameColumn">
                       <div className="taskPrimaryCell">
-                        <button type="button" className="taskLink" onClick={() => onTaskOpen(task.id)}>
-                          {task.taskName}
-                        </button>
+                        <div className="taskPrimaryTopRow">
+                          {task.workType ? (
+                            <Badge tone="gray" notionColor={task.workTypeColor}>
+                              {task.workType}
+                            </Badge>
+                          ) : null}
+                          <button type="button" className="taskLink" onClick={() => onTaskOpen(task.id)}>
+                            {task.taskName}
+                          </button>
+                        </div>
                         <div className="taskPrimaryMeta">
-                          {task.workType ? <span className="taskMiniMeta">{task.workType}</span> : null}
+                          <span className="taskMiniMeta">{joinOrDash(task.requester)}</span>
                           {taskQuickGroupBy !== 'project' && task.projectName ? <span className="taskMiniMeta">{task.projectName}</span> : null}
                           {task.urgent ? <span className="taskMiniMeta taskMiniMeta-emphasis">긴급</span> : null}
                         </div>
                       </div>
                     </td>
-                    <td className="assignmentCell">{joinOrDash(task.requester)}</td>
-                    <td>
-                      <div className="taskTextPreviewCell">{compactText(task.detail, 96)}</div>
+                    <td className="taskDetailColumn">
+                      <div className="taskTextPreviewCell clampTwoLines">{compactText(task.detail, 120)}</div>
                     </td>
-                    <td>
+                    <td className="taskIssueColumn">
+                      <div className="taskTextPreviewCell clampTwoLines">{compactText(task.issue, 96)}</div>
+                    </td>
+                    <td className="taskCompactColumn">
                       <div className="taskPriorityCell">
                         {task.priority ? <Badge tone="gray">{task.priority}</Badge> : <span className="muted">-</span>}
-                        {task.urgent ? <Badge tone="red">긴급</Badge> : null}
                       </div>
                     </td>
-                    <td>
+                    <td className="taskStatusColumn">
                       <div className="taskStatusCell">
                         <Badge tone={toStatusTone(task.status)} notionColor={task.statusColor}>
                           {task.status || '미분류'}
@@ -267,12 +336,21 @@ export function TasksListView({
                         </select>
                       </div>
                     </td>
-                    <td>{joinOrDash(task.assignee)}</td>
-                    <td className="dateCell">{task.startDate || '-'}</td>
-                    <td className="dateCell">{task.dueDate || '-'}</td>
-                    <td className="dateCell">{task.actualEndDate || '-'}</td>
-                    <td>
-                      <div className="taskTextPreviewCell">{compactText(task.issue, 72)}</div>
+                    <td className="taskAssigneeColumn">
+                      <AssigneeCell names={task.assignee} />
+                    </td>
+                    <td className="dateCell taskDateCompactColumn">{task.startDate || '-'}</td>
+                    <td className="dateCell taskDateCompactColumn">{task.dueDate || '-'}</td>
+                    <td className="dateCell taskDateCompactColumn">{task.actualStartDate || '-'}</td>
+                    <td className="dateCell taskDateCompactColumn">{task.actualEndDate || '-'}</td>
+                    <td className="taskDependencyColumn">
+                      <div className="taskTextPreviewCell clampTwoLines">{compactText(task.predecessorTask, 88)}</div>
+                    </td>
+                    <td className="taskCompactColumn">
+                      <PredecessorPendingCell value={task.predecessorPending} />
+                    </td>
+                    <td className="taskCompactColumn">
+                      <LinkCell href={task.outputLink} />
                     </td>
                   </tr>
                 ))}

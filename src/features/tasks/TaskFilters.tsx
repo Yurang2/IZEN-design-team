@@ -69,8 +69,8 @@ export function TaskFilters({
         <select name="taskSort" value={taskSort} onChange={(event) => onTaskSortChange(event.target.value as TaskSort)}>
           <option value="due_asc">마감일 빠른순</option>
           <option value="due_desc">마감일 늦은순</option>
-          <option value="start_asc">시작일 빠른순</option>
-          <option value="start_desc">시작일 늦은순</option>
+          <option value="start_asc">접수일 빠른순</option>
+          <option value="start_desc">접수일 늦은순</option>
           <option value="status_asc">상태 오름차순</option>
           <option value="name_asc">업무명 오름차순</option>
         </select>

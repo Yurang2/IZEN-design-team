@@ -72,6 +72,23 @@ type MockAssignmentLog = {
   createdAt: number
 }
 
+type MockScheduleColumn = {
+  id: string
+  name: string
+  type: string
+}
+
+type MockScheduleRow = {
+  id: string
+  url: string | null
+  cells: Array<{
+    columnId: string
+    type: string
+    text: string
+    href?: string | null
+  }>
+}
+
 const CACHE_TTL_MS = 60_000
 
 const PROJECTS: MockProject[] = [
@@ -170,9 +187,9 @@ const TASK_SCHEMA: MockApiSchemaSummary = {
     },
     startDate: {
       key: 'startDate',
-      expectedName: '시작일',
+      expectedName: '접수일',
       expectedTypes: ['date'],
-      actualName: '시작일',
+      actualName: '접수일',
       actualType: 'date',
       status: 'exact',
       optional: false,
@@ -271,6 +288,39 @@ const CHECKLIST_ITEMS: MockChecklistItem[] = [
     designLeadDays: 7,
     productionLeadDays: 3,
     bufferDays: 1,
+  },
+]
+
+const SCHEDULE_COLUMNS: MockScheduleColumn[] = [
+  { id: 'title', name: '일정명', type: 'title' },
+  { id: 'date', name: '일정', type: 'date' },
+  { id: 'owner', name: '담당', type: 'people' },
+  { id: 'status', name: '상태', type: 'status' },
+  { id: 'notes', name: '메모', type: 'rich_text' },
+]
+
+const SCHEDULE_ROWS: MockScheduleRow[] = [
+  {
+    id: 'mock-schedule-1',
+    url: 'https://www.notion.so/mock-schedule-1',
+    cells: [
+      { columnId: 'title', type: 'title', text: 'AEEDC 운영 킥오프' },
+      { columnId: 'date', type: 'date', text: '2026-03-18' },
+      { columnId: 'owner', type: 'people', text: '김지연' },
+      { columnId: 'status', type: 'status', text: '예정' },
+      { columnId: 'notes', type: 'rich_text', text: '부스 운영 체크리스트 리뷰' },
+    ],
+  },
+  {
+    id: 'mock-schedule-2',
+    url: 'https://www.notion.so/mock-schedule-2',
+    cells: [
+      { columnId: 'title', type: 'title', text: '중동 전시 운송 확정' },
+      { columnId: 'date', type: 'date', text: '2026-03-22 -> 2026-03-24' },
+      { columnId: 'owner', type: 'people', text: '강수미' },
+      { columnId: 'status', type: 'status', text: '진행중' },
+      { columnId: 'notes', type: 'rich_text', text: '포워더 최종 회신 대기' },
+    ],
   },
 ]
 
@@ -501,7 +551,23 @@ export async function mockApiRequest<T>(pathWithQuery: string, init?: RequestIni
         project: { id: 'mock-project-db', url: 'https://www.notion.so/mock-project-db' },
         task: { id: 'mock-task-db', url: 'https://www.notion.so/mock-task-db' },
         checklist: { id: 'mock-checklist-db', url: 'https://www.notion.so/mock-checklist-db' },
+        schedule: { id: 'mock-schedule-db', url: 'https://www.notion.so/mock-schedule-db' },
       },
+    } as T
+  }
+
+  if (method === 'GET' && path === '/schedule') {
+    return {
+      ok: true,
+      configured: true,
+      database: {
+        id: 'mock-schedule-db',
+        url: 'https://www.notion.so/mock-schedule-db',
+        title: 'Mock Schedule',
+      },
+      columns: deepCopy(SCHEDULE_COLUMNS),
+      rows: deepCopy(SCHEDULE_ROWS),
+      cacheTtlMs: CACHE_TTL_MS,
     } as T
   }
 

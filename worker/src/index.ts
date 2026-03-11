@@ -2285,7 +2285,7 @@ function filterTasks(tasks: TaskRecord[], projectId?: string, status?: string, q
     }
 
     if (q) {
-      const source = `${task.taskName} ${task.detail} ${task.projectName} ${task.workType} ${task.status} ${task.assignee.join(' ')} ${task.requester.join(' ')}`
+      const source = `${task.taskName} ${task.detail} ${task.issue ?? ''} ${task.predecessorTask ?? ''} ${task.outputLink ?? ''} ${task.projectName} ${task.workType} ${task.status} ${task.assignee.join(' ')} ${task.requester.join(' ')}`
       if (!containsText(source, q)) return false
     }
 
@@ -5846,11 +5846,34 @@ export default {
                 id: env.NOTION_CHECKLIST_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_CHECKLIST_DB_ID),
               },
+              schedule: {
+                id: env.NOTION_SCHEDULE_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_SCHEDULE_DB_ID),
+              },
               meeting: {
                 id: getMeetingNotionDbId(env),
                 url: notionDatabaseUrl(getMeetingNotionDbId(env)),
               },
             },
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && path === '/schedule') {
+        const schedule = await service.listScheduleView()
+        return ok(
+          {
+            ok: true,
+            configured: schedule.configured,
+            database: {
+              id: schedule.database.id,
+              url: notionDatabaseUrl(schedule.database.id ?? undefined),
+              title: schedule.database.title,
+            },
+            columns: schedule.columns,
+            rows: schedule.rows,
+            cacheTtlMs,
           },
           origin,
         )

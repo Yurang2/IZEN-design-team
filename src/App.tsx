@@ -4,6 +4,7 @@ import { ChecklistView } from './features/checklist/ChecklistView'
 import { DashboardView } from './features/dashboard/DashboardView'
 import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
+import { ScheduleView } from './features/schedule/ScheduleView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 import { TasksView } from './features/tasks/TasksView'
@@ -54,17 +55,22 @@ type TaskRecord = {
   projectSource: 'relation' | 'select' | 'unknown'
   requester: string[]
   workType: string
+  workTypeColor?: string
   taskName: string
   status: string
   statusColor?: string
   assignee: string[]
   startDate?: string
   dueDate?: string
+  actualStartDate?: string
   actualEndDate?: string
   detail: string
   priority?: string
   urgent?: boolean
   issue?: string
+  predecessorTask?: string
+  predecessorPending?: boolean
+  outputLink?: string
 }
 
 type ProjectRecord = {
@@ -154,12 +160,46 @@ type ChecklistAssignmentsResponse = {
   syncing?: boolean
 }
 
+type ScheduleColumn = {
+  id: string
+  name: string
+  type: string
+}
+
+type ScheduleCell = {
+  columnId: string
+  type: string
+  text: string
+  href?: string | null
+}
+
+type ScheduleRow = {
+  id: string
+  url: string | null
+  cells: ScheduleCell[]
+}
+
+type ScheduleResponse = {
+  ok: boolean
+  configured: boolean
+  database: {
+    id: string | null
+    url: string | null
+    title: string
+  }
+  columns: ScheduleColumn[]
+  rows: ScheduleRow[]
+  cacheTtlMs: number
+}
+
 type MetaResponse = {
   ok: boolean
   databases: {
     project: { id: string; url: string | null }
     task: { id: string; url: string | null }
     checklist: { id: string | null; url: string | null }
+    schedule?: { id: string | null; url: string | null }
+    meeting?: { id: string; url: string | null }
   }
 }
 
@@ -879,10 +919,12 @@ function App() {
     project: string | null
     task: string | null
     checklist: string | null
+    schedule: string | null
   }>({
     project: null,
     task: null,
     checklist: null,
+    schedule: null,
   })
 
   const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
@@ -908,6 +950,12 @@ function App() {
   const [checklistItems, setChecklistItems] = useState<ChecklistPreviewItem[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState<string | null>(null)
+  const [scheduleConfigured, setScheduleConfigured] = useState(false)
+  const [scheduleDatabaseTitle, setScheduleDatabaseTitle] = useState('')
+  const [scheduleColumns, setScheduleColumns] = useState<ScheduleColumn[]>([])
+  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([])
+  const [scheduleLoading, setScheduleLoading] = useState(false)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
   const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
@@ -1199,6 +1247,7 @@ function App() {
         project: response.databases.project.url ?? toNotionUrlById(response.databases.project.id),
         task: response.databases.task.url ?? toNotionUrlById(response.databases.task.id),
         checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
+        schedule: response.databases.schedule?.url ?? toNotionUrlById(response.databases.schedule?.id ?? undefined),
       })
     } catch {
       // Ignore meta failures; app can run without DB deep-links.
@@ -1303,6 +1352,31 @@ function App() {
     }
   }, [projects])
 
+  const fetchSchedule = useCallback(async () => {
+    setScheduleLoading(true)
+    setScheduleError(null)
+
+    try {
+      const response = await api<ScheduleResponse>('/schedule')
+      setScheduleConfigured(response.configured)
+      setScheduleDatabaseTitle(response.database.title)
+      setScheduleColumns(response.columns)
+      setScheduleRows(response.rows)
+      setDbLinks((prev) => ({
+        ...prev,
+        schedule: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
+      }))
+      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+    } catch (error: unknown) {
+      setScheduleConfigured(false)
+      setScheduleColumns([])
+      setScheduleRows([])
+      setScheduleError(toErrorMessage(error, '일정 DB를 불러오지 못했습니다.'))
+    } finally {
+      setScheduleLoading(false)
+    }
+  }, [])
+
   const fetchChecklistAssignments = useCallback(async (projectPageId?: string, options?: { ensure?: 'background' | 'sync' | 'none' }) => {
     if (!projectPageId) {
       setAssignmentRows([])
@@ -1374,9 +1448,18 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, fetchChecklistPreview, route.kind])
 
+  useEffect(() => {
+    if (authState !== 'authenticated') return
+    if (route.kind !== 'list') return
+    if (activeView !== 'schedule') return
+    void fetchSchedule()
+  }, [activeView, authState, fetchSchedule, route.kind])
+
   const refreshListAndProjects = useCallback(async () => {
-    await Promise.all([fetchProjects(), fetchTasks()])
-  }, [fetchProjects, fetchTasks])
+    const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
+    if (activeView === 'schedule') jobs.push(fetchSchedule())
+    await Promise.all(jobs)
+  }, [activeView, fetchProjects, fetchSchedule, fetchTasks])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -2031,9 +2114,10 @@ function App() {
     if (activeView === 'dashboard') return null
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
+    if (activeView === 'schedule') return dbLinks.schedule
     if (activeView === 'checklist') return dbLinks.checklist
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.task])
+  }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.schedule, dbLinks.task])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -3073,9 +3157,15 @@ function App() {
       ) : null}
 
       {activeView === 'schedule' ? (
-        <section className="checklistPreview">
-          <div className="timelineWipBadge">일정 화면은 준비 중입니다.</div>
-        </section>
+        <ScheduleView
+          configured={scheduleConfigured}
+          databaseTitle={scheduleDatabaseTitle}
+          databaseUrl={dbLinks.schedule}
+          columns={scheduleColumns}
+          rows={scheduleRows}
+          loading={scheduleLoading}
+          error={scheduleError}
+        />
       ) : null}
 
       {activeView === 'meetings' ? <MeetingsView /> : null}
@@ -3109,14 +3199,14 @@ function App() {
               </section>
               <section className="guideTabItem">
                 <h4>업무</h4>
-                <p>실제 작업 단위를 관리하는 탭입니다. 상태, 담당자, 시작일/마감일, 상세 내용을 수정합니다.</p>
+                <p>실제 작업 단위를 관리하는 탭입니다. 상태, 담당자, 접수일/마감일, 상세 내용을 수정합니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('tasks')}>
                   업무 열기
                 </button>
               </section>
               <section className="guideTabItem">
                 <h4>일정</h4>
-                <p>프로젝트별 일정 화면입니다. 현재는 준비 중이며, 이후 통합 일정 시야를 강화할 예정입니다.</p>
+                <p>노션 Schedule DB를 그대로 읽어와 팀 일정과 운영 메모를 빠르게 확인하는 탭입니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('schedule')}>
                   일정 열기
                 </button>
@@ -3184,6 +3274,13 @@ function App() {
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">체크리스트 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.schedule ? (
+                  <a className="guideDbLink" href={dbLinks.schedule} target="_blank" rel="noreferrer">
+                    일정 DB: {dbLinks.schedule}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">일정 DB: 연결 안 됨</span>
                 )}
               </div>
             </article>
