@@ -2392,6 +2392,19 @@ button.dashboardNavButton {
     flex: 1 1 100%;
     max-width: 100%;
   }
+
+  .scheduleHero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .scheduleToolbar {
+    justify-content: stretch;
+  }
+
+  .scheduleToolbar input {
+    max-width: none;
+  }
 }
 
 .checklistPreviewFilters {
@@ -2468,6 +2481,108 @@ button.dashboardNavButton {
   color: #1f2937;
   font-size: 19px;
   font-variant-numeric: tabular-nums;
+}
+
+.scheduleView {
+  display: grid;
+  gap: 14px;
+}
+
+.scheduleHero {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.scheduleHeroText {
+  display: grid;
+  gap: 4px;
+}
+
+.scheduleHeroText h2 {
+  margin: 0;
+}
+
+.scheduleHeroText p:last-child {
+  margin: 0;
+}
+
+.scheduleToolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.scheduleToolbar input {
+  max-width: 320px;
+  width: 100%;
+}
+
+.scheduleGridTable {
+  min-width: 980px;
+}
+
+.scheduleGridTable .schedulePrimaryColumn {
+  background: var(--surface);
+  left: 0;
+  min-width: 220px;
+  position: sticky;
+  width: 220px;
+  z-index: 2;
+}
+
+.scheduleGridTable thead .schedulePrimaryColumn {
+  background: var(--table-header-bg);
+  z-index: 4;
+}
+
+.scheduleGridTable tr:hover .schedulePrimaryColumn {
+  background: var(--table-hover-bg);
+}
+
+.scheduleColumnHeader {
+  display: grid;
+  gap: 3px;
+}
+
+.scheduleColumnHeader strong {
+  color: var(--text-main);
+  font-size: 11px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.scheduleColumnHeader span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.scheduleCell {
+  line-height: 1.45;
+  min-width: 140px;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.schedulePrimaryLink {
+  color: var(--text-main);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.schedulePrimaryLink:hover,
+.scheduleCell a:hover {
+  text-decoration: underline;
+}
+
+.scheduleCell a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.scheduleEmptyState {
+  margin-top: 8px;
 }
 
 .assignmentTimelineSection {
