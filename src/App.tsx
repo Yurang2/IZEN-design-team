@@ -330,7 +330,7 @@ function parseTopView(value: string | null): TopView {
 }
 
 function parseTaskLayout(value: string | null): TaskLayoutMode {
-  if (value === 'board' || value === 'kanban') return value
+  if (value === 'board' || value === 'kanban') return 'board'
   return 'list'
 }
 
@@ -2951,47 +2951,38 @@ function App() {
           </div>
           {activeView === 'tasks' ? (
             <div className="taskViewControls">
-              <section className="taskViewMode">
-                <button
-                  type="button"
-                  className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
-                  onClick={() => setTaskLayout('list')}
-                >
-                  <span className="iconLabel">
-                    <span className="uiIcon">
-                      <UiGlyph name="list" />
+              <section className="taskViewControlSection">
+                <span className="taskViewControlLabel">보기 형태</span>
+                <div className="taskViewMode">
+                  <button
+                    type="button"
+                    className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => setTaskLayout('list')}
+                  >
+                    <span className="iconLabel">
+                      <span className="uiIcon">
+                        <UiGlyph name="list" />
+                      </span>
+                      <span>List</span>
                     </span>
-                    <span>List</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={taskLayout === 'board' ? 'viewTab active' : 'viewTab'}
-                  onClick={() => setTaskLayout('board')}
-                >
-                  <span className="iconLabel">
-                    <span className="uiIcon">
-                      <UiGlyph name="board" />
+                  </button>
+                  <button
+                    type="button"
+                    className={taskLayout === 'board' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => setTaskLayout('board')}
+                  >
+                    <span className="iconLabel">
+                      <span className="uiIcon">
+                        <UiGlyph name="board" />
+                      </span>
+                      <span>Board</span>
                     </span>
-                    <span>Board</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={taskLayout === 'kanban' ? 'viewTab active' : 'viewTab'}
-                  onClick={() => setTaskLayout('kanban')}
-                >
-                  <span className="iconLabel">
-                    <span className="uiIcon">
-                      <UiGlyph name="kanban" />
-                    </span>
-                    <span>Kanban</span>
-                  </span>
-                </button>
+                  </button>
+                </div>
               </section>
 
-              <section className="taskQuickGroup">
-                <span className="taskQuickLabel">Quick</span>
+              <section className="taskViewControlSection">
+                <span className="taskViewControlLabel">구분 형태</span>
                 <div className="taskQuickButtons">
                   <button
                     type="button"
