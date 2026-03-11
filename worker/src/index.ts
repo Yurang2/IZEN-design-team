@@ -3264,7 +3264,7 @@ function paragraphBlock(text: string, maxChars = NOTION_RICH_TEXT_CHUNK): Record
   }
 }
 
-function headingBlock(level: 'heading_2' | 'heading_3', text: string): Record<string, unknown> {
+function headingBlock(level: 'heading_1' | 'heading_2' | 'heading_3', text: string): Record<string, unknown> {
   return {
     object: 'block',
     type: level,
@@ -3280,6 +3280,29 @@ function bulletBlock(text: string): Record<string, unknown> {
   }
 }
 
+function italicParagraphBlock(text: string): Record<string, unknown> {
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: [
+        {
+          type: 'text',
+          text: { content: text.trim() },
+          annotations: {
+            bold: false,
+            italic: true,
+            strikethrough: false,
+            underline: false,
+            code: false,
+            color: 'default',
+          },
+        },
+      ],
+    },
+  }
+}
+
 function toggleBlock(text: string, children: Record<string, unknown>[] = []): Record<string, unknown> {
   return {
     object: 'block',
@@ -3287,6 +3310,37 @@ function toggleBlock(text: string, children: Record<string, unknown>[] = []): Re
     toggle: {
       rich_text: toNotionRichText(text, NOTION_RICH_TEXT_CHUNK),
       children,
+    },
+  }
+}
+
+function splitMarkdownTableRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, '').replace(/\|$/, '')
+  return trimmed.split('|').map((cell) => cell.trim())
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  const cells = splitMarkdownTableRow(line)
+  if (cells.length === 0) return false
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell))
+}
+
+function tableBlock(rows: string[][]): Record<string, unknown> {
+  const width = Math.max(...rows.map((row) => row.length))
+  return {
+    object: 'block',
+    type: 'table',
+    table: {
+      table_width: width,
+      has_column_header: true,
+      has_row_header: false,
+      children: rows.map((row) => ({
+        object: 'block',
+        type: 'table_row',
+        table_row: {
+          cells: Array.from({ length: width }, (_, index) => toNotionRichText(row[index] ?? '', NOTION_RICH_TEXT_CHUNK)),
+        },
+      })),
     },
   }
 }
@@ -3411,22 +3465,28 @@ function getOpenAiIncompleteReason(payload: unknown): string | null {
 }
 
 const REQUIRED_SUMMARY_HEADERS = [
+  '# \uC694\uC57D',
   '## \uD68C\uC758 \uAC1C\uC694',
-  '### \uCC38\uC11D\uC790(\uCD94\uC815)',
-  '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4',
   '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D',
   '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694',
 ] as const
+
+const DEFAULT_MEETING_SUMMARY_WARNING =
+  '\uC774 \uBB38\uC11C\uB294 \uC790\uB3D9\uC73C\uB85C \uC0DD\uC131\uB41C \uD68C\uC758 \uCD08\uC548\uC785\uB2C8\uB2E4. \uC6D0\uBB38 \uBC1C\uD654\uB9CC\uC744 \uADFC\uAC70\uB85C gpt 5 mini \uBC84\uC804\uC73C\uB85C \uC694\uC57D \uC791\uC131\uD588\uC73C\uBA70, \uC138\uBD80 \uB0B4\uC6A9\uC740 \uCD94\uAC00 \uD655\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.'
 
 function normalizeMeetingSummaryText(summary: string): string {
   let text = summary.trim()
   if (!text) return text
 
   const lineReplacements: Array<[RegExp, string]> = [
+    [/^Summary\s*$/gim, '# \uC694\uC57D'],
+    [/^#\s*\uD68C\uC758\s+\uAC1C\uC694\s*$/gim, '## \uD68C\uC758 \uAC1C\uC694'],
     [/^Meta\s*$/gim, '## \uD68C\uC758 \uAC1C\uC694'],
     [/^##\s*\uBA54\uD0C0\s*$/gim, '## \uD68C\uC758 \uAC1C\uC694'],
-    [/^Participants \(estimated\)\s*:?/gim, '### \uCC38\uC11D\uC790(\uCD94\uC815)'],
-    [/^Draft note\s*:?/gim, '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4'],
+    [/^Participants \(estimated\)\s*:?/gim, '\uCC38\uC11D\uC790(\uCD94\uC815): '],
+    [/^###\s*\uCC38\uC11D\uC790\(\uCD94\uC815\)\s*$/gim, '\uCC38\uC11D\uC790(\uCD94\uC815):'],
+    [/^Draft note\s*:?/gim, `*${DEFAULT_MEETING_SUMMARY_WARNING}*`],
+    [/^###\s*\uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4\s*$/gim, `*${DEFAULT_MEETING_SUMMARY_WARNING}*`],
     [/^Key agenda summary\s*$/gim, '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D'],
     [/^Decided items \/ Needs confirmation \(table\)\s*$/gim, '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694'],
     [/^Action items by participant \(table\)\s*$/gim, '## \uCC38\uC5EC\uC790\uBCC4 \uD574\uC57C \uD560 \uC77C'],
@@ -3434,6 +3494,10 @@ function normalizeMeetingSummaryText(summary: string): string {
   ]
   for (const [pattern, replacement] of lineReplacements) {
     text = text.replace(pattern, replacement)
+  }
+
+  if (!/^#\s+\uC694\uC57D\b/m.test(text)) {
+    text = `# \uC694\uC57D\n\n${text}`
   }
 
   const inlineReplacements: Array<[RegExp, string]> = [
@@ -3462,15 +3526,25 @@ function ensureRequiredSummaryHeaders(markdown: string): string {
   if (!normalized) {
     return [
       ...REQUIRED_SUMMARY_HEADERS,
+      '\uCC38\uC11D\uC790(\uCD94\uC815): \uD655\uC778 \uD544\uC694',
+      `*${DEFAULT_MEETING_SUMMARY_WARNING}*`,
       '| \uD56D\uBAA9 | \uC815\uD574\uC9C4 \uB0B4\uC6A9 | \uD655\uC778 \uD544\uC694(\uC9C8\uBB38\uD615) | \uAD00\uB828\uC790 | \uADFC\uAC70 \uD0C0\uC784\uC2A4\uD0EC\uD504 | \uD655\uC2E0\uB3C4 |',
       '|---|---|---|---|---|---|',
       '| \uC694\uC57D \uBBF8\uC0DD\uC131 | \uC815\uBCF4 \uC5C6\uC74C | \uC7AC\uC2E4\uD589 \uD544\uC694 | - | [00:00:00-00:00:00] | \uB0AE\uC74C |',
     ].join('\n')
   }
 
-  const parts = [normalized]
+  let text = normalized
+  if (!/##\s+\uD68C\uC758 \uAC1C\uC694[\s\S]*?\uCC38\uC11D\uC790\(\uCD94\uC815\)\s*:/m.test(text)) {
+    text = text.replace(/(##\s+\uD68C\uC758 \uAC1C\uC694\s*\n?)/, `$1\uCC38\uC11D\uC790(\uCD94\uC815): \uD655\uC778 \uD544\uC694\n`)
+  }
+  if (!text.includes(DEFAULT_MEETING_SUMMARY_WARNING)) {
+    text = text.replace(/(##\s+\uD68C\uC758 \uAC1C\uC694[\s\S]*?)(\n##\s+)/, `$1\n*${DEFAULT_MEETING_SUMMARY_WARNING}*\n\n$2`)
+  }
+
+  const parts = [text]
   for (const header of REQUIRED_SUMMARY_HEADERS) {
-    if (!normalized.includes(header)) {
+    if (!text.includes(header)) {
       parts.push('')
       parts.push(header)
     }
@@ -3481,9 +3555,14 @@ function ensureRequiredSummaryHeaders(markdown: string): string {
 function summaryMarkdownToNotionBlocks(markdown: string): Record<string, unknown>[] {
   const blocks: Record<string, unknown>[] = []
   const lines = markdown.split(/\r?\n/g)
-  for (const raw of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const raw = lines[index]
     const line = raw.trim()
     if (!line) continue
+    if (line.startsWith('# ')) {
+      blocks.push(headingBlock('heading_1', line.slice(2).trim()))
+      continue
+    }
     if (line.startsWith('## ')) {
       blocks.push(headingBlock('heading_2', line.slice(3).trim()))
       continue
@@ -3492,8 +3571,27 @@ function summaryMarkdownToNotionBlocks(markdown: string): Record<string, unknown
       blocks.push(headingBlock('heading_3', line.slice(4).trim()))
       continue
     }
+    if (line.startsWith('|') && index + 1 < lines.length && isMarkdownTableSeparator(lines[index + 1]?.trim() ?? '')) {
+      const rows: string[][] = [splitMarkdownTableRow(line)]
+      index += 2
+      while (index < lines.length) {
+        const rowLine = lines[index].trim()
+        if (!rowLine.startsWith('|')) {
+          index -= 1
+          break
+        }
+        rows.push(splitMarkdownTableRow(rowLine))
+        index += 1
+      }
+      blocks.push(tableBlock(rows))
+      continue
+    }
     if (line.startsWith('- ')) {
       blocks.push(bulletBlock(line.slice(2).trim()))
+      continue
+    }
+    if (line.startsWith('*') && line.endsWith('*') && line.length > 2) {
+      blocks.push(italicParagraphBlock(line.slice(1, -1)))
       continue
     }
     blocks.push(paragraphBlock(line))
@@ -3523,9 +3621,10 @@ async function generateMeetingSummary(
     [
       '\uBC18\uB4DC\uC2DC GitHub-flavored Markdown\uC73C\uB85C\uB9CC \uCD9C\uB825\uD558\uC138\uC694.',
       '\uBC18\uB4DC\uC2DC \uC544\uB798 \uC21C\uC11C/\uD5E4\uB354\uB97C \uADF8\uB300\uB85C \uC0AC\uC6A9\uD558\uC138\uC694.',
+      '# \uC694\uC57D',
       '## \uD68C\uC758 \uAC1C\uC694',
-      '### \uCC38\uC11D\uC790(\uCD94\uC815)',
-      '### \uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4',
+      '\uCC38\uC11D\uC790(\uCD94\uC815): \uC77C\uBC18 \uD14D\uC2A4\uD2B8 \uD55C \uC904',
+      `*${DEFAULT_MEETING_SUMMARY_WARNING}*`,
       '## \uD575\uC2EC \uC548\uAC74 \uC694\uC57D',
       '## \uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694',
       '',
@@ -3539,10 +3638,10 @@ async function generateMeetingSummary(
       '\uADFC\uAC70\uAC00 \uBD88\uBD84\uBA85\uD558\uBA74 [\uBD88\uD655\uC2E4]\uB85C \uD45C\uAE30\uD558\uC138\uC694.',
       '\uC6D0\uBB38\uC5D0 \uC5C6\uB294 \uB0B4\uC6A9\uC740 \uCD94\uAC00\uD558\uC9C0 \uB9C8\uC138\uC694.',
       '\uD55C\uAD6D\uC5B4\uB9CC \uC0AC\uC6A9\uD558\uACE0 \uC601\uBB38 \uD5E4\uB354/\uB77C\uBCA8\uC744 \uC4F0\uC9C0 \uB9C8\uC138\uC694.',
-      '\uCC38\uC11D\uC790(\uCD94\uC815) \uC139\uC158\uC740 \uC774\uB984 \uBAA9\uB85D\uB9CC \uBCF4\uC774\uACE0 \uBC1C\uD654 \uC2DC\uAC04/\uB0B4\uC6A9\uC740 \uC4F0\uC9C0 \uB9C8\uC138\uC694.',
-      '\uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4\uB294 1~2\uBB38\uC7A5 \uC774\uB0B4\uB85C \uAC04\uB2E8\uD788 \uC791\uC131\uD558\uC138\uC694.',
+      '\uCC38\uC11D\uC790(\uCD94\uC815)\uC740 heading \uC5C6\uC774 \uC77C\uBC18 \uD14D\uC2A4\uD2B8 1\uC904\uB85C\uB9CC \uC4F0\uC138\uC694. \uBC1C\uD654 \uC2DC\uAC04/\uB0B4\uC6A9\uC740 \uC4F0\uC9C0 \uB9C8\uC138\uC694.',
+      '\uC790\uB3D9 \uCD08\uC548 \uC548\uB0B4 heading\uC740 \uB9CC\uB4E4\uC9C0 \uB9D0\uACE0, \uC704 \uACBD\uACE0\uBB38 1\uC904\uB9CC \uADF8\uB300\uB85C \uCD9C\uB825\uD558\uC138\uC694.',
       '\uD575\uC2EC \uC548\uAC74 \uC694\uC57D\uC740 \uAC1C\uC218 \uC81C\uD55C \uC5C6\uC774 \uC791\uC131\uD558\uB418, \uAC01 \uD56D\uBAA9\uC740 1~2\uBB38\uC7A5\uC73C\uB85C \uAC04\uACB0\uD788 \uC4F0\uC138\uC694.',
-      '\uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694 \uC139\uC158\uC740 Markdown \uD45C\uB85C\uB9CC \uC791\uC131\uD558\uACE0 \uD45C \uC678 \uC911\uBCF5 \uC124\uBA85\uC740 \uAE08\uC9C0\uD569\uB2C8\uB2E4.',
+      '\uC815\uD574\uC9C4 \uB0B4\uC6A9 / \uD655\uC778 \uD544\uC694 \uC139\uC158\uC740 \uBC18\uB4DC\uC2DC Markdown \uD45C\uB85C\uB9CC \uC791\uC131\uD558\uACE0, \uD45C \uC55E\uB4A4 \uC124\uBA85 \uBB38\uC7A5\uC740 \uAE08\uC9C0\uD569\uB2C8\uB2E4.',
       '\uBD88\uD655\uC2E4/\uCD94\uAC00 \uD655\uC778 \uD544\uC694 \uAD6C\uAC04\uC744 \uC791\uC131\uD560 \uB54C\uB294 \uAC1C\uC218 \uC81C\uD55C \uC5C6\uC774 \uC791\uC131\uD558\uC138\uC694.',
       '\uD45C\uAC00 \uD544\uC694\uD55C \uC139\uC158\uC740 Markdown \uD45C \uBB38\uBC95\uC744 \uC0AC\uC6A9\uD558\uC138\uC694.',
       condensed ? '\uCD9C\uB825 \uBD84\uB7C9\uC744 \uC904\uC774\uACE0 \uD575\uC2EC \uD56D\uBAA9\uB9CC \uAC04\uACB0\uD558\uAC8C \uC791\uC131\uD558\uC138\uC694.' : '',
