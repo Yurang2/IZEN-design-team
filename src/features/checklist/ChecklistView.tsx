@@ -30,7 +30,8 @@ type ChecklistViewProps = {
   onChecklistSortChange: (nextSort: ChecklistSort) => void
   onTogglePrioritizeUnassignedChecklist: (nextValue: boolean) => void
   creatingTaskByChecklistId: Record<string, boolean>
-  onCreateTaskFromChecklist: (row: ChecklistTableRow) => Promise<void>
+  assigneeOptions: string[]
+  onCreateTaskFromChecklist: (row: ChecklistTableRow, assigneeText?: string) => Promise<void>
   onTaskOpen: (taskId: string) => void
   onOpenAssignmentPicker: (item: ChecklistPreviewItem) => void
   onSetNotApplicable: (itemId: string) => Promise<void>
@@ -266,6 +267,7 @@ export function ChecklistView({
   onChecklistSortChange,
   onTogglePrioritizeUnassignedChecklist,
   creatingTaskByChecklistId,
+  assigneeOptions,
   onCreateTaskFromChecklist,
   onTaskOpen,
   onOpenAssignmentPicker,
@@ -276,6 +278,7 @@ export function ChecklistView({
 }: ChecklistViewProps) {
   const eventNameRef = useRef<HTMLSelectElement | null>(null)
   const isAssignmentMode = mode === 'assignment'
+  const [createAssigneeByItemId, setCreateAssigneeByItemId] = useState<Record<string, string>>({})
   const [showAssignmentTimeline, setShowAssignmentTimeline] = useState(true)
   const [hidePastEvents, setHidePastEvents] = useState(true)
   const [timelineFocusedRowId, setTimelineFocusedRowId] = useState<string | null>(null)
@@ -573,6 +576,13 @@ export function ChecklistView({
   }, [assignmentTimelineModel.bars, assignmentTimelineRange])
   return (
     <section className="checklistPreview">
+      {isAssignmentMode ? (
+        <datalist id="checklistAssigneeOptions">
+          {assigneeOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+      ) : null}
       <div className="checklistPreviewHeader">
         <h2>{isAssignmentMode ? '행사 할당 관리' : '행사 일정공유'}</h2>
         <p>
@@ -983,7 +993,26 @@ export function ChecklistView({
 
                     {isAssignmentMode ? (
                       <td className="actionCell">
-                        <Button type="button" variant="secondary" size="mini" disabled={assignmentLoading || creating || row.isAssigned} onClick={() => void onCreateTaskFromChecklist(row)}>
+                        <input
+                          className="checklistAssigneeInput"
+                          list="checklistAssigneeOptions"
+                          value={createAssigneeByItemId[row.item.id] ?? ''}
+                          onChange={(event) =>
+                            setCreateAssigneeByItemId((prev) => ({
+                              ...prev,
+                              [row.item.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="담당자 지정"
+                          disabled={assignmentLoading || creating || row.isAssigned}
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="mini"
+                          disabled={assignmentLoading || creating || row.isAssigned}
+                          onClick={() => void onCreateTaskFromChecklist(row, createAssigneeByItemId[row.item.id] ?? '')}
+                        >
                           {creating ? '생성 중...' : '생성'}
                         </Button>
                         <Button type="button" variant="secondary" size="mini" disabled={assignmentLoading || creating} onClick={() => onOpenAssignmentPicker(row.item)}>

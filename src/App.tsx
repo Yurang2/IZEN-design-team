@@ -2222,12 +2222,15 @@ function App() {
     }
   }
 
-  const onCreateTaskFromChecklist = async (row: {
-    item: ChecklistPreviewItem
-    computedDueDate?: string
-    isApplicable: boolean
-    isAssigned: boolean
-  }) => {
+  const onCreateTaskFromChecklist = async (
+    row: {
+      item: ChecklistPreviewItem
+      computedDueDate?: string
+      isApplicable: boolean
+      isAssigned: boolean
+    },
+    assigneeText?: string,
+  ) => {
     const project = selectedChecklistProject
     if (!project) {
       const message = '체크리스트에서 업무를 생성하려면 행사(프로젝트)를 먼저 선택해주세요.'
@@ -2256,6 +2259,7 @@ function App() {
       const payload: Record<string, unknown> = {
         taskName: row.item.productName?.trim() || row.item.workCategory?.trim() || '체크리스트 업무',
         workType: row.item.workCategory?.trim() || undefined,
+        assignee: splitByComma(assigneeText ?? ''),
         dueDate: row.computedDueDate || undefined,
         detail: detailLines.join('\n') || undefined,
       }
@@ -3143,6 +3147,7 @@ function App() {
           onChecklistSortChange={setChecklistSort}
           onTogglePrioritizeUnassignedChecklist={setPrioritizeUnassignedChecklist}
           creatingTaskByChecklistId={checklistCreatingTaskIds}
+          assigneeOptions={assigneeOptions}
           onCreateTaskFromChecklist={onCreateTaskFromChecklist}
           onTaskOpen={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
           onOpenAssignmentPicker={onOpenAssignmentPicker}

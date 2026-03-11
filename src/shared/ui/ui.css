@@ -4087,6 +4087,12 @@ tr:hover td {
   gap: 6px;
 }
 
+.checklistAssigneeInput {
+  flex: 1 1 140px;
+  font-size: 12px;
+  min-width: 120px;
+}
+
 .taskLink {
   background: transparent;
   border: 0;
