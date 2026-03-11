@@ -44,7 +44,6 @@ const UPLOAD_SESSION_LIST_LIMIT = 100
 const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
-const MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS = 150
 const MAX_TRANSCRIPT_PARAGRAPH_CHARS = 1_500
 const MAX_TRANSCRIPT_PARAGRAPH_LINES = 12
 const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
@@ -3766,7 +3765,6 @@ function buildTranscriptUtteranceBlocks(
     return [paragraphBlock('\uD654\uC790\uBCC4 \uBC1C\uD654\uAC00 \uC544\uC9C1 \uC5C6\uC2B5\uB2C8\uB2E4.')]
   }
 
-  const limitedUtterances = utterances.slice(0, MAX_TRANSCRIPT_BODY_UTTERANCE_BLOCKS)
   const paragraphBlocks: Record<string, unknown>[] = []
   let currentLines: string[] = []
   let currentChars = 0
@@ -3778,7 +3776,7 @@ function buildTranscriptUtteranceBlocks(
     currentChars = 0
   }
 
-  for (const row of limitedUtterances) {
+  for (const row of utterances) {
     const displaySpeaker = asString(speakerMap[row.speaker])?.trim() || row.speaker
     const timestamp = toUtteranceTimestampRange(row.start, row.end)
     const line = timestamp + displaySpeaker + ': ' + row.text
@@ -3795,7 +3793,7 @@ function buildTranscriptUtteranceBlocks(
   pushCurrentParagraph()
 
   return [
-    toggleBlock('\uD654\uC790\uBCC4 \uBC1C\uD654 (' + limitedUtterances.length + '/' + utterances.length + ')', paragraphBlocks),
+    toggleBlock('\uD654\uC790\uBCC4 \uBC1C\uD654 (' + utterances.length + ')', paragraphBlocks),
   ]
 }
 
