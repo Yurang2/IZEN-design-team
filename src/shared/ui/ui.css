@@ -739,6 +739,82 @@ button.viewTab.active .viewTabCount {
   width: 100%;
 }
 
+.sidebarControls {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sidebarControlCard {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.sidebarControlHeader {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebarControlHeader strong {
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sidebarControlGroup {
+  display: grid;
+  gap: 7px;
+}
+
+.sidebarControlLabel {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.sidebarControlButtons {
+  display: grid;
+  gap: 7px;
+}
+
+.sidebarControlButtons-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sidebarControlButtons button.viewTab {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.sidebarSyncBlock {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebarThemePicker {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  margin-left: 0;
+}
+
+.sidebarThemePicker .themePickerButtons {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}
+
+.sidebarThemePicker .themeButton {
+  min-width: 0;
+  width: 100%;
+}
+
 .sidebarMeta {
   display: grid;
   gap: 8px;
@@ -768,6 +844,7 @@ button.viewTab.active .viewTabCount {
 .mondaySidebar.collapsed .viewMenuHeader strong,
 .mondaySidebar.collapsed .viewTabCount,
 .mondaySidebar.collapsed .dbJump,
+.mondaySidebar.collapsed .sidebarControls,
 .mondaySidebar.collapsed .sidebarMeta,
 .mondaySidebar.collapsed .quickSearchForm {
   display: none;

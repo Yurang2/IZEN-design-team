@@ -2928,32 +2928,16 @@ function App() {
             </div>
           )}
         </section>
-        <section className="sidebarMeta">
-          <article className="metaCard">
-            <span className="muted small">프로젝트</span>
-            <strong>{projects.length}</strong>
-          </article>
-          <article className="metaCard">
-            <span className="muted small">업무</span>
-            <strong>{tasks.length}</strong>
-          </article>
-          <article className="metaCard">
-            <span className="muted small">마지막 동기화</span>
-            <strong>{lastSyncedAt || '-'}</strong>
-          </article>
-        </section>
-      </aside>
-      <main className="mondayMain">
-        <header className="header topbarHeader">
-          <div className="topbarHeading">
-            <p className="topbarPath">Design Team / {toTopViewPath(activeView)}</p>
-            <h1>{toTopViewTitle(activeView)}</h1>
-          </div>
+        <section className="sidebarControls">
           {activeView === 'tasks' ? (
-            <div className="taskViewControls">
-              <section className="taskViewControlSection">
-                <span className="taskViewControlLabel">보기 형태</span>
-                <div className="taskViewMode">
+            <article className="sidebarControlCard">
+              <div className="sidebarControlHeader">
+                <strong>현재 보기 설정</strong>
+                <span className="muted small">업무 화면 전용</span>
+              </div>
+              <div className="sidebarControlGroup">
+                <span className="sidebarControlLabel">보기 형태</span>
+                <div className="sidebarControlButtons">
                   <button
                     type="button"
                     className={taskLayout === 'list' ? 'viewTab active' : 'viewTab'}
@@ -2979,11 +2963,10 @@ function App() {
                     </span>
                   </button>
                 </div>
-              </section>
-
-              <section className="taskViewControlSection">
-                <span className="taskViewControlLabel">구분 형태</span>
-                <div className="taskQuickButtons">
+              </div>
+              <div className="sidebarControlGroup">
+                <span className="sidebarControlLabel">구분 형태</span>
+                <div className="sidebarControlButtons sidebarControlButtons-compact">
                   <button
                     type="button"
                     className={taskQuickGroupBy === 'assignee' ? 'viewTab active' : 'viewTab'}
@@ -3013,47 +2996,125 @@ function App() {
                     마감일
                   </button>
                 </div>
-              </section>
-            </div>
+              </div>
+            </article>
           ) : null}
+
           {activeView === 'checklist' ? (
-            <div className="taskViewControls">
-              <section className="taskViewMode">
-                <button
-                  type="button"
-                  className={checklistMode === 'schedule_share' ? 'viewTab active' : 'viewTab'}
-                  onClick={() => {
-                    setChecklistMode('schedule_share')
-                    setAssignmentTarget(null)
-                  }}
-                >
-                  일정공유용
-                </button>
-                <button
-                  type="button"
-                  className={checklistMode === 'assignment' ? 'viewTab active' : 'viewTab'}
-                  onClick={() => setChecklistMode('assignment')}
-                >
-                  할당용
-                </button>
-              </section>
-            </div>
+            <article className="sidebarControlCard">
+              <div className="sidebarControlHeader">
+                <strong>현재 보기 설정</strong>
+                <span className="muted small">체크리스트 화면 전용</span>
+              </div>
+              <div className="sidebarControlGroup">
+                <span className="sidebarControlLabel">보기 형태</span>
+                <div className="sidebarControlButtons">
+                  <button
+                    type="button"
+                    className={checklistMode === 'schedule_share' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => {
+                      setChecklistMode('schedule_share')
+                      setAssignmentTarget(null)
+                    }}
+                  >
+                    일정공유용
+                  </button>
+                  <button
+                    type="button"
+                    className={checklistMode === 'assignment' ? 'viewTab active' : 'viewTab'}
+                    onClick={() => setChecklistMode('assignment')}
+                  >
+                    할당용
+                  </button>
+                </div>
+              </div>
+            </article>
           ) : null}
+
+          <article className="sidebarControlCard">
+            <div className="sidebarControlHeader">
+              <strong>동기화</strong>
+              <span className="muted small">모든 화면 공통</span>
+            </div>
+            {latestAvailableBuild ? (
+              <button type="button" onClick={() => window.location.reload()}>
+                <span className="iconLabel">
+                  <span className="uiIcon">
+                    <UiGlyph name="refresh" />
+                  </span>
+                  <span>새 버전 적용</span>
+                </span>
+              </button>
+            ) : null}
+            <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
+              <span className="iconLabel">
+                <span className="uiIcon">
+                  <UiGlyph name="refresh" />
+                </span>
+                <span>데이터 새로고침</span>
+              </span>
+            </button>
+            <div className="sidebarSyncBlock">
+              <span className="muted small">마지막 동기화</span>
+              <strong>{lastSyncedAt || '-'}</strong>
+            </div>
+          </article>
+
+          <article className="sidebarControlCard">
+            <div className="sidebarControlHeader">
+              <strong>환경</strong>
+              <span className="muted small">개인 보기 설정</span>
+            </div>
+            <div className="themePicker sidebarThemePicker" role="group" aria-label="Theme 선택">
+              <span className="themePickerLabel">Theme</span>
+              <div className="themePickerButtons">
+                {(['v1', 'v2', 'v3'] as ThemeKey[]).map((themeOption) => (
+                  <button
+                    key={themeOption}
+                    type="button"
+                    className={theme === themeOption ? 'secondary mini is-active themeButton' : 'secondary mini themeButton'}
+                    aria-pressed={theme === themeOption}
+                    onClick={() => onThemeChange(themeOption)}
+                  >
+                    {themeOption.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {USE_MOCK_DATA ? <span className="apiModePill">DEMO DATA</span> : null}
+          </article>
+        </section>
+
+        <section className="sidebarMeta">
+          <article className="metaCard">
+            <span className="muted small">프로젝트</span>
+            <strong>{projects.length}</strong>
+          </article>
+          <article className="metaCard">
+            <span className="muted small">업무</span>
+            <strong>{tasks.length}</strong>
+          </article>
+        </section>
+      </aside>
+      <main className="mondayMain">
+        <header className="header topbarHeader">
+          <div className="topbarHeading">
+            <p className="topbarPath">Design Team / {toTopViewPath(activeView)}</p>
+            <h1>{toTopViewTitle(activeView)}</h1>
+          </div>
         </header>
 
         {latestAvailableBuild ? (
           <section className="buildUpdateBanner" aria-live="polite">
             <div className="buildUpdateBannerText">
               <strong>새 버전이 배포되었습니다.</strong>
-              <span>현재 열려 있는 화면은 최신이 아닐 수 있습니다. 새로고침 후 공유해 주세요.</span>
+              <span>현재 열려 있는 화면은 최신이 아닐 수 있습니다. 왼쪽 보기바에서 새 버전 적용을 눌러 다시 열어 주세요.</span>
               <small>배포 시각 {formatBuildTimestamp(latestAvailableBuild.builtAt)}</small>
             </div>
-            <button type="button" onClick={() => window.location.reload()}>
-              새로고침
-            </button>
           </section>
         ) : null}
 
+        {activeView === 'tasks' ? (
         <section className="toolbar toolbarWrap">
           {activeView === 'tasks' ? (
             <button type="button" onClick={() => setCreateOpen(true)}>
@@ -3065,33 +3126,8 @@ function App() {
               </span>
             </button>
           ) : null}
-          <button type="button" className="secondary" onClick={() => void refreshListAndProjects()}>
-            <span className="iconLabel">
-              <span className="uiIcon">
-                <UiGlyph name="refresh" />
-              </span>
-              <span>새로고침</span>
-            </span>
-          </button>
-          <div className="themePicker" role="group" aria-label="Theme 선택">
-            <span className="themePickerLabel">Theme</span>
-            <div className="themePickerButtons">
-              {(['v1', 'v2', 'v3'] as ThemeKey[]).map((themeOption) => (
-                <button
-                  key={themeOption}
-                  type="button"
-                  className={theme === themeOption ? 'secondary mini is-active themeButton' : 'secondary mini themeButton'}
-                  aria-pressed={theme === themeOption}
-                  onClick={() => onThemeChange(themeOption)}
-                >
-                  {themeOption.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
-          {USE_MOCK_DATA ? <span className="apiModePill">DEMO DATA</span> : null}
-          <span className="syncLabel">마지막 동기화: {lastSyncedAt || '-'}</span>
         </section>
+        ) : null}
 
       {activeView === 'dashboard' ? (
         <DashboardView
