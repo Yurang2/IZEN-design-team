@@ -2953,6 +2953,29 @@ button.taskGroupToggle {
   padding: 6px 9px;
 }
 
+button.taskGroupToggleCompact {
+  align-items: center;
+  background: #eef3f9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: none;
+  color: #42526b;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  min-height: 30px;
+  min-width: 30px;
+  padding: 0;
+}
+
+button.taskGroupToggleCompact:hover {
+  background: #e7edf6;
+  border-color: var(--border-strong);
+  transform: none;
+}
+
 .assignmentModal {
   max-width: 920px;
 }
@@ -3096,6 +3119,46 @@ textarea {
   padding-bottom: 12px;
 }
 
+.taskGroupSection {
+  overflow: hidden;
+}
+
+.taskGroupHeaderBar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.taskGroupHeaderIdentity {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.taskGroupTitleBlock {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  min-width: 0;
+}
+
+.taskGroupMetaText {
+  color: var(--text-sub);
+  font-size: 12px;
+  margin: 0;
+}
+
+.taskGroupHeaderStats {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .projectHeader {
   align-items: center;
   display: flex;
@@ -3124,7 +3187,15 @@ textarea {
   align-items: center;
   display: flex;
   gap: 8px;
+  justify-content: flex-start;
   min-width: 0;
+  text-align: left;
+}
+
+.projectTitle span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .projectCoverImage {
@@ -4120,9 +4191,87 @@ tr:hover td {
   min-width: 72px;
 }
 
-.tasksListTable th:nth-child(2),
-.tasksListTable td:nth-child(2) {
-  display: none;
+.notionGridTable {
+  min-width: 1380px;
+}
+
+.notionGridTable .taskNameColumn {
+  background: var(--surface);
+  left: 0;
+  min-width: 260px;
+  position: sticky;
+  z-index: 2;
+}
+
+.notionGridTable thead .taskNameColumn {
+  background: var(--table-header-bg);
+  z-index: 4;
+}
+
+.notionGridTable tr:hover .taskNameColumn {
+  background: var(--table-hover-bg);
+}
+
+.taskPrimaryCell {
+  display: grid;
+  gap: 5px;
+}
+
+.taskPrimaryMeta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.taskMiniMeta {
+  background: #f3f6fb;
+  border: 1px solid #dce5f2;
+  border-radius: 999px;
+  color: #526275;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.taskMiniMeta-emphasis {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.taskTextPreviewCell {
+  color: var(--text-sub);
+  line-height: 1.45;
+  min-width: 180px;
+}
+
+.taskPriorityCell {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 92px;
+}
+
+.pillDanger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.pillWarn {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.pillInfo {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
 
 .actionCell {
