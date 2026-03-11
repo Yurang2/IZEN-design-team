@@ -4556,6 +4556,62 @@ async function retryMeetingNotionSummaryFromAssembly(
   }
 }
 
+async function rewriteMeetingTranscriptSectionFromAssembly(
+  env: Env,
+  assemblyId: string,
+): Promise<{
+  status: string
+  utteranceCount: number
+  summaryGenerated: boolean
+  summaryError: string | null
+}> {
+  const found = await getMeetingNotionTranscriptByAssemblyId(env, assemblyId)
+  if (!found) throw new Error('transcript_not_found')
+  const detail = await assemblyRequest<Record<string, unknown>>(env, `/transcript/${encodeURIComponent(assemblyId)}`)
+  const status = normalizeMeetingStatus(asString(detail.status) ?? 'processing')
+  const text = asString(detail.text) ?? ''
+  const utterances = normalizeUtterances(detail.utterances)
+
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.status]: { select: { name: status } },
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [MEETING_NOTION_FIELD.errorMessage]: notionRichTextValue(asString(detail.error) ?? '', 1200),
+      [MEETING_NOTION_FIELD.textPreview]: notionRichTextValue(text.slice(0, 4000), 4000),
+      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+    },
+  })
+
+  if (status !== 'completed') {
+    throw new Error('transcript_not_completed')
+  }
+
+  const invalidSimpleAlphaSpeakers = findInvalidSimpleAlphabetMappedSpeakers(utterances, found.row.speakerMap)
+  if (invalidSimpleAlphaSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_invalid_simple_alpha:${invalidSimpleAlphaSpeakers.join(',')}`)
+  }
+
+  const unmappedSpeakers = findUnmappedSpeakers(utterances, found.row.speakerMap)
+  if (unmappedSpeakers.length > 0) {
+    throw new Error(`speaker_mapping_incomplete:${unmappedSpeakers.join(',')}`)
+  }
+
+  await replaceMeetingTranscriptSection(found.ctx.api, found.row.pageId, detail, found.row.speakerMap)
+  await found.ctx.api.updatePage(found.row.pageId, {
+    properties: {
+      [MEETING_NOTION_FIELD.updatedAt]: { number: Date.now() },
+      [MEETING_NOTION_FIELD.bodySynced]: { checkbox: true },
+    },
+  })
+
+  return {
+    status,
+    utteranceCount: utterances.length,
+    summaryGenerated: false,
+    summaryError: null,
+  }
+}
+
 async function regenerateMeetingNotionPageFromAssembly(
   env: Env,
   assemblyId: string,
@@ -4684,6 +4740,7 @@ function isMeetingRoutePath(path: string): boolean {
     /^\/transcripts\/[^/]+\/speakers$/.test(path) ||
     /^\/transcripts\/[^/]+\/publish$/.test(path) ||
     /^\/transcripts\/[^/]+\/retry-summary$/.test(path) ||
+    /^\/transcripts\/[^/]+\/rewrite-transcript$/.test(path) ||
     /^\/transcripts\/[^/]+\/regenerate-page$/.test(path)
   )
 }
@@ -4742,6 +4799,7 @@ async function handleMeetingRoutesNotion(
   const speakerMatch = path.match(/^\/transcripts\/([^/]+)\/speakers$/)
   const publishMatch = path.match(/^\/transcripts\/([^/]+)\/publish$/)
   const retrySummaryMatch = path.match(/^\/transcripts\/([^/]+)\/retry-summary$/)
+  const rewriteTranscriptMatch = path.match(/^\/transcripts\/([^/]+)\/rewrite-transcript$/)
   const regeneratePageMatch = path.match(/^\/transcripts\/([^/]+)\/regenerate-page$/)
 
   try {
@@ -5293,6 +5351,32 @@ async function handleMeetingRoutesNotion(
         audioAttachmentError: null,
         summaryGenerated: retried.summaryGenerated,
         summaryError: retried.summaryError,
+      })
+    }
+
+    if (request.method === 'POST' && rewriteTranscriptMatch) {
+      const transcriptId = decodeURIComponent(rewriteTranscriptMatch[1])
+      const found = await getMeetingNotionTranscriptById(env, transcriptId)
+      if (!found) {
+        return respond.json({ ok: false, error: 'transcript_not_found' }, 404)
+      }
+      if (!found.row.bodySynced) {
+        return respond.json({ ok: false, error: 'transcript_not_published' }, 409)
+      }
+      if (!found.row.assemblyId) {
+        return respond.json({ ok: false, error: 'assembly_id_missing' }, 400)
+      }
+      const rewritten = await rewriteMeetingTranscriptSectionFromAssembly(env, found.row.assemblyId)
+      return respond.ok({
+        ok: true,
+        transcriptId,
+        assemblyId: found.row.assemblyId,
+        status: rewritten.status,
+        utteranceCount: rewritten.utteranceCount,
+        audioFileAttached: false,
+        audioAttachmentError: null,
+        summaryGenerated: false,
+        summaryError: null,
       })
     }
 

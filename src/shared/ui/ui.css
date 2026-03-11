@@ -2285,6 +2285,46 @@ button.dashboardNavButton {
   grid-column: 1 / -1;
 }
 
+.meetingsRepairPanel {
+  background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  padding: 12px;
+}
+
+.meetingsRepairPanelHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.meetingsRepairPanelHeader strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.meetingsRepairGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.meetingsRepairCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.meetingsRepairCard strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
 .meetingsMetaGrid {
   display: grid;
   gap: 8px;

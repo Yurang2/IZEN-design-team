@@ -104,7 +104,7 @@ const MEETING_ACTION_TRACKING_KEY = 'meetings-pending-actions'
 const MEETING_ACTION_STALE_MS = 10 * 60 * 1000
 
 type UploadStage = 'idle' | 'presign' | 'upload' | 'transcript'
-type MeetingActionKey = 'summaryRetryAt' | 'pageRegenerateAt'
+type MeetingActionKey = 'summaryRetryAt' | 'transcriptRewriteAt' | 'pageRegenerateAt'
 type PendingMeetingActionMap = Record<string, Partial<Record<MeetingActionKey, number>>>
 
 type ActiveUploadSession = {
@@ -145,6 +145,7 @@ function readPendingMeetingActionMap(): PendingMeetingActionMap {
         const typedValue = value as Record<string, unknown>
         const next: Partial<Record<MeetingActionKey, number>> = {}
         if (typeof typedValue.summaryRetryAt === 'number') next.summaryRetryAt = typedValue.summaryRetryAt
+        if (typeof typedValue.transcriptRewriteAt === 'number') next.transcriptRewriteAt = typedValue.transcriptRewriteAt
         if (typeof typedValue.pageRegenerateAt === 'number') next.pageRegenerateAt = typedValue.pageRegenerateAt
         return Object.keys(next).length > 0 ? [[transcriptId, next]] : []
       }),
@@ -335,6 +336,7 @@ export function MeetingsView() {
   const [savingSpeakers, setSavingSpeakers] = useState(false)
   const [publishingToNotion, setPublishingToNotion] = useState(false)
   const [retryingSummary, setRetryingSummary] = useState(false)
+  const [rewritingTranscript, setRewritingTranscript] = useState(false)
   const [regeneratingPage, setRegeneratingPage] = useState(false)
   const [pendingMeetingActions, setPendingMeetingActions] = useState<PendingMeetingActionMap>(() => readPendingMeetingActionMap())
   const [errorMessage, setErrorMessage] = useState('')
@@ -411,6 +413,10 @@ export function MeetingsView() {
           const nextPending: Partial<Record<MeetingActionKey, number>> = { ...pending }
           if (typeof nextPending.summaryRetryAt === 'number' && nextTranscript.updatedAt >= nextPending.summaryRetryAt) {
             delete nextPending.summaryRetryAt
+            changed = true
+          }
+          if (typeof nextPending.transcriptRewriteAt === 'number' && nextTranscript.updatedAt >= nextPending.transcriptRewriteAt) {
+            delete nextPending.transcriptRewriteAt
             changed = true
           }
           if (typeof nextPending.pageRegenerateAt === 'number' && nextTranscript.updatedAt >= nextPending.pageRegenerateAt) {
@@ -571,6 +577,7 @@ export function MeetingsView() {
 
   const selectedPendingActions = selectedTranscriptId ? pendingMeetingActions[selectedTranscriptId] : undefined
   const isSelectedTranscriptRetryPending = typeof selectedPendingActions?.summaryRetryAt === 'number'
+  const isSelectedTranscriptRewritePending = typeof selectedPendingActions?.transcriptRewriteAt === 'number'
   const isSelectedTranscriptRegeneratePending = typeof selectedPendingActions?.pageRegenerateAt === 'number'
 
   const onSubmitUpload = async (event: FormEvent<HTMLFormElement>) => {
@@ -1004,6 +1011,55 @@ export function MeetingsView() {
     }
   }
 
+  const onRewriteTranscript = async () => {
+    if (!selectedTranscriptId || !transcriptDetail) return
+    if (!transcriptDetail.bodySynced) {
+      setErrorMessage('먼저 Notion 반영을 완료한 뒤 전문 재기록을 실행해 주세요.')
+      return
+    }
+    if (transcriptDetail.status !== 'completed') {
+      setErrorMessage('전사가 completed 상태일 때만 전문 재기록이 가능합니다.')
+      return
+    }
+    const confirmed = window.confirm('전문 섹션만 다시 기록합니다. 요약 API 비용은 발생하지 않습니다. 계속하시겠습니까?')
+    if (!confirmed) return
+
+    setRewritingTranscript(true)
+    setErrorMessage('')
+    updatePendingMeetingActions((current) => ({
+      ...current,
+      [selectedTranscriptId]: {
+        ...current[selectedTranscriptId],
+        transcriptRewriteAt: Date.now(),
+      },
+    }))
+    try {
+      await api<TranscriptPublishResponse>(`/transcripts/${encodeURIComponent(selectedTranscriptId)}/rewrite-transcript`, {
+        method: 'POST',
+      })
+      setUploadMessage('전문 섹션만 다시 기록했습니다. 기존 요약은 유지됩니다.')
+      await loadTranscriptDetail(selectedTranscriptId)
+      await loadTranscripts()
+    } catch (error: unknown) {
+      updatePendingMeetingActions((current) => {
+        if (!current[selectedTranscriptId]?.transcriptRewriteAt) return current
+        const next = { ...current }
+        const pending = { ...(next[selectedTranscriptId] ?? {}) }
+        delete pending.transcriptRewriteAt
+        if (Object.keys(pending).length > 0) {
+          next[selectedTranscriptId] = pending
+        } else {
+          delete next[selectedTranscriptId]
+        }
+        return next
+      })
+      const message = error instanceof Error ? error.message : '전문 재기록에 실패했습니다.'
+      setErrorMessage(message)
+    } finally {
+      setRewritingTranscript(false)
+    }
+  }
+
   const onRegeneratePage = async () => {
     if (!selectedTranscriptId || !transcriptDetail) return
     if (!transcriptDetail.bodySynced) {
@@ -1405,9 +1461,14 @@ export function MeetingsView() {
                     />
                   </label>
                 ))}
-                {isSelectedTranscriptRetryPending || isSelectedTranscriptRegeneratePending ? (
+                {isSelectedTranscriptRetryPending || isSelectedTranscriptRewritePending || isSelectedTranscriptRegeneratePending ? (
                   <p className="muted small">
-                    {isSelectedTranscriptRetryPending ? '요약 재시도 진행 상태를 추적 중입니다.' : '페이지 재생성 진행 상태를 추적 중입니다.'} 완료되면 상세 갱신 시 자동으로 해제됩니다.
+                    {isSelectedTranscriptRetryPending
+                      ? '요약 재시도 진행 상태를 추적 중입니다.'
+                      : isSelectedTranscriptRewritePending
+                        ? '전문 재기록 진행 상태를 추적 중입니다.'
+                        : '페이지 재생성 진행 상태를 추적 중입니다.'}{' '}
+                    완료되면 상세 갱신 시 자동으로 해제됩니다.
                   </p>
                 ) : null}
                 <div className="meetingsActions">
@@ -1421,8 +1482,10 @@ export function MeetingsView() {
                     disabled={
                       publishingToNotion ||
                       retryingSummary ||
+                      rewritingTranscript ||
                       regeneratingPage ||
                       isSelectedTranscriptRetryPending ||
+                      isSelectedTranscriptRewritePending ||
                       isSelectedTranscriptRegeneratePending ||
                       savingSpeakers ||
                       transcriptDetail.bodySynced ||
@@ -1431,38 +1494,6 @@ export function MeetingsView() {
                     }
                   >
                     {publishingToNotion ? 'Notion 반영 중...' : transcriptDetail.bodySynced ? '이미 Notion 반영 완료' : '라벨 확정 후 Notion 반영'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => void onRetrySummary()}
-                    disabled={
-                      retryingSummary ||
-                      regeneratingPage ||
-                      publishingToNotion ||
-                      savingSpeakers ||
-                      isSelectedTranscriptRegeneratePending ||
-                      !transcriptDetail.bodySynced ||
-                      transcriptDetail.status !== 'completed'
-                    }
-                  >
-                    {retryingSummary || isSelectedTranscriptRetryPending ? '요약 재시도 중...' : '요약 재시도'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => void onRegeneratePage()}
-                    disabled={
-                      regeneratingPage ||
-                      retryingSummary ||
-                      publishingToNotion ||
-                      savingSpeakers ||
-                      isSelectedTranscriptRetryPending ||
-                      !transcriptDetail.bodySynced ||
-                      transcriptDetail.status !== 'completed'
-                    }
-                  >
-                    {regeneratingPage || isSelectedTranscriptRegeneratePending ? '페이지 재생성 중...' : '페이지 재생성'}
                   </Button>
                   <Button
                     type="button"
@@ -1476,6 +1507,80 @@ export function MeetingsView() {
                     Notion에서 열기
                   </Button>
                 </div>
+                <section className="meetingsRepairPanel" aria-label="회의록 유지보수 작업">
+                  <div className="meetingsRepairPanelHeader">
+                    <strong>유지보수 작업</strong>
+                    <p className="muted small">요약만 다시 만들거나, 전문만 다시 쓰거나, 둘 다 새 페이지로 재생성할 수 있습니다.</p>
+                  </div>
+                  <div className="meetingsRepairGrid">
+                    <article className="meetingsRepairCard">
+                      <strong>요약 재시도</strong>
+                      <p className="muted small">요약 섹션만 다시 생성합니다. 전문은 유지됩니다.</p>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void onRetrySummary()}
+                        disabled={
+                          retryingSummary ||
+                          rewritingTranscript ||
+                          regeneratingPage ||
+                          publishingToNotion ||
+                          savingSpeakers ||
+                          isSelectedTranscriptRewritePending ||
+                          isSelectedTranscriptRegeneratePending ||
+                          !transcriptDetail.bodySynced ||
+                          transcriptDetail.status !== 'completed'
+                        }
+                      >
+                        {retryingSummary || isSelectedTranscriptRetryPending ? '요약 재시도 중...' : '요약 재시도'}
+                      </Button>
+                    </article>
+                    <article className="meetingsRepairCard">
+                      <strong>전문 재기록</strong>
+                      <p className="muted small">전문 섹션만 다시 기록합니다. 요약 API 비용은 발생하지 않습니다.</p>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void onRewriteTranscript()}
+                        disabled={
+                          rewritingTranscript ||
+                          retryingSummary ||
+                          regeneratingPage ||
+                          publishingToNotion ||
+                          savingSpeakers ||
+                          isSelectedTranscriptRetryPending ||
+                          isSelectedTranscriptRegeneratePending ||
+                          !transcriptDetail.bodySynced ||
+                          transcriptDetail.status !== 'completed'
+                        }
+                      >
+                        {rewritingTranscript || isSelectedTranscriptRewritePending ? '전문 재기록 중...' : '전문 재기록'}
+                      </Button>
+                    </article>
+                    <article className="meetingsRepairCard">
+                      <strong>페이지 재생성</strong>
+                      <p className="muted small">요약 재시도와 전문 재기록을 함께 적용한 새 Notion 페이지를 생성합니다.</p>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void onRegeneratePage()}
+                        disabled={
+                          regeneratingPage ||
+                          retryingSummary ||
+                          rewritingTranscript ||
+                          publishingToNotion ||
+                          savingSpeakers ||
+                          isSelectedTranscriptRetryPending ||
+                          isSelectedTranscriptRewritePending ||
+                          !transcriptDetail.bodySynced ||
+                          transcriptDetail.status !== 'completed'
+                        }
+                      >
+                        {regeneratingPage || isSelectedTranscriptRegeneratePending ? '페이지 재생성 중...' : '페이지 재생성'}
+                      </Button>
+                    </article>
+                  </div>
+                </section>
               </section>
 
               <section className="meetingsUtterances">
