@@ -2139,6 +2139,10 @@ button.dashboardNavButton {
   gap: 6px;
 }
 
+.meetingsUploadNamingRule {
+  margin: -4px 0 0;
+}
+
 .meetingsInlineForm {
   align-items: end;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -2345,16 +2349,17 @@ button.dashboardNavButton {
   align-items: center;
   display: inline-flex;
   flex: 0 0 auto;
-  gap: 4px;
+  gap: 3px;
   max-width: 100%;
   min-width: 0;
-  padding: 3px 5px;
+  padding: 2px 4px;
 }
 
 .meetingsKeywordCard .meetingsKeywordItemHeader {
   align-items: center;
   display: inline-flex;
   gap: 4px;
+  min-width: 0;
 }
 
 .meetingsKeywordCard .meetingsKeywordPhrase {
@@ -2366,6 +2371,12 @@ button.dashboardNavButton {
 .meetingsKeywordCard .meetingsKeywordItemHeader .muted.small {
   font-size: 11px;
   line-height: 1.2;
+}
+
+.meetingsKeywordCard .meetingsKeywordItem .meetingsKeywordSetActions .uiButton {
+  min-height: 20px;
+  min-width: 20px;
+  padding: 1px 3px;
 }
 
 .meetingsKeywordCard .meetingsKeywordSetsCompact,

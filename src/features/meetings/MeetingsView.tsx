@@ -344,8 +344,8 @@ export function MeetingsView() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [creatingKeywordSet, setCreatingKeywordSet] = useState(false)
   const [creatingKeyword, setCreatingKeyword] = useState(false)
+  const [renamingKeywordSetId, setRenamingKeywordSetId] = useState<string | null>(null)
   const [deletingKeywordSetId, setDeletingKeywordSetId] = useState<string | null>(null)
-  const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null)
   const [deletingKeywordId, setDeletingKeywordId] = useState<string | null>(null)
 
   const updatePendingMeetingActions = useCallback(
@@ -1193,31 +1193,41 @@ export function MeetingsView() {
     }
   }
 
-  const onEditKeyword = async (keyword: KeywordRow) => {
-    const phrase = window.prompt('키워드 문구', keyword.phrase)
-    if (phrase === null) return
-    const weightRaw = window.prompt('가중치(선택)', keyword.weight == null ? '' : String(keyword.weight))
-    if (weightRaw === null) return
-    const tags = window.prompt('태그(선택)', keyword.tags ?? '')
-    if (tags === null) return
-    setEditingKeywordId(keyword.id)
+  const onToggleKeywordSetActive = async (set: KeywordSetRow) => {
     try {
-      await api('/keywords', {
+      await api('/keyword-sets', {
         method: 'PATCH',
         body: JSON.stringify({
-          id: keyword.id,
-          phrase: phrase.trim(),
-          weight: weightRaw.trim() ? Number(weightRaw.trim()) : null,
-          tags: tags.trim() || null,
+          id: set.id,
+          isActive: !set.isActive,
         }),
       })
-      await loadKeywords(selectedKeywordSetId || undefined)
       await loadKeywordSets()
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드를 수정하지 못했습니다.'
+      const message = error instanceof Error ? error.message : '키워드 세트 상태를 변경하지 못했습니다.'
+      setErrorMessage(message)
+    }
+  }
+
+  const onRenameKeywordSet = async (set: KeywordSetRow) => {
+    const nextName = window.prompt('세트 이름', set.name)
+    if (nextName === null) return
+    if (!nextName.trim()) return
+    setRenamingKeywordSetId(set.id)
+    try {
+      await api('/keyword-sets', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: set.id,
+          name: nextName.trim(),
+        }),
+      })
+      await loadKeywordSets()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '키워드 세트 이름을 수정하지 못했습니다.'
       setErrorMessage(message)
     } finally {
-      setEditingKeywordId(null)
+      setRenamingKeywordSetId(null)
     }
   }
 
@@ -1249,9 +1259,6 @@ export function MeetingsView() {
               accept=".m4a,.mp3,.wav,.mp4,.aac,.flac,.ogg"
               onChange={(event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] ?? null)}
             />
-            <span className="muted small">
-              네이밍 규칙: <code>yymmdd 회의명.확장자</code> 형식이면 날짜와 제목이 자동 분리됩니다. 규칙이 맞지 않으면 파일명 전체를 제목으로 사용합니다.
-            </span>
           </label>
           <label>
             최소 화자 수
@@ -1283,6 +1290,7 @@ export function MeetingsView() {
             ) : null}
           </div>
         </form>
+        <p className="meetingsUploadNamingRule muted small">네이밍 규칙: yymmdd_제목</p>
         {uploading ? (
           <div className="meetingsUploadStatus" role="status" aria-live="polite">
             <strong>{getUploadStageLabel(uploadStage)}</strong>
@@ -1590,6 +1598,28 @@ export function MeetingsView() {
                   type="button"
                   variant="secondary"
                   size="mini"
+                  onClick={() => void onRenameKeywordSet(set)}
+                  title="이름 수정"
+                  aria-label="이름 수정"
+                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
+                >
+                  <span className="meetingsIconButtonContent">
+                    <ActionIcon kind={renamingKeywordSetId === set.id ? 'loading' : 'edit'} />
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="mini"
+                  onClick={() => void onToggleKeywordSetActive(set)}
+                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
+                >
+                  {set.isActive ? 'Off' : 'On'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="mini"
                   onClick={() => void onDeleteKeywordSet(set.id)}
                   title="세트 삭제"
                   aria-label="세트 삭제"
@@ -1626,23 +1656,10 @@ export function MeetingsView() {
                   type="button"
                   variant="secondary"
                   size="mini"
-                  onClick={() => void onEditKeyword(keyword)}
-                  title="키워드 수정"
-                  aria-label="키워드 수정"
-                  disabled={editingKeywordId === keyword.id || deletingKeywordId === keyword.id}
-                >
-                  <span className="meetingsIconButtonContent">
-                    <ActionIcon kind={editingKeywordId === keyword.id ? 'loading' : 'edit'} />
-                  </span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="mini"
                   onClick={() => void onDeleteKeyword(keyword.id)}
                   title="키워드 삭제"
                   aria-label="키워드 삭제"
-                  disabled={editingKeywordId === keyword.id || deletingKeywordId === keyword.id}
+                  disabled={deletingKeywordId === keyword.id}
                 >
                   <span className="meetingsIconButtonContent">
                     <ActionIcon kind={deletingKeywordId === keyword.id ? 'loading' : 'delete'} />
