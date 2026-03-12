@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { AssignmentModal } from './features/checklist/AssignmentModal'
 import { ChecklistView } from './features/checklist/ChecklistView'
+import { EventGraphicsSharePage } from './features/eventGraphics/EventGraphicsSharePage'
 import { DashboardView } from './features/dashboard/DashboardView'
 import { EventGraphicsTimetableView } from './features/eventGraphics/EventGraphicsTimetableView'
 import { MeetingsView } from './features/meetings/MeetingsView'
@@ -20,6 +21,9 @@ import './shared/ui/ui.css'
 type Route =
   | {
       kind: 'list'
+    }
+  | {
+      kind: 'eventGraphicsShare'
     }
   | {
       kind: 'task'
@@ -630,6 +634,9 @@ function parseRoute(pathname: string): Route {
   const cleaned = pathname.replace(/\/+$/, '') || '/'
   if (cleaned === '/') {
     return { kind: 'list' }
+  }
+  if (cleaned === '/share/timetable') {
+    return { kind: 'eventGraphicsShare' }
   }
   if (cleaned.startsWith('/task/')) {
     const id = cleaned.slice('/task/'.length)
@@ -1507,6 +1514,10 @@ function App() {
   }, [activeView, authState, fetchSchedule, route.kind])
 
   useEffect(() => {
+    if (route.kind === 'eventGraphicsShare') {
+      void fetchEventGraphicsTimetable()
+      return
+    }
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     if (activeView !== 'eventGraphics') return
@@ -2713,7 +2724,7 @@ function App() {
     }
   }
 
-  if (AUTH_GATE_ENABLED && authState !== 'authenticated') {
+  if (AUTH_GATE_ENABLED && route.kind !== 'eventGraphicsShare' && authState !== 'authenticated') {
     const checking = authState === 'checking'
     return (
       <div className="page authGateShell">
@@ -2765,6 +2776,19 @@ function App() {
         />
         <ToastStack toasts={toasts} onDismiss={dismissToast} />
       </>
+    )
+  }
+
+  if (route.kind === 'eventGraphicsShare') {
+    return (
+      <EventGraphicsSharePage
+        configured={eventGraphicsConfigured}
+        databaseTitle={eventGraphicsDatabaseTitle}
+        columns={eventGraphicsColumns}
+        rows={eventGraphicsRows}
+        loading={eventGraphicsLoading}
+        error={eventGraphicsError}
+      />
     )
   }
 

@@ -3151,6 +3151,178 @@ button.dashboardNavButton {
   width: 100%;
 }
 
+.eventGraphicsShareShell {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 30%),
+    linear-gradient(180deg, #f6f9fe 0%, #eef3fb 100%);
+  min-height: 100vh;
+  padding: 28px 18px 48px;
+}
+
+.eventGraphicsSharePage {
+  display: grid;
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 1180px;
+}
+
+.eventGraphicsShareHero {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(205, 214, 227, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 24px;
+}
+
+.eventGraphicsShareHeroText {
+  display: grid;
+  gap: 8px;
+}
+
+.eventGraphicsShareHeroText h1,
+.eventGraphicsShareHead h2 {
+  margin: 0;
+}
+
+.eventGraphicsShareHeroText p:last-child {
+  margin: 0;
+}
+
+.eventGraphicsShareSummary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(132px, 1fr));
+}
+
+.eventGraphicsShareSummary article {
+  background: color-mix(in srgb, white 70%, var(--surface-soft));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.eventGraphicsShareSummary span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.eventGraphicsShareSummary strong {
+  color: var(--text-main);
+  font-size: 24px;
+}
+
+.eventGraphicsShareList {
+  display: grid;
+  gap: 14px;
+}
+
+.eventGraphicsShareRow {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(205, 214, 227, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.06);
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.eventGraphicsShareRow.is-entrance {
+  border-color: color-mix(in srgb, #0f766e 48%, var(--border));
+}
+
+.eventGraphicsShareTime {
+  align-content: start;
+  background:
+    linear-gradient(180deg, rgba(226, 238, 255, 0.72), rgba(240, 246, 255, 0.8));
+  display: grid;
+  gap: 6px;
+  padding: 18px 16px;
+}
+
+.eventGraphicsShareTime strong {
+  color: var(--text-main);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.eventGraphicsShareTime span,
+.eventGraphicsShareTime small {
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.eventGraphicsShareBody {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.eventGraphicsShareHead {
+  display: grid;
+  gap: 8px;
+}
+
+.eventGraphicsShareGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 1fr);
+}
+
+.eventGraphicsSharePanel {
+  background: color-mix(in srgb, var(--surface-soft) 84%, white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.eventGraphicsSharePanel p,
+.eventGraphicsSharePanel strong {
+  margin: 0;
+}
+
+.eventGraphicsSharePanel-note {
+  grid-column: 1 / -1;
+}
+
+.eventGraphicsSharePreview {
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, var(--surface-soft) 78%, white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.eventGraphicsSharePreview img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .eventGraphicsShareHero,
+  .eventGraphicsShareRow {
+    grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsShareSummary,
+  .eventGraphicsShareGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsShareTime {
+    border-bottom: 1px solid var(--border);
+  }
+}
+
 .scheduleEmptyState {
   margin-top: 8px;
 }

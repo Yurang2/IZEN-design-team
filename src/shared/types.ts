@@ -3,6 +3,9 @@ export type Route =
       kind: 'list'
     }
   | {
+      kind: 'eventGraphicsShare'
+    }
+  | {
       kind: 'task'
       id: string
     }
