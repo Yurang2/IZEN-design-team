@@ -6100,6 +6100,10 @@ export default {
                 id: env.NOTION_SCHEDULE_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_SCHEDULE_DB_ID),
               },
+              eventGraphicsTimetable: {
+                id: env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID),
+              },
               meeting: {
                 id: getMeetingNotionDbId(env),
                 url: notionDatabaseUrl(getMeetingNotionDbId(env)),
@@ -6129,6 +6133,25 @@ export default {
         )
       }
 
+      if (request.method === 'GET' && path === '/event-graphics-timetable') {
+        const timetable = await service.listEventGraphicsTimetableView()
+        return ok(
+          {
+            ok: true,
+            configured: timetable.configured,
+            database: {
+              id: timetable.database.id,
+              url: notionDatabaseUrl(timetable.database.id ?? undefined),
+              title: timetable.database.title,
+            },
+            columns: timetable.columns,
+            rows: timetable.rows,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
       if (request.method === 'POST' && path === '/admin/notion/project-schema/sync') {
         const sync = await service.syncProjectDatabaseProperties(true)
         invalidateSnapshotCache(ctx)
@@ -6138,6 +6161,21 @@ export default {
             projectDatabaseId: env.NOTION_PROJECT_DB_ID,
             created: sync.created,
             existing: sync.existing,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/admin/notion/event-graphics-timetable-schema/sync') {
+        const sync = await service.syncEventGraphicsTimetableProperties()
+        return ok(
+          {
+            ok: true,
+            configured: sync.configured,
+            databaseId: sync.databaseId,
+            created: sync.created,
+            existing: sync.existing,
+            renamed: sync.renamed,
           },
           origin,
         )

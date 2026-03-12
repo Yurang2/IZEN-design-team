@@ -2516,6 +2516,14 @@ button.dashboardNavButton {
   .scheduleToolbar input {
     max-width: none;
   }
+
+  .eventGraphicsHero {
+    grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsToolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
 .checklistPreviewFilters {
@@ -2690,6 +2698,188 @@ button.dashboardNavButton {
 .scheduleCell a {
   color: #2563eb;
   text-decoration: none;
+}
+
+.eventGraphicsView {
+  display: grid;
+  gap: 16px;
+}
+
+.eventGraphicsHero {
+  align-items: end;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 88%, white), color-mix(in srgb, var(--surface) 70%, var(--surface-soft))),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 16%, transparent), transparent 55%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 18px;
+}
+
+.eventGraphicsHeroText {
+  display: grid;
+  gap: 6px;
+}
+
+.eventGraphicsHeroText h2 {
+  margin: 0;
+}
+
+.eventGraphicsHeroText p:last-child {
+  margin: 0;
+}
+
+.eventGraphicsSummary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.eventGraphicsSummary article {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.eventGraphicsSummary span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.eventGraphicsSummary strong {
+  color: var(--text-main);
+  font-size: 20px;
+}
+
+.eventGraphicsToolbar {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+}
+
+.eventGraphicsGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.eventGraphicsCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.eventGraphicsCard.status-changed_on_site {
+  border-color: color-mix(in srgb, #d64545 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #d64545 18%, transparent);
+}
+
+.eventGraphicsCard.status-shared {
+  border-color: color-mix(in srgb, #455ad6 40%, var(--border));
+}
+
+.eventGraphicsCard.status-ready {
+  border-color: color-mix(in srgb, #2f8f55 40%, var(--border));
+}
+
+.eventGraphicsCardHeader {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsCardHeader h3 {
+  margin: 2px 0 0;
+}
+
+.eventGraphicsOrder {
+  color: var(--text-sub);
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eventGraphicsStatus {
+  align-self: start;
+  background: color-mix(in srgb, var(--surface-soft) 72%, white);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 9px;
+}
+
+.eventGraphicsPreview {
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, var(--surface-soft) 80%, white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.eventGraphicsPreview img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.eventGraphicsMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.eventGraphicsMeta span {
+  background: color-mix(in srgb, var(--surface-soft) 88%, white);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-sub);
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.eventGraphicsDetails {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.eventGraphicsDetails div {
+  display: grid;
+  gap: 2px;
+}
+
+.eventGraphicsDetails dt {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.eventGraphicsDetails dd {
+  color: var(--text-main);
+  font-size: 13px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.eventGraphicsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .scheduleEmptyState {

@@ -2,6 +2,7 @@
 import { AssignmentModal } from './features/checklist/AssignmentModal'
 import { ChecklistView } from './features/checklist/ChecklistView'
 import { DashboardView } from './features/dashboard/DashboardView'
+import { EventGraphicsTimetableView } from './features/eventGraphics/EventGraphicsTimetableView'
 import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
 import { ScheduleView } from './features/schedule/ScheduleView'
@@ -192,6 +193,19 @@ type ScheduleResponse = {
   cacheTtlMs: number
 }
 
+type EventGraphicsTimetableResponse = {
+  ok: boolean
+  configured: boolean
+  database: {
+    id: string | null
+    url: string | null
+    title: string
+  }
+  columns: ScheduleColumn[]
+  rows: ScheduleRow[]
+  cacheTtlMs: number
+}
+
 type MetaResponse = {
   ok: boolean
   databases: {
@@ -199,6 +213,7 @@ type MetaResponse = {
     task: { id: string; url: string | null }
     checklist: { id: string | null; url: string | null }
     schedule?: { id: string | null; url: string | null }
+    eventGraphicsTimetable?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
   }
 }
@@ -230,7 +245,7 @@ type TaskViewFilters = {
   hideDone: boolean
 }
 
-type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'checklist' | 'meetings' | 'guide'
+type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'eventGraphics' | 'checklist' | 'meetings' | 'guide'
 
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
@@ -325,7 +340,7 @@ function createDefaultTaskViewFilters(): TaskViewFilters {
 }
 
 function parseTopView(value: string | null): TopView {
-  if (value === 'dashboard' || value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'checklist' || value === 'meetings' || value === 'guide') return value
+  if (value === 'dashboard' || value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'eventGraphics' || value === 'checklist' || value === 'meetings' || value === 'guide') return value
   return 'dashboard'
 }
 
@@ -582,6 +597,7 @@ function toTopViewPath(view: TopView): string {
   if (view === 'projects') return 'Projects'
   if (view === 'tasks') return 'Tasks'
   if (view === 'schedule') return 'Schedule'
+  if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'meetings') return 'Meetings'
   if (view === 'guide') return 'Usage Guide'
   return 'Event Checklist'
@@ -592,6 +608,7 @@ function toTopViewTitle(view: TopView): string {
   if (view === 'projects') return '프로젝트'
   if (view === 'tasks') return '업무'
   if (view === 'schedule') return '일정'
+  if (view === 'eventGraphics') return '타임테이블'
   if (view === 'meetings') return '회의록'
   if (view === 'checklist') return '행사 체크리스트'
   return '사용법'
@@ -920,11 +937,13 @@ function App() {
     task: string | null
     checklist: string | null
     schedule: string | null
+    eventGraphics: string | null
   }>({
     project: null,
     task: null,
     checklist: null,
     schedule: null,
+    eventGraphics: null,
   })
 
   const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
@@ -956,6 +975,12 @@ function App() {
   const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([])
   const [scheduleLoading, setScheduleLoading] = useState(false)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [eventGraphicsConfigured, setEventGraphicsConfigured] = useState(false)
+  const [eventGraphicsDatabaseTitle, setEventGraphicsDatabaseTitle] = useState('')
+  const [eventGraphicsColumns, setEventGraphicsColumns] = useState<ScheduleColumn[]>([])
+  const [eventGraphicsRows, setEventGraphicsRows] = useState<ScheduleRow[]>([])
+  const [eventGraphicsLoading, setEventGraphicsLoading] = useState(false)
+  const [eventGraphicsError, setEventGraphicsError] = useState<string | null>(null)
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
   const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
@@ -1248,6 +1273,7 @@ function App() {
         task: response.databases.task.url ?? toNotionUrlById(response.databases.task.id),
         checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
         schedule: response.databases.schedule?.url ?? toNotionUrlById(response.databases.schedule?.id ?? undefined),
+        eventGraphics: response.databases.eventGraphicsTimetable?.url ?? toNotionUrlById(response.databases.eventGraphicsTimetable?.id ?? undefined),
       })
     } catch {
       // Ignore meta failures; app can run without DB deep-links.
@@ -1377,6 +1403,31 @@ function App() {
     }
   }, [])
 
+  const fetchEventGraphicsTimetable = useCallback(async () => {
+    setEventGraphicsLoading(true)
+    setEventGraphicsError(null)
+
+    try {
+      const response = await api<EventGraphicsTimetableResponse>('/event-graphics-timetable')
+      setEventGraphicsConfigured(response.configured)
+      setEventGraphicsDatabaseTitle(response.database.title)
+      setEventGraphicsColumns(response.columns)
+      setEventGraphicsRows(response.rows)
+      setDbLinks((prev) => ({
+        ...prev,
+        eventGraphics: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
+      }))
+      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+    } catch (error: unknown) {
+      setEventGraphicsConfigured(false)
+      setEventGraphicsColumns([])
+      setEventGraphicsRows([])
+      setEventGraphicsError(toErrorMessage(error, '행사 그래픽 타임테이블을 불러오지 못했습니다.'))
+    } finally {
+      setEventGraphicsLoading(false)
+    }
+  }, [])
+
   const fetchChecklistAssignments = useCallback(async (projectPageId?: string, options?: { ensure?: 'background' | 'sync' | 'none' }) => {
     if (!projectPageId) {
       setAssignmentRows([])
@@ -1455,11 +1506,19 @@ function App() {
     void fetchSchedule()
   }, [activeView, authState, fetchSchedule, route.kind])
 
+  useEffect(() => {
+    if (authState !== 'authenticated') return
+    if (route.kind !== 'list') return
+    if (activeView !== 'eventGraphics') return
+    void fetchEventGraphicsTimetable()
+  }, [activeView, authState, fetchEventGraphicsTimetable, route.kind])
+
   const refreshListAndProjects = useCallback(async () => {
     const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
     if (activeView === 'schedule') jobs.push(fetchSchedule())
+    if (activeView === 'eventGraphics') jobs.push(fetchEventGraphicsTimetable())
     await Promise.all(jobs)
-  }, [activeView, fetchProjects, fetchSchedule, fetchTasks])
+  }, [activeView, fetchEventGraphicsTimetable, fetchProjects, fetchSchedule, fetchTasks])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -2115,9 +2174,10 @@ function App() {
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
     if (activeView === 'schedule') return dbLinks.schedule
+    if (activeView === 'eventGraphics') return dbLinks.eventGraphics
     if (activeView === 'checklist') return dbLinks.checklist
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.schedule, dbLinks.task])
+  }, [activeView, dbLinks.checklist, dbLinks.eventGraphics, dbLinks.project, dbLinks.schedule, dbLinks.task])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -2876,6 +2936,19 @@ function App() {
               </button>
               <button
                 type="button"
+                className={activeView === 'eventGraphics' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('eventGraphics')}
+                title="타임테이블"
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">
+                    <UiGlyph name="calendar" />
+                  </span>
+                  <span>타임테이블</span>
+                </span>
+              </button>
+              <button
+                type="button"
                 className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('checklist')}
                 title="행사 체크리스트"
@@ -3195,6 +3268,18 @@ function App() {
         />
       ) : null}
 
+      {activeView === 'eventGraphics' ? (
+        <EventGraphicsTimetableView
+          configured={eventGraphicsConfigured}
+          databaseTitle={eventGraphicsDatabaseTitle}
+          databaseUrl={dbLinks.eventGraphics}
+          columns={eventGraphicsColumns}
+          rows={eventGraphicsRows}
+          loading={eventGraphicsLoading}
+          error={eventGraphicsError}
+        />
+      ) : null}
+
       {activeView === 'meetings' ? <MeetingsView /> : null}
 
       {activeView === 'guide' ? (
@@ -3236,6 +3321,13 @@ function App() {
                 <p>노션 Schedule DB를 그대로 읽어와 팀 일정과 운영 메모를 빠르게 확인하는 탭입니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('schedule')}>
                   일정 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>타임테이블</h4>
+                <p>행사 cue별 그래픽 상태, 미리보기, 자산 링크를 한 화면에서 공유하는 운영 탭입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('eventGraphics')}>
+                  타임테이블 열기
                 </button>
               </section>
               <section className="guideTabItem">
@@ -3308,6 +3400,13 @@ function App() {
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">일정 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.eventGraphics ? (
+                  <a className="guideDbLink" href={dbLinks.eventGraphics} target="_blank" rel="noreferrer">
+                    타임테이블 DB: {dbLinks.eventGraphics}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">타임테이블 DB: 연결 안 됨</span>
                 )}
               </div>
             </article>

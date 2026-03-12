@@ -642,6 +642,123 @@ function parseDbTitle(db: any): string {
   return (db?.title ?? []).map((item: any) => item?.plain_text ?? '').join('').trim()
 }
 
+const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
+  '행 제목',
+  '행사명',
+  '프로젝트명 스냅샷',
+  'Cue 순서',
+  'Cue 유형',
+  'Cue 제목',
+  '시작 시각',
+  '종료 시각',
+  '러닝타임(분)',
+  '그래픽 자산명',
+  '그래픽 형식',
+  '상태',
+  '미리보기 링크',
+  '자산 링크',
+  '무대 인원',
+  '원본 Video',
+  '원본 Audio',
+  '원본 비고',
+  '업체 전달 메모',
+  '담당자',
+  '행사일',
+  '원본 문서',
+  '원본 시트',
+  '원본 행번호',
+  '귀속 프로젝트',
+]
+
+type EventGraphicsSchemaSyncResult = {
+  configured: boolean
+  databaseId: string | null
+  created: string[]
+  existing: string[]
+  renamed: string[]
+}
+
+function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
+  return [
+    {
+      name: '귀속 프로젝트',
+      definition: {
+        relation: {
+          database_id: projectDatabaseId,
+          type: 'single_property',
+          single_property: {},
+        },
+      },
+    },
+    { name: '프로젝트명 스냅샷', definition: { rich_text: {} } },
+    { name: '행사명', definition: { rich_text: {} } },
+    { name: '행사일', definition: { date: {} } },
+    { name: 'Cue 순서', definition: { number: { format: 'number' } } },
+    {
+      name: 'Cue 유형',
+      definition: {
+        select: {
+          options: [
+            { name: 'announcement', color: 'gray' },
+            { name: 'opening', color: 'blue' },
+            { name: 'lecture', color: 'purple' },
+            { name: 'certificate', color: 'yellow' },
+            { name: 'break', color: 'orange' },
+            { name: 'meal', color: 'green' },
+            { name: 'closing', color: 'red' },
+            { name: 'other', color: 'default' },
+          ],
+        },
+      },
+    },
+    { name: 'Cue 제목', definition: { rich_text: {} } },
+    { name: '시작 시각', definition: { rich_text: {} } },
+    { name: '종료 시각', definition: { rich_text: {} } },
+    { name: '러닝타임(분)', definition: { number: { format: 'number' } } },
+    { name: '무대 인원', definition: { rich_text: {} } },
+    { name: '원본 Video', definition: { rich_text: {} } },
+    { name: '원본 Audio', definition: { rich_text: {} } },
+    { name: '원본 비고', definition: { rich_text: {} } },
+    { name: '그래픽 자산명', definition: { rich_text: {} } },
+    {
+      name: '그래픽 형식',
+      definition: {
+        select: {
+          options: [
+            { name: 'image', color: 'blue' },
+            { name: 'video', color: 'purple' },
+            { name: 'mixed', color: 'pink' },
+            { name: 'hold', color: 'brown' },
+            { name: 'unknown', color: 'gray' },
+            { name: 'none', color: 'default' },
+          ],
+        },
+      },
+    },
+    { name: '미리보기 링크', definition: { url: {} } },
+    { name: '자산 링크', definition: { url: {} } },
+    {
+      name: '상태',
+      definition: {
+        select: {
+          options: [
+            { name: 'planned', color: 'gray' },
+            { name: 'designing', color: 'blue' },
+            { name: 'ready', color: 'green' },
+            { name: 'shared', color: 'purple' },
+            { name: 'changed_on_site', color: 'red' },
+          ],
+        },
+      },
+    },
+    { name: '담당자', definition: { rich_text: {} } },
+    { name: '업체 전달 메모', definition: { rich_text: {} } },
+    { name: '원본 문서', definition: { rich_text: {} } },
+    { name: '원본 시트', definition: { rich_text: {} } },
+    { name: '원본 행번호', definition: { number: { format: 'number' } } },
+  ]
+}
+
 function normalizeNotionId(value: string | undefined | null): string {
   return (value ?? '').replace(/-/g, '').toLowerCase()
 }
@@ -1360,6 +1477,153 @@ export class NotionWorkService {
 
     return {
       configured: true,
+      database: {
+        id: databaseId,
+        title: parseDbTitle(db),
+      },
+      columns,
+      rows,
+    }
+  }
+
+  async syncEventGraphicsTimetableProperties(): Promise<EventGraphicsSchemaSyncResult> {
+    const databaseId = normalizeText(this.env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID)
+    if (!databaseId) {
+      return {
+        configured: false,
+        databaseId: null,
+        created: [],
+        existing: [],
+        renamed: [],
+      }
+    }
+
+    const db: any = await this.api.retrieveDatabase(databaseId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    const updates: AnyMap = {}
+    const created: string[] = []
+    const existing: string[] = []
+    const renamed: string[] = []
+
+    const titleEntry = Object.entries(properties).find(([, prop]) => prop?.type === 'title')
+    if (titleEntry) {
+      const [titlePropertyName] = titleEntry
+      if (titlePropertyName !== '행 제목' && !hasOwn(properties, '행 제목')) {
+        updates[titlePropertyName] = { name: '행 제목' }
+        renamed.push(`title:${titlePropertyName}->행 제목`)
+      } else {
+        existing.push('행 제목')
+      }
+    }
+
+    for (const field of buildEventGraphicsTimetablePropertyDefinitions(this.env.NOTION_PROJECT_DB_ID)) {
+      if (hasOwn(properties, field.name)) {
+        existing.push(field.name)
+        continue
+      }
+      updates[field.name] = field.definition
+      created.push(field.name)
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.api.updateDatabase(databaseId, { properties: updates })
+    }
+
+    return {
+      configured: true,
+      databaseId,
+      created,
+      existing,
+      renamed,
+    }
+  }
+
+  async listEventGraphicsTimetableView(): Promise<{
+    configured: boolean
+    schema: EventGraphicsSchemaSyncResult
+    database: {
+      id: string | null
+      title: string
+    }
+    columns: ScheduleColumn[]
+    rows: ScheduleRow[]
+  }> {
+    const schema = await this.syncEventGraphicsTimetableProperties()
+    const databaseId = schema.databaseId
+    if (!databaseId) {
+      return {
+        configured: false,
+        schema,
+        database: {
+          id: null,
+          title: '',
+        },
+        columns: [],
+        rows: [],
+      }
+    }
+
+    const db: any = await this.api.retrieveDatabase(databaseId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    const propertyEntries = Object.entries(properties)
+    const consumed = new Set<string>()
+    const columns: ScheduleColumn[] = []
+
+    const pushColumn = (name: string) => {
+      const prop = properties[name]
+      if (!prop) return
+      consumed.add(name)
+      columns.push({
+        id: normalizeText(String(prop?.id ?? name)) || name,
+        name,
+        type: normalizeText(String(prop?.type ?? 'unknown')) || 'unknown',
+      })
+    }
+
+    for (const fieldName of EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER) {
+      pushColumn(fieldName)
+    }
+
+    for (const [name, prop] of propertyEntries) {
+      if (consumed.has(name)) continue
+      columns.push({
+        id: normalizeText(String(prop?.id ?? name)) || name,
+        name,
+        type: normalizeText(String(prop?.type ?? 'unknown')) || 'unknown',
+      })
+    }
+
+    const cueOrderField = columns.find((column) => column.name === 'Cue 순서')
+    const sourceRowField = columns.find((column) => column.name === '원본 행번호')
+    const pages = await this.queryAll(databaseId)
+    const rows = pages
+      .map((page) => {
+        const props = (page.properties ?? {}) as AnyMap
+        return {
+          id: page.id,
+          url: normalizeText(page.url) || null,
+          cells: columns.map((column) => serializeScheduleCell(props[column.name], column)),
+        }
+      })
+      .sort((left, right) => {
+        const cueOrderLeft = Number(left.cells.find((cell) => cell.columnId === cueOrderField?.id)?.text ?? Number.NaN)
+        const cueOrderRight = Number(right.cells.find((cell) => cell.columnId === cueOrderField?.id)?.text ?? Number.NaN)
+        if (Number.isFinite(cueOrderLeft) && Number.isFinite(cueOrderRight) && cueOrderLeft !== cueOrderRight) {
+          return cueOrderLeft - cueOrderRight
+        }
+
+        const sourceRowLeft = Number(left.cells.find((cell) => cell.columnId === sourceRowField?.id)?.text ?? Number.NaN)
+        const sourceRowRight = Number(right.cells.find((cell) => cell.columnId === sourceRowField?.id)?.text ?? Number.NaN)
+        if (Number.isFinite(sourceRowLeft) && Number.isFinite(sourceRowRight) && sourceRowLeft !== sourceRowRight) {
+          return sourceRowLeft - sourceRowRight
+        }
+
+        return left.id.localeCompare(right.id)
+      })
+
+    return {
+      configured: true,
+      schema,
       database: {
         id: databaseId,
         title: parseDbTitle(db),
