@@ -977,6 +977,26 @@ function parsePatchBody(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>
 }
 
+function parseEventGraphicsImportBody(body: unknown): {
+  rows: Array<Record<string, unknown>>
+} {
+  if (Array.isArray(body)) {
+    return {
+      rows: body.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry)),
+    }
+  }
+
+  const payload = parsePatchBody(body)
+  const rowsRaw = Array.isArray(payload.rows) ? payload.rows : null
+  if (!rowsRaw) {
+    throw new Error('rows_required')
+  }
+
+  return {
+    rows: rowsRaw.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry)),
+  }
+}
+
 function hasOwn(obj: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key)
 }
@@ -6176,6 +6196,23 @@ export default {
             created: sync.created,
             existing: sync.existing,
             renamed: sync.renamed,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/admin/notion/event-graphics-timetable/import') {
+        const payload = parseEventGraphicsImportBody(await readJsonBody(request))
+        const imported = await service.importEventGraphicsTimetableRows(payload.rows)
+        return ok(
+          {
+            ok: true,
+            configured: imported.configured,
+            databaseId: imported.databaseId,
+            created: imported.created,
+            updated: imported.updated,
+            skipped: imported.skipped,
+            total: imported.total,
           },
           origin,
         )

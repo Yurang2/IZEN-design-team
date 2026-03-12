@@ -678,6 +678,15 @@ type EventGraphicsSchemaSyncResult = {
   renamed: string[]
 }
 
+type EventGraphicsImportResult = {
+  configured: boolean
+  databaseId: string | null
+  created: number
+  updated: number
+  skipped: number
+  total: number
+}
+
 function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
   return [
     {
@@ -757,6 +766,11 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
     { name: '원본 시트', definition: { rich_text: {} } },
     { name: '원본 행번호', definition: { number: { format: 'number' } } },
   ]
+}
+
+function extractRelationIdsFromProperty(prop: any): string[] {
+  if (!prop || typeof prop !== 'object' || prop.type !== 'relation') return []
+  return (prop.relation ?? []).map((entry: any) => normalizeText(entry?.id)).filter(Boolean)
 }
 
 function normalizeNotionId(value: string | undefined | null): string {
@@ -1630,6 +1644,152 @@ export class NotionWorkService {
       },
       columns,
       rows,
+    }
+  }
+
+  async importEventGraphicsTimetableRows(rows: unknown[]): Promise<EventGraphicsImportResult> {
+    const schema = await this.syncEventGraphicsTimetableProperties()
+    const databaseId = schema.databaseId
+    if (!databaseId) {
+      return {
+        configured: false,
+        databaseId: null,
+        created: 0,
+        updated: 0,
+        skipped: Array.isArray(rows) ? rows.length : 0,
+        total: Array.isArray(rows) ? rows.length : 0,
+      }
+    }
+
+    const existingPages = await this.queryAll(databaseId)
+    const existingByKey = new Map<string, any>()
+    for (const page of existingPages) {
+      const props = (page.properties ?? {}) as AnyMap
+      const sourceDocument = extractTextFromProperty(props['원본 문서'])
+      const sourceSheet = extractTextFromProperty(props['원본 시트'])
+      const sourceRowNumber = extractNumberFromProperty(props['원본 행번호'])
+      const title = normalizeText(joinRichText(props['행 제목']?.title ?? []))
+      const key =
+        sourceDocument && sourceSheet && Number.isFinite(sourceRowNumber)
+          ? `${sourceDocument}::${sourceSheet}::${sourceRowNumber}`
+          : title
+      if (key) existingByKey.set(key, page)
+    }
+
+    const projects = await this.listProjects()
+    const projectIdByName = new Map<string, string>()
+    for (const project of projects) {
+      const name = normalizeText(project.name)
+      if (!name) continue
+      projectIdByName.set(name, project.id)
+      projectIdByName.set(name.toLowerCase(), project.id)
+    }
+
+    let created = 0
+    let updated = 0
+    let skipped = 0
+
+    for (const row of rows) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        skipped += 1
+        continue
+      }
+
+      const entry = row as Record<string, unknown>
+      const readText = (key: string): string => {
+        const value = entry[key]
+        if (typeof value === 'string') return normalizeText(value)
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+        return ''
+      }
+      const readNumber = (key: string): number | null => {
+        const value = entry[key]
+        if (typeof value === 'number' && Number.isFinite(value)) return value
+        const parsed = Number(readText(key))
+        return Number.isFinite(parsed) ? parsed : null
+      }
+
+      const title = readText('행 제목') || readText('Cue 제목')
+      const sourceDocument = readText('원본 문서')
+      const sourceSheet = readText('원본 시트')
+      const sourceRowNumber = readNumber('원본 행번호')
+      const key =
+        sourceDocument && sourceSheet && sourceRowNumber != null
+          ? `${sourceDocument}::${sourceSheet}::${sourceRowNumber}`
+          : title
+
+      if (!key) {
+        skipped += 1
+        continue
+      }
+
+      const projectSnapshot = readText('프로젝트명 스냅샷')
+      const eventName = readText('행사명')
+      const projectRelationId =
+        projectIdByName.get(projectSnapshot) ??
+        projectIdByName.get(projectSnapshot.toLowerCase()) ??
+        projectIdByName.get(eventName) ??
+        projectIdByName.get(eventName.toLowerCase()) ??
+        ''
+
+      const existingPage = existingByKey.get(key)
+      const existingProps = (existingPage?.properties ?? {}) as AnyMap
+      const existingRelationIds = extractRelationIdsFromProperty(existingProps['귀속 프로젝트'])
+      const relationIds = projectRelationId ? [projectRelationId] : existingRelationIds
+
+      const buildRichText = (value: string) => (value ? [{ text: { content: value } }] : [])
+      const properties: AnyMap = {
+        '행 제목': {
+          title: buildRichText(title || `[${eventName || 'Event'}] ${String(sourceRowNumber ?? '').trim()}`.trim()),
+        },
+        '행사명': { rich_text: buildRichText(eventName) },
+        '프로젝트명 스냅샷': { rich_text: buildRichText(projectSnapshot) },
+        '행사일': {
+          date: readText('행사일') ? { start: readText('행사일') } : null,
+        },
+        'Cue 순서': { number: readNumber('Cue 순서') },
+        'Cue 유형': { select: readText('Cue 유형') ? { name: readText('Cue 유형') } : null },
+        'Cue 제목': { rich_text: buildRichText(readText('Cue 제목')) },
+        '시작 시각': { rich_text: buildRichText(readText('시작 시각')) },
+        '종료 시각': { rich_text: buildRichText(readText('종료 시각')) },
+        '러닝타임(분)': { number: readNumber('러닝타임(분)') },
+        '무대 인원': { rich_text: buildRichText(readText('무대 인원')) },
+        '원본 Video': { rich_text: buildRichText(readText('원본 Video')) },
+        '원본 Audio': { rich_text: buildRichText(readText('원본 Audio')) },
+        '원본 비고': { rich_text: buildRichText(readText('원본 비고')) },
+        '그래픽 자산명': { rich_text: buildRichText(readText('그래픽 자산명')) },
+        '그래픽 형식': { select: readText('그래픽 형식') ? { name: readText('그래픽 형식') } : null },
+        '미리보기 링크': { url: readText('미리보기 링크') || null },
+        '자산 링크': { url: readText('자산 링크') || null },
+        '상태': { select: readText('상태') ? { name: readText('상태') } : null },
+        '담당자': { rich_text: buildRichText(readText('담당자')) },
+        '업체 전달 메모': { rich_text: buildRichText(readText('업체 전달 메모')) },
+        '원본 문서': { rich_text: buildRichText(sourceDocument) },
+        '원본 시트': { rich_text: buildRichText(sourceSheet) },
+        '원본 행번호': { number: sourceRowNumber },
+        '귀속 프로젝트': { relation: relationIds.map((id) => ({ id })) },
+      }
+
+      if (existingPage?.id) {
+        await this.api.updatePage(existingPage.id, { properties })
+        updated += 1
+      } else {
+        const createdPage = await this.api.createPage({
+          parent: { database_id: databaseId },
+          properties,
+        })
+        existingByKey.set(key, createdPage)
+        created += 1
+      }
+    }
+
+    return {
+      configured: true,
+      databaseId,
+      created,
+      updated,
+      skipped,
+      total: rows.length,
     }
   }
 

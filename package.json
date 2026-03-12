@@ -14,7 +14,8 @@
     "pages:prune": "node scripts/prune-pages-deployments.mjs --keep=3",
     "preview": "vite preview",
     "publish:web": "bash ./scripts/publish-web.sh",
-    "generate:event-graphics-draft": "node scripts/generate-event-graphics-timetable-draft.mjs"
+    "generate:event-graphics-draft": "node scripts/generate-event-graphics-timetable-draft.mjs",
+    "import:event-graphics-draft": "node scripts/import-event-graphics-timetable-draft.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.19",
