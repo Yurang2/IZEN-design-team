@@ -59,7 +59,7 @@ function toCueTypeClassName(value: string): string {
 }
 
 function formatRuntimeLabel(runtime: string): string {
-  return runtime ? `${runtime}분` : '-'
+  return runtime ? `${runtime} min` : '-'
 }
 
 function joinSummary(parts: Array<string | false | null | undefined>): string {
@@ -69,7 +69,7 @@ function joinSummary(parts: Array<string | false | null | undefined>): string {
 function toDisplayCueOrder(row: ShareRow): string {
   const numeric = Number(row.cueOrder)
   if (row.cueTitle === '등장' && Number.isFinite(numeric)) {
-    return `${Math.ceil(numeric)}-등장`
+    return `${Math.ceil(numeric)}-ENT`
   }
   return row.cueOrder || '-'
 }
@@ -120,7 +120,7 @@ export function EventGraphicsSharePage({
   )
 
   const eventName = useMemo(
-    () => shareRows.find((row) => row.eventName.trim())?.eventName.trim() || databaseTitle.trim() || '행사 그래픽 타임테이블',
+    () => shareRows.find((row) => row.eventName.trim())?.eventName.trim() || databaseTitle.trim() || 'Event Graphics Timetable',
     [databaseTitle, shareRows],
   )
 
@@ -132,7 +132,7 @@ export function EventGraphicsSharePage({
         <section className="eventGraphicsSharePage">
           <header className="eventGraphicsShareHero">
             <p className="muted small">External Share</p>
-            <h1>타임테이블 불러오는 중...</h1>
+            <h1>Loading timetable...</h1>
           </header>
         </section>
       </main>
@@ -142,7 +142,7 @@ export function EventGraphicsSharePage({
   if (error) {
     return (
       <main className="eventGraphicsShareShell">
-        <EmptyState title="타임테이블을 불러오지 못했습니다." message={error} className="scheduleEmptyState" />
+        <EmptyState title="Unable to load timetable." message={error} className="scheduleEmptyState" />
       </main>
     )
   }
@@ -151,8 +151,8 @@ export function EventGraphicsSharePage({
     return (
       <main className="eventGraphicsShareShell">
         <EmptyState
-          title="타임테이블 DB가 연결되지 않았습니다."
-          message="공유용 타임테이블 데이터를 아직 읽어오지 못했습니다."
+          title="The timetable database is not connected."
+          message="The external share page could not read timetable data yet."
           className="scheduleEmptyState"
         />
       </main>
@@ -162,7 +162,7 @@ export function EventGraphicsSharePage({
   if (shareRows.length === 0) {
     return (
       <main className="eventGraphicsShareShell">
-        <EmptyState title="표시할 cue가 없습니다." message="DB에 아직 cue row가 없습니다." className="scheduleEmptyState" />
+        <EmptyState title="No cues to display." message="There are no cue rows in the database yet." className="scheduleEmptyState" />
       </main>
     )
   }
@@ -174,15 +174,15 @@ export function EventGraphicsSharePage({
           <div className="eventGraphicsShareHeroText">
             <p className="muted small">External Share</p>
             <h1>{eventName}</h1>
-            <p>외부 공유용 행사 그래픽 타임테이블</p>
+            <p>External event graphics timetable</p>
           </div>
-          <div className="eventGraphicsShareSummary" aria-label="타임테이블 요약">
+          <div className="eventGraphicsShareSummary" aria-label="Timetable summary">
             <article>
-              <span>전체 Cue</span>
+              <span>Total cues</span>
               <strong>{shareRows.length}</strong>
             </article>
             <article>
-              <span>등장 Cue</span>
+              <span>Entrance cues</span>
               <strong>{entranceCount}</strong>
             </article>
           </div>
@@ -193,9 +193,10 @@ export function EventGraphicsSharePage({
             const hasPreview = looksLikeImageUrl(row.previewHref)
             const previewOpen = openPreviewId === row.id && hasPreview
             const cueTypeClassName = toCueTypeClassName(row.cueType)
+            const isEntranceCue = row.cueTitle === '등장'
 
             return (
-              <article key={row.id} className={`eventGraphicsShareRow${row.cueTitle === '등장' ? ' is-entrance' : ''}`}>
+              <article key={row.id} className={`eventGraphicsShareRow${isEntranceCue ? ' is-entrance' : ''}`}>
                 <div className="eventGraphicsShareTime">
                   <strong>{row.startTime}</strong>
                   <span>{row.endTime}</span>
@@ -208,9 +209,9 @@ export function EventGraphicsSharePage({
                       <div className="eventGraphicsCueHead">
                         <span className="eventGraphicsOrder">{toDisplayCueOrder(row)}</span>
                         <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                        {row.cueTitle === '등장' ? <span className="eventGraphicsEntranceFlag">등장</span> : null}
+                        {isEntranceCue ? <span className="eventGraphicsEntranceFlag">Entrance</span> : null}
                       </div>
-                      <h2>{row.cueTitle}</h2>
+                      <h2>{isEntranceCue ? 'Entrance' : row.cueTitle}</h2>
                     </div>
                   </div>
 
@@ -218,10 +219,10 @@ export function EventGraphicsSharePage({
                     <section className="eventGraphicsSharePanel">
                       <span className="eventGraphicsPanelLabel">Graphics</span>
                       <strong>{row.graphicAsset}</strong>
-                      <p>{joinSummary([row.graphicType, row.sourceVideo && `파일명 ${row.sourceVideo}`]) || '-'}</p>
+                      <p>{joinSummary([row.graphicType, row.sourceVideo && `Filename ${row.sourceVideo}`]) || '-'}</p>
                       {row.assetHref ? (
                         <a className="eventGraphicsInlineLink" href={row.assetHref} target="_blank" rel="noreferrer">
-                          파일 링크 열기
+                          Open file link
                         </a>
                       ) : null}
                     </section>
@@ -229,7 +230,7 @@ export function EventGraphicsSharePage({
                     <section className="eventGraphicsSharePanel">
                       <span className="eventGraphicsPanelLabel">Audio</span>
                       <strong>{row.sourceAudio || '-'}</strong>
-                      <p>{row.personnel ? `무대 ${row.personnel}` : '무대 정보 없음'}</p>
+                      <p>{row.personnel ? `On stage ${row.personnel}` : 'No stage note'}</p>
                     </section>
 
                     <section className="eventGraphicsSharePanel">
@@ -241,18 +242,18 @@ export function EventGraphicsSharePage({
                             className={previewOpen ? 'secondary mini is-active' : 'secondary mini'}
                             onClick={() => setOpenPreviewId((current) => (current === row.id ? null : row.id))}
                           >
-                            {previewOpen ? '이미지 닫기' : '이미지 보기'}
+                            {previewOpen ? 'Hide image' : 'Show image'}
                           </button>
                           {previewOpen ? (
                             <div className="eventGraphicsSharePreview">
-                              <img src={row.previewHref ?? ''} alt={`${row.cueTitle} 미리보기`} loading="lazy" />
+                              <img src={row.previewHref ?? ''} alt={`${row.cueTitle} preview`} loading="lazy" />
                             </div>
                           ) : (
-                            <div className="eventGraphicsPreviewPlaceholder">필요할 때만 이미지를 열어 확인할 수 있습니다.</div>
+                            <div className="eventGraphicsPreviewPlaceholder">Open the image only when needed.</div>
                           )}
                         </>
                       ) : (
-                        <div className="eventGraphicsPreviewPlaceholder">등록된 미리보기 이미지가 없습니다.</div>
+                        <div className="eventGraphicsPreviewPlaceholder">No preview image has been added yet.</div>
                       )}
                     </section>
 
