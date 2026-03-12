@@ -2524,6 +2524,18 @@ button.dashboardNavButton {
   .eventGraphicsToolbar {
     grid-template-columns: 1fr;
   }
+
+  .eventGraphicsAgendaRow {
+    grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsAgendaTime {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eventGraphicsAgendaGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .checklistPreviewFilters {
@@ -2762,46 +2774,6 @@ button.dashboardNavButton {
   grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
 }
 
-.eventGraphicsGrid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
-.eventGraphicsCard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--shadow-card);
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-}
-
-.eventGraphicsCard.status-changed_on_site {
-  border-color: color-mix(in srgb, #d64545 55%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, #d64545 18%, transparent);
-}
-
-.eventGraphicsCard.status-shared {
-  border-color: color-mix(in srgb, #455ad6 40%, var(--border));
-}
-
-.eventGraphicsCard.status-ready {
-  border-color: color-mix(in srgb, #2f8f55 40%, var(--border));
-}
-
-.eventGraphicsCardHeader {
-  align-items: start;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.eventGraphicsCardHeader h3 {
-  margin: 2px 0 0;
-}
-
 .eventGraphicsOrder {
   color: var(--text-sub);
   display: inline-block;
@@ -2822,64 +2794,192 @@ button.dashboardNavButton {
   padding: 5px 9px;
 }
 
-.eventGraphicsPreview {
-  aspect-ratio: 16 / 9;
-  background: color-mix(in srgb, var(--surface-soft) 80%, white);
+.eventGraphicsAgendaShell {
+  display: grid;
+  gap: 12px;
+}
+
+.eventGraphicsTableHint {
+  align-items: center;
+  color: var(--text-sub);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12px;
+}
+
+.eventGraphicsAgenda {
+  display: grid;
+  gap: 12px;
+}
+
+.eventGraphicsAgendaRow {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--surface-soft) 82%, white) 0, color-mix(in srgb, var(--surface-soft) 82%, white) 144px, var(--surface) 144px),
+    var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr);
   overflow: hidden;
 }
 
-.eventGraphicsPreview img {
+.eventGraphicsAgendaRow.is-entrance {
+  border-color: color-mix(in srgb, #0f766e 44%, var(--border));
+}
+
+.eventGraphicsAgendaRow.status-changed_on_site {
+  border-color: color-mix(in srgb, #d64545 55%, var(--border));
+}
+
+.eventGraphicsAgendaTime {
+  align-content: start;
+  display: grid;
+  gap: 6px;
+  padding: 18px 16px;
+}
+
+.eventGraphicsAgendaTime strong {
+  color: var(--text-main);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.eventGraphicsAgendaTime span,
+.eventGraphicsAgendaTime small {
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.eventGraphicsAgendaBody {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.eventGraphicsAgendaHead {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsAgendaHead h3 {
+  margin: 6px 0 0;
+}
+
+.eventGraphicsCueHead {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.eventGraphicsCueType,
+.eventGraphicsEntranceFlag {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.eventGraphicsCueType {
+  background: color-mix(in srgb, var(--surface-soft) 88%, white);
+  border: 1px solid var(--border);
+  color: var(--text-sub);
+}
+
+.eventGraphicsCueType.cue-lecture,
+.eventGraphicsCueType.cue-opening,
+.eventGraphicsCueType.cue-certificate,
+.eventGraphicsCueType.cue-closing {
+  background: color-mix(in srgb, #dbeafe 72%, white);
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.eventGraphicsCueType.cue-other {
+  background: color-mix(in srgb, #ecfeff 72%, white);
+  border-color: #a5f3fc;
+  color: #0f766e;
+}
+
+.eventGraphicsEntranceFlag {
+  background: #0f766e;
+  color: white;
+}
+
+.eventGraphicsAgendaGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.1fr 0.8fr 0.9fr;
+}
+
+.eventGraphicsAgendaPanel {
+  background: color-mix(in srgb, var(--surface-soft) 84%, white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.eventGraphicsAgendaPanel p,
+.eventGraphicsAgendaPanel strong {
+  margin: 0;
+}
+
+.eventGraphicsPanelLabel {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eventGraphicsPreviewThumb {
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, var(--surface-soft) 78%, white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.eventGraphicsPreviewThumb img {
   display: block;
   height: 100%;
   object-fit: cover;
   width: 100%;
 }
 
-.eventGraphicsMeta {
+.eventGraphicsGraphicTitle {
+  display: grid;
+  gap: 4px;
+}
+
+.eventGraphicsGraphicTitle span,
+.eventGraphicsSubline {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.eventGraphicsLinkRow {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.eventGraphicsMeta span {
-  background: color-mix(in srgb, var(--surface-soft) 88%, white);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-sub);
-  font-size: 11px;
-  padding: 4px 8px;
+.eventGraphicsInlineLink {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
-.eventGraphicsDetails {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-}
-
-.eventGraphicsDetails div {
-  display: grid;
-  gap: 2px;
-}
-
-.eventGraphicsDetails dt {
-  color: var(--text-sub);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.eventGraphicsDetails dd {
-  color: var(--text-main);
-  font-size: 13px;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.eventGraphicsActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.eventGraphicsInlineLink:hover {
+  text-decoration: underline;
 }
 
 .scheduleEmptyState {
