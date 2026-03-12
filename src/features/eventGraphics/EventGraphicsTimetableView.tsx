@@ -141,38 +141,46 @@ function CompactLayout({
             return (
               <tr key={row.id} className={`eventGraphicsCompactRow status-${statusClassName}`}>
                 <td className="eventGraphicsCompactTimeCell">
-                  <strong>
-                    {row.startTime} - {row.endTime}
-                  </strong>
-                  <span>{formatRuntimeLabel(row.runtime)}</span>
+                  <div className="eventGraphicsCompactCellInner">
+                    <strong>
+                      {row.startTime} - {row.endTime}
+                    </strong>
+                    <span>{formatRuntimeLabel(row.runtime)}</span>
+                  </div>
                 </td>
                 <td className="eventGraphicsCompactCueCell">
-                  <div className="eventGraphicsCueHead">
-                    <span className="eventGraphicsOrder">#{row.cueOrder}</span>
-                    <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                    {row.cueTitle === '등장' ? <span className="eventGraphicsEntranceFlag">등장</span> : null}
+                  <div className="eventGraphicsCompactCellInner">
+                    <div className="eventGraphicsCueHead">
+                      <span className="eventGraphicsOrder">#{row.cueOrder}</span>
+                      <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
+                      {row.cueTitle === '등장' ? <span className="eventGraphicsEntranceFlag">등장</span> : null}
+                    </div>
+                    <strong>{row.cueTitle}</strong>
+                    <p>{joinSummary([row.personnel && `무대 ${row.personnel}`, row.vendorNote || row.remark]) || '메모 없음'}</p>
                   </div>
-                  <strong>{row.cueTitle}</strong>
-                  <p>{joinSummary([row.personnel && `무대 ${row.personnel}`, row.vendorNote || row.remark]) || '메모 없음'}</p>
                 </td>
                 <td className="eventGraphicsCompactMediaCell">
-                  <strong>{row.graphicAsset}</strong>
-                  <p>{joinSummary([row.graphicType, row.sourceAudio || row.sourceVideo]) || '-'}</p>
-                  <div className="eventGraphicsLinkRow">
-                    {hasPreview ? (
-                      <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
-                        이미지
-                      </button>
-                    ) : null}
-                    {row.assetHref ? (
-                      <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
-                        자산
-                      </a>
-                    ) : null}
+                  <div className="eventGraphicsCompactCellInner">
+                    <strong>{row.graphicAsset}</strong>
+                    <p>{joinSummary([row.graphicType, row.sourceAudio || row.sourceVideo]) || '-'}</p>
+                    <div className="eventGraphicsLinkRow">
+                      {hasPreview ? (
+                        <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
+                          이미지
+                        </button>
+                      ) : null}
+                      {row.assetHref ? (
+                        <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
+                          자산
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
                 </td>
                 <td className="eventGraphicsCompactStatusCell">
-                  <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
+                  <div className="eventGraphicsCompactCellInner">
+                    <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
+                  </div>
                 </td>
               </tr>
             )
@@ -186,9 +194,13 @@ function CompactLayout({
 function CueSheetLayout({
   rows,
   onOpenPreview,
+  activePreviewId,
+  onClosePreview,
 }: {
   rows: TimetableRow[]
   onOpenPreview: (row: TimetableRow) => void
+  activePreviewId: string | null
+  onClosePreview: () => void
 }) {
   return (
     <div className="eventGraphicsCueSheet">
@@ -197,6 +209,7 @@ function CueSheetLayout({
         const cueTypeClassName = toCueTypeClassName(row.cueType)
         const isEntranceCue = row.cueTitle === '등장'
         const hasPreview = looksLikeImageUrl(row.previewHref)
+        const previewOpen = activePreviewId === row.id && hasPreview
 
         return (
           <article key={row.id} className={`eventGraphicsCueSheetRow status-${statusClassName}${isEntranceCue ? ' is-entrance' : ''}`}>
@@ -224,11 +237,21 @@ function CueSheetLayout({
                   <span className="eventGraphicsPanelLabel">Graphics</span>
                   <strong>{row.graphicAsset}</strong>
                   <p>{row.graphicType || '-'}</p>
-                  {row.sourceVideo ? <p className="eventGraphicsSubline">원본: {row.sourceVideo}</p> : null}
+                  {row.sourceVideo ? <p className="eventGraphicsSubline">파일명: {row.sourceVideo}</p> : null}
                   <div className="eventGraphicsLinkRow">
                     {hasPreview ? (
-                      <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
-                        이미지 보기
+                      <button
+                        type="button"
+                        className={previewOpen ? 'secondary mini is-active' : 'secondary mini'}
+                        onClick={() => {
+                          if (previewOpen) {
+                            onClosePreview()
+                            return
+                          }
+                          onOpenPreview(row)
+                        }}
+                      >
+                        {previewOpen ? '이미지 닫기' : '이미지 보기'}
                       </button>
                     ) : null}
                     {row.assetHref ? (
@@ -237,6 +260,15 @@ function CueSheetLayout({
                       </a>
                     ) : null}
                   </div>
+                  {previewOpen ? (
+                    <div className="eventGraphicsPreviewInline">
+                      <img src={row.previewHref ?? ''} alt={`${row.cueTitle} 미리보기`} loading="lazy" />
+                    </div>
+                  ) : hasPreview ? (
+                    <div className="eventGraphicsPreviewPlaceholder">이미지 보기를 누르면 여기에서 크게 확인할 수 있습니다.</div>
+                  ) : (
+                    <div className="eventGraphicsPreviewPlaceholder">등록된 미리보기 이미지가 없습니다.</div>
+                  )}
                 </section>
 
                 <section className="eventGraphicsCueSheetPanel">
@@ -421,10 +453,15 @@ export function EventGraphicsTimetableView({
       ) : layoutMode === 'compact' ? (
         <CompactLayout rows={filteredRows} onOpenPreview={openPreview} />
       ) : (
-        <CueSheetLayout rows={filteredRows} onOpenPreview={openPreview} />
+        <CueSheetLayout
+          rows={filteredRows}
+          onOpenPreview={openPreview}
+          activePreviewId={previewTarget?.id ?? null}
+          onClosePreview={() => setPreviewTarget(null)}
+        />
       )}
 
-      {previewTarget && looksLikeImageUrl(previewTarget.previewHref) ? (
+      {layoutMode === 'compact' && previewTarget && looksLikeImageUrl(previewTarget.previewHref) ? (
         <div className="eventGraphicsPreviewModal" role="dialog" aria-modal="true" aria-label="그래픽 미리보기">
           <button type="button" className="eventGraphicsPreviewBackdrop" aria-label="미리보기 닫기" onClick={() => setPreviewTarget(null)} />
           <div className="eventGraphicsPreviewDialog">

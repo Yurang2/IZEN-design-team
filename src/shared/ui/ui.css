@@ -2900,6 +2900,10 @@ button.dashboardNavButton {
 .eventGraphicsCompactCueCell,
 .eventGraphicsCompactMediaCell,
 .eventGraphicsCompactStatusCell {
+  width: auto;
+}
+
+.eventGraphicsCompactCellInner {
   display: grid;
   gap: 6px;
 }
@@ -3030,6 +3034,30 @@ button.dashboardNavButton {
   height: 100%;
   object-fit: cover;
   width: 100%;
+}
+
+.eventGraphicsPreviewInline {
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, var(--surface-soft) 78%, white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.eventGraphicsPreviewInline img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.eventGraphicsPreviewPlaceholder {
+  background: color-mix(in srgb, var(--surface-soft) 88%, white);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--text-sub);
+  font-size: 12px;
+  padding: 12px;
 }
 
 .eventGraphicsSubline {
