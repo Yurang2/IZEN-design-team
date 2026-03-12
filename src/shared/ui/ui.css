@@ -2743,6 +2743,14 @@ button.dashboardNavButton {
   margin: 0;
 }
 
+.eventGraphicsHeroActions {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .eventGraphicsSummary {
   display: grid;
   gap: 10px;
@@ -3320,6 +3328,94 @@ button.dashboardNavButton {
 
   .eventGraphicsShareTime {
     border-bottom: 1px solid var(--border);
+  }
+}
+
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  .eventGraphicsShareShell {
+    background: white;
+    min-height: auto;
+    padding: 0;
+  }
+
+  .eventGraphicsSharePage {
+    gap: 10px;
+    max-width: none;
+  }
+
+  .eventGraphicsShareHero {
+    border: 1px solid #d4d4d4;
+    border-radius: 0;
+    box-shadow: none;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .eventGraphicsShareSummary {
+    display: none;
+  }
+
+  .eventGraphicsShareList {
+    gap: 8px;
+  }
+
+  .eventGraphicsShareRow {
+    background: white;
+    border: 1px solid #d4d4d4;
+    border-radius: 0;
+    box-shadow: none;
+    break-inside: avoid;
+    grid-template-columns: 88px minmax(0, 1fr);
+  }
+
+  .eventGraphicsShareTime {
+    background: #f5f5f5;
+    gap: 2px;
+    padding: 10px 8px;
+  }
+
+  .eventGraphicsShareTime strong {
+    font-size: 18px;
+  }
+
+  .eventGraphicsShareBody {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .eventGraphicsShareHead h2 {
+    font-size: 18px;
+  }
+
+  .eventGraphicsShareGrid {
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  }
+
+  .eventGraphicsSharePanel {
+    background: white;
+    border: 1px solid #dcdcdc;
+    border-radius: 0;
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .eventGraphicsSharePanel:nth-child(3) {
+    display: none;
+  }
+
+  .eventGraphicsSharePanel-note {
+    grid-column: 1 / -1;
+  }
+
+  .eventGraphicsPreviewPlaceholder,
+  .eventGraphicsInlineLink,
+  .eventGraphicsSharePanel button {
+    display: none;
   }
 }
 

@@ -14,6 +14,8 @@ type EventGraphicsTimetableViewProps = {
 
 type LayoutMode = 'compact' | 'cueSheet'
 
+const EXTERNAL_SHARE_PATH = '/share/timetable'
+
 type TimetableRow = {
   id: string
   url: string | null
@@ -408,11 +410,16 @@ export function EventGraphicsTimetableView({
           <h2>{effectiveTitle}</h2>
           <p>같은 데이터로 A안 압축형과 B안 큐시트형을 모두 비교할 수 있게 구성했습니다.</p>
         </div>
-        {databaseUrl ? (
-          <a className="linkButton secondary" href={databaseUrl} target="_blank" rel="noreferrer">
-            Notion DB 열기
+        <div className="eventGraphicsHeroActions">
+          <a className="linkButton" href={EXTERNAL_SHARE_PATH} target="_blank" rel="noreferrer">
+            External Share Page
           </a>
-        ) : null}
+          {databaseUrl ? (
+            <a className="linkButton secondary" href={databaseUrl} target="_blank" rel="noreferrer">
+              Notion DB 열기
+            </a>
+          ) : null}
+        </div>
       </div>
 
       <div className="eventGraphicsSummary" aria-label="행사 그래픽 요약">
