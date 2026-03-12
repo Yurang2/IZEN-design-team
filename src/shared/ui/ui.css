@@ -2525,15 +2525,15 @@ button.dashboardNavButton {
     grid-template-columns: 1fr;
   }
 
-  .eventGraphicsAgendaRow {
+  .eventGraphicsCueSheetRow {
     grid-template-columns: 1fr;
   }
 
-  .eventGraphicsAgendaTime {
+  .eventGraphicsCueSheetTime {
     border-bottom: 1px solid var(--border);
   }
 
-  .eventGraphicsAgendaGrid {
+  .eventGraphicsCueSheetGrid {
     grid-template-columns: 1fr;
   }
 }
@@ -2774,6 +2774,12 @@ button.dashboardNavButton {
   grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
 }
 
+.eventGraphicsLayoutSwitch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .eventGraphicsOrder {
   color: var(--text-sub);
   display: inline-block;
@@ -2792,82 +2798,6 @@ button.dashboardNavButton {
   font-size: 11px;
   font-weight: 700;
   padding: 5px 9px;
-}
-
-.eventGraphicsAgendaShell {
-  display: grid;
-  gap: 12px;
-}
-
-.eventGraphicsTableHint {
-  align-items: center;
-  color: var(--text-sub);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  font-size: 12px;
-}
-
-.eventGraphicsAgenda {
-  display: grid;
-  gap: 12px;
-}
-
-.eventGraphicsAgendaRow {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--surface-soft) 82%, white) 0, color-mix(in srgb, var(--surface-soft) 82%, white) 144px, var(--surface) 144px),
-    var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  box-shadow: var(--shadow-card);
-  display: grid;
-  grid-template-columns: 144px minmax(0, 1fr);
-  overflow: hidden;
-}
-
-.eventGraphicsAgendaRow.is-entrance {
-  border-color: color-mix(in srgb, #0f766e 44%, var(--border));
-}
-
-.eventGraphicsAgendaRow.status-changed_on_site {
-  border-color: color-mix(in srgb, #d64545 55%, var(--border));
-}
-
-.eventGraphicsAgendaTime {
-  align-content: start;
-  display: grid;
-  gap: 6px;
-  padding: 18px 16px;
-}
-
-.eventGraphicsAgendaTime strong {
-  color: var(--text-main);
-  font-size: 26px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.eventGraphicsAgendaTime span,
-.eventGraphicsAgendaTime small {
-  color: var(--text-sub);
-  font-variant-numeric: tabular-nums;
-}
-
-.eventGraphicsAgendaBody {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-}
-
-.eventGraphicsAgendaHead {
-  align-items: start;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.eventGraphicsAgendaHead h3 {
-  margin: 6px 0 0;
 }
 
 .eventGraphicsCueHead {
@@ -2911,13 +2841,161 @@ button.dashboardNavButton {
   color: white;
 }
 
-.eventGraphicsAgendaGrid {
+.eventGraphicsTableHint {
+  align-items: center;
+  color: var(--text-sub);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12px;
+}
+
+.eventGraphicsCompactTableWrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: auto;
+}
+
+.eventGraphicsCompactTable {
+  border-collapse: collapse;
+  min-width: 900px;
+  width: 100%;
+}
+
+.eventGraphicsCompactTable th,
+.eventGraphicsCompactTable td {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.eventGraphicsCompactTable th {
+  background: color-mix(in srgb, var(--surface-soft) 88%, white);
+  color: var(--text-sub);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  position: sticky;
+  text-transform: uppercase;
+  top: 0;
+  z-index: 1;
+}
+
+.eventGraphicsCompactTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.eventGraphicsCompactRow.status-changed_on_site {
+  background: color-mix(in srgb, #fef2f2 72%, white);
+}
+
+.eventGraphicsCompactRow.status-ready,
+.eventGraphicsCompactRow.status-shared {
+  background: color-mix(in srgb, #f0fdf4 72%, white);
+}
+
+.eventGraphicsCompactTimeCell,
+.eventGraphicsCompactCueCell,
+.eventGraphicsCompactMediaCell,
+.eventGraphicsCompactStatusCell {
+  display: grid;
+  gap: 6px;
+}
+
+.eventGraphicsCompactTimeCell strong {
+  color: var(--text-main);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.eventGraphicsCompactTimeCell span,
+.eventGraphicsCompactCueCell p,
+.eventGraphicsCompactMediaCell p {
+  color: var(--text-sub);
+  font-size: 12px;
+  margin: 0;
+}
+
+.eventGraphicsCompactCueCell strong,
+.eventGraphicsCompactMediaCell strong {
+  color: var(--text-main);
+}
+
+.eventGraphicsCompactStatusCell {
+  align-content: start;
+}
+
+.eventGraphicsCueSheet {
+  display: grid;
+  gap: 12px;
+}
+
+.eventGraphicsCueSheetRow {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--surface-soft) 82%, white) 0, color-mix(in srgb, var(--surface-soft) 82%, white) 144px, var(--surface) 144px),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.eventGraphicsCueSheetRow.is-entrance {
+  border-color: color-mix(in srgb, #0f766e 44%, var(--border));
+}
+
+.eventGraphicsCueSheetRow.status-changed_on_site {
+  border-color: color-mix(in srgb, #d64545 55%, var(--border));
+}
+
+.eventGraphicsCueSheetTime {
+  align-content: start;
+  display: grid;
+  gap: 6px;
+  padding: 18px 16px;
+}
+
+.eventGraphicsCueSheetTime strong {
+  color: var(--text-main);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.eventGraphicsCueSheetTime span,
+.eventGraphicsCueSheetTime small {
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.eventGraphicsCueSheetBody {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.eventGraphicsCueSheetHead {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsCueSheetHead h3 {
+  margin: 6px 0 0;
+}
+
+.eventGraphicsCueSheetGrid {
   display: grid;
   gap: 12px;
   grid-template-columns: 1.1fr 0.8fr 0.9fr;
 }
 
-.eventGraphicsAgendaPanel {
+.eventGraphicsCueSheetPanel {
   background: color-mix(in srgb, var(--surface-soft) 84%, white);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -2926,8 +3004,8 @@ button.dashboardNavButton {
   padding: 14px;
 }
 
-.eventGraphicsAgendaPanel p,
-.eventGraphicsAgendaPanel strong {
+.eventGraphicsCueSheetPanel p,
+.eventGraphicsCueSheetPanel strong {
   margin: 0;
 }
 
@@ -2954,12 +3032,6 @@ button.dashboardNavButton {
   width: 100%;
 }
 
-.eventGraphicsGraphicTitle {
-  display: grid;
-  gap: 4px;
-}
-
-.eventGraphicsGraphicTitle span,
 .eventGraphicsSubline {
   color: var(--text-sub);
   font-size: 12px;
@@ -2980,6 +3052,67 @@ button.dashboardNavButton {
 
 .eventGraphicsInlineLink:hover {
   text-decoration: underline;
+}
+
+.eventGraphicsPreviewModal {
+  inset: 0;
+  position: fixed;
+  z-index: 40;
+}
+
+.eventGraphicsPreviewBackdrop {
+  background: rgba(15, 23, 42, 0.62);
+  border: 0;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.eventGraphicsPreviewDialog {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
+  display: grid;
+  gap: 12px;
+  left: 50%;
+  max-height: calc(100vh - 48px);
+  max-width: min(960px, calc(100vw - 32px));
+  overflow: hidden;
+  padding: 16px;
+  position: absolute;
+  top: 24px;
+  transform: translateX(-50%);
+  width: 100%;
+}
+
+.eventGraphicsPreviewDialogHead {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsPreviewDialogHead p,
+.eventGraphicsPreviewDialogHead strong {
+  margin: 0;
+}
+
+.eventGraphicsPreviewDialogHead p {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.eventGraphicsPreviewDialogBody {
+  background: color-mix(in srgb, var(--surface-soft) 80%, white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: auto;
+}
+
+.eventGraphicsPreviewDialogBody img {
+  display: block;
+  max-width: 100%;
+  width: 100%;
 }
 
 .scheduleEmptyState {

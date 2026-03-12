@@ -12,6 +12,8 @@ type EventGraphicsTimetableViewProps = {
   error: string | null
 }
 
+type LayoutMode = 'compact' | 'cueSheet'
+
 type TimetableRow = {
   id: string
   url: string | null
@@ -57,6 +59,22 @@ function looksLikeImageUrl(value: string | null): boolean {
   return /\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?|#|$)/i.test(value)
 }
 
+function toStatusClassName(value: string): string {
+  return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+}
+
+function toCueTypeClassName(value: string): string {
+  return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+}
+
+function formatRuntimeLabel(runtime: string): string {
+  return runtime ? `${runtime}분` : '-'
+}
+
+function joinSummary(parts: string[]): string {
+  return parts.map((part) => part.trim()).filter(Boolean).join(' / ')
+}
+
 function matchesQuery(row: TimetableRow, query: string): boolean {
   if (!query) return true
   const source = [
@@ -97,16 +115,153 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
   }
 }
 
-function formatRuntimeLabel(runtime: string): string {
-  return runtime ? `${runtime}분` : '-'
+function CompactLayout({
+  rows,
+  onOpenPreview,
+}: {
+  rows: TimetableRow[]
+  onOpenPreview: (row: TimetableRow) => void
+}) {
+  return (
+    <div className="eventGraphicsCompactTableWrap">
+      <table className="eventGraphicsCompactTable">
+        <thead>
+          <tr>
+            <th>시간</th>
+            <th>프로그램</th>
+            <th>그래픽 / 오디오</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const statusClassName = toStatusClassName(row.status)
+            const cueTypeClassName = toCueTypeClassName(row.cueType)
+            const hasPreview = looksLikeImageUrl(row.previewHref)
+            return (
+              <tr key={row.id} className={`eventGraphicsCompactRow status-${statusClassName}`}>
+                <td className="eventGraphicsCompactTimeCell">
+                  <strong>
+                    {row.startTime} - {row.endTime}
+                  </strong>
+                  <span>{formatRuntimeLabel(row.runtime)}</span>
+                </td>
+                <td className="eventGraphicsCompactCueCell">
+                  <div className="eventGraphicsCueHead">
+                    <span className="eventGraphicsOrder">#{row.cueOrder}</span>
+                    <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
+                    {row.cueTitle === '등장' ? <span className="eventGraphicsEntranceFlag">등장</span> : null}
+                  </div>
+                  <strong>{row.cueTitle}</strong>
+                  <p>{joinSummary([row.personnel && `무대 ${row.personnel}`, row.vendorNote || row.remark]) || '메모 없음'}</p>
+                </td>
+                <td className="eventGraphicsCompactMediaCell">
+                  <strong>{row.graphicAsset}</strong>
+                  <p>{joinSummary([row.graphicType, row.sourceAudio || row.sourceVideo]) || '-'}</p>
+                  <div className="eventGraphicsLinkRow">
+                    {hasPreview ? (
+                      <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
+                        이미지
+                      </button>
+                    ) : null}
+                    {row.assetHref ? (
+                      <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
+                        자산
+                      </a>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="eventGraphicsCompactStatusCell">
+                  <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
-function toStatusClassName(value: string): string {
-  return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
-}
+function CueSheetLayout({
+  rows,
+  onOpenPreview,
+}: {
+  rows: TimetableRow[]
+  onOpenPreview: (row: TimetableRow) => void
+}) {
+  return (
+    <div className="eventGraphicsCueSheet">
+      {rows.map((row) => {
+        const statusClassName = toStatusClassName(row.status)
+        const cueTypeClassName = toCueTypeClassName(row.cueType)
+        const isEntranceCue = row.cueTitle === '등장'
+        const hasPreview = looksLikeImageUrl(row.previewHref)
 
-function toCueTypeClassName(value: string): string {
-  return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+        return (
+          <article key={row.id} className={`eventGraphicsCueSheetRow status-${statusClassName}${isEntranceCue ? ' is-entrance' : ''}`}>
+            <div className="eventGraphicsCueSheetTime">
+              <strong>{row.startTime}</strong>
+              <span>{row.endTime}</span>
+              <small>{formatRuntimeLabel(row.runtime)}</small>
+            </div>
+
+            <div className="eventGraphicsCueSheetBody">
+              <div className="eventGraphicsCueSheetHead">
+                <div>
+                  <div className="eventGraphicsCueHead">
+                    <span className="eventGraphicsOrder">#{row.cueOrder}</span>
+                    <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
+                    {isEntranceCue ? <span className="eventGraphicsEntranceFlag">등장 화면</span> : null}
+                  </div>
+                  <h3>{row.cueTitle}</h3>
+                </div>
+                <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
+              </div>
+
+              <div className="eventGraphicsCueSheetGrid">
+                <section className="eventGraphicsCueSheetPanel">
+                  <span className="eventGraphicsPanelLabel">Graphics</span>
+                  <strong>{row.graphicAsset}</strong>
+                  <p>{row.graphicType || '-'}</p>
+                  {row.sourceVideo ? <p className="eventGraphicsSubline">원본: {row.sourceVideo}</p> : null}
+                  <div className="eventGraphicsLinkRow">
+                    {hasPreview ? (
+                      <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
+                        이미지 보기
+                      </button>
+                    ) : null}
+                    {row.assetHref ? (
+                      <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
+                        자산 링크
+                      </a>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section className="eventGraphicsCueSheetPanel">
+                  <span className="eventGraphicsPanelLabel">Audio</span>
+                  <strong>{row.sourceAudio || '-'}</strong>
+                  {row.personnel ? <p>무대: {row.personnel}</p> : null}
+                </section>
+
+                <section className="eventGraphicsCueSheetPanel">
+                  <span className="eventGraphicsPanelLabel">Note</span>
+                  <p>{row.vendorNote || '업체 전달 메모 없음'}</p>
+                  {row.remark ? <p>비고: {row.remark}</p> : null}
+                  {row.url ? (
+                    <a className="eventGraphicsInlineLink" href={row.url} target="_blank" rel="noreferrer">
+                      Notion 상세 보기
+                    </a>
+                  ) : null}
+                </section>
+              </div>
+            </div>
+          </article>
+        )
+      })}
+    </div>
+  )
 }
 
 export function EventGraphicsTimetableView({
@@ -120,6 +275,8 @@ export function EventGraphicsTimetableView({
 }: EventGraphicsTimetableViewProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('compact')
+  const [previewTarget, setPreviewTarget] = useState<TimetableRow | null>(null)
 
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
@@ -150,6 +307,11 @@ export function EventGraphicsTimetableView({
 
   const onStatusChange = (event: ChangeEvent<HTMLSelectElement>) => {
     setStatusFilter(event.target.value)
+  }
+
+  const openPreview = (row: TimetableRow) => {
+    if (!looksLikeImageUrl(row.previewHref)) return
+    setPreviewTarget(row)
   }
 
   if (loading) {
@@ -185,7 +347,7 @@ export function EventGraphicsTimetableView({
         <div className="eventGraphicsHeroText">
           <p className="muted small">Event Graphics Timetable</p>
           <h2>{effectiveTitle}</h2>
-          <p>시간 순서대로 cue, 등장 그래픽, 오디오, 현장 전달 메모를 함께 보는 운영용 일정표입니다.</p>
+          <p>같은 데이터로 A안 압축형과 B안 큐시트형을 모두 비교할 수 있게 구성했습니다.</p>
         </div>
         {databaseUrl ? (
           <a className="linkButton secondary" href={databaseUrl} target="_blank" rel="noreferrer">
@@ -231,98 +393,56 @@ export function EventGraphicsTimetableView({
         </select>
       </div>
 
+      <div className="eventGraphicsLayoutSwitch" role="group" aria-label="타임테이블 보기 형태">
+        <button
+          type="button"
+          className={layoutMode === 'compact' ? 'viewTab active' : 'viewTab'}
+          aria-pressed={layoutMode === 'compact'}
+          onClick={() => setLayoutMode('compact')}
+        >
+          A안 압축형
+        </button>
+        <button
+          type="button"
+          className={layoutMode === 'cueSheet' ? 'viewTab active' : 'viewTab'}
+          aria-pressed={layoutMode === 'cueSheet'}
+          onClick={() => setLayoutMode('cueSheet')}
+        >
+          B안 큐시트형
+        </button>
+      </div>
+
       {filteredRows.length === 0 ? (
         <EmptyState
           title="표시할 cue가 없습니다."
           message={normalizedQuery || statusFilter ? '현재 필터 조건과 일치하는 cue가 없습니다.' : 'DB에 아직 cue row가 없습니다.'}
           className="scheduleEmptyState"
         />
+      ) : layoutMode === 'compact' ? (
+        <CompactLayout rows={filteredRows} onOpenPreview={openPreview} />
       ) : (
-        <div className="eventGraphicsAgendaShell">
-          <div className="eventGraphicsTableHint">
-            <span>처음 보는 사람도 시간 흐름만 따라가면 이해할 수 있게 정리한 일정표 형식입니다.</span>
-            <span>각 줄은 실제 현장에서 넘겨야 하는 하나의 화면 전환 단위입니다.</span>
-          </div>
+        <CueSheetLayout rows={filteredRows} onOpenPreview={openPreview} />
+      )}
 
-          <div className="eventGraphicsAgenda">
-            {filteredRows.map((row) => {
-              const statusClassName = toStatusClassName(row.status)
-              const cueTypeClassName = toCueTypeClassName(row.cueType)
-              const isEntranceCue = row.cueTitle === '등장'
-
-              return (
-                <article
-                  key={row.id}
-                  className={`eventGraphicsAgendaRow status-${statusClassName}${isEntranceCue ? ' is-entrance' : ''}`}
-                >
-                  <div className="eventGraphicsAgendaTime">
-                    <strong>{row.startTime}</strong>
-                    <span>{row.endTime}</span>
-                    <small>{formatRuntimeLabel(row.runtime)}</small>
-                  </div>
-
-                  <div className="eventGraphicsAgendaBody">
-                    <div className="eventGraphicsAgendaHead">
-                      <div>
-                        <div className="eventGraphicsCueHead">
-                          <span className="eventGraphicsOrder">#{row.cueOrder}</span>
-                          <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                          {isEntranceCue ? <span className="eventGraphicsEntranceFlag">등장 화면</span> : null}
-                        </div>
-                        <h3>{row.cueTitle}</h3>
-                      </div>
-                      <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
-                    </div>
-
-                    <div className="eventGraphicsAgendaGrid">
-                      <section className="eventGraphicsAgendaPanel">
-                        <span className="eventGraphicsPanelLabel">그래픽</span>
-                        <strong>{row.graphicAsset}</strong>
-                        <p>{row.graphicType}</p>
-                        {row.sourceVideo ? <p className="eventGraphicsSubline">원본: {row.sourceVideo}</p> : null}
-                        {looksLikeImageUrl(row.previewHref) ? (
-                          <div className="eventGraphicsPreviewThumb">
-                            <img src={row.previewHref ?? ''} alt={`${row.cueTitle} 미리보기`} loading="lazy" />
-                          </div>
-                        ) : null}
-                        <div className="eventGraphicsLinkRow">
-                          {row.previewHref ? (
-                            <a className="linkButton secondary mini" href={row.previewHref} target="_blank" rel="noreferrer">
-                              미리보기
-                            </a>
-                          ) : null}
-                          {row.assetHref ? (
-                            <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
-                              자산 링크
-                            </a>
-                          ) : null}
-                        </div>
-                      </section>
-
-                      <section className="eventGraphicsAgendaPanel">
-                        <span className="eventGraphicsPanelLabel">오디오</span>
-                        <strong>{row.sourceAudio || '-'}</strong>
-                        {row.personnel ? <p>무대: {row.personnel}</p> : null}
-                      </section>
-
-                      <section className="eventGraphicsAgendaPanel">
-                        <span className="eventGraphicsPanelLabel">현장 메모</span>
-                        <p>{row.vendorNote || '업체 전달 메모 없음'}</p>
-                        {row.remark ? <p>비고: {row.remark}</p> : null}
-                        {row.url ? (
-                          <a className="eventGraphicsInlineLink" href={row.url} target="_blank" rel="noreferrer">
-                            Notion 상세 보기
-                          </a>
-                        ) : null}
-                      </section>
-                    </div>
-                  </div>
-                </article>
-              )
-            })}
+      {previewTarget && looksLikeImageUrl(previewTarget.previewHref) ? (
+        <div className="eventGraphicsPreviewModal" role="dialog" aria-modal="true" aria-label="그래픽 미리보기">
+          <button type="button" className="eventGraphicsPreviewBackdrop" aria-label="미리보기 닫기" onClick={() => setPreviewTarget(null)} />
+          <div className="eventGraphicsPreviewDialog">
+            <div className="eventGraphicsPreviewDialogHead">
+              <div>
+                <strong>{previewTarget.cueTitle}</strong>
+                <p>{previewTarget.graphicAsset}</p>
+              </div>
+              <button type="button" className="secondary mini" onClick={() => setPreviewTarget(null)}>
+                닫기
+              </button>
+            </div>
+            <div className="eventGraphicsPreviewDialogBody">
+              <img src={previewTarget.previewHref ?? ''} alt={`${previewTarget.cueTitle} 미리보기`} />
+            </div>
           </div>
         </div>
-      )}
+      ) : null}
     </section>
   )
 }
