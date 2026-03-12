@@ -344,7 +344,6 @@ export function MeetingsView() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [creatingKeywordSet, setCreatingKeywordSet] = useState(false)
   const [creatingKeyword, setCreatingKeyword] = useState(false)
-  const [renamingKeywordSetId, setRenamingKeywordSetId] = useState<string | null>(null)
   const [deletingKeywordSetId, setDeletingKeywordSetId] = useState<string | null>(null)
   const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null)
   const [deletingKeywordId, setDeletingKeywordId] = useState<string | null>(null)
@@ -1222,44 +1221,6 @@ export function MeetingsView() {
     }
   }
 
-  const onToggleKeywordSetActive = async (set: KeywordSetRow) => {
-    try {
-      await api('/keyword-sets', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          id: set.id,
-          isActive: !set.isActive,
-        }),
-      })
-      await loadKeywordSets()
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드 세트 상태를 변경하지 못했습니다.'
-      setErrorMessage(message)
-    }
-  }
-
-  const onRenameKeywordSet = async (set: KeywordSetRow) => {
-    const nextName = window.prompt('세트 이름', set.name)
-    if (nextName === null) return
-    if (!nextName.trim()) return
-    setRenamingKeywordSetId(set.id)
-    try {
-      await api('/keyword-sets', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          id: set.id,
-          name: nextName.trim(),
-        }),
-      })
-      await loadKeywordSets()
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드 세트 이름을 수정하지 못했습니다.'
-      setErrorMessage(message)
-    } finally {
-      setRenamingKeywordSetId(null)
-    }
-  }
-
   const onDeleteKeywordSet = async (id: string) => {
     setDeletingKeywordSetId(id)
     try {
@@ -1288,6 +1249,9 @@ export function MeetingsView() {
               accept=".m4a,.mp3,.wav,.mp4,.aac,.flac,.ogg"
               onChange={(event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] ?? null)}
             />
+            <span className="muted small">
+              네이밍 규칙: <code>yymmdd 회의명.확장자</code> 형식이면 날짜와 제목이 자동 분리됩니다. 규칙이 맞지 않으면 파일명 전체를 제목으로 사용합니다.
+            </span>
           </label>
           <label>
             최소 화자 수
@@ -1622,28 +1586,6 @@ export function MeetingsView() {
                 {set.name} ({set.keywordCount})
               </button>
               <div className="meetingsKeywordSetActions">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="mini"
-                  onClick={() => void onRenameKeywordSet(set)}
-                  title="이름 수정"
-                  aria-label="이름 수정"
-                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
-                >
-                  <span className="meetingsIconButtonContent">
-                    <ActionIcon kind={renamingKeywordSetId === set.id ? 'loading' : 'edit'} />
-                  </span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="mini"
-                  onClick={() => void onToggleKeywordSetActive(set)}
-                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
-                >
-                  {set.isActive ? 'Off' : 'On'}
-                </Button>
                 <Button
                   type="button"
                   variant="secondary"

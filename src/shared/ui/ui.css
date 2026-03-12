@@ -2299,17 +2299,22 @@ button.dashboardNavButton {
 }
 
 .meetingsKeywordCard .meetingsKeywordSetItem {
-  gap: 4px;
-  grid-template-columns: auto auto;
+  gap: 3px;
+  grid-template-columns: minmax(0, 1fr) auto;
   justify-content: start;
-  padding: 3px 5px;
+  padding: 2px 4px;
   width: fit-content;
+}
+
+.meetingsKeywordCard .meetingsKeywordSetItem .linkButton {
+  min-width: 0;
+  padding-inline: 4px;
 }
 
 .meetingsKeywordCard .meetingsKeywordSetActions .uiButton {
   min-height: 22px;
   min-width: 22px;
-  padding: 2px 5px;
+  padding: 2px 4px;
 }
 
 .meetingsIconButtonContent {
