@@ -2898,7 +2898,9 @@ button.dashboardNavButton {
 
 .eventGraphicsCompactTimeCell,
 .eventGraphicsCompactCueCell,
+.eventGraphicsCompactImageCell,
 .eventGraphicsCompactMediaCell,
+.eventGraphicsCompactAudioCell,
 .eventGraphicsCompactStatusCell {
   width: auto;
 }
@@ -2923,8 +2925,14 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsCompactCueCell strong,
-.eventGraphicsCompactMediaCell strong {
+.eventGraphicsCompactMediaCell strong,
+.eventGraphicsCompactAudioCell strong {
   color: var(--text-main);
+}
+
+.eventGraphicsCompactImageHint {
+  color: var(--text-sub);
+  font-size: 12px;
 }
 
 .eventGraphicsCompactStatusCell {

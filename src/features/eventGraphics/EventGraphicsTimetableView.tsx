@@ -75,6 +75,14 @@ function joinSummary(parts: string[]): string {
   return parts.map((part) => part.trim()).filter(Boolean).join(' / ')
 }
 
+function toDisplayCueOrder(row: TimetableRow): string {
+  const numeric = Number(row.cueOrder)
+  if (row.cueTitle === '등장' && Number.isFinite(numeric)) {
+    return `${Math.ceil(numeric)}-등장`
+  }
+  return row.cueOrder
+}
+
 function matchesQuery(row: TimetableRow, query: string): boolean {
   if (!query) return true
   const source = [
@@ -128,8 +136,10 @@ function CompactLayout({
         <thead>
           <tr>
             <th>시간</th>
-            <th>프로그램</th>
-            <th>그래픽 / 오디오</th>
+            <th>구분</th>
+            <th>이미지</th>
+            <th>그래픽</th>
+            <th>오디오</th>
             <th>상태</th>
           </tr>
         </thead>
@@ -138,6 +148,7 @@ function CompactLayout({
             const statusClassName = toStatusClassName(row.status)
             const cueTypeClassName = toCueTypeClassName(row.cueType)
             const hasPreview = looksLikeImageUrl(row.previewHref)
+            const displayCueOrder = toDisplayCueOrder(row)
             return (
               <tr key={row.id} className={`eventGraphicsCompactRow status-${statusClassName}`}>
                 <td className="eventGraphicsCompactTimeCell">
@@ -151,7 +162,7 @@ function CompactLayout({
                 <td className="eventGraphicsCompactCueCell">
                   <div className="eventGraphicsCompactCellInner">
                     <div className="eventGraphicsCueHead">
-                      <span className="eventGraphicsOrder">#{row.cueOrder}</span>
+                      <span className="eventGraphicsOrder">{displayCueOrder}</span>
                       <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
                       {row.cueTitle === '등장' ? <span className="eventGraphicsEntranceFlag">등장</span> : null}
                     </div>
@@ -159,22 +170,37 @@ function CompactLayout({
                     <p>{joinSummary([row.personnel && `무대 ${row.personnel}`, row.vendorNote || row.remark]) || '메모 없음'}</p>
                   </div>
                 </td>
+                <td className="eventGraphicsCompactImageCell">
+                  <div className="eventGraphicsCompactCellInner">
+                    {hasPreview ? (
+                      <>
+                        <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
+                          이미지 보기
+                        </button>
+                        <div className="eventGraphicsCompactImageHint">클릭 시 크게 확인</div>
+                      </>
+                    ) : (
+                      <span className="eventGraphicsCompactImageHint">없음</span>
+                    )}
+                  </div>
+                </td>
                 <td className="eventGraphicsCompactMediaCell">
                   <div className="eventGraphicsCompactCellInner">
                     <strong>{row.graphicAsset}</strong>
-                    <p>{joinSummary([row.graphicType, row.sourceAudio || row.sourceVideo]) || '-'}</p>
+                    <p>{joinSummary([row.graphicType, row.sourceVideo && `파일명 ${row.sourceVideo}`]) || '-'}</p>
                     <div className="eventGraphicsLinkRow">
-                      {hasPreview ? (
-                        <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
-                          이미지
-                        </button>
-                      ) : null}
                       {row.assetHref ? (
                         <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
                           자산
                         </a>
                       ) : null}
                     </div>
+                  </div>
+                </td>
+                <td className="eventGraphicsCompactAudioCell">
+                  <div className="eventGraphicsCompactCellInner">
+                    <strong>{row.sourceAudio || '-'}</strong>
+                    <p>{row.personnel ? `무대 ${row.personnel}` : '무대 정보 없음'}</p>
                   </div>
                 </td>
                 <td className="eventGraphicsCompactStatusCell">
@@ -210,6 +236,7 @@ function CueSheetLayout({
         const isEntranceCue = row.cueTitle === '등장'
         const hasPreview = looksLikeImageUrl(row.previewHref)
         const previewOpen = activePreviewId === row.id && hasPreview
+        const displayCueOrder = toDisplayCueOrder(row)
 
         return (
           <article key={row.id} className={`eventGraphicsCueSheetRow status-${statusClassName}${isEntranceCue ? ' is-entrance' : ''}`}>
@@ -223,7 +250,7 @@ function CueSheetLayout({
               <div className="eventGraphicsCueSheetHead">
                 <div>
                   <div className="eventGraphicsCueHead">
-                    <span className="eventGraphicsOrder">#{row.cueOrder}</span>
+                    <span className="eventGraphicsOrder">{displayCueOrder}</span>
                     <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
                     {isEntranceCue ? <span className="eventGraphicsEntranceFlag">등장 화면</span> : null}
                   </div>
