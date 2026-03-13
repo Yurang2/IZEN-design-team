@@ -2,10 +2,14 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
-const DEFAULT_MASTERFILE_ROOT = 'files/2026 IZEN Seminar in Bangkok Masterfile/02_Cues'
+const DEFAULT_MASTERFILE_ROOT = 'files/2026 IZEN Seminar in Bangkok Masterfile'
 const DEFAULT_PUBLIC_ROOT = 'public/event-graphics-registered/bangkok'
 const DEFAULT_OUTPUT = 'src/features/eventGraphics/generatedMasterfileManifest.ts'
 
+const LEGACY_CUES_DIR = '02_Cues'
+const SHARED_DIR = '02_Shared'
+const Q_FILES_DIR = '03_Q_Files'
+const SOURCE_DIR = '01_Source'
 const ENTRANCE_LABEL = '입장'
 const MISSING_FILE_LABEL = '파일명 확인 필요'
 
@@ -107,6 +111,22 @@ function sanitizeSegment(value) {
     .replace(/^_+|_+$/g, '')
 }
 
+function splitSourceCandidates(value) {
+  return normalizeText(value)
+    .split('/')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function stripKnownExtension(value) {
+  return value.replace(/\.(png|jpg|jpeg|gif|webp|bmp|svg|mp4|mov|m4v|avi|wmv|mkv|wav|mp3|m4a|aac|aif|aiff|ogg|flac)$/i, '')
+}
+
+function toSourceSlug(value) {
+  const primary = splitSourceCandidates(value)[0] ?? value
+  return sanitizeSegment(stripKnownExtension(primary))
+}
+
 function looksLikeVideoAsset(value) {
   return /\.(mp4|mov|m4v|avi|wmv|mkv)\b/i.test(value) || /\bvideo\b/i.test(value)
 }
@@ -122,7 +142,7 @@ function toPrimaryAsset(row) {
   return MISSING_FILE_LABEL
 }
 
-function toCueFolderNumber(value) {
+function toCueNumber(value) {
   const numeric = value == null ? Number.NaN : Math.round(value)
   return Number.isFinite(numeric) ? `Q${String(numeric).padStart(2, '0')}` : 'Q--'
 }
@@ -155,8 +175,8 @@ function buildExpectedSlots(cue) {
   if (cue.startGraphic && cue.startGraphic !== MISSING_FILE_LABEL) {
     slots.push({
       kind: looksLikeVideoAsset(cue.startGraphic) ? 'video' : 'image',
-      role: cue.nextGraphic || cue.nextAudio ? 'Start' : 'Main',
-      label: cue.nextGraphic || cue.nextAudio ? 'Start Graphic' : 'Main Graphic',
+      role: cue.nextGraphic || cue.nextAudio ? 'Primary Graphic' : 'Main Graphic',
+      label: cue.nextGraphic || cue.nextAudio ? 'Primary Graphic' : 'Main Graphic',
       sourceName: cue.startGraphic,
     })
   }
@@ -164,8 +184,8 @@ function buildExpectedSlots(cue) {
   if (cue.nextGraphic && cue.nextGraphic !== MISSING_FILE_LABEL) {
     slots.push({
       kind: looksLikeVideoAsset(cue.nextGraphic) ? 'video' : 'image',
-      role: 'Then',
-      label: 'Then / Hold Graphic',
+      role: 'Secondary Graphic',
+      label: 'Secondary Graphic',
       sourceName: cue.nextGraphic,
     })
   }
@@ -173,8 +193,8 @@ function buildExpectedSlots(cue) {
   if (cue.startAudio) {
     slots.push({
       kind: 'audio',
-      role: cue.nextGraphic || cue.nextAudio ? 'Start' : 'Main',
-      label: cue.nextGraphic || cue.nextAudio ? 'Start Audio' : 'Main Audio',
+      role: cue.nextGraphic || cue.nextAudio ? 'Primary Audio' : 'Main Audio',
+      label: cue.nextGraphic || cue.nextAudio ? 'Primary Audio' : 'Main Audio',
       sourceName: cue.startAudio,
     })
   }
@@ -182,8 +202,8 @@ function buildExpectedSlots(cue) {
   if (cue.nextAudio) {
     slots.push({
       kind: 'audio',
-      role: 'Then',
-      label: 'Then / Hold Audio',
+      role: 'Secondary Audio',
+      label: 'Secondary Audio',
       sourceName: cue.nextAudio,
     })
   }
@@ -193,7 +213,7 @@ function buildExpectedSlots(cue) {
 
 function buildMergedVendorCue(entranceRow, mainRow) {
   const runtimeMinutes = (entranceRow.runtimeMinutes ?? 0) + (mainRow.runtimeMinutes ?? 0)
-  const cueNumber = toCueFolderNumber(mainRow.cueOrder)
+  const cueNumber = toCueNumber(mainRow.cueOrder)
 
   return {
     cueNumber,
@@ -205,27 +225,15 @@ function buildMergedVendorCue(entranceRow, mainRow) {
     runtimeLabel: toRuntimeLabel(runtimeMinutes),
     personnel: mainRow.personnel,
     startGraphic: toPrimaryAsset(entranceRow),
-    startGraphicAction: 'Play',
     startAudio: entranceRow.sourceAudio,
-    startAudioAction: entranceRow.sourceAudio ? 'Play' : '-',
     nextGraphic: toPrimaryAsset(mainRow),
-    nextGraphicAction: looksLikeVideoAsset(toPrimaryAsset(mainRow)) ? 'Play' : 'Hold',
     nextAudio: mainRow.sourceAudio,
-    nextAudioAction: mainRow.sourceAudio ? (looksLikeLoopInstruction(mainRow.sourceAudio) ? 'Loop' : 'Play') : '-',
     note: joinSummary([entranceRow.sourceRemark, mainRow.sourceRemark, mainRow.vendorNote]),
   }
 }
 
 function buildSingleVendorCue(row) {
-  const primaryAsset = toPrimaryAsset(row)
-  const cueNumber = toCueFolderNumber(row.cueOrder)
-  const graphicAction =
-    row.cueType === 'certificate' || row.cueType === 'closing' || row.cueType === 'break' || row.cueType === 'meal'
-      ? 'Hold'
-      : looksLikeVideoAsset(primaryAsset)
-        ? 'Play'
-        : 'Hold'
-
+  const cueNumber = toCueNumber(row.cueOrder)
   return {
     cueNumber,
     cueType: row.cueType,
@@ -235,14 +243,10 @@ function buildSingleVendorCue(row) {
     endTime: row.endTime,
     runtimeLabel: toRuntimeLabel(row.runtimeMinutes),
     personnel: row.personnel,
-    startGraphic: primaryAsset,
-    startGraphicAction: graphicAction,
+    startGraphic: toPrimaryAsset(row),
     startAudio: row.sourceAudio,
-    startAudioAction: row.sourceAudio ? (looksLikeLoopInstruction(row.sourceAudio) ? 'Loop' : 'Play') : '-',
     nextGraphic: '',
-    nextGraphicAction: '-',
     nextAudio: '',
-    nextAudioAction: '-',
     note: joinSummary([row.sourceRemark, row.vendorNote]),
   }
 }
@@ -275,6 +279,23 @@ function detectKindByExtension(filename) {
   return 'other'
 }
 
+function defaultExtensionForKind(kind) {
+  if (kind === 'image') return '.png'
+  if (kind === 'video') return '.mp4'
+  if (kind === 'audio') return '.wav'
+  return ''
+}
+
+function deriveExtension(slot, file) {
+  if (file?.extension) return file.extension.toLowerCase()
+  const candidates = splitSourceCandidates(slot.sourceName)
+  for (const candidate of candidates) {
+    const extension = path.extname(candidate).toLowerCase()
+    if (extension) return extension
+  }
+  return defaultExtensionForKind(slot.kind)
+}
+
 function buildFilePrefix(kind) {
   if (kind === 'image') return 'I'
   if (kind === 'video') return 'V'
@@ -282,10 +303,17 @@ function buildFilePrefix(kind) {
   return 'F'
 }
 
-function buildDesiredName(cue, kind, role, extension, extraIndex = null) {
-  const prefix = buildFilePrefix(kind)
-  const roleSuffix = extraIndex == null ? sanitizeSegment(role) : `Extra${String(extraIndex).padStart(2, '0')}`
-  return `${prefix}_${cue.folderName}_${roleSuffix}${extension.toLowerCase()}`
+function buildSharedFilename(slot, extension) {
+  return `${buildFilePrefix(slot.kind)}_Shared_${toSourceSlug(slot.sourceName) || sanitizeSegment(slot.label)}${extension}`
+}
+
+function buildCueFilename(cue, slot, extension, index) {
+  const suffix = index > 0 ? `_Extra${String(index).padStart(2, '0')}` : ''
+  return `${buildFilePrefix(slot.kind)}_${cue.cueNumber}_${sanitizeSegment(cue.title)}${suffix}${extension}`
+}
+
+function buildSharedKey(slot) {
+  return `${slot.kind}::${toSourceSlug(slot.sourceName)}`
 }
 
 async function ensureDirectory(directory) {
@@ -297,113 +325,121 @@ async function clearDirectory(directory) {
   await fs.mkdir(directory, { recursive: true })
 }
 
-async function findCueFolderName(masterfileRoot, cueNumber) {
-  const entries = await fs.readdir(masterfileRoot, { withFileTypes: true })
-  const match = entries.find((entry) => entry.isDirectory() && entry.name.startsWith(`${cueNumber}_`))
-  return match?.name ?? cueNumber
-}
-
-async function renameFilesInFolder(folderPath, assignments) {
-  if (assignments.length === 0) return
-
-  const temporaryAssignments = assignments.map((assignment, index) => ({
-    ...assignment,
-    tempPath: path.join(folderPath, `.__sync_${Date.now()}_${index}${path.extname(assignment.currentName)}`),
-  }))
-
-  for (const assignment of temporaryAssignments) {
-    await fs.rename(path.join(folderPath, assignment.currentName), assignment.tempPath)
-  }
-
-  for (const assignment of temporaryAssignments) {
-    await fs.rename(assignment.tempPath, path.join(folderPath, assignment.desiredName))
+async function pathExists(targetPath) {
+  try {
+    await fs.access(targetPath)
+    return true
+  } catch {
+    return false
   }
 }
 
-async function syncCueFolder(cue, masterfileRoot, publicRoot) {
-  const folderPath = path.join(masterfileRoot, cue.folderName)
-  const publicCueRoot = path.join(publicRoot, cue.folderName)
-  const expectedSlots = buildExpectedSlots(cue)
-  const allEntries = await fs.readdir(folderPath, { withFileTypes: true })
-  const fileEntries = allEntries
-    .filter((entry) => entry.isFile() && entry.name !== 'README.txt')
-    .map((entry) => ({
-      currentName: entry.name,
-      extension: path.extname(entry.name),
-      kind: detectKindByExtension(entry.name),
-    }))
-    .sort((left, right) => left.currentName.localeCompare(right.currentName, 'en'))
+async function listMediaFiles(rootDirectory) {
+  if (!(await pathExists(rootDirectory))) return []
 
-  const assignments = []
-  const missingFiles = []
-  const registeredFiles = []
+  const mediaFiles = []
 
-  for (const kind of ['image', 'video', 'audio', 'other']) {
-    const expectedForKind = expectedSlots.filter((slot) => slot.kind === kind)
-    const actualForKind = fileEntries.filter((file) => file.kind === kind)
+  async function walk(currentDirectory) {
+    const entries = await fs.readdir(currentDirectory, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = path.join(currentDirectory, entry.name)
+      if (entry.isDirectory()) {
+        await walk(fullPath)
+        continue
+      }
+      if (!entry.isFile()) continue
+      if (entry.name.toLowerCase() === 'readme.txt') continue
 
-    for (let index = 0; index < actualForKind.length; index += 1) {
-      const file = actualForKind[index]
-      const slot = expectedForKind[index]
-      const desiredName = slot
-        ? buildDesiredName(cue, kind, slot.role, file.extension)
-        : buildDesiredName(cue, kind, 'Extra', file.extension, index - expectedForKind.length + 1)
+      const kind = detectKindByExtension(entry.name)
+      if (kind === 'other') continue
 
-      assignments.push({
-        currentName: file.currentName,
-        desiredName,
-      })
-
-      registeredFiles.push({
-        name: desiredName,
+      mediaFiles.push({
+        fullPath,
+        name: entry.name,
+        extension: path.extname(entry.name),
         kind,
-        role: slot?.label ?? `${kind} extra file`,
-        sourceName: slot?.sourceName ?? '',
-        relativePath: path.posix.join('files', '2026 IZEN Seminar in Bangkok Masterfile', '02_Cues', cue.folderName, desiredName),
-      })
-    }
-
-    for (const slot of expectedForKind.slice(actualForKind.length)) {
-      missingFiles.push({
-        kind,
-        label: slot.label,
-        sourceName: slot.sourceName,
+        relativePath: path.relative(rootDirectory, fullPath),
       })
     }
   }
 
-  await renameFilesInFolder(folderPath, assignments)
-  await clearDirectory(publicCueRoot)
+  await walk(rootDirectory)
+  return mediaFiles.sort((left, right) => left.relativePath.localeCompare(right.relativePath, 'en'))
+}
 
-  const imageFiles = registeredFiles.filter((file) => file.kind === 'image')
-  for (const image of imageFiles) {
-    await fs.copyFile(path.join(folderPath, image.name), path.join(publicCueRoot, image.name))
-  }
+function belongsToCue(file, cue) {
+  const normalizedPath = file.relativePath.replace(/\\/g, '/')
+  const normalizedName = file.name.toLowerCase()
+  const cueToken = cue.cueNumber.toLowerCase()
+  if (normalizedPath.startsWith(`${LEGACY_CUES_DIR}/${cue.cueNumber}_`)) return true
+  if (normalizedPath.startsWith(`${Q_FILES_DIR}/`) && normalizedName.includes(`_${cueToken}_`)) return true
+  return false
+}
 
-  const previewUrl = imageFiles[0]
-    ? `/${path.posix.join('event-graphics-registered', 'bangkok', cue.folderName, imageFiles[0].name)}`
-    : null
+function scoreSharedMatch(file, slot) {
+  const stem = sanitizeSegment(stripKnownExtension(path.basename(file.name, file.extension)))
+  const sourceSlug = toSourceSlug(slot.sourceName)
+  let score = 0
+  if (stem.includes(sourceSlug) && sourceSlug) score += 10
+  if (file.relativePath.replace(/\\/g, '/').startsWith(`${SHARED_DIR}/`)) score += 5
+  return score
+}
 
-  return {
-    cueNumber: cue.cueNumber,
-    title: cue.title,
-    cueType: cue.cueType,
-    eventName: cue.eventName,
-    folderName: cue.folderName,
-    startTime: cue.startTime,
-    endTime: cue.endTime,
-    runtimeLabel: cue.runtimeLabel,
-    personnel: cue.personnel,
-    registeredFiles,
-    missingFiles,
-    previewUrl,
-    status:
-      registeredFiles.length === 0
-        ? 'missing'
-        : missingFiles.length === 0
-          ? 'complete'
-          : 'partial',
-  }
+function scoreCueMatch(file, cue) {
+  const normalizedPath = file.relativePath.replace(/\\/g, '/')
+  if (normalizedPath.startsWith(`${LEGACY_CUES_DIR}/${cue.cueNumber}_`)) return 10
+  if (normalizedPath.startsWith(`${Q_FILES_DIR}/`) && file.name.toLowerCase().includes(`_${cue.cueNumber.toLowerCase()}_`)) return 8
+  return 0
+}
+
+async function moveFile(sourcePath, destinationPath) {
+  if (path.resolve(sourcePath) === path.resolve(destinationPath)) return
+  await ensureDirectory(path.dirname(destinationPath))
+  const tempPath = path.join(path.dirname(sourcePath), `.__move_${Date.now()}_${path.basename(sourcePath)}`)
+  await fs.rename(sourcePath, tempPath)
+  await fs.rename(tempPath, destinationPath)
+}
+
+async function writeStructureReadmes(masterfileRoot, eventName) {
+  const rootReadme = [
+    `Event: ${eventName}`,
+    'Package Type: Shared + Q_Files vendor package',
+    '',
+    'Structure',
+    '- 00_README.txt: package overview',
+    '- 01_Source: source workbook reference',
+    '- 02_Shared: repeated image/audio/video assets used by multiple cues',
+    '- 03_Q_Files: cue-specific media files named with Q-number prefix',
+    '',
+    'Rules',
+    '- Repeated assets live once in 02_Shared.',
+    '- Cue-specific assets live in 03_Q_Files.',
+    '- File names do not use Start / Then suffixes.',
+    '- Use Q-number prefix for cue-specific assets.',
+    '',
+  ].join('\n')
+
+  const sharedReadme = [
+    'Shared Assets',
+    '- Put repeated graphics, repeated audio, and loop assets here.',
+    '- Example: Entrance Audio, Certification graphic, Certi Audio.',
+    '',
+  ].join('\n')
+
+  const qFilesReadme = [
+    'Cue-specific Assets',
+    '- Put files used by only one cue here.',
+    '- File name format: [I|V|A]_Q##_Cue_Title.ext',
+    '',
+  ].join('\n')
+
+  await fs.writeFile(path.join(masterfileRoot, '00_README.txt'), `${rootReadme}\n`, 'utf8')
+  await ensureDirectory(path.join(masterfileRoot, SOURCE_DIR))
+  await ensureDirectory(path.join(masterfileRoot, SHARED_DIR))
+  await ensureDirectory(path.join(masterfileRoot, Q_FILES_DIR))
+  await fs.writeFile(path.join(masterfileRoot, SOURCE_DIR, 'README.txt'), 'Source workbook reference only.\n', 'utf8')
+  await fs.writeFile(path.join(masterfileRoot, SHARED_DIR, 'README.txt'), `${sharedReadme}\n`, 'utf8')
+  await fs.writeFile(path.join(masterfileRoot, Q_FILES_DIR, 'README.txt'), `${qFilesReadme}\n`, 'utf8')
 }
 
 function buildManifestModule(manifest) {
@@ -419,26 +455,162 @@ async function main() {
 
   const rows = sourceRows.map(normalizeRow)
   const cues = buildVendorCues(rows)
+  const cuesWithSlots = cues.map((cue) => ({ ...cue, expectedSlots: buildExpectedSlots(cue) }))
+  const allSlots = cuesWithSlots.flatMap((cue) => cue.expectedSlots)
+  const sharedCounts = new Map()
 
-  await ensureDirectory(options.publicRoot)
+  for (const slot of allSlots) {
+    const sharedKey = buildSharedKey(slot)
+    if (!toSourceSlug(slot.sourceName)) continue
+    sharedCounts.set(sharedKey, (sharedCounts.get(sharedKey) ?? 0) + 1)
+  }
 
-  const enrichedCues = []
-  for (const cue of cues) {
-    const folderName = await findCueFolderName(options.masterfileRoot, cue.cueNumber)
-    enrichedCues.push({
-      ...cue,
-      folderName,
+  await ensureDirectory(options.masterfileRoot)
+  await writeStructureReadmes(options.masterfileRoot, cuesWithSlots[0]?.eventName ?? '2026 IZEN Seminar in Bangkok')
+
+  const inventory = await listMediaFiles(options.masterfileRoot)
+  const consumedPaths = new Set()
+  const sharedAssignments = new Map()
+  const publicCopies = new Map()
+  const syncedCues = []
+  await clearDirectory(options.publicRoot)
+
+  for (const cue of cuesWithSlots) {
+    const registeredFiles = []
+    const missingFiles = []
+    const cueKindCounts = new Map()
+    const cueCandidates = inventory
+      .filter((file) => !consumedPaths.has(file.fullPath) && belongsToCue(file, cue))
+      .sort((left, right) => scoreCueMatch(right, cue) - scoreCueMatch(left, cue) || left.name.localeCompare(right.name, 'en'))
+
+    for (const slot of cue.expectedSlots) {
+      const isShared = (sharedCounts.get(buildSharedKey(slot)) ?? 0) > 1
+      const extensionFromAssigned = sharedAssignments.get(buildSharedKey(slot))?.extension ?? ''
+      const extension = extensionFromAssigned || deriveExtension(slot, cueCandidates.find((file) => file.kind === slot.kind))
+
+      if (isShared) {
+        const sharedKey = buildSharedKey(slot)
+        const existingShared = sharedAssignments.get(sharedKey)
+        if (existingShared) {
+          registeredFiles.push(existingShared.registeredFile)
+          continue
+        }
+
+        const matchingSharedCandidate = inventory
+          .filter((file) => !consumedPaths.has(file.fullPath) && file.kind === slot.kind)
+          .sort((left, right) => scoreSharedMatch(right, slot) - scoreSharedMatch(left, slot) || left.name.localeCompare(right.name, 'en'))
+          .find((file) => scoreSharedMatch(file, slot) > 0)
+        const fallbackCueCandidateIndex = cueCandidates.findIndex((file) => file.kind === slot.kind)
+        const actualFile =
+          matchingSharedCandidate ??
+          (fallbackCueCandidateIndex >= 0 ? cueCandidates.splice(fallbackCueCandidateIndex, 1)[0] : null)
+
+        if (!actualFile) {
+          missingFiles.push({
+            kind: slot.kind,
+            label: slot.label,
+            sourceName: slot.sourceName,
+          })
+          continue
+        }
+
+        const destinationName = buildSharedFilename(slot, extension)
+        const destinationPath = path.join(options.masterfileRoot, SHARED_DIR, destinationName)
+        await moveFile(actualFile.fullPath, destinationPath)
+        consumedPaths.add(actualFile.fullPath)
+
+        const relativePath = path.posix.join('files', '2026 IZEN Seminar in Bangkok Masterfile', SHARED_DIR, destinationName)
+        const registeredFile = {
+          name: destinationName,
+          kind: slot.kind,
+          role: slot.label,
+          sourceName: slot.sourceName,
+          relativePath,
+        }
+
+        if (slot.kind === 'image' && !publicCopies.has(destinationName)) {
+          await fs.copyFile(destinationPath, path.join(options.publicRoot, destinationName))
+          publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
+        }
+
+        sharedAssignments.set(sharedKey, {
+          extension,
+          registeredFile,
+          previewUrl: slot.kind === 'image' ? publicCopies.get(destinationName) ?? null : null,
+        })
+        registeredFiles.push(registeredFile)
+        continue
+      }
+
+      const cueCandidateIndex = cueCandidates.findIndex((file) => file.kind === slot.kind)
+      const actualFile = cueCandidateIndex >= 0 ? cueCandidates.splice(cueCandidateIndex, 1)[0] : null
+      if (!actualFile) {
+        missingFiles.push({
+          kind: slot.kind,
+          label: slot.label,
+          sourceName: slot.sourceName,
+        })
+        continue
+      }
+
+      const currentCount = cueKindCounts.get(slot.kind) ?? 0
+      cueKindCounts.set(slot.kind, currentCount + 1)
+      const destinationName = buildCueFilename(cue, slot, extension, currentCount)
+      const destinationPath = path.join(options.masterfileRoot, Q_FILES_DIR, destinationName)
+      await moveFile(actualFile.fullPath, destinationPath)
+      consumedPaths.add(actualFile.fullPath)
+
+      const relativePath = path.posix.join('files', '2026 IZEN Seminar in Bangkok Masterfile', Q_FILES_DIR, destinationName)
+      registeredFiles.push({
+        name: destinationName,
+        kind: slot.kind,
+        role: slot.label,
+        sourceName: slot.sourceName,
+        relativePath,
+      })
+
+      if (slot.kind === 'image' && !publicCopies.has(destinationName)) {
+        await fs.copyFile(destinationPath, path.join(options.publicRoot, destinationName))
+        publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
+      }
+    }
+
+    const previewFile = registeredFiles.find((file) => file.kind === 'image')
+
+    syncedCues.push({
+      cueNumber: cue.cueNumber,
+      title: cue.title,
+      cueType: cue.cueType,
+      eventName: cue.eventName,
+      storageGroup: Q_FILES_DIR,
+      startTime: cue.startTime,
+      endTime: cue.endTime,
+      runtimeLabel: cue.runtimeLabel,
+      personnel: cue.personnel,
+      registeredFiles,
+      missingFiles,
+      previewUrl: previewFile ? publicCopies.get(previewFile.name) ?? null : null,
+      status:
+        registeredFiles.length === 0
+          ? 'missing'
+          : missingFiles.length === 0
+            ? 'complete'
+            : 'partial',
     })
   }
 
-  const syncedCues = []
-  for (const cue of enrichedCues) {
-    syncedCues.push(await syncCueFolder(cue, options.masterfileRoot, options.publicRoot))
+  const legacyCueRoot = path.join(options.masterfileRoot, LEGACY_CUES_DIR)
+  if (await pathExists(legacyCueRoot)) {
+    await fs.rm(legacyCueRoot, { recursive: true, force: true })
   }
 
   const manifest = {
     generatedAt: new Date().toISOString(),
     eventName: syncedCues[0]?.eventName ?? '2026 IZEN Seminar in Bangkok',
+    structure: {
+      sharedDirectory: SHARED_DIR,
+      cueFilesDirectory: Q_FILES_DIR,
+    },
     totalCueCount: syncedCues.length,
     completeCueCount: syncedCues.filter((cue) => cue.status === 'complete').length,
     partialCueCount: syncedCues.filter((cue) => cue.status === 'partial').length,
