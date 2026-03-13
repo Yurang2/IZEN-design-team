@@ -231,3 +231,31 @@
 - Upload retry policy was updated: retry once on retryable upload errors (total up to 2 attempts).
 - worker_direct is a fallback path when R2 presigned URL is not available. Hard size blocking was removed; warning-only behavior remains.
 - Deployment note: manual Cloudflare Pages deploy via Wrangler requires CLOUDFLARE_API_TOKEN in non-interactive environments.
+
+## 2026-03-13 Event Graphics Timetable Addendum
+- Internal Event Graphics view now supports two modes:
+  - self-hosted event: time-based cue sheet
+  - exhibition: situation-based playbook
+- Recommended Notion discriminator field: `타임테이블 유형`
+  - `자체행사`
+  - `전시회`
+
+### Event Graphics Exhibition Row (normalized view model)
+```json
+{
+  "id": "string",
+  "order": 1,
+  "numberLabel": "01",
+  "category": "Regular Operation",
+  "trigger": "Booth opening ~ before and after seminar",
+  "timeReference": "Always-on loop",
+  "mainScreen": "string",
+  "audio": "string",
+  "action": "Loop | Play | Hold | Switch",
+  "note": "string",
+  "status": "planned | ready | shared | changed_on_site",
+  "previewHref": "string | null",
+  "assetHref": "string | null",
+  "source": "db | sample"
+}
+```

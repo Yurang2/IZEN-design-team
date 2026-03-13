@@ -141,3 +141,61 @@ Once the DB exists with these fields, the next implementation step is:
 1. Worker read endpoint for event graphics timetable rows
 2. read-only hosted field view grouped by project/event
 3. visual emphasis for `상태`, `미리보기 링크`, `자산 링크`, and `업체 전달 메모`
+
+## 8) v2 operating modes
+
+The internal screen should support two operating modes inside the same feature.
+
+- `자체행사`: time-based cue sheet for hotel / seminar / stage programs
+- `전시회`: state-based playbook for booth / expo / seminar transition operations
+
+This is not only a UI difference. The operator reads different questions:
+
+- self-hosted event: `what should we play at this time?`
+- exhibition: `what should we switch to in this situation?`
+
+## 9) Recommended shared field for both modes
+
+Add this property to the same DB:
+
+| Property | Type | Required | Purpose |
+| --- | --- | --- | --- |
+| `타임테이블 유형` | `select` | yes | `자체행사`, `전시회` |
+
+Rows with `타임테이블 유형 = 자체행사` continue to use the v1 cue schema above.
+
+Rows with `타임테이블 유형 = 전시회` should use the exhibition fields below.
+
+## 10) Exhibition row schema
+
+| Property | Type | Required | Purpose |
+| --- | --- | --- | --- |
+| `행 제목` | `title` | yes | Primary row label. Example: `[AEEDC 2026] 01 Regular Operation` |
+| `귀속 프로젝트` | `relation` | no | Optional link to Project DB |
+| `프로젝트명 스냅샷` | `rich_text` | yes | Text fallback for project linkage |
+| `행사명` | `rich_text` | yes | Booth / exhibition grouping text |
+| `행사일` | `date` | no | Date if known |
+| `타임테이블 유형` | `select` | yes | Must be `전시회` |
+| `운영 순서` | `number` | yes | Display order inside the exhibition playbook |
+| `카테고리` | `select` | yes | Example: `Regular Operation`, `Seminar Starting Soon`, `In Seminar`, `Lucky Draw` |
+| `트리거 상황` | `rich_text` | yes | Situation that causes the switch |
+| `시간 기준` | `rich_text` | no | Example: `10 minutes before seminar start`, `상시 루프 운영` |
+| `메인 화면` | `rich_text` | yes | Main screen source to show |
+| `오디오` | `rich_text` | no | Audio source if used |
+| `운영 액션` | `select` | yes | `Loop`, `Play`, `Hold`, `Switch` |
+| `운영 메모` | `rich_text` | no | Operator note |
+| `미리보기 링크` | `url` | no | Thumbnail / preview |
+| `자산 링크` | `url` | no | Delivery folder or final file link |
+| `상태` | `select` | yes | `planned`, `ready`, `shared`, `changed_on_site` |
+| `원본 문서` | `rich_text` | no | Source workbook name |
+| `원본 시트` | `rich_text` | no | Source worksheet name |
+| `원본 행번호` | `number` | no | Row traceability |
+
+## 11) Exhibition example based on AEEDC-style vendor sheet
+
+| No | Category | Trigger | Time Reference | Main Screen | Audio | Action |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `Regular Operation` | Booth opening ~ before & after seminar | `상시 루프 운영` | Promo / fixture / clinical / company intro / recap videos | ambient or embedded | `Loop` |
+| 2 | `Seminar Starting Soon` | 10 minutes before seminar start | `세미나 10분 전` | Speaker introduction graphics | transition BGM or mute | `Play` |
+| 3 | `In Seminar` | Start speaker presentation | `연자 발표 시작 시` | PPT via BYOD or main control PC | speaker source | `Hold` / `Switch` |
+| 4 | `Lucky Draw` | During the lucky draw session | `이벤트 세션 중 호출` | Lucky draw graphics | effect or BGM | `Play` |

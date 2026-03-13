@@ -2788,6 +2788,12 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
+.eventGraphicsModeSwitch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .eventGraphicsOrder {
   color: var(--text-sub);
   display: inline-block;
@@ -2832,7 +2838,8 @@ button.dashboardNavButton {
 .eventGraphicsCueType.cue-lecture,
 .eventGraphicsCueType.cue-opening,
 .eventGraphicsCueType.cue-certificate,
-.eventGraphicsCueType.cue-closing {
+.eventGraphicsCueType.cue-closing,
+.eventGraphicsCueType.cue-exhibition {
   background: color-mix(in srgb, #dbeafe 72%, white);
   border-color: #bfdbfe;
   color: #1d4ed8;
@@ -3075,6 +3082,75 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsSessionStageGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.eventGraphicsExhibitionShell {
+  display: grid;
+  gap: 14px;
+}
+
+.eventGraphicsExhibitionNotice {
+  background: color-mix(in srgb, #eff6ff 82%, white);
+  border: 1px solid #bfdbfe;
+  border-radius: 18px;
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.eventGraphicsExhibitionNotice p,
+.eventGraphicsExhibitionNotice strong {
+  margin: 0;
+}
+
+.eventGraphicsExhibitionList {
+  display: grid;
+  gap: 14px;
+}
+
+.eventGraphicsExhibitionCard,
+.eventGraphicsExhibitionSchema {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.eventGraphicsExhibitionHead {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsExhibitionHead h3,
+.eventGraphicsExhibitionHead p {
+  margin: 0;
+}
+
+.eventGraphicsExhibitionHead p {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.eventGraphicsExhibitionGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
+}
+
+.eventGraphicsExhibitionSchemaHead h3,
+.eventGraphicsExhibitionSchemaHead p {
+  margin: 0;
+}
+
+.eventGraphicsExhibitionSchemaGrid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3593,6 +3669,9 @@ button.dashboardNavButton {
   .eventGraphicsCueSheetRow,
   .eventGraphicsAuditHead,
   .eventGraphicsAuditGrid,
+  .eventGraphicsExhibitionHead,
+  .eventGraphicsExhibitionGrid,
+  .eventGraphicsExhibitionSchemaGrid,
   .eventGraphicsTimelineHead,
   .eventGraphicsSessionHead,
   .eventGraphicsSessionStageMeta,
@@ -3606,6 +3685,16 @@ button.dashboardNavButton {
 
   .eventGraphicsToolbar {
     grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsModeSwitch,
+  .eventGraphicsLayoutSwitch {
+    flex-direction: column;
+  }
+
+  .eventGraphicsModeSwitch .viewTab,
+  .eventGraphicsLayoutSwitch .viewTab {
+    width: 100%;
   }
 
   .eventGraphicsShareHero,
@@ -3647,6 +3736,8 @@ button.dashboardNavButton {
 @media (max-width: 640px) {
   .eventGraphicsTimelineCard,
   .eventGraphicsSessionCard,
+  .eventGraphicsExhibitionCard,
+  .eventGraphicsExhibitionSchema,
   .eventGraphicsAuditCard {
     border-radius: 18px;
     padding: 14px;

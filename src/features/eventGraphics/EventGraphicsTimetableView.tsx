@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
+import {
+  exhibitionPlaybookExampleRows,
+  exhibitionSchemaFields,
+  type ExhibitionPlaybookRow,
+} from './exhibitionPlaybookExample'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 
 type EventGraphicsTimetableViewProps = {
@@ -13,11 +18,13 @@ type EventGraphicsTimetableViewProps = {
   error: string | null
 }
 
+type TimetableMode = 'event' | 'exhibition'
 type LayoutMode = 'compact' | 'cueSheet' | 'masterfile'
 
 type TimetableRow = {
   id: string
   url: string | null
+  timetableMode: TimetableMode
   rowTitle: string
   cueOrder: string
   cueOrderNumeric: number | null
@@ -92,6 +99,22 @@ function readCellHref(row: ScheduleRow, columnIndex: Record<string, number>, col
   return row.cells[index]?.href ?? null
 }
 
+function readFirstCellText(row: ScheduleRow, columnIndex: Record<string, number>, columnNames: string[]): string {
+  for (const columnName of columnNames) {
+    const value = readCellText(row, columnIndex, columnName)
+    if (value) return value
+  }
+  return ''
+}
+
+function readFirstCellHref(row: ScheduleRow, columnIndex: Record<string, number>, columnNames: string[]): string | null {
+  for (const columnName of columnNames) {
+    const value = readCellHref(row, columnIndex, columnName) || readCellText(row, columnIndex, columnName)
+    if (value) return value
+  }
+  return null
+}
+
 function looksLikeImageUrl(value: string | null): boolean {
   if (!value) return false
   return /\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?|#|$)/i.test(value)
@@ -103,6 +126,14 @@ function toStatusClassName(value: string): string {
 
 function toCueTypeClassName(value: string): string {
   return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+}
+
+function normalizeTimetableMode(value: string): TimetableMode | null {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return null
+  if (['자체행사', '행사', 'event', 'seminar', 'hotel'].includes(normalized)) return 'event'
+  if (['전시회', 'exhibition', 'expo', 'booth'].includes(normalized)) return 'exhibition'
+  return null
 }
 
 function formatRuntimeLabel(runtime: string): string {
@@ -154,6 +185,14 @@ function matchesMasterfileQuery(cue: MasterfileCue, query: string): boolean {
     ...cue.registeredFiles.map((file) => file.name),
     ...cue.missingFiles.map((file) => file.label),
   ]
+    .join(' ')
+    .toLowerCase()
+  return source.includes(query)
+}
+
+function matchesExhibitionQuery(row: ExhibitionPlaybookRow, query: string): boolean {
+  if (!query) return true
+  const source = [row.category, row.trigger, row.timeReference, row.mainScreen, row.audio, row.action, row.note, row.status]
     .join(' ')
     .toLowerCase()
   return source.includes(query)
@@ -308,6 +347,8 @@ function matchesSessionGroup(group: SessionGroup, query: string, statusFilter: s
 }
 
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): TimetableRow {
+  const timetableMode =
+    normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode'])) ?? 'event'
   const cueOrderText = readCellText(row, columnIndex, 'Cue 순서')
   const cueOrderNumeric = Number(cueOrderText)
   const displayCueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
@@ -320,6 +361,7 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
   return {
     id: row.id,
     url: row.url,
+    timetableMode,
     rowTitle: readCellText(row, columnIndex, '행 제목') || '-',
     cueOrder: cueOrderText || '-',
     cueOrderNumeric: Number.isFinite(cueOrderNumeric) ? cueOrderNumeric : null,
@@ -338,6 +380,33 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
     vendorNote: readCellText(row, columnIndex, '업체 전달 메모'),
     previewHref: previewHrefFromNotion || manifestCue?.previewUrl || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || null,
+  }
+}
+
+function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ExhibitionPlaybookRow | null {
+  const timetableMode = normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode']))
+  if (timetableMode !== 'exhibition') return null
+
+  const orderText = readFirstCellText(row, columnIndex, ['운영 순서', 'Cue 순서', 'No'])
+  const order = Number(orderText)
+  const mainScreen = readFirstCellText(row, columnIndex, ['메인 화면', 'Main Screen', '그래픽 자산명'])
+  const previewHref = readFirstCellHref(row, columnIndex, ['미리보기 링크'])
+
+  return {
+    id: row.id,
+    order: Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER,
+    numberLabel: Number.isFinite(order) ? String(order).padStart(2, '0') : '--',
+    category: readFirstCellText(row, columnIndex, ['카테고리', 'Cue 제목']) || '-',
+    trigger: readFirstCellText(row, columnIndex, ['트리거 상황', 'Trigger', '행 제목']) || '-',
+    timeReference: readFirstCellText(row, columnIndex, ['시간 기준', 'Time']) || '-',
+    mainScreen: mainScreen || '-',
+    audio: readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']) || '-',
+    action: readFirstCellText(row, columnIndex, ['운영 액션', 'Action']) || 'Play',
+    note: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']) || '메모 없음',
+    status: readFirstCellText(row, columnIndex, ['상태']) || 'planned',
+    previewHref,
+    assetHref: readFirstCellHref(row, columnIndex, ['자산 링크']),
+    source: 'db',
   }
 }
 
@@ -492,6 +561,98 @@ function SessionLayout({
   )
 }
 
+function ExhibitionPlaybookLayout({
+  rows,
+  isSample,
+}: {
+  rows: ExhibitionPlaybookRow[]
+  isSample: boolean
+}) {
+  return (
+    <div className="eventGraphicsExhibitionShell">
+      {isSample ? (
+        <article className="eventGraphicsExhibitionNotice">
+          <strong>AEEDC 2026 example</strong>
+          <p>전시회용 row가 아직 DB에 없어서, 전달하신 형식을 바탕으로 예시 화면을 먼저 보여주고 있습니다.</p>
+        </article>
+      ) : null}
+
+      <div className="eventGraphicsExhibitionList">
+        {rows.map((row) => {
+          const statusClassName = toStatusClassName(row.status)
+          const hasPreview = looksLikeImageUrl(row.previewHref)
+          return (
+            <article key={row.id} className={`eventGraphicsExhibitionCard status-${statusClassName}`}>
+              <div className="eventGraphicsExhibitionHead">
+                <div>
+                  <div className="eventGraphicsCueHead">
+                    <span className="eventGraphicsOrder">EX-{row.numberLabel}</span>
+                    <span className="eventGraphicsCueType cue-exhibition">{row.category}</span>
+                  </div>
+                  <h3>{row.trigger}</h3>
+                  <p>{row.timeReference}</p>
+                </div>
+                <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
+              </div>
+
+              <div className="eventGraphicsExhibitionGrid">
+                <section className="eventGraphicsCueSheetPanel">
+                  <span className="eventGraphicsPanelLabel">Main Screen</span>
+                  <strong>{row.mainScreen}</strong>
+                  {hasPreview ? (
+                    <div className="eventGraphicsPreviewInline">
+                      <img src={row.previewHref ?? ''} alt={`${row.category} 미리보기`} loading="lazy" />
+                    </div>
+                  ) : (
+                    <div className="eventGraphicsPreviewPlaceholder">등록된 미리보기가 없습니다.</div>
+                  )}
+                </section>
+
+                <section className="eventGraphicsCueSheetPanel">
+                  <span className="eventGraphicsPanelLabel">Audio</span>
+                  <strong>{row.audio}</strong>
+                  <span className="eventGraphicsPanelLabel">Action</span>
+                  <strong>{row.action}</strong>
+                </section>
+
+                <section className="eventGraphicsCueSheetPanel">
+                  <span className="eventGraphicsPanelLabel">Operator Note</span>
+                  <p>{row.note}</p>
+                  {row.assetHref ? (
+                    <a className="eventGraphicsInlineLink" href={row.assetHref} target="_blank" rel="noreferrer">
+                      자산 링크 열기
+                    </a>
+                  ) : null}
+                </section>
+              </div>
+            </article>
+          )
+        })}
+      </div>
+
+      <article className="eventGraphicsExhibitionSchema">
+        <div className="eventGraphicsExhibitionSchemaHead">
+          <div>
+            <p className="muted small">Recommended Notion Schema</p>
+            <h3>전시회용 데이터 포맷</h3>
+          </div>
+        </div>
+
+        <div className="eventGraphicsExhibitionSchemaGrid">
+          {exhibitionSchemaFields.map((field) => (
+            <section key={field.name} className="eventGraphicsCueSheetPanel">
+              <span className="eventGraphicsPanelLabel">{field.type}</span>
+              <strong>{field.name}</strong>
+              <p>{field.description}</p>
+              <span className="eventGraphicsSubline">{field.required ? 'Required' : 'Optional'}</span>
+            </section>
+          ))}
+        </div>
+      </article>
+    </div>
+  )
+}
+
 function MasterfileAuditLayout({
   cues,
   driveChecklist,
@@ -641,6 +802,7 @@ export function EventGraphicsTimetableView({
   loading,
   error,
 }: EventGraphicsTimetableViewProps) {
+  const [timetableMode, setTimetableMode] = useState<TimetableMode>('event')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('compact')
@@ -665,7 +827,7 @@ export function EventGraphicsTimetableView({
 
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
-  const tableRows = useMemo(
+  const normalizedRows = useMemo(
     () =>
       rows
         .map((row) => toRowModel(row, columnIndex))
@@ -676,7 +838,21 @@ export function EventGraphicsTimetableView({
         }),
     [columnIndex, rows],
   )
+  const tableRows = useMemo(() => normalizedRows.filter((row) => row.timetableMode === 'event'), [normalizedRows])
   const sessionGroups = useMemo(() => buildSessionGroups(tableRows), [tableRows])
+  const exhibitionRowsFromDb = useMemo(
+    () =>
+      rows
+        .map((row) => toExhibitionRowModel(row, columnIndex))
+        .filter((row): row is ExhibitionPlaybookRow => row != null)
+        .sort((left, right) => left.order - right.order),
+    [columnIndex, rows],
+  )
+  const exhibitionRows = useMemo(
+    () => (exhibitionRowsFromDb.length > 0 ? exhibitionRowsFromDb : exhibitionPlaybookExampleRows),
+    [exhibitionRowsFromDb],
+  )
+  const exhibitionUsesSample = exhibitionRowsFromDb.length === 0
 
   const rowStatusOptions = useMemo(
     () => Array.from(new Set(tableRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
@@ -685,6 +861,10 @@ export function EventGraphicsTimetableView({
   const masterfileStatusOptions = useMemo(
     () => Array.from(new Set(bangkokMasterfileManifest.cues.map((cue) => cue.status))),
     [],
+  )
+  const exhibitionStatusOptions = useMemo(
+    () => Array.from(new Set(exhibitionRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
+    [exhibitionRows],
   )
 
   const filteredRows = useMemo(
@@ -708,10 +888,24 @@ export function EventGraphicsTimetableView({
     () => sessionGroups.filter((group) => matchesSessionGroup(group, normalizedQuery, statusFilter)),
     [normalizedQuery, sessionGroups, statusFilter],
   )
+  const filteredExhibitionRows = useMemo(
+    () =>
+      exhibitionRows.filter((row) => {
+        if (statusFilter && row.status !== statusFilter) return false
+        return matchesExhibitionQuery(row, normalizedQuery)
+      }),
+    [exhibitionRows, normalizedQuery, statusFilter],
+  )
 
   const readyCount = useMemo(() => tableRows.filter((row) => ['ready', 'shared'].includes(row.status)).length, [tableRows])
   const changedCount = useMemo(() => tableRows.filter((row) => row.status === 'changed_on_site').length, [tableRows])
   const entranceCount = useMemo(() => tableRows.filter((row) => isEntranceRow(row)).length, [tableRows])
+  const loopCount = useMemo(() => exhibitionRows.filter((row) => /loop/i.test(row.action)).length, [exhibitionRows])
+  const seminarTransitionCount = useMemo(
+    () => exhibitionRows.filter((row) => /seminar/i.test(row.category) || /발표|연자|seminar/i.test(row.trigger)).length,
+    [exhibitionRows],
+  )
+  const liveSwitchCount = useMemo(() => exhibitionRows.filter((row) => /hold|switch/i.test(row.action)).length, [exhibitionRows])
   const effectiveTitle = databaseTitle.trim() || '행사 그래픽 타임테이블'
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -724,6 +918,12 @@ export function EventGraphicsTimetableView({
 
   const onLayoutChange = (nextLayout: LayoutMode) => {
     setLayoutMode(nextLayout)
+    setStatusFilter('')
+  }
+
+  const onTimetableModeChange = (nextMode: TimetableMode) => {
+    setTimetableMode(nextMode)
+    setQuery('')
     setStatusFilter('')
   }
 
@@ -765,10 +965,16 @@ export function EventGraphicsTimetableView({
     )
   }
 
-  const isMasterfileMode = layoutMode === 'masterfile'
-  const statusOptions = isMasterfileMode ? masterfileStatusOptions : rowStatusOptions
-  const visibleCount =
-    layoutMode === 'masterfile' ? filteredMasterfileCues.length : layoutMode === 'cueSheet' ? filteredSessionGroups.length : filteredRows.length
+  const isEventMode = timetableMode === 'event'
+  const isMasterfileMode = isEventMode && layoutMode === 'masterfile'
+  const statusOptions = isEventMode ? (isMasterfileMode ? masterfileStatusOptions : rowStatusOptions) : exhibitionStatusOptions
+  const visibleCount = isEventMode
+    ? layoutMode === 'masterfile'
+      ? filteredMasterfileCues.length
+      : layoutMode === 'cueSheet'
+        ? filteredSessionGroups.length
+        : filteredRows.length
+    : filteredExhibitionRows.length
 
   return (
     <section className="eventGraphicsView">
@@ -776,7 +982,7 @@ export function EventGraphicsTimetableView({
         <div className="eventGraphicsHeroText">
           <p className="muted small">Event Graphics Timetable</p>
           <h2>{effectiveTitle}</h2>
-          <p>시간표는 전체 흐름을, 세션 보기는 Lecture 단위 위계를, Masterfile Check는 실제 파일 등록 상태를 확인하는 용도입니다.</p>
+          <p>자체행사는 시간 기준, 전시회는 상황 기준으로 분리해서 운영할 수 있게 구성했습니다.</p>
         </div>
         <div className="eventGraphicsHeroActions">
           <a className="linkButton" href={EXTERNAL_SHARE_PATH} target="_blank" rel="noreferrer">
@@ -790,7 +996,26 @@ export function EventGraphicsTimetableView({
         </div>
       </div>
 
-      {isMasterfileMode ? (
+      <div className="eventGraphicsModeSwitch" role="group" aria-label="타임테이블 운영 모드">
+        <button
+          type="button"
+          className={timetableMode === 'event' ? 'viewTab active' : 'viewTab'}
+          aria-pressed={timetableMode === 'event'}
+          onClick={() => onTimetableModeChange('event')}
+        >
+          자체행사
+        </button>
+        <button
+          type="button"
+          className={timetableMode === 'exhibition' ? 'viewTab active' : 'viewTab'}
+          aria-pressed={timetableMode === 'exhibition'}
+          onClick={() => onTimetableModeChange('exhibition')}
+        >
+          전시회
+        </button>
+      </div>
+
+      {isEventMode && isMasterfileMode ? (
         <div className="eventGraphicsSummary" aria-label="마스터파일 점검 요약">
           <article>
             <span>점검 Cue</span>
@@ -809,7 +1034,7 @@ export function EventGraphicsTimetableView({
             <strong>{bangkokMasterfileManifest.missingCueCount}</strong>
           </article>
         </div>
-      ) : (
+      ) : isEventMode ? (
         <div className="eventGraphicsSummary" aria-label="행사 그래픽 요약">
           <article>
             <span>전체 Cue</span>
@@ -828,6 +1053,25 @@ export function EventGraphicsTimetableView({
             <strong>{changedCount}</strong>
           </article>
         </div>
+      ) : (
+        <div className="eventGraphicsSummary" aria-label="전시회 운영표 요약">
+          <article>
+            <span>상황 수</span>
+            <strong>{exhibitionRows.length}</strong>
+          </article>
+          <article>
+            <span>루프 운영</span>
+            <strong>{loopCount}</strong>
+          </article>
+          <article>
+            <span>세미나 전환</span>
+            <strong>{seminarTransitionCount}</strong>
+          </article>
+          <article>
+            <span>실시간 입력 전환</span>
+            <strong>{liveSwitchCount}</strong>
+          </article>
+        </div>
       )}
 
       <div className="eventGraphicsToolbar">
@@ -835,11 +1079,17 @@ export function EventGraphicsTimetableView({
           type="search"
           value={query}
           onChange={onQueryChange}
-          placeholder={isMasterfileMode ? '큐 번호, 제목, 등록 파일명 검색' : 'Cue 제목, 그래픽, 오디오, 비고 검색'}
+          placeholder={
+            isEventMode
+              ? isMasterfileMode
+                ? '큐 번호, 제목, 등록 파일명 검색'
+                : 'Cue 제목, 그래픽, 오디오, 비고 검색'
+              : '카테고리, 트리거, 메인 화면, 오디오, 액션 검색'
+          }
           aria-label="타임테이블 검색"
         />
         <select value={statusFilter} onChange={onStatusChange} aria-label="상태 필터">
-          <option value="">{isMasterfileMode ? '모든 점검 상태' : '모든 상태'}</option>
+          <option value="">{isEventMode && isMasterfileMode ? '모든 점검 상태' : '모든 상태'}</option>
           {statusOptions.map((status) => (
             <option key={status} value={status}>
               {status}
@@ -848,57 +1098,65 @@ export function EventGraphicsTimetableView({
         </select>
       </div>
 
-      <div className="eventGraphicsLayoutSwitch" role="group" aria-label="타임테이블 보기 형태">
-        <button
-          type="button"
-          className={layoutMode === 'compact' ? 'viewTab active' : 'viewTab'}
-          aria-pressed={layoutMode === 'compact'}
-          onClick={() => onLayoutChange('compact')}
-        >
-          시간표
-        </button>
-        <button
-          type="button"
-          className={layoutMode === 'cueSheet' ? 'viewTab active' : 'viewTab'}
-          aria-pressed={layoutMode === 'cueSheet'}
-          onClick={() => onLayoutChange('cueSheet')}
-        >
-          세션 보기
-        </button>
-        <button
-          type="button"
-          className={layoutMode === 'masterfile' ? 'viewTab active' : 'viewTab'}
-          aria-pressed={layoutMode === 'masterfile'}
-          onClick={() => onLayoutChange('masterfile')}
-        >
-          Masterfile Check
-        </button>
-      </div>
+      {isEventMode ? (
+        <div className="eventGraphicsLayoutSwitch" role="group" aria-label="타임테이블 보기 형태">
+          <button
+            type="button"
+            className={layoutMode === 'compact' ? 'viewTab active' : 'viewTab'}
+            aria-pressed={layoutMode === 'compact'}
+            onClick={() => onLayoutChange('compact')}
+          >
+            시간표
+          </button>
+          <button
+            type="button"
+            className={layoutMode === 'cueSheet' ? 'viewTab active' : 'viewTab'}
+            aria-pressed={layoutMode === 'cueSheet'}
+            onClick={() => onLayoutChange('cueSheet')}
+          >
+            세션 보기
+          </button>
+          <button
+            type="button"
+            className={layoutMode === 'masterfile' ? 'viewTab active' : 'viewTab'}
+            aria-pressed={layoutMode === 'masterfile'}
+            onClick={() => onLayoutChange('masterfile')}
+          >
+            Masterfile Check
+          </button>
+        </div>
+      ) : null}
 
       {visibleCount === 0 ? (
         <EmptyState
-          title={isMasterfileMode ? '표시할 파일 점검 항목이 없습니다.' : '표시할 cue가 없습니다.'}
+          title={isEventMode ? (isMasterfileMode ? '표시할 파일 점검 항목이 없습니다.' : '표시할 cue가 없습니다.') : '표시할 운영 상황이 없습니다.'}
           message={
-            normalizedQuery || statusFilter
-              ? isMasterfileMode
-                ? '현재 필터 조건과 일치하는 점검 항목이 없습니다.'
-                : '현재 필터 조건과 일치하는 cue가 없습니다.'
-              : isMasterfileMode
-                ? '생성된 마스터파일 점검 데이터가 없습니다.'
-                : 'DB에 아직 cue row가 없습니다.'
+            isEventMode
+              ? normalizedQuery || statusFilter
+                ? isMasterfileMode
+                  ? '현재 필터 조건과 일치하는 점검 항목이 없습니다.'
+                  : '현재 필터 조건과 일치하는 cue가 없습니다.'
+                : isMasterfileMode
+                  ? '생성된 마스터파일 점검 데이터가 없습니다.'
+                  : 'DB에 아직 cue row가 없습니다.'
+              : normalizedQuery || statusFilter
+                ? '현재 필터 조건과 일치하는 전시회 운영 row가 없습니다.'
+                : '전시회 운영 row가 없으면 예시 화면을 먼저 표시합니다.'
           }
           className="scheduleEmptyState"
         />
-      ) : layoutMode === 'compact' ? (
+      ) : isEventMode && layoutMode === 'compact' ? (
         <TimelineLayout rows={filteredRows} />
-      ) : layoutMode === 'cueSheet' ? (
+      ) : isEventMode && layoutMode === 'cueSheet' ? (
         <SessionLayout groups={filteredSessionGroups} />
-      ) : (
+      ) : isEventMode ? (
         <MasterfileAuditLayout
           cues={filteredMasterfileCues}
           driveChecklist={driveChecklist}
           onToggleDriveCheck={onToggleDriveCheck}
         />
+      ) : (
+        <ExhibitionPlaybookLayout rows={filteredExhibitionRows} isSample={exhibitionUsesSample} />
       )}
     </section>
   )
