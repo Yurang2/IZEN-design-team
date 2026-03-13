@@ -7,8 +7,9 @@ const DEFAULT_PUBLIC_ROOT = 'public/event-graphics-registered/bangkok'
 const DEFAULT_OUTPUT = 'src/features/eventGraphics/generatedMasterfileManifest.ts'
 
 const LEGACY_CUES_DIR = '02_Cues'
-const SHARED_DIR = '02_Shared'
-const Q_FILES_DIR = '03_Q_Files'
+const LEGACY_SHARED_DIR = '02_Shared'
+const LEGACY_Q_FILES_DIR = '03_Q_Files'
+const ASSETS_DIR = '02_Files'
 const SOURCE_DIR = '01_Source'
 const ENTRANCE_LABEL = '입장'
 const MISSING_FILE_LABEL = '파일명 확인 필요'
@@ -271,7 +272,7 @@ function buildFilePrefix(kind) {
 }
 
 function buildSharedFilename(slot, extension) {
-  return `${buildFilePrefix(slot.kind)}_Shared_${toSourceSlug(slot.sourceName) || sanitizeSegment(slot.label)}${extension}`
+  return `${buildFilePrefix(slot.kind)}_${toSourceSlug(slot.sourceName) || sanitizeSegment(slot.label)}${extension}`
 }
 
 function buildCueFilename(cue, slot, extension, index) {
@@ -339,7 +340,7 @@ function belongsToCue(file, cue) {
   const normalizedName = file.name.toLowerCase()
   const cueToken = cue.cueNumber.toLowerCase()
   if (normalizedPath.startsWith(`${LEGACY_CUES_DIR}/${cue.cueNumber}_`)) return true
-  if (normalizedPath.startsWith(`${Q_FILES_DIR}/`) && normalizedName.includes(`_${cueToken}_`)) return true
+  if (normalizedName.includes(`_${cueToken}_`)) return true
   return false
 }
 
@@ -348,15 +349,26 @@ function scoreSharedMatch(file, slot) {
   const sourceSlug = toSourceSlug(slot.sourceName)
   let score = 0
   if (stem.includes(sourceSlug) && sourceSlug) score += 10
-  if (file.relativePath.replace(/\\/g, '/').startsWith(`${SHARED_DIR}/`)) score += 5
+  const normalizedPath = file.relativePath.replace(/\\/g, '/')
+  if (normalizedPath.startsWith(`${LEGACY_SHARED_DIR}/`)) score += 5
+  if (normalizedPath.startsWith(`${ASSETS_DIR}/`) && !file.name.toLowerCase().includes('_q')) score += 4
   return score
 }
 
-function scoreCueMatch(file, cue) {
+function scoreCueMatch(file, cue, slot) {
   const normalizedPath = file.relativePath.replace(/\\/g, '/')
-  if (normalizedPath.startsWith(`${LEGACY_CUES_DIR}/${cue.cueNumber}_`)) return 10
-  if (normalizedPath.startsWith(`${Q_FILES_DIR}/`) && file.name.toLowerCase().includes(`_${cue.cueNumber.toLowerCase()}_`)) return 8
-  return 0
+  const normalizedName = file.name.toLowerCase()
+  const sourceSlug = toSourceSlug(slot?.sourceName ?? '')
+  const cueTitleSlug = sanitizeSegment(cue.title)
+  const stem = sanitizeSegment(stripKnownExtension(path.basename(file.name, file.extension)))
+  let score = 0
+  if (normalizedPath.startsWith(`${LEGACY_CUES_DIR}/${cue.cueNumber}_`)) score += 12
+  if (normalizedPath.startsWith(`${LEGACY_Q_FILES_DIR}/`) && normalizedName.includes(`_${cue.cueNumber.toLowerCase()}_`)) score += 10
+  if (normalizedPath.startsWith(`${ASSETS_DIR}/`) && normalizedName.includes(`_${cue.cueNumber.toLowerCase()}_`)) score += 9
+  if (normalizedName.includes(`_${cue.cueNumber.toLowerCase()}_`)) score += 8
+  if (cueTitleSlug && stem.includes(cueTitleSlug)) score += 7
+  if (sourceSlug && stem.includes(sourceSlug)) score += 7
+  return score
 }
 
 async function moveFile(sourcePath, destinationPath) {
@@ -370,43 +382,34 @@ async function moveFile(sourcePath, destinationPath) {
 async function writeStructureReadmes(masterfileRoot, eventName) {
   const rootReadme = [
     `Event: ${eventName}`,
-    'Package Type: Shared + Q_Files vendor package',
+    'Package Type: Flat vendor package',
     '',
     'Structure',
     '- 00_README.txt: package overview',
     '- 01_Source: source workbook reference',
-    '- 02_Shared: repeated image/audio/video assets used by multiple cues',
-    '- 03_Q_Files: cue-specific media files named with Q-number prefix',
+    '- 02_Files: all delivery image/audio/video assets in one folder',
     '',
     'Rules',
-    '- Repeated assets live once in 02_Shared.',
-    '- Cue-specific assets live in 03_Q_Files.',
+    '- All delivery assets live in 02_Files.',
+    '- Repeated assets may omit Q-number and use a generic file name.',
+    '- Cue-specific assets use Q-number prefix.',
     '- File names do not use Start / Then suffixes.',
-    '- Use Q-number prefix for cue-specific assets.',
     '',
   ].join('\n')
 
-  const sharedReadme = [
-    'Shared Assets',
-    '- Put repeated graphics, repeated audio, and loop assets here.',
-    '- Example: Entrance Audio, Certification graphic, Certi Audio.',
-    '',
-  ].join('\n')
-
-  const qFilesReadme = [
-    'Cue-specific Assets',
-    '- Put files used by only one cue here.',
-    '- File name format: [I|V|A]_Q##_Cue_Title.ext',
+  const filesReadme = [
+    'Delivery Assets',
+    '- Put all final media files in this folder.',
+    '- Cue-specific file name format: [I|V|A]_Q##_Cue_Title.ext',
+    '- Repeated asset file name format: [I|V|A]_Asset_Name.ext',
     '',
   ].join('\n')
 
   await fs.writeFile(path.join(masterfileRoot, '00_README.txt'), `${rootReadme}\n`, 'utf8')
   await ensureDirectory(path.join(masterfileRoot, SOURCE_DIR))
-  await ensureDirectory(path.join(masterfileRoot, SHARED_DIR))
-  await ensureDirectory(path.join(masterfileRoot, Q_FILES_DIR))
+  await ensureDirectory(path.join(masterfileRoot, ASSETS_DIR))
   await fs.writeFile(path.join(masterfileRoot, SOURCE_DIR, 'README.txt'), 'Source workbook reference only.\n', 'utf8')
-  await fs.writeFile(path.join(masterfileRoot, SHARED_DIR, 'README.txt'), `${sharedReadme}\n`, 'utf8')
-  await fs.writeFile(path.join(masterfileRoot, Q_FILES_DIR, 'README.txt'), `${qFilesReadme}\n`, 'utf8')
+  await fs.writeFile(path.join(masterfileRoot, ASSETS_DIR, 'README.txt'), `${filesReadme}\n`, 'utf8')
 }
 
 function buildManifestModule(manifest) {
@@ -448,7 +451,9 @@ async function main() {
     const cueKindCounts = new Map()
     const cueCandidates = inventory
       .filter((file) => !consumedPaths.has(file.fullPath) && belongsToCue(file, cue))
-      .sort((left, right) => scoreCueMatch(right, cue) - scoreCueMatch(left, cue) || left.name.localeCompare(right.name, 'en'))
+      .sort(
+        (left, right) => scoreCueMatch(right, cue, cue.expectedSlots[0]) - scoreCueMatch(left, cue, cue.expectedSlots[0]) || left.name.localeCompare(right.name, 'en'),
+      )
 
     for (const slot of cue.expectedSlots) {
       const isShared = (sharedCounts.get(buildSharedKey(slot)) ?? 0) > 1
@@ -482,11 +487,11 @@ async function main() {
         }
 
         const destinationName = buildSharedFilename(slot, extension)
-        const destinationPath = path.join(options.masterfileRoot, SHARED_DIR, destinationName)
+        const destinationPath = path.join(options.masterfileRoot, ASSETS_DIR, destinationName)
         await moveFile(actualFile.fullPath, destinationPath)
         consumedPaths.add(actualFile.fullPath)
 
-        const relativePath = path.posix.join('files', '2026 IZEN Seminar in Bangkok Masterfile', SHARED_DIR, destinationName)
+        const relativePath = path.posix.join('files', '2026 IZEN Seminar in Bangkok Masterfile', ASSETS_DIR, destinationName)
         const registeredFile = {
           name: destinationName,
           kind: slot.kind,
@@ -510,7 +515,11 @@ async function main() {
       }
 
       const cueCandidateIndex = cueCandidates.findIndex((file) => file.kind === slot.kind)
-      const actualFile = cueCandidateIndex >= 0 ? cueCandidates.splice(cueCandidateIndex, 1)[0] : null
+      const fallbackInventoryCandidate = inventory
+        .filter((file) => !consumedPaths.has(file.fullPath) && file.kind === slot.kind)
+        .sort((left, right) => scoreCueMatch(right, cue, slot) - scoreCueMatch(left, cue, slot) || left.name.localeCompare(right.name, 'en'))
+        .find((file) => scoreCueMatch(file, cue, slot) > 0)
+      const actualFile = cueCandidateIndex >= 0 ? cueCandidates.splice(cueCandidateIndex, 1)[0] : fallbackInventoryCandidate ?? null
       if (!actualFile) {
         missingFiles.push({
           kind: slot.kind,
@@ -523,11 +532,11 @@ async function main() {
       const currentCount = cueKindCounts.get(slot.kind) ?? 0
       cueKindCounts.set(slot.kind, currentCount + 1)
       const destinationName = buildCueFilename(cue, slot, extension, currentCount)
-      const destinationPath = path.join(options.masterfileRoot, Q_FILES_DIR, destinationName)
+      const destinationPath = path.join(options.masterfileRoot, ASSETS_DIR, destinationName)
       await moveFile(actualFile.fullPath, destinationPath)
       consumedPaths.add(actualFile.fullPath)
 
-      const relativePath = path.posix.join('files', '2026 IZEN Seminar in Bangkok Masterfile', Q_FILES_DIR, destinationName)
+      const relativePath = path.posix.join('files', '2026 IZEN Seminar in Bangkok Masterfile', ASSETS_DIR, destinationName)
       registeredFiles.push({
         name: destinationName,
         kind: slot.kind,
@@ -549,7 +558,7 @@ async function main() {
       title: cue.title,
       cueType: cue.cueType,
       eventName: cue.eventName,
-      storageGroup: Q_FILES_DIR,
+      storageGroup: ASSETS_DIR,
       startTime: cue.startTime,
       endTime: cue.endTime,
       runtimeLabel: cue.runtimeLabel,
@@ -570,13 +579,20 @@ async function main() {
   if (await pathExists(legacyCueRoot)) {
     await fs.rm(legacyCueRoot, { recursive: true, force: true })
   }
+  const legacySharedRoot = path.join(options.masterfileRoot, LEGACY_SHARED_DIR)
+  if (await pathExists(legacySharedRoot)) {
+    await fs.rm(legacySharedRoot, { recursive: true, force: true })
+  }
+  const legacyQFilesRoot = path.join(options.masterfileRoot, LEGACY_Q_FILES_DIR)
+  if (await pathExists(legacyQFilesRoot)) {
+    await fs.rm(legacyQFilesRoot, { recursive: true, force: true })
+  }
 
   const manifest = {
     generatedAt: new Date().toISOString(),
     eventName: syncedCues[0]?.eventName ?? '2026 IZEN Seminar in Bangkok',
     structure: {
-      sharedDirectory: SHARED_DIR,
-      cueFilesDirectory: Q_FILES_DIR,
+      filesDirectory: ASSETS_DIR,
     },
     totalCueCount: syncedCues.length,
     completeCueCount: syncedCues.filter((cue) => cue.status === 'complete').length,

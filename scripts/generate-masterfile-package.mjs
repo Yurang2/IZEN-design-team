@@ -27,26 +27,23 @@ async function recreateDirectory(rootDirectory) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   const sourceDirectory = path.join(options.output, '01_Source')
-  const sharedDirectory = path.join(options.output, '02_Shared')
-  const cueFilesDirectory = path.join(options.output, '03_Q_Files')
+  const filesDirectory = path.join(options.output, '02_Files')
 
   await recreateDirectory(options.output)
   await fs.mkdir(sourceDirectory, { recursive: true })
-  await fs.mkdir(sharedDirectory, { recursive: true })
-  await fs.mkdir(cueFilesDirectory, { recursive: true })
+  await fs.mkdir(filesDirectory, { recursive: true })
 
   const rootReadme = [
     `Package Root: ${path.basename(options.output)}`,
     'Structure',
     '- 00_README.txt',
     '- 01_Source',
-    '- 02_Shared',
-    '- 03_Q_Files',
+    '- 02_Files',
     '',
     'Rules',
-    '- Put repeated assets in 02_Shared.',
-    '- Put cue-specific assets in 03_Q_Files.',
+    '- Put all delivery assets in 02_Files.',
     '- Use Q-number prefix for cue-specific file names.',
+    '- Repeated assets may omit Q-number and use a generic file name.',
     '- Do not use Start / Then suffixes in final file names.',
     '',
   ].join('\n')
@@ -57,24 +54,17 @@ async function main() {
     '',
   ].join('\n')
 
-  const sharedReadme = [
-    'Shared Assets',
-    '- Repeated audio, image, and video files live here.',
-    '- Example: Entrance Audio, Certification graphic, Certi Audio.',
-    '',
-  ].join('\n')
-
-  const cueFilesReadme = [
-    'Cue-specific Assets',
-    '- One flat folder for cue-specific files.',
-    '- Example: I_Q03_Lecture_1.png, V_Q02_Opening_Cinematic.mp4',
+  const filesReadme = [
+    'Delivery Assets',
+    '- One flat folder for all final media files.',
+    '- Cue-specific example: I_Q04_Lecture_1.png, V_Q02_Opening_Cinematic.mp4',
+    '- Repeated asset example: I_Certification.jpg, I_Show_Room.png',
     '',
   ].join('\n')
 
   await fs.writeFile(path.join(options.output, '00_README.txt'), `${rootReadme}\n`, 'utf8')
   await fs.writeFile(path.join(sourceDirectory, 'README.txt'), `${sourceReadme}\n`, 'utf8')
-  await fs.writeFile(path.join(sharedDirectory, 'README.txt'), `${sharedReadme}\n`, 'utf8')
-  await fs.writeFile(path.join(cueFilesDirectory, 'README.txt'), `${cueFilesReadme}\n`, 'utf8')
+  await fs.writeFile(path.join(filesDirectory, 'README.txt'), `${filesReadme}\n`, 'utf8')
 
   console.log(`Created masterfile package structure in ${options.output}`)
 }

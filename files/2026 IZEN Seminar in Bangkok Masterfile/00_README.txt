@@ -1,15 +1,14 @@
 Event: 2026 IZEN Seminar in Bangkok
-Package Type: Shared + Q_Files vendor package
+Package Type: Flat vendor package
 
 Structure
 - 00_README.txt: package overview
 - 01_Source: source workbook reference
-- 02_Shared: repeated image/audio/video assets used by multiple cues
-- 03_Q_Files: cue-specific media files named with Q-number prefix
+- 02_Files: all delivery image/audio/video assets in one folder
 
 Rules
-- Repeated assets live once in 02_Shared.
-- Cue-specific assets live in 03_Q_Files.
+- All delivery assets live in 02_Files.
+- Repeated assets may omit Q-number and use a generic file name.
+- Cue-specific assets use Q-number prefix.
 - File names do not use Start / Then suffixes.
-- Use Q-number prefix for cue-specific assets.
 
