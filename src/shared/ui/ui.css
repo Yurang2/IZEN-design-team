@@ -3190,6 +3190,13 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
+.eventGraphicsShareHeroTop {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
 .eventGraphicsShareHeroText h1,
 .eventGraphicsShareHead h2 {
   margin: 0;
@@ -3197,6 +3204,13 @@ button.dashboardNavButton {
 
 .eventGraphicsShareHeroText p:last-child {
   margin: 0;
+}
+
+.eventGraphicsLocaleSwitch {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 8px;
 }
 
 .eventGraphicsShareSummary {
@@ -3393,6 +3407,14 @@ button.dashboardNavButton {
   .eventGraphicsShareHero,
   .eventGraphicsShareRow {
     grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsShareHeroTop {
+    flex-direction: column;
+  }
+
+  .eventGraphicsLocaleSwitch {
+    width: 100%;
   }
 
   .eventGraphicsShareSummary,

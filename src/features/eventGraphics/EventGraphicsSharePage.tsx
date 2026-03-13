@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 
@@ -10,6 +10,8 @@ type EventGraphicsSharePageProps = {
   loading: boolean
   error: string | null
 }
+
+type Locale = 'en' | 'ko'
 
 type ShareRow = {
   id: string
@@ -59,8 +61,134 @@ type EventGroup = {
   cues: VendorCue[]
 }
 
-const ENTRANCE_LABEL = '등장'
+type CopySet = {
+  externalShare: string
+  loading: string
+  loadErrorTitle: string
+  notConnectedTitle: string
+  notConnectedMessage: string
+  emptyTitle: string
+  emptyMessage: string
+  description: string
+  summaryLabel: string
+  eventCount: string
+  playbackCues: string
+  missingPreview: string
+  checkGraphic: string
+  noAudio: string
+  groupCount: (count: number) => string
+  image: string
+  noPreview: string
+  start: string
+  thenHold: string
+  main: string
+  openFile: string
+  fieldNote: string
+  noSpecialNote: string
+  graphic: string
+  audio: string
+  untitledEvent: string
+}
+
+const ENTRANCE_LABEL = '입장'
 const MISSING_FILE_LABEL = '파일명 확인 필요'
+
+const COPY: Record<Locale, CopySet> = {
+  en: {
+    externalShare: 'External Share',
+    loading: 'Loading playback cues...',
+    loadErrorTitle: 'Unable to load playback cues.',
+    notConnectedTitle: 'The timetable database is not connected.',
+    notConnectedMessage: 'The external share page could not read timetable data yet.',
+    emptyTitle: 'No playback cues to display.',
+    emptyMessage: 'There are no cues ready for the external playback view.',
+    description: 'This vendor view merges entrance and main session cues into one playback order. Follow Start, then Then / Hold.',
+    summaryLabel: 'Playback cue summary',
+    eventCount: 'Events',
+    playbackCues: 'Playback cues',
+    missingPreview: 'Missing preview',
+    checkGraphic: 'Check graphic',
+    noAudio: 'No audio',
+    groupCount: (count) => `${count} playback cues`,
+    image: 'Image',
+    noPreview: 'No preview image available.',
+    start: 'Start',
+    thenHold: 'Then / Hold',
+    main: 'Main',
+    openFile: 'Open file',
+    fieldNote: 'Field note',
+    noSpecialNote: 'No special note',
+    graphic: 'Graphic',
+    audio: 'Audio',
+    untitledEvent: 'Untitled event',
+  },
+  ko: {
+    externalShare: '외부 공유',
+    loading: '운영 큐를 불러오는 중...',
+    loadErrorTitle: '운영 큐를 불러오지 못했습니다.',
+    notConnectedTitle: '타임테이블 DB가 연결되지 않았습니다.',
+    notConnectedMessage: '외부 공유 페이지에서 타임테이블 데이터를 아직 읽어오지 못했습니다.',
+    emptyTitle: '표시할 운영 큐가 없습니다.',
+    emptyMessage: '업체용 운영 뷰에 표시할 큐 데이터가 없습니다.',
+    description: '입장과 본세션을 한 개 운영 큐로 합친 미디어업체용 화면입니다. 각 큐에서 Start 후 Then / Hold 순서로 진행하면 됩니다.',
+    summaryLabel: '운영 큐 요약',
+    eventCount: '행사 수',
+    playbackCues: '운영 큐',
+    missingPreview: '이미지 없음',
+    checkGraphic: '그래픽 확인 필요',
+    noAudio: '오디오 없음',
+    groupCount: (count) => `총 ${count}개 운영 큐`,
+    image: '이미지',
+    noPreview: '등록된 이미지가 없습니다.',
+    start: '시작',
+    thenHold: '이후 / 유지',
+    main: '메인',
+    openFile: '파일 열기',
+    fieldNote: '현장 메모',
+    noSpecialNote: '특이사항 없음',
+    graphic: '그래픽',
+    audio: '오디오',
+    untitledEvent: '행사명 미지정',
+  },
+}
+
+const CUE_TYPE_LABELS: Record<Locale, Record<string, string>> = {
+  en: {
+    announcement: 'Announcement',
+    opening: 'Opening',
+    lecture: 'Lecture',
+    certificate: 'Certificate',
+    break: 'Break',
+    meal: 'Meal',
+    closing: 'Closing',
+    other: 'Other',
+  },
+  ko: {
+    announcement: '공지',
+    opening: '오프닝',
+    lecture: '강연',
+    certificate: '증정',
+    break: '브레이크',
+    meal: '식사',
+    closing: '클로징',
+    other: '기타',
+  },
+}
+
+const ACTION_LABELS: Record<Locale, Record<string, string>> = {
+  en: {
+    Play: 'Play',
+    Hold: 'Hold',
+    Loop: 'Loop',
+    '': '-',
+  },
+  ko: {
+    Play: 'Play',
+    Hold: 'Hold',
+    Loop: 'Loop',
+    '': '-',
+  },
+}
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
@@ -94,10 +222,14 @@ function looksLikeLoopInstruction(value: string): boolean {
   return /\bloop\b/i.test(value)
 }
 
-function toCueTypeLabel(value: string): string {
-  const trimmed = value.trim()
-  if (!trimmed) return '기타'
-  return trimmed.replace(/_/g, ' ')
+function toCueTypeLabel(value: string, locale: Locale): string {
+  const trimmed = value.trim().toLowerCase()
+  if (!trimmed) return locale === 'ko' ? '기타' : 'Other'
+  return CUE_TYPE_LABELS[locale][trimmed] ?? trimmed.replace(/_/g, ' ')
+}
+
+function toActionLabel(value: string, locale: Locale): string {
+  return ACTION_LABELS[locale][value] ?? (value || '-')
 }
 
 function toRuntimeMinutes(value: string): number | null {
@@ -197,23 +329,23 @@ function buildMergedVendorCue(entranceRow: ShareRow, mainRow: ShareRow): VendorC
     nextGraphicAction: looksLikeVideoAsset(toPrimaryAsset(mainRow)) ? 'Play' : 'Hold',
     nextAudio: mainRow.sourceAudio,
     nextAudioAction: mainRow.sourceAudio ? (looksLikeLoopInstruction(mainRow.sourceAudio) ? 'Loop' : 'Play') : '',
-    note:
-      joinSummary([
-        entranceRow.sourceRemark,
-        mainRow.sourceRemark,
-        mainRow.vendorNote,
-        mainRow.personnel && `무대 ${mainRow.personnel}`,
-      ]) || '특이사항 없음',
+    note: joinSummary([
+      entranceRow.sourceRemark,
+      mainRow.sourceRemark,
+      mainRow.vendorNote,
+      mainRow.personnel && `무대 ${mainRow.personnel}`,
+    ]),
   }
 }
 
 function buildSingleVendorCue(row: ShareRow): VendorCue {
   const primaryAsset = toPrimaryAsset(row)
-  const graphicAction = row.cueType === 'certificate' || row.cueType === 'closing' || row.cueType === 'break' || row.cueType === 'meal'
-    ? 'Hold'
-    : looksLikeVideoAsset(primaryAsset)
-      ? 'Play'
-      : 'Hold'
+  const graphicAction =
+    row.cueType === 'certificate' || row.cueType === 'closing' || row.cueType === 'break' || row.cueType === 'meal'
+      ? 'Hold'
+      : looksLikeVideoAsset(primaryAsset)
+        ? 'Play'
+        : 'Hold'
 
   return {
     id: row.id,
@@ -234,7 +366,7 @@ function buildSingleVendorCue(row: ShareRow): VendorCue {
     nextGraphicAction: '',
     nextAudio: '',
     nextAudioAction: '',
-    note: joinSummary([row.sourceRemark, row.vendorNote, row.personnel && `무대 ${row.personnel}`]) || '특이사항 없음',
+    note: joinSummary([row.sourceRemark, row.vendorNote, row.personnel && `무대 ${row.personnel}`]),
   }
 }
 
@@ -251,11 +383,7 @@ function buildVendorCues(rows: ShareRow[]): VendorCue[] {
       continue
     }
 
-    if (isEntranceRow(current)) {
-      // Orphan entrance rows should not become vendor-visible standalone cues.
-      continue
-    }
-
+    if (isEntranceRow(current)) continue
     vendorCues.push(buildSingleVendorCue(current))
   }
 
@@ -269,6 +397,8 @@ function ActionCard({
   audio,
   audioAction,
   href,
+  locale,
+  copy,
 }: {
   title: string
   graphic: string
@@ -276,25 +406,27 @@ function ActionCard({
   audio: string
   audioAction: string
   href: string | null
+  locale: Locale
+  copy: CopySet
 }) {
   return (
     <div className="eventGraphicsShareCoreCard">
       <span className="eventGraphicsPanelLabel">{title}</span>
       <div className="eventGraphicsShareActionList">
         <div className="eventGraphicsShareActionItem">
-          <span>Graphic</span>
+          <span>{copy.graphic}</span>
           <strong>{graphic || '-'}</strong>
-          <p>{graphicAction || '-'}</p>
+          <p>{toActionLabel(graphicAction, locale)}</p>
         </div>
         <div className="eventGraphicsShareActionItem">
-          <span>Audio</span>
+          <span>{copy.audio}</span>
           <strong>{audio || '-'}</strong>
-          <p>{audioAction || '-'}</p>
+          <p>{toActionLabel(audioAction, locale)}</p>
         </div>
       </div>
       {href ? (
         <a className="eventGraphicsInlineLink" href={href} target="_blank" rel="noreferrer">
-          파일 열기
+          {copy.openFile}
         </a>
       ) : null}
     </div>
@@ -309,6 +441,9 @@ export function EventGraphicsSharePage({
   loading,
   error,
 }: EventGraphicsSharePageProps) {
+  const [locale, setLocale] = useState<Locale>('en')
+
+  const copy = COPY[locale]
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
   const normalizedRows = useMemo(
     () =>
@@ -327,7 +462,7 @@ export function EventGraphicsSharePage({
   const groupedCues = useMemo(() => {
     const groups = new Map<string, VendorCue[]>()
     for (const cue of vendorCues) {
-      const groupName = cue.eventName.trim() || '행사명 미지정'
+      const groupName = cue.eventName.trim() || copy.untitledEvent
       const current = groups.get(groupName)
       if (current) {
         current.push(cue)
@@ -336,7 +471,7 @@ export function EventGraphicsSharePage({
       groups.set(groupName, [cue])
     }
     return Array.from(groups.entries()).map<EventGroup>(([eventName, cues]) => ({ eventName, cues }))
-  }, [vendorCues])
+  }, [copy.untitledEvent, vendorCues])
 
   const pageTitle = useMemo(() => {
     if (groupedCues.length === 1) return groupedCues[0]?.eventName || databaseTitle.trim() || 'Event Graphics Timetable'
@@ -355,8 +490,10 @@ export function EventGraphicsSharePage({
       <main className="eventGraphicsShareShell">
         <section className="eventGraphicsSharePage">
           <header className="eventGraphicsShareHero">
-            <p className="muted small">External Share</p>
-            <h1>운영 큐를 불러오는 중...</h1>
+            <div className="eventGraphicsShareHeroTop">
+              <p className="muted small">{copy.externalShare}</p>
+            </div>
+            <h1>{copy.loading}</h1>
           </header>
         </section>
       </main>
@@ -366,7 +503,7 @@ export function EventGraphicsSharePage({
   if (error) {
     return (
       <main className="eventGraphicsShareShell">
-        <EmptyState title="운영 큐를 불러오지 못했습니다." message={error} className="scheduleEmptyState" />
+        <EmptyState title={copy.loadErrorTitle} message={error} className="scheduleEmptyState" />
       </main>
     )
   }
@@ -374,11 +511,7 @@ export function EventGraphicsSharePage({
   if (!configured) {
     return (
       <main className="eventGraphicsShareShell">
-        <EmptyState
-          title="타임테이블 DB가 연결되지 않았습니다."
-          message="외부 공유 페이지에서 타임테이블 데이터를 아직 읽어오지 못했습니다."
-          className="scheduleEmptyState"
-        />
+        <EmptyState title={copy.notConnectedTitle} message={copy.notConnectedMessage} className="scheduleEmptyState" />
       </main>
     )
   }
@@ -386,7 +519,7 @@ export function EventGraphicsSharePage({
   if (vendorCues.length === 0) {
     return (
       <main className="eventGraphicsShareShell">
-        <EmptyState title="표시할 큐가 없습니다." message="업체용 운영 큐로 표시할 데이터가 없습니다." className="scheduleEmptyState" />
+        <EmptyState title={copy.emptyTitle} message={copy.emptyMessage} className="scheduleEmptyState" />
       </main>
     )
   }
@@ -395,30 +528,50 @@ export function EventGraphicsSharePage({
     <main className="eventGraphicsShareShell">
       <section className="eventGraphicsSharePage">
         <header className="eventGraphicsShareHero">
-          <div className="eventGraphicsShareHeroText">
-            <p className="muted small">External Share</p>
-            <h1>{pageTitle}</h1>
-            <p>입장과 본세션을 한 운영 큐로 합친 미디어업체용 오더입니다. 각 큐에서 Start와 Then/Hold만 보면 되게 구성했습니다.</p>
+          <div className="eventGraphicsShareHeroTop">
+            <div className="eventGraphicsShareHeroText">
+              <p className="muted small">{copy.externalShare}</p>
+              <h1>{pageTitle}</h1>
+              <p>{copy.description}</p>
+            </div>
+            <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Language selector">
+              <button
+                type="button"
+                className={locale === 'en' ? 'viewTab active' : 'viewTab'}
+                aria-pressed={locale === 'en'}
+                onClick={() => setLocale('en')}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                className={locale === 'ko' ? 'viewTab active' : 'viewTab'}
+                aria-pressed={locale === 'ko'}
+                onClick={() => setLocale('ko')}
+              >
+                KO
+              </button>
+            </div>
           </div>
-          <div className="eventGraphicsShareSummary" aria-label="운영 큐 요약">
+          <div className="eventGraphicsShareSummary" aria-label={copy.summaryLabel}>
             <article>
-              <span>행사 수</span>
+              <span>{copy.eventCount}</span>
               <strong>{groupedCues.length}</strong>
             </article>
             <article>
-              <span>운영 큐</span>
+              <span>{copy.playbackCues}</span>
               <strong>{vendorCues.length}</strong>
             </article>
             <article>
-              <span>이미지 없음</span>
+              <span>{copy.missingPreview}</span>
               <strong>{missingPreviewCount}</strong>
             </article>
             <article>
-              <span>그래픽 확인 필요</span>
+              <span>{copy.checkGraphic}</span>
               <strong>{missingGraphicCount}</strong>
             </article>
             <article>
-              <span>오디오 없음</span>
+              <span>{copy.noAudio}</span>
               <strong>{missingAudioCount}</strong>
             </article>
           </div>
@@ -429,7 +582,7 @@ export function EventGraphicsSharePage({
             <section key={group.eventName} className="eventGraphicsShareGroup">
               <header className="eventGraphicsShareGroupHead">
                 <h2>{group.eventName}</h2>
-                <p>총 {group.cues.length}개 운영 큐</p>
+                <p>{copy.groupCount(group.cues.length)}</p>
               </header>
 
               <div className="eventGraphicsShareGroupList">
@@ -447,43 +600,47 @@ export function EventGraphicsSharePage({
                         <div className="eventGraphicsShareHead">
                           <div className="eventGraphicsCueHead">
                             <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                            <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType)}</span>
+                            <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
                           </div>
                           <h3>{cue.title}</h3>
                         </div>
 
                         <div className="eventGraphicsShareTimelineGrid">
                           <section className="eventGraphicsShareVisual">
-                            <span className="eventGraphicsPanelLabel">이미지</span>
+                            <span className="eventGraphicsPanelLabel">{copy.image}</span>
                             {hasPreview ? (
                               <div className="eventGraphicsSharePreview is-static">
                                 <img src={cue.previewHref ?? ''} alt={`${cue.title} preview`} loading="lazy" />
                               </div>
                             ) : (
-                              <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
+                              <div className="eventGraphicsPreviewPlaceholder">{copy.noPreview}</div>
                             )}
                           </section>
 
                           <section className="eventGraphicsShareCore">
                             <ActionCard
-                              title="Start"
+                              title={copy.start}
                               graphic={cue.startGraphic}
                               graphicAction={cue.startGraphicAction}
                               audio={cue.startAudio}
                               audioAction={cue.startAudioAction}
                               href={cue.assetHref}
+                              locale={locale}
+                              copy={copy}
                             />
                             <ActionCard
-                              title={cue.nextGraphic || cue.nextAudio ? 'Then / Hold' : 'Main'}
+                              title={cue.nextGraphic || cue.nextAudio ? copy.thenHold : copy.main}
                               graphic={cue.nextGraphic || cue.startGraphic}
                               graphicAction={cue.nextGraphicAction || cue.startGraphicAction}
                               audio={cue.nextAudio}
                               audioAction={cue.nextAudioAction}
                               href={cue.assetHref}
+                              locale={locale}
+                              copy={copy}
                             />
                             <div className="eventGraphicsShareCoreCard">
-                              <span className="eventGraphicsPanelLabel">현장 메모</span>
-                              <p>{cue.note}</p>
+                              <span className="eventGraphicsPanelLabel">{copy.fieldNote}</span>
+                              <p>{cue.note || copy.noSpecialNote}</p>
                             </div>
                           </section>
                         </div>
