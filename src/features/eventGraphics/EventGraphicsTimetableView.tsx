@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
+import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 
 type EventGraphicsTimetableViewProps = {
   configured: boolean
@@ -12,9 +13,7 @@ type EventGraphicsTimetableViewProps = {
   error: string | null
 }
 
-type LayoutMode = 'compact' | 'cueSheet'
-
-const EXTERNAL_SHARE_PATH = '/share/timetable'
+type LayoutMode = 'compact' | 'cueSheet' | 'masterfile'
 
 type TimetableRow = {
   id: string
@@ -36,6 +35,17 @@ type TimetableRow = {
   previewHref: string | null
   assetHref: string | null
 }
+
+type PreviewTarget = {
+  title: string
+  subtitle: string
+  src: string
+}
+
+type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
+
+const EXTERNAL_SHARE_PATH = '/share/timetable'
+const ENTRANCE_LABEL = '입장'
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
@@ -79,8 +89,8 @@ function joinSummary(parts: string[]): string {
 
 function toDisplayCueOrder(row: TimetableRow): string {
   const numeric = Number(row.cueOrder)
-  if (row.cueTitle === '등장' && Number.isFinite(numeric)) {
-    return `${Math.ceil(numeric)}-등장`
+  if (row.cueTitle === ENTRANCE_LABEL && Number.isFinite(numeric)) {
+    return `${Math.ceil(numeric)}-입장`
   }
   return row.cueOrder
 }
@@ -96,6 +106,21 @@ function matchesQuery(row: TimetableRow, query: string): boolean {
     row.remark,
     row.vendorNote,
     row.status,
+  ]
+    .join(' ')
+    .toLowerCase()
+  return source.includes(query)
+}
+
+function matchesMasterfileQuery(cue: MasterfileCue, query: string): boolean {
+  if (!query) return true
+  const source = [
+    cue.cueNumber,
+    cue.title,
+    cue.cueType,
+    cue.personnel,
+    ...cue.registeredFiles.map((file) => file.name),
+    ...cue.missingFiles.map((file) => file.label),
   ]
     .join(' ')
     .toLowerCase()
@@ -130,7 +155,7 @@ function CompactLayout({
   onOpenPreview,
 }: {
   rows: TimetableRow[]
-  onOpenPreview: (row: TimetableRow) => void
+  onOpenPreview: (target: PreviewTarget) => void
 }) {
   return (
     <div className="eventGraphicsCompactTableWrap">
@@ -166,7 +191,7 @@ function CompactLayout({
                     <div className="eventGraphicsCueHead">
                       <span className="eventGraphicsOrder">{displayCueOrder}</span>
                       <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                      {row.cueTitle === '등장' ? <span className="eventGraphicsEntranceFlag">등장</span> : null}
+                      {row.cueTitle === ENTRANCE_LABEL ? <span className="eventGraphicsEntranceFlag">입장</span> : null}
                     </div>
                     <strong>{row.cueTitle}</strong>
                     <p>{joinSummary([row.personnel && `무대 ${row.personnel}`, row.vendorNote || row.remark]) || '메모 없음'}</p>
@@ -176,7 +201,17 @@ function CompactLayout({
                   <div className="eventGraphicsCompactCellInner">
                     {hasPreview ? (
                       <>
-                        <button type="button" className="secondary mini" onClick={() => onOpenPreview(row)}>
+                        <button
+                          type="button"
+                          className="secondary mini"
+                          onClick={() =>
+                            onOpenPreview({
+                              title: row.cueTitle,
+                              subtitle: row.graphicAsset,
+                              src: row.previewHref ?? '',
+                            })
+                          }
+                        >
                           이미지 보기
                         </button>
                         <div className="eventGraphicsCompactImageHint">클릭 시 크게 확인</div>
@@ -193,7 +228,7 @@ function CompactLayout({
                     <div className="eventGraphicsLinkRow">
                       {row.assetHref ? (
                         <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
-                          자산
+                          자산 링크
                         </a>
                       ) : null}
                     </div>
@@ -226,7 +261,7 @@ function CueSheetLayout({
   onClosePreview,
 }: {
   rows: TimetableRow[]
-  onOpenPreview: (row: TimetableRow) => void
+  onOpenPreview: (rowId: string) => void
   activePreviewId: string | null
   onClosePreview: () => void
 }) {
@@ -235,7 +270,7 @@ function CueSheetLayout({
       {rows.map((row) => {
         const statusClassName = toStatusClassName(row.status)
         const cueTypeClassName = toCueTypeClassName(row.cueType)
-        const isEntranceCue = row.cueTitle === '등장'
+        const isEntranceCue = row.cueTitle === ENTRANCE_LABEL
         const hasPreview = looksLikeImageUrl(row.previewHref)
         const previewOpen = activePreviewId === row.id && hasPreview
         const displayCueOrder = toDisplayCueOrder(row)
@@ -254,7 +289,7 @@ function CueSheetLayout({
                   <div className="eventGraphicsCueHead">
                     <span className="eventGraphicsOrder">{displayCueOrder}</span>
                     <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                    {isEntranceCue ? <span className="eventGraphicsEntranceFlag">등장 화면</span> : null}
+                    {isEntranceCue ? <span className="eventGraphicsEntranceFlag">입장 화면</span> : null}
                   </div>
                   <h3>{row.cueTitle}</h3>
                 </div>
@@ -277,7 +312,7 @@ function CueSheetLayout({
                             onClosePreview()
                             return
                           }
-                          onOpenPreview(row)
+                          onOpenPreview(row.id)
                         }}
                       >
                         {previewOpen ? '이미지 닫기' : '이미지 보기'}
@@ -325,6 +360,103 @@ function CueSheetLayout({
   )
 }
 
+function MasterfileAuditLayout({
+  cues,
+  onOpenPreview,
+}: {
+  cues: MasterfileCue[]
+  onOpenPreview: (target: PreviewTarget) => void
+}) {
+  return (
+    <div className="eventGraphicsAuditList">
+      {cues.map((cue) => {
+        const statusClassName = toStatusClassName(cue.status)
+        return (
+          <article key={cue.cueNumber} className={`eventGraphicsAuditCard status-${statusClassName}`}>
+            <div className="eventGraphicsAuditHead">
+              <div className="eventGraphicsCueHead">
+                <span className="eventGraphicsOrder">{cue.cueNumber}</span>
+                <span className={`eventGraphicsCueType cue-${toCueTypeClassName(cue.cueType)}`}>{cue.cueType}</span>
+              </div>
+              <span className={`eventGraphicsStatus status-${statusClassName}`}>{cue.status}</span>
+            </div>
+
+            <div className="eventGraphicsAuditMeta">
+              <h3>{cue.title}</h3>
+              <p>
+                {cue.startTime} - {cue.endTime} / {cue.runtimeLabel}
+              </p>
+              {cue.personnel && cue.personnel !== '-' ? <p>무대: {cue.personnel}</p> : null}
+            </div>
+
+            <div className="eventGraphicsAuditGrid">
+              <section className="eventGraphicsAuditVisual">
+                <span className="eventGraphicsPanelLabel">등록 이미지</span>
+                {cue.previewUrl ? (
+                  <>
+                    <div className="eventGraphicsPreviewInline">
+                      <img src={cue.previewUrl} alt={`${cue.title} 등록 이미지`} loading="lazy" />
+                    </div>
+                    <div className="eventGraphicsLinkRow">
+                      <button
+                        type="button"
+                        className="secondary mini"
+                        onClick={() =>
+                          onOpenPreview({
+                            title: cue.title,
+                            subtitle: cue.folderName,
+                            src: cue.previewUrl ?? '',
+                          })
+                        }
+                      >
+                        크게 보기
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
+                )}
+              </section>
+
+              <section className="eventGraphicsAuditPanel">
+                <span className="eventGraphicsPanelLabel">등록 파일</span>
+                {cue.registeredFiles.length > 0 ? (
+                  <ul className="eventGraphicsAuditFileList">
+                    {cue.registeredFiles.map((file) => (
+                      <li key={file.name}>
+                        <strong>{file.name}</strong>
+                        <span>{file.role}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="eventGraphicsPreviewPlaceholder">등록된 파일이 없습니다.</div>
+                )}
+              </section>
+
+              <section className="eventGraphicsAuditPanel">
+                <span className="eventGraphicsPanelLabel">추가 필요</span>
+                {cue.missingFiles.length > 0 ? (
+                  <ul className="eventGraphicsAuditFileList is-missing">
+                    {cue.missingFiles.map((file) => (
+                      <li key={`${cue.cueNumber}-${file.label}`}>
+                        <strong>{file.label}</strong>
+                        <span>{file.kind}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="eventGraphicsPreviewPlaceholder">현재 예상 파일은 모두 들어와 있습니다.</div>
+                )}
+              </section>
+            </div>
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
 export function EventGraphicsTimetableView({
   configured,
   databaseTitle,
@@ -337,15 +469,20 @@ export function EventGraphicsTimetableView({
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('compact')
-  const [previewTarget, setPreviewTarget] = useState<TimetableRow | null>(null)
+  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
+  const [inlinePreviewId, setInlinePreviewId] = useState<string | null>(null)
 
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
   const tableRows = useMemo(() => rows.map((row) => toRowModel(row, columnIndex)), [columnIndex, rows])
 
-  const statusOptions = useMemo(
+  const rowStatusOptions = useMemo(
     () => Array.from(new Set(tableRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
     [tableRows],
+  )
+  const masterfileStatusOptions = useMemo(
+    () => Array.from(new Set(bangkokMasterfileManifest.cues.map((cue) => cue.status))),
+    [],
   )
 
   const filteredRows = useMemo(
@@ -357,9 +494,18 @@ export function EventGraphicsTimetableView({
     [normalizedQuery, statusFilter, tableRows],
   )
 
+  const filteredMasterfileCues = useMemo(
+    () =>
+      bangkokMasterfileManifest.cues.filter((cue) => {
+        if (statusFilter && cue.status !== statusFilter) return false
+        return matchesMasterfileQuery(cue, normalizedQuery)
+      }),
+    [normalizedQuery, statusFilter],
+  )
+
   const readyCount = useMemo(() => tableRows.filter((row) => ['ready', 'shared'].includes(row.status)).length, [tableRows])
   const changedCount = useMemo(() => tableRows.filter((row) => row.status === 'changed_on_site').length, [tableRows])
-  const entranceCount = useMemo(() => tableRows.filter((row) => row.cueTitle === '등장').length, [tableRows])
+  const entranceCount = useMemo(() => tableRows.filter((row) => row.cueTitle === ENTRANCE_LABEL).length, [tableRows])
   const effectiveTitle = databaseTitle.trim() || '행사 그래픽 타임테이블'
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -370,9 +516,11 @@ export function EventGraphicsTimetableView({
     setStatusFilter(event.target.value)
   }
 
-  const openPreview = (row: TimetableRow) => {
-    if (!looksLikeImageUrl(row.previewHref)) return
-    setPreviewTarget(row)
+  const onLayoutChange = (nextLayout: LayoutMode) => {
+    setLayoutMode(nextLayout)
+    setStatusFilter('')
+    setInlinePreviewId(null)
+    setPreviewTarget(null)
   }
 
   if (loading) {
@@ -402,13 +550,17 @@ export function EventGraphicsTimetableView({
     )
   }
 
+  const isMasterfileMode = layoutMode === 'masterfile'
+  const statusOptions = isMasterfileMode ? masterfileStatusOptions : rowStatusOptions
+  const visibleCount = isMasterfileMode ? filteredMasterfileCues.length : filteredRows.length
+
   return (
     <section className="eventGraphicsView">
       <div className="eventGraphicsHero">
         <div className="eventGraphicsHeroText">
           <p className="muted small">Event Graphics Timetable</p>
           <h2>{effectiveTitle}</h2>
-          <p>같은 데이터로 A안 압축형과 B안 큐시트형을 모두 비교할 수 있게 구성했습니다.</p>
+          <p>오더 확인은 타임테이블 뷰에서, 실제 업로드 파일 점검은 Masterfile Check에서 바로 확인할 수 있게 구성했습니다.</p>
         </div>
         <div className="eventGraphicsHeroActions">
           <a className="linkButton" href={EXTERNAL_SHARE_PATH} target="_blank" rel="noreferrer">
@@ -422,35 +574,56 @@ export function EventGraphicsTimetableView({
         </div>
       </div>
 
-      <div className="eventGraphicsSummary" aria-label="행사 그래픽 요약">
-        <article>
-          <span>전체 Cue</span>
-          <strong>{tableRows.length}</strong>
-        </article>
-        <article>
-          <span>등장 Cue</span>
-          <strong>{entranceCount}</strong>
-        </article>
-        <article>
-          <span>준비·공유 완료</span>
-          <strong>{readyCount}</strong>
-        </article>
-        <article>
-          <span>현장 변경</span>
-          <strong>{changedCount}</strong>
-        </article>
-      </div>
+      {isMasterfileMode ? (
+        <div className="eventGraphicsSummary" aria-label="마스터파일 점검 요약">
+          <article>
+            <span>점검 Cue</span>
+            <strong>{bangkokMasterfileManifest.totalCueCount}</strong>
+          </article>
+          <article>
+            <span>완료</span>
+            <strong>{bangkokMasterfileManifest.completeCueCount}</strong>
+          </article>
+          <article>
+            <span>부분 등록</span>
+            <strong>{bangkokMasterfileManifest.partialCueCount}</strong>
+          </article>
+          <article>
+            <span>미등록</span>
+            <strong>{bangkokMasterfileManifest.missingCueCount}</strong>
+          </article>
+        </div>
+      ) : (
+        <div className="eventGraphicsSummary" aria-label="행사 그래픽 요약">
+          <article>
+            <span>전체 Cue</span>
+            <strong>{tableRows.length}</strong>
+          </article>
+          <article>
+            <span>입장 Cue</span>
+            <strong>{entranceCount}</strong>
+          </article>
+          <article>
+            <span>준비완료 / 공유</span>
+            <strong>{readyCount}</strong>
+          </article>
+          <article>
+            <span>현장 변경</span>
+            <strong>{changedCount}</strong>
+          </article>
+        </div>
+      )}
 
       <div className="eventGraphicsToolbar">
         <input
           type="search"
           value={query}
           onChange={onQueryChange}
-          placeholder="Cue 제목, 그래픽, 오디오, 비고 검색"
+          placeholder={isMasterfileMode ? '큐 번호, 제목, 등록 파일명 검색' : 'Cue 제목, 그래픽, 오디오, 비고 검색'}
           aria-label="타임테이블 검색"
         />
         <select value={statusFilter} onChange={onStatusChange} aria-label="상태 필터">
-          <option value="">모든 상태</option>
+          <option value="">{isMasterfileMode ? '모든 점검 상태' : '모든 상태'}</option>
           {statusOptions.map((status) => (
             <option key={status} value={status}>
               {status}
@@ -464,52 +637,72 @@ export function EventGraphicsTimetableView({
           type="button"
           className={layoutMode === 'compact' ? 'viewTab active' : 'viewTab'}
           aria-pressed={layoutMode === 'compact'}
-          onClick={() => setLayoutMode('compact')}
+          onClick={() => onLayoutChange('compact')}
         >
-          A안 압축형
+          A형 표
         </button>
         <button
           type="button"
           className={layoutMode === 'cueSheet' ? 'viewTab active' : 'viewTab'}
           aria-pressed={layoutMode === 'cueSheet'}
-          onClick={() => setLayoutMode('cueSheet')}
+          onClick={() => onLayoutChange('cueSheet')}
         >
-          B안 큐시트형
+          B형 큐시트
+        </button>
+        <button
+          type="button"
+          className={layoutMode === 'masterfile' ? 'viewTab active' : 'viewTab'}
+          aria-pressed={layoutMode === 'masterfile'}
+          onClick={() => onLayoutChange('masterfile')}
+        >
+          Masterfile Check
         </button>
       </div>
 
-      {filteredRows.length === 0 ? (
+      {visibleCount === 0 ? (
         <EmptyState
-          title="표시할 cue가 없습니다."
-          message={normalizedQuery || statusFilter ? '현재 필터 조건과 일치하는 cue가 없습니다.' : 'DB에 아직 cue row가 없습니다.'}
+          title={isMasterfileMode ? '표시할 파일 점검 항목이 없습니다.' : '표시할 cue가 없습니다.'}
+          message={
+            normalizedQuery || statusFilter
+              ? isMasterfileMode
+                ? '현재 필터 조건과 일치하는 점검 항목이 없습니다.'
+                : '현재 필터 조건과 일치하는 cue가 없습니다.'
+              : isMasterfileMode
+                ? '생성된 마스터파일 점검 데이터가 없습니다.'
+                : 'DB에 아직 cue row가 없습니다.'
+          }
           className="scheduleEmptyState"
         />
       ) : layoutMode === 'compact' ? (
-        <CompactLayout rows={filteredRows} onOpenPreview={openPreview} />
-      ) : (
+        <CompactLayout rows={filteredRows} onOpenPreview={setPreviewTarget} />
+      ) : layoutMode === 'cueSheet' ? (
         <CueSheetLayout
           rows={filteredRows}
-          onOpenPreview={openPreview}
-          activePreviewId={previewTarget?.id ?? null}
-          onClosePreview={() => setPreviewTarget(null)}
+          onOpenPreview={setInlinePreviewId}
+          activePreviewId={inlinePreviewId}
+          onClosePreview={() => {
+            setInlinePreviewId(null)
+          }}
         />
+      ) : (
+        <MasterfileAuditLayout cues={filteredMasterfileCues} onOpenPreview={setPreviewTarget} />
       )}
 
-      {layoutMode === 'compact' && previewTarget && looksLikeImageUrl(previewTarget.previewHref) ? (
+      {previewTarget && looksLikeImageUrl(previewTarget.src) ? (
         <div className="eventGraphicsPreviewModal" role="dialog" aria-modal="true" aria-label="그래픽 미리보기">
           <button type="button" className="eventGraphicsPreviewBackdrop" aria-label="미리보기 닫기" onClick={() => setPreviewTarget(null)} />
           <div className="eventGraphicsPreviewDialog">
             <div className="eventGraphicsPreviewDialogHead">
               <div>
-                <strong>{previewTarget.cueTitle}</strong>
-                <p>{previewTarget.graphicAsset}</p>
+                <strong>{previewTarget.title}</strong>
+                <p>{previewTarget.subtitle}</p>
               </div>
               <button type="button" className="secondary mini" onClick={() => setPreviewTarget(null)}>
                 닫기
               </button>
             </div>
             <div className="eventGraphicsPreviewDialogBody">
-              <img src={previewTarget.previewHref ?? ''} alt={`${previewTarget.cueTitle} 미리보기`} />
+              <img src={previewTarget.src} alt={`${previewTarget.title} 미리보기`} />
             </div>
           </div>
         </div>

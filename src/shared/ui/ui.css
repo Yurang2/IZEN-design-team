@@ -3159,6 +3159,120 @@ button.dashboardNavButton {
   width: 100%;
 }
 
+.eventGraphicsAuditList {
+  display: grid;
+  gap: 12px;
+}
+
+.eventGraphicsAuditCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.eventGraphicsAuditCard.status-missing {
+  border-color: color-mix(in srgb, #d64545 48%, var(--border));
+}
+
+.eventGraphicsAuditCard.status-partial {
+  border-color: color-mix(in srgb, #f59e0b 44%, var(--border));
+}
+
+.eventGraphicsAuditCard.status-complete {
+  border-color: color-mix(in srgb, #16a34a 40%, var(--border));
+}
+
+.eventGraphicsStatus.status-missing {
+  background: color-mix(in srgb, #fee2e2 80%, white);
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.eventGraphicsStatus.status-partial {
+  background: color-mix(in srgb, #fef3c7 82%, white);
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.eventGraphicsStatus.status-complete {
+  background: color-mix(in srgb, #dcfce7 82%, white);
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.eventGraphicsAuditHead {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsAuditMeta {
+  display: grid;
+  gap: 4px;
+}
+
+.eventGraphicsAuditMeta h3,
+.eventGraphicsAuditMeta p {
+  margin: 0;
+}
+
+.eventGraphicsAuditMeta p {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.eventGraphicsAuditGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(240px, 320px) repeat(2, minmax(0, 1fr));
+}
+
+.eventGraphicsAuditVisual,
+.eventGraphicsAuditPanel {
+  background: color-mix(in srgb, var(--surface-soft) 84%, white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.eventGraphicsAuditFileList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.eventGraphicsAuditFileList li {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+}
+
+.eventGraphicsAuditFileList li strong,
+.eventGraphicsAuditFileList li span {
+  margin: 0;
+}
+
+.eventGraphicsAuditFileList li span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.eventGraphicsAuditFileList.is-missing li {
+  border-style: dashed;
+}
+
 .eventGraphicsShareShell {
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 30%),
@@ -3404,6 +3518,21 @@ button.dashboardNavButton {
 }
 
 @media (max-width: 960px) {
+  .eventGraphicsHero,
+  .eventGraphicsCueSheetRow,
+  .eventGraphicsAuditHead,
+  .eventGraphicsAuditGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsHeroActions {
+    justify-content: flex-start;
+  }
+
+  .eventGraphicsToolbar {
+    grid-template-columns: 1fr;
+  }
+
   .eventGraphicsShareHero,
   .eventGraphicsShareRow {
     grid-template-columns: 1fr;
