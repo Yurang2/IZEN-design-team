@@ -49,6 +49,7 @@ type SessionStage = {
   cueType: string
   startTime: string
   endTime: string
+  runtimeMinutes: number
   runtimeLabel: string
   status: string
   graphicLabel: string
@@ -58,6 +59,7 @@ type SessionStage = {
 }
 type SessionGroup = {
   id: string
+  cueNumber: string
   title: string
   cueType: string
   startTime: string
@@ -68,6 +70,7 @@ type SessionGroup = {
 
 const EXTERNAL_SHARE_PATH = '/share/timetable'
 const ENTRANCE_LABEL = '입장'
+const APPEARANCE_LABEL = '등장'
 const DRIVE_CHECKLIST_STORAGE_KEY = 'event-graphics-drive-checklist:v1'
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
@@ -106,6 +109,11 @@ function formatRuntimeLabel(runtime: string): string {
   return runtime ? `${runtime}분` : '-'
 }
 
+function toRuntimeMinutes(value: string): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 function joinSummary(parts: string[]): string {
   return parts.map((part) => part.trim()).filter(Boolean).join(' / ')
 }
@@ -113,8 +121,8 @@ function joinSummary(parts: string[]): string {
 function toDisplayCueOrder(row: TimetableRow): string {
   const numeric = row.cueOrderNumeric
   const cueNumber = numeric != null ? `Q${String(Math.ceil(numeric)).padStart(2, '0')}` : row.cueOrder
-  if (row.cueTitle === ENTRANCE_LABEL && numeric != null) {
-    return `${cueNumber}-입장`
+  if (isEntranceRow(row) && numeric != null) {
+    return `${cueNumber}-등장`
   }
   return cueNumber
 }
@@ -155,18 +163,29 @@ function normalizeSessionTitle(value: string): string {
   return value
     .replace(/^\[[^\]]+\]\s*/u, '')
     .replace(/^\d+\s*/u, '')
+    .replace(/^등장\s*-\s*/u, '')
     .replace(/^입장\s*-\s*/u, '')
     .replace(/\s+Certi$/u, '')
     .trim()
 }
 
+function isEntranceRow(row: TimetableRow): boolean {
+  const cueTitle = row.cueTitle.trim()
+  const rowTitle = row.rowTitle.trim()
+  return cueTitle === ENTRANCE_LABEL || cueTitle === APPEARANCE_LABEL || /등장\s*-/u.test(rowTitle)
+}
+
 function toSessionTitle(row: TimetableRow): string {
-  if (row.cueTitle === ENTRANCE_LABEL) return normalizeSessionTitle(row.rowTitle || row.cueTitle) || row.cueTitle
+  if (isEntranceRow(row)) return normalizeSessionTitle(row.rowTitle || row.cueTitle) || row.cueTitle
   return normalizeSessionTitle(row.cueTitle || row.rowTitle) || row.cueTitle
 }
 
+function toBaseCueNumber(value: number | null): string {
+  return value != null ? `Q${String(Math.ceil(value)).padStart(2, '0')}` : 'Q--'
+}
+
 function toSessionStageLabel(row: TimetableRow): string {
-  if (row.cueTitle === ENTRANCE_LABEL) return '등장'
+  if (isEntranceRow(row)) return '등장'
   if (/\bcerti\b/i.test(row.cueTitle) || row.cueType === 'certificate') return '서티 증정'
   if (row.cueType === 'lecture') return '강연'
   return '메인'
@@ -177,11 +196,12 @@ function toStageGraphicLabel(row: TimetableRow): string {
 }
 
 function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
-  const groups = new Map<string, SessionGroup>()
+  const groups: SessionGroup[] = []
 
-  for (const row of rows) {
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index]
+    const previousGroup = groups[groups.length - 1]
     const title = toSessionTitle(row)
-    const existing = groups.get(title)
     const stage: SessionStage = {
       id: row.id,
       cueNumber: toDisplayCueOrder(row),
@@ -191,6 +211,7 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
       cueType: row.cueType,
       startTime: row.startTime,
       endTime: row.endTime,
+      runtimeMinutes: toRuntimeMinutes(row.runtime),
       runtimeLabel: formatRuntimeLabel(row.runtime),
       status: row.status,
       graphicLabel: toStageGraphicLabel(row),
@@ -198,15 +219,59 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
       note: joinSummary([row.vendorNote, row.remark, row.personnel && `무대 ${row.personnel}`]) || '메모 없음',
       previewHref: row.previewHref,
     }
+    const rowCueNumber = toBaseCueNumber(row.cueOrderNumeric)
 
-    if (existing) {
-      existing.stages.push(stage)
-      existing.endTime = row.endTime
+    if (isEntranceRow(row)) {
+      const nextRow = rows[index + 1]
+      const nextTitle = nextRow ? toSessionTitle(nextRow) : title
+      const nextCueNumber = toBaseCueNumber(nextRow?.cueOrderNumeric ?? row.cueOrderNumeric)
+      groups.push({
+        id: nextRow?.id ?? row.id,
+        cueNumber: nextCueNumber,
+        title: nextTitle,
+        cueType: nextRow?.cueType ?? row.cueType,
+        startTime: row.startTime,
+        endTime: nextRow?.endTime ?? row.endTime,
+        runtimeLabel: nextRow ? formatRuntimeLabel(String(stage.runtimeMinutes + toRuntimeMinutes(nextRow.runtime))) : stage.runtimeLabel,
+        stages: [stage],
+      })
       continue
     }
 
-    groups.set(title, {
+    const shouldAttachToPreviousLecture =
+      row.cueType === 'certificate' &&
+      previousGroup &&
+      previousGroup.cueType === 'lecture' &&
+      normalizeSessionTitle(row.cueTitle) === previousGroup.title
+
+    if (shouldAttachToPreviousLecture) {
+      previousGroup.stages.push(stage)
+      previousGroup.endTime = row.endTime
+      previousGroup.runtimeLabel = formatRuntimeLabel(
+        String(previousGroup.stages.reduce((sum, currentStage) => sum + currentStage.runtimeMinutes, 0)),
+      )
+      continue
+    }
+
+    const shouldAttachToPreviousOpeningOrLecture =
+      previousGroup &&
+      previousGroup.title === title &&
+      previousGroup.cueNumber === rowCueNumber &&
+      ['opening', 'lecture'].includes(row.cueType)
+
+    if (shouldAttachToPreviousOpeningOrLecture) {
+      previousGroup.stages.push(stage)
+      previousGroup.endTime = row.endTime
+      previousGroup.cueType = row.cueType
+      previousGroup.runtimeLabel = formatRuntimeLabel(
+        String(previousGroup.stages.reduce((sum, currentStage) => sum + currentStage.runtimeMinutes, 0)),
+      )
+      continue
+    }
+
+    groups.push({
       id: row.id,
+      cueNumber: rowCueNumber,
       title,
       cueType: row.cueType,
       startTime: row.startTime,
@@ -216,13 +281,15 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
     })
   }
 
-  return Array.from(groups.values()).map((group) => {
+  return groups.map((group) => {
     const sortedStages = [...group.stages].sort((left, right) => left.sortOrder - right.sortOrder)
+    const runtimeTotal = sortedStages.reduce((sum, currentStage) => sum + currentStage.runtimeMinutes, 0)
     return {
       ...group,
       stages: sortedStages,
       startTime: sortedStages[0]?.startTime ?? group.startTime,
       endTime: sortedStages[sortedStages.length - 1]?.endTime ?? group.endTime,
+      runtimeLabel: runtimeTotal > 0 ? `${runtimeTotal}분` : group.runtimeLabel,
     }
   })
 }
@@ -289,7 +356,7 @@ function TimelineLayout({
             <div className="eventGraphicsTimelineHead">
               <div>
                 <div className="eventGraphicsCueHead">
-                  <span className="eventGraphicsOrder">{group.stages[0]?.cueNumber ?? '--'}</span>
+                  <span className="eventGraphicsOrder">{group.cueNumber}</span>
                   <span className={`eventGraphicsCueType cue-${sessionTypeClassName}`}>{group.cueType}</span>
                 </div>
                 <h3>{group.title}</h3>
@@ -362,7 +429,7 @@ function SessionLayout({
             <div className="eventGraphicsSessionHead">
               <div>
                 <div className="eventGraphicsCueHead">
-                  <span className="eventGraphicsOrder">{group.stages[0]?.cueNumber ?? '--'}</span>
+                  <span className="eventGraphicsOrder">{group.cueNumber}</span>
                   <span className={`eventGraphicsCueType cue-${sessionTypeClassName}`}>{group.cueType}</span>
                 </div>
                 <h3>{group.title}</h3>
@@ -380,8 +447,10 @@ function SessionLayout({
                   <section key={stage.id} className={`eventGraphicsSessionStage status-${stageStatusClassName}`}>
                     <div className="eventGraphicsSessionStageMeta">
                       <div className="eventGraphicsCueHead">
-                        <span className="eventGraphicsOrder">{stage.cueNumber}</span>
                         <span className="eventGraphicsEntranceFlag">{stage.label}</span>
+                        <span className="eventGraphicsOrder">
+                          {stage.startTime} - {stage.endTime}
+                        </span>
                       </div>
                       <span className={`eventGraphicsStatus status-${stageStatusClassName}`}>{stage.status}</span>
                     </div>
@@ -642,7 +711,7 @@ export function EventGraphicsTimetableView({
 
   const readyCount = useMemo(() => tableRows.filter((row) => ['ready', 'shared'].includes(row.status)).length, [tableRows])
   const changedCount = useMemo(() => tableRows.filter((row) => row.status === 'changed_on_site').length, [tableRows])
-  const entranceCount = useMemo(() => tableRows.filter((row) => row.cueTitle === ENTRANCE_LABEL).length, [tableRows])
+  const entranceCount = useMemo(() => tableRows.filter((row) => isEntranceRow(row)).length, [tableRows])
   const effectiveTitle = databaseTitle.trim() || '행사 그래픽 타임테이블'
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {

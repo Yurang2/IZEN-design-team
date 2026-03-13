@@ -3593,7 +3593,9 @@ button.dashboardNavButton {
   .eventGraphicsCueSheetRow,
   .eventGraphicsAuditHead,
   .eventGraphicsAuditGrid,
+  .eventGraphicsTimelineHead,
   .eventGraphicsSessionHead,
+  .eventGraphicsSessionStageMeta,
   .eventGraphicsSessionStageGrid {
     grid-template-columns: 1fr;
   }
@@ -3627,6 +3629,11 @@ button.dashboardNavButton {
     grid-template-columns: 1fr;
   }
 
+  .eventGraphicsTimelineTime {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+
   .eventGraphicsShareGroupHead {
     align-items: start;
     flex-direction: column;
@@ -3634,6 +3641,31 @@ button.dashboardNavButton {
 
   .eventGraphicsShareTime {
     border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 640px) {
+  .eventGraphicsTimelineCard,
+  .eventGraphicsSessionCard,
+  .eventGraphicsAuditCard {
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  .eventGraphicsTimelineStage,
+  .eventGraphicsSessionStage,
+  .eventGraphicsCueSheetBody,
+  .eventGraphicsCueSheetTime {
+    padding: 12px;
+  }
+
+  .eventGraphicsTimelineTime strong,
+  .eventGraphicsCueSheetTime strong {
+    font-size: 20px;
+  }
+
+  .eventGraphicsHeroText h2 {
+    font-size: 24px;
   }
 }
 
