@@ -19,6 +19,7 @@ type TimetableRow = {
   id: string
   url: string | null
   cueOrder: string
+  cueOrderNumeric: number | null
   cueType: string
   cueTitle: string
   startTime: string
@@ -88,11 +89,12 @@ function joinSummary(parts: string[]): string {
 }
 
 function toDisplayCueOrder(row: TimetableRow): string {
-  const numeric = Number(row.cueOrder)
-  if (row.cueTitle === ENTRANCE_LABEL && Number.isFinite(numeric)) {
-    return `${Math.ceil(numeric)}-입장`
+  const numeric = row.cueOrderNumeric
+  const cueNumber = numeric != null ? `Q${String(Math.ceil(numeric)).padStart(2, '0')}` : row.cueOrder
+  if (row.cueTitle === ENTRANCE_LABEL && numeric != null) {
+    return `${cueNumber}-입장`
   }
-  return row.cueOrder
+  return cueNumber
 }
 
 function matchesQuery(row: TimetableRow, query: string): boolean {
@@ -128,10 +130,20 @@ function matchesMasterfileQuery(cue: MasterfileCue, query: string): boolean {
 }
 
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): TimetableRow {
+  const cueOrderText = readCellText(row, columnIndex, 'Cue 순서')
+  const cueOrderNumeric = Number(cueOrderText)
+  const displayCueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
+  const manifestCue = displayCueNumber
+    ? bangkokMasterfileManifest.cues.find((cue) => cue.cueNumber === displayCueNumber)
+    : null
+  const previewHrefFromNotion =
+    readCellHref(row, columnIndex, '미리보기 링크') || readCellText(row, columnIndex, '미리보기 링크') || null
+
   return {
     id: row.id,
     url: row.url,
-    cueOrder: readCellText(row, columnIndex, 'Cue 순서') || '-',
+    cueOrder: cueOrderText || '-',
+    cueOrderNumeric: Number.isFinite(cueOrderNumeric) ? cueOrderNumeric : null,
     cueType: readCellText(row, columnIndex, 'Cue 유형') || 'other',
     cueTitle: readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '행 제목') || '-',
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
@@ -145,7 +157,7 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
     personnel: readCellText(row, columnIndex, '무대 인원'),
     remark: readCellText(row, columnIndex, '원본 비고'),
     vendorNote: readCellText(row, columnIndex, '업체 전달 메모'),
-    previewHref: readCellHref(row, columnIndex, '미리보기 링크') || readCellText(row, columnIndex, '미리보기 링크') || null,
+    previewHref: previewHrefFromNotion || manifestCue?.previewUrl || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || null,
   }
 }
