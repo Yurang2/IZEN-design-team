@@ -2943,6 +2943,10 @@ button.dashboardNavButton {
   font-size: 12px;
 }
 
+.eventGraphicsCompactImageCell .eventGraphicsPreviewThumb {
+  max-width: 180px;
+}
+
 .eventGraphicsCompactStatusCell {
   align-content: start;
 }
@@ -3273,6 +3277,26 @@ button.dashboardNavButton {
   border-style: dashed;
 }
 
+.eventGraphicsAuditChecks {
+  display: grid;
+  gap: 8px;
+}
+
+.eventGraphicsAuditCheck {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.eventGraphicsAuditCheck input {
+  margin: 0;
+}
+
+.eventGraphicsAuditMissing {
+  display: grid;
+  gap: 8px;
+}
+
 .eventGraphicsShareShell {
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 30%),
@@ -3531,6 +3555,10 @@ button.dashboardNavButton {
 
   .eventGraphicsToolbar {
     grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsCompactImageCell .eventGraphicsPreviewThumb {
+    max-width: none;
   }
 
   .eventGraphicsShareHero,

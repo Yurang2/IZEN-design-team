@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
+import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 
 type EventGraphicsSharePageProps = {
   configured: boolean
@@ -263,7 +264,7 @@ function toPrimaryAsset(row: ShareRow): string {
 
 function toCueNumber(value: number | null): string {
   const numeric = value == null ? Number.NaN : Math.round(value)
-  return Number.isFinite(numeric) ? String(numeric).padStart(2, '0') : '--'
+  return Number.isFinite(numeric) ? `Q${String(numeric).padStart(2, '0')}` : 'Q--'
 }
 
 function isEntranceRow(row: ShareRow): boolean {
@@ -282,6 +283,10 @@ function canMergeEntranceWithMainRow(entranceRow: ShareRow, mainRow: ShareRow | 
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ShareRow {
   const cueOrderText = readCellText(row, columnIndex, 'Cue 순서')
   const cueOrderNumeric = Number(cueOrderText)
+  const cueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
+  const manifestCue = cueNumber
+    ? bangkokMasterfileManifest.cues.find((cue) => cue.cueNumber === cueNumber)
+    : null
 
   return {
     id: row.id,
@@ -300,7 +305,11 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Shar
     sourceRemark: readCellText(row, columnIndex, '원본 비고'),
     vendorNote: readCellText(row, columnIndex, '업체 전달 메모'),
     personnel: readCellText(row, columnIndex, '무대 인원'),
-    previewHref: readCellHref(row, columnIndex, '미리보기 링크') || readCellText(row, columnIndex, '미리보기 링크') || null,
+    previewHref:
+      readCellHref(row, columnIndex, '미리보기 링크') ||
+      readCellText(row, columnIndex, '미리보기 링크') ||
+      manifestCue?.previewUrl ||
+      null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || null,
   }
 }

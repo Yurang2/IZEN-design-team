@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
@@ -37,16 +37,12 @@ type TimetableRow = {
   assetHref: string | null
 }
 
-type PreviewTarget = {
-  title: string
-  subtitle: string
-  src: string
-}
-
 type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
+type DriveChecklistState = Record<string, { graphic: boolean; audio: boolean }>
 
 const EXTERNAL_SHARE_PATH = '/share/timetable'
 const ENTRANCE_LABEL = '입장'
+const DRIVE_CHECKLIST_STORAGE_KEY = 'event-graphics-drive-checklist:v1'
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
@@ -164,10 +160,8 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
 
 function CompactLayout({
   rows,
-  onOpenPreview,
 }: {
   rows: TimetableRow[]
-  onOpenPreview: (target: PreviewTarget) => void
 }) {
   return (
     <div className="eventGraphicsCompactTableWrap">
@@ -212,22 +206,9 @@ function CompactLayout({
                 <td className="eventGraphicsCompactImageCell">
                   <div className="eventGraphicsCompactCellInner">
                     {hasPreview ? (
-                      <>
-                        <button
-                          type="button"
-                          className="secondary mini"
-                          onClick={() =>
-                            onOpenPreview({
-                              title: row.cueTitle,
-                              subtitle: row.graphicAsset,
-                              src: row.previewHref ?? '',
-                            })
-                          }
-                        >
-                          이미지 보기
-                        </button>
-                        <div className="eventGraphicsCompactImageHint">클릭 시 크게 확인</div>
-                      </>
+                      <div className="eventGraphicsPreviewThumb">
+                        <img src={row.previewHref ?? ''} alt={`${row.cueTitle} 미리보기`} loading="lazy" />
+                      </div>
                     ) : (
                       <span className="eventGraphicsCompactImageHint">없음</span>
                     )}
@@ -268,14 +249,8 @@ function CompactLayout({
 
 function CueSheetLayout({
   rows,
-  onOpenPreview,
-  activePreviewId,
-  onClosePreview,
 }: {
   rows: TimetableRow[]
-  onOpenPreview: (rowId: string) => void
-  activePreviewId: string | null
-  onClosePreview: () => void
 }) {
   return (
     <div className="eventGraphicsCueSheet">
@@ -284,7 +259,6 @@ function CueSheetLayout({
         const cueTypeClassName = toCueTypeClassName(row.cueType)
         const isEntranceCue = row.cueTitle === ENTRANCE_LABEL
         const hasPreview = looksLikeImageUrl(row.previewHref)
-        const previewOpen = activePreviewId === row.id && hasPreview
         const displayCueOrder = toDisplayCueOrder(row)
 
         return (
@@ -314,34 +288,17 @@ function CueSheetLayout({
                   <strong>{row.graphicAsset}</strong>
                   <p>{row.graphicType || '-'}</p>
                   {row.sourceVideo ? <p className="eventGraphicsSubline">파일명: {row.sourceVideo}</p> : null}
-                  <div className="eventGraphicsLinkRow">
-                    {hasPreview ? (
-                      <button
-                        type="button"
-                        className={previewOpen ? 'secondary mini is-active' : 'secondary mini'}
-                        onClick={() => {
-                          if (previewOpen) {
-                            onClosePreview()
-                            return
-                          }
-                          onOpenPreview(row.id)
-                        }}
-                      >
-                        {previewOpen ? '이미지 닫기' : '이미지 보기'}
-                      </button>
-                    ) : null}
-                    {row.assetHref ? (
+                  {row.assetHref ? (
+                    <div className="eventGraphicsLinkRow">
                       <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
                         자산 링크
                       </a>
-                    ) : null}
-                  </div>
-                  {previewOpen ? (
+                    </div>
+                  ) : null}
+                  {hasPreview ? (
                     <div className="eventGraphicsPreviewInline">
                       <img src={row.previewHref ?? ''} alt={`${row.cueTitle} 미리보기`} loading="lazy" />
                     </div>
-                  ) : hasPreview ? (
-                    <div className="eventGraphicsPreviewPlaceholder">이미지 보기를 누르면 여기에서 크게 확인할 수 있습니다.</div>
                   ) : (
                     <div className="eventGraphicsPreviewPlaceholder">등록된 미리보기 이미지가 없습니다.</div>
                   )}
@@ -374,15 +331,26 @@ function CueSheetLayout({
 
 function MasterfileAuditLayout({
   cues,
-  onOpenPreview,
+  driveChecklist,
+  onToggleDriveCheck,
 }: {
   cues: MasterfileCue[]
-  onOpenPreview: (target: PreviewTarget) => void
+  driveChecklist: DriveChecklistState
+  onToggleDriveCheck: (cueNumber: string, field: 'graphic' | 'audio', checked: boolean) => void
 }) {
   return (
     <div className="eventGraphicsAuditList">
       {cues.map((cue) => {
         const statusClassName = toStatusClassName(cue.status)
+        const registeredFiles = cue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>
+        const missingFiles = cue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>
+        const graphicFiles = registeredFiles.filter((file) => file.kind === 'image' || file.kind === 'video')
+        const audioFiles = registeredFiles.filter((file) => file.kind === 'audio')
+        const expectedGraphic =
+          graphicFiles.length > 0 || missingFiles.some((file) => file.kind !== 'audio')
+        const expectedAudio = audioFiles.length > 0 || missingFiles.some((file) => file.kind === 'audio')
+        const driveState = driveChecklist[cue.cueNumber] ?? { graphic: false, audio: false }
+
         return (
           <article key={cue.cueNumber} className={`eventGraphicsAuditCard status-${statusClassName}`}>
             <div className="eventGraphicsAuditHead">
@@ -409,21 +377,6 @@ function MasterfileAuditLayout({
                     <div className="eventGraphicsPreviewInline">
                       <img src={cue.previewUrl} alt={`${cue.title} 등록 이미지`} loading="lazy" />
                     </div>
-                    <div className="eventGraphicsLinkRow">
-                      <button
-                        type="button"
-                        className="secondary mini"
-                        onClick={() =>
-                          onOpenPreview({
-                            title: cue.title,
-                            subtitle: cue.folderName,
-                            src: cue.previewUrl ?? '',
-                          })
-                        }
-                      >
-                        크게 보기
-                      </button>
-                    </div>
                   </>
                 ) : (
                   <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
@@ -431,32 +384,79 @@ function MasterfileAuditLayout({
               </section>
 
               <section className="eventGraphicsAuditPanel">
-                <span className="eventGraphicsPanelLabel">등록 파일</span>
-                {cue.registeredFiles.length > 0 ? (
+                <span className="eventGraphicsPanelLabel">Graphics Check</span>
+                <div className="eventGraphicsAuditChecks">
+                  <label className="eventGraphicsAuditCheck">
+                    <input type="checkbox" checked={expectedGraphic && graphicFiles.length > 0} disabled />
+                    <span>로컬 폴더 확인</span>
+                  </label>
+                  <label className="eventGraphicsAuditCheck">
+                    <input
+                      type="checkbox"
+                      checked={driveState.graphic}
+                      onChange={(event) => onToggleDriveCheck(cue.cueNumber, 'graphic', event.target.checked)}
+                    />
+                    <span>구글드라이브 업로드 확인</span>
+                  </label>
+                </div>
+                {graphicFiles.length > 0 ? (
                   <ul className="eventGraphicsAuditFileList">
-                    {cue.registeredFiles.map((file) => (
+                    {graphicFiles.map((file) => (
                       <li key={file.name}>
                         <strong>{file.name}</strong>
                         <span>{file.role}</span>
                       </li>
                     ))}
                   </ul>
+                ) : expectedGraphic ? (
+                  <div className="eventGraphicsPreviewPlaceholder">그래픽 파일이 아직 로컬 폴더에 없습니다.</div>
                 ) : (
-                  <div className="eventGraphicsPreviewPlaceholder">등록된 파일이 없습니다.</div>
+                  <div className="eventGraphicsPreviewPlaceholder">이 cue에는 별도 그래픽 파일이 필요 없습니다.</div>
                 )}
               </section>
 
               <section className="eventGraphicsAuditPanel">
-                <span className="eventGraphicsPanelLabel">추가 필요</span>
-                {cue.missingFiles.length > 0 ? (
-                  <ul className="eventGraphicsAuditFileList is-missing">
-                    {cue.missingFiles.map((file) => (
-                      <li key={`${cue.cueNumber}-${file.label}`}>
-                        <strong>{file.label}</strong>
-                        <span>{file.kind}</span>
+                <span className="eventGraphicsPanelLabel">Audio Check</span>
+                <div className="eventGraphicsAuditChecks">
+                  <label className="eventGraphicsAuditCheck">
+                    <input type="checkbox" checked={expectedAudio && audioFiles.length > 0} disabled />
+                    <span>로컬 폴더 확인</span>
+                  </label>
+                  <label className="eventGraphicsAuditCheck">
+                    <input
+                      type="checkbox"
+                      checked={driveState.audio}
+                      onChange={(event) => onToggleDriveCheck(cue.cueNumber, 'audio', event.target.checked)}
+                    />
+                    <span>구글드라이브 업로드 확인</span>
+                  </label>
+                </div>
+                {audioFiles.length > 0 ? (
+                  <ul className="eventGraphicsAuditFileList">
+                    {audioFiles.map((file) => (
+                      <li key={file.name}>
+                        <strong>{file.name}</strong>
+                        <span>{file.role}</span>
                       </li>
                     ))}
                   </ul>
+                ) : expectedAudio ? (
+                  <div className="eventGraphicsPreviewPlaceholder">오디오 파일이 아직 로컬 폴더에 없습니다.</div>
+                ) : (
+                  <div className="eventGraphicsPreviewPlaceholder">이 cue에는 별도 오디오 파일이 필요 없습니다.</div>
+                )}
+                {missingFiles.length > 0 ? (
+                  <div className="eventGraphicsAuditMissing">
+                    <span className="eventGraphicsPanelLabel">추가 필요 파일명</span>
+                    <ul className="eventGraphicsAuditFileList is-missing">
+                      {missingFiles.map((file) => (
+                        <li key={`${cue.cueNumber}-${file.label}`}>
+                          <strong>{file.sourceName || file.label}</strong>
+                          <span>{file.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : (
                   <div className="eventGraphicsPreviewPlaceholder">현재 예상 파일은 모두 들어와 있습니다.</div>
                 )}
@@ -481,8 +481,24 @@ export function EventGraphicsTimetableView({
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('compact')
-  const [previewTarget, setPreviewTarget] = useState<PreviewTarget | null>(null)
-  const [inlinePreviewId, setInlinePreviewId] = useState<string | null>(null)
+  const [driveChecklist, setDriveChecklist] = useState<DriveChecklistState>({})
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(DRIVE_CHECKLIST_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as DriveChecklistState
+      setDriveChecklist(parsed)
+    } catch {
+      // Ignore malformed saved checklist state.
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(DRIVE_CHECKLIST_STORAGE_KEY, JSON.stringify(driveChecklist))
+  }, [driveChecklist])
 
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
@@ -531,8 +547,17 @@ export function EventGraphicsTimetableView({
   const onLayoutChange = (nextLayout: LayoutMode) => {
     setLayoutMode(nextLayout)
     setStatusFilter('')
-    setInlinePreviewId(null)
-    setPreviewTarget(null)
+  }
+
+  const onToggleDriveCheck = (cueNumber: string, field: 'graphic' | 'audio', checked: boolean) => {
+    setDriveChecklist((current) => ({
+      ...current,
+      [cueNumber]: {
+        graphic: current[cueNumber]?.graphic ?? false,
+        audio: current[cueNumber]?.audio ?? false,
+        [field]: checked,
+      },
+    }))
   }
 
   if (loading) {
@@ -686,39 +711,16 @@ export function EventGraphicsTimetableView({
           className="scheduleEmptyState"
         />
       ) : layoutMode === 'compact' ? (
-        <CompactLayout rows={filteredRows} onOpenPreview={setPreviewTarget} />
+        <CompactLayout rows={filteredRows} />
       ) : layoutMode === 'cueSheet' ? (
-        <CueSheetLayout
-          rows={filteredRows}
-          onOpenPreview={setInlinePreviewId}
-          activePreviewId={inlinePreviewId}
-          onClosePreview={() => {
-            setInlinePreviewId(null)
-          }}
-        />
+        <CueSheetLayout rows={filteredRows} />
       ) : (
-        <MasterfileAuditLayout cues={filteredMasterfileCues} onOpenPreview={setPreviewTarget} />
+        <MasterfileAuditLayout
+          cues={filteredMasterfileCues}
+          driveChecklist={driveChecklist}
+          onToggleDriveCheck={onToggleDriveCheck}
+        />
       )}
-
-      {previewTarget && looksLikeImageUrl(previewTarget.src) ? (
-        <div className="eventGraphicsPreviewModal" role="dialog" aria-modal="true" aria-label="그래픽 미리보기">
-          <button type="button" className="eventGraphicsPreviewBackdrop" aria-label="미리보기 닫기" onClick={() => setPreviewTarget(null)} />
-          <div className="eventGraphicsPreviewDialog">
-            <div className="eventGraphicsPreviewDialogHead">
-              <div>
-                <strong>{previewTarget.title}</strong>
-                <p>{previewTarget.subtitle}</p>
-              </div>
-              <button type="button" className="secondary mini" onClick={() => setPreviewTarget(null)}>
-                닫기
-              </button>
-            </div>
-            <div className="eventGraphicsPreviewDialogBody">
-              <img src={previewTarget.src} alt={`${previewTarget.title} 미리보기`} />
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   )
 }
