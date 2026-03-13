@@ -193,7 +193,7 @@ function buildPostText(values: PreviewValues, heart: string, hashtags: string[])
 
 export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
-  const [heartSeed, setHeartSeed] = useState(0)
+  const [heartSeed, setHeartSeed] = useState(() => Math.floor(Math.random() * HEART_OPTIONS.length))
 
   const normalizedForm = useMemo(
     () => ({
@@ -251,10 +251,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
   }
 
   const onRandomizeHeart = () => {
-    const nextOptions = HEART_OPTIONS.filter((option) => option.key !== selectedHeart.key)
-    const randomOption = nextOptions[Math.floor(Math.random() * nextOptions.length)] ?? HEART_OPTIONS[0]
-    const nextIndex = HEART_OPTIONS.findIndex((option) => option.key === randomOption.key)
-    setHeartSeed(nextIndex >= 0 ? nextIndex : 0)
+    setHeartSeed(Math.floor(Math.random() * HEART_OPTIONS.length))
   }
 
   return (
@@ -307,7 +304,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
             <label>
               시작일
               <input
-                type="text"
+                type="date"
                 value={form.startDate}
                 onChange={(event) => onChangeField('startDate', event.target.value)}
                 placeholder="2025-12-14"
@@ -316,7 +313,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
             <label>
               종료일(선택)
               <input
-                type="text"
+                type="date"
                 value={form.endDate}
                 onChange={(event) => onChangeField('endDate', event.target.value)}
                 placeholder="2025-12-14"
