@@ -200,6 +200,14 @@ function readCellHref(row: ScheduleRow, columnIndex: Record<string, number>, col
   return row.cells[index]?.href ?? null
 }
 
+function readFirstCellText(row: ScheduleRow, columnIndex: Record<string, number>, columnNames: string[]): string {
+  for (const columnName of columnNames) {
+    const value = readCellText(row, columnIndex, columnName)
+    if (value) return value
+  }
+  return ''
+}
+
 function looksLikeImageUrl(value: string | null): boolean {
   if (!value) return false
   return /\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?|#|$)/i.test(value)
@@ -267,7 +275,7 @@ function canMergeEntranceWithMainRow(entranceRow: ShareRow, mainRow: ShareRow | 
 }
 
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ShareRow {
-  const cueOrderText = readCellText(row, columnIndex, 'Cue 순서')
+  const cueOrderText = readFirstCellText(row, columnIndex, ['정렬 순서', 'Cue 순서', '운영 순서', 'No'])
   const cueOrderNumeric = Number(cueOrderText)
   const cueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
   const manifestCue = cueNumber
@@ -278,18 +286,18 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Shar
     id: row.id,
     rowTitle: readCellText(row, columnIndex, '행 제목') || '-',
     cueOrder: Number.isFinite(cueOrderNumeric) ? cueOrderNumeric : null,
-    cueType: readCellText(row, columnIndex, 'Cue 유형') || 'other',
+    cueType: readFirstCellText(row, columnIndex, ['카테고리', 'Cue 유형']) || 'other',
     cueTitle: readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '행 제목') || '-',
     eventName: readCellText(row, columnIndex, '행사명'),
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '러닝타임(분)'),
-    graphicAsset: readCellText(row, columnIndex, '그래픽 자산명') || '-',
-    graphicType: readCellText(row, columnIndex, '그래픽 형식') || '-',
-    sourceVideo: readCellText(row, columnIndex, '원본 Video'),
-    sourceAudio: readCellText(row, columnIndex, '원본 Audio'),
-    sourceRemark: readCellText(row, columnIndex, '원본 비고'),
-    vendorNote: readCellText(row, columnIndex, '업체 전달 메모'),
+    graphicAsset: readFirstCellText(row, columnIndex, ['메인 화면', '그래픽 자산명', 'Main Screen']) || '-',
+    graphicType: readFirstCellText(row, columnIndex, ['운영 액션', '그래픽 형식']) || '-',
+    sourceVideo: readFirstCellText(row, columnIndex, ['메인 화면', '원본 Video', '그래픽 자산명']),
+    sourceAudio: readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']),
+    sourceRemark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
+    vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     personnel: readCellText(row, columnIndex, '무대 인원'),
     previewHref:
       readCellHref(row, columnIndex, '미리보기 링크') ||

@@ -110,61 +110,81 @@ function extractRelationIds(prop) {
   return (prop.relation ?? []).map((entry) => entry?.id).filter(Boolean)
 }
 
+function normalizeText(value) {
+  return String(value ?? '').trim()
+}
+
+function normalizeNumber(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildOperationKey(mode, eventName, orderValue, category, cueTitle) {
+  const slugify = (value) =>
+    normalizeText(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9가-힣]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
+  const eventSlug = slugify(eventName) || 'event'
+  const modeSlug = slugify(mode) || 'event'
+  const orderSlug = normalizeNumber(orderValue) != null ? String(Math.round(Number(orderValue))).padStart(2, '0') : '00'
+  const labelSlug = slugify(cueTitle || category) || 'item'
+  return `${eventSlug}::${modeSlug}::${orderSlug}::${labelSlug}`
+}
+
 function normalizeRow(rawRow) {
-  const values = Object.values(rawRow)
-  const [
+  const rowTitle = normalizeText(rawRow['행 제목'])
+  const timetableMode = normalizeText(rawRow['타임테이블 유형']) || '자체행사'
+  const eventName = normalizeText(rawRow['행사명'])
+  const eventDate = normalizeText(rawRow['행사일'])
+  const sortOrder =
+    normalizeNumber(rawRow['정렬 순서']) ??
+    normalizeNumber(rawRow['Cue 순서']) ??
+    normalizeNumber(rawRow['운영 순서']) ??
+    normalizeNumber(rawRow['No'])
+  const category = normalizeText(rawRow['카테고리']) || normalizeText(rawRow['Cue 유형'])
+  const cueTitle = normalizeText(rawRow['Cue 제목'])
+  const startTime = normalizeText(rawRow['시작 시각'])
+  const endTime = normalizeText(rawRow['종료 시각'])
+  const runtimeMinutes = normalizeNumber(rawRow['러닝타임(분)'])
+  const personnel = normalizeText(rawRow['무대 인원'])
+  const mainScreen =
+    normalizeText(rawRow['메인 화면']) || normalizeText(rawRow['그래픽 자산명']) || normalizeText(rawRow['원본 Video'])
+  const audio = normalizeText(rawRow['오디오']) || normalizeText(rawRow['원본 Audio'])
+  const operationNote =
+    normalizeText(rawRow['운영 메모']) || normalizeText(rawRow['업체 전달 메모']) || normalizeText(rawRow['원본 비고'])
+  const operationAction = normalizeText(rawRow['운영 액션'])
+  const trigger = normalizeText(rawRow['트리거 상황'])
+  const timeReference = normalizeText(rawRow['시간 기준'])
+  const previewLink = normalizeText(rawRow['미리보기 링크'])
+  const assetLink = normalizeText(rawRow['자산 링크'])
+  const status = normalizeText(rawRow['상태']) || 'planned'
+  const operationKey =
+    normalizeText(rawRow['운영 키']) || buildOperationKey(timetableMode, eventName, sortOrder, category, cueTitle || rowTitle)
+
+  return {
     rowTitle,
-    _projectRelation,
-    projectSnapshot,
+    timetableMode,
+    operationKey,
     eventName,
     eventDate,
-    cueOrder,
-    cueType,
+    sortOrder,
+    category,
     cueTitle,
     startTime,
     endTime,
     runtimeMinutes,
     personnel,
-    sourceVideo,
-    sourceAudio,
-    sourceRemark,
-    graphicAssetName,
-    graphicType,
+    mainScreen,
+    audio,
+    operationAction,
+    operationNote,
+    trigger,
+    timeReference,
     previewLink,
     assetLink,
     status,
-    owner,
-    vendorNote,
-    sourceDocument,
-    sourceSheet,
-    sourceRowNumber,
-  ] = values
-
-  return {
-    rowTitle: String(rowTitle ?? '').trim(),
-    projectSnapshot: String(projectSnapshot ?? '').trim(),
-    eventName: String(eventName ?? '').trim(),
-    eventDate: String(eventDate ?? '').trim(),
-    cueOrder: Number.isFinite(Number(cueOrder)) ? Number(cueOrder) : null,
-    cueType: String(cueType ?? '').trim(),
-    cueTitle: String(cueTitle ?? '').trim(),
-    startTime: String(startTime ?? '').trim(),
-    endTime: String(endTime ?? '').trim(),
-    runtimeMinutes: Number.isFinite(Number(runtimeMinutes)) ? Number(runtimeMinutes) : null,
-    personnel: String(personnel ?? '').trim(),
-    sourceVideo: String(sourceVideo ?? '').trim(),
-    sourceAudio: String(sourceAudio ?? '').trim(),
-    sourceRemark: String(sourceRemark ?? '').trim(),
-    graphicAssetName: String(graphicAssetName ?? '').trim(),
-    graphicType: String(graphicType ?? '').trim(),
-    previewLink: String(previewLink ?? '').trim(),
-    assetLink: String(assetLink ?? '').trim(),
-    status: String(status ?? '').trim(),
-    owner: String(owner ?? '').trim(),
-    vendorNote: String(vendorNote ?? '').trim(),
-    sourceDocument: String(sourceDocument ?? '').trim(),
-    sourceSheet: String(sourceSheet ?? '').trim(),
-    sourceRowNumber: Number.isFinite(Number(sourceRowNumber)) ? Number(sourceRowNumber) : null,
   }
 }
 
@@ -176,25 +196,31 @@ function buildRichText(value) {
 function buildProperties(row, projectId) {
   return {
     '행 제목': {
-      title: buildRichText(row.rowTitle || row.cueTitle || `Cue ${row.cueOrder ?? ''}`.trim()),
+      title: buildRichText(row.rowTitle || row.cueTitle || `Item ${row.sortOrder ?? ''}`.trim()),
     },
     '행사명': {
       rich_text: buildRichText(row.eventName),
     },
-    '프로젝트명 스냅샷': {
-      rich_text: buildRichText(row.projectSnapshot),
-    },
     '행사일': {
       date: row.eventDate ? { start: row.eventDate } : null,
     },
-    'Cue 순서': {
-      number: row.cueOrder,
+    '타임테이블 유형': {
+      select: row.timetableMode ? { name: row.timetableMode } : { name: '자체행사' },
     },
-    'Cue 유형': {
-      select: row.cueType ? { name: row.cueType } : null,
+    '운영 키': {
+      rich_text: buildRichText(row.operationKey),
+    },
+    '정렬 순서': {
+      number: row.sortOrder,
+    },
+    '카테고리': {
+      select: row.category ? { name: row.category } : null,
     },
     'Cue 제목': {
       rich_text: buildRichText(row.cueTitle),
+    },
+    '트리거 상황': {
+      rich_text: buildRichText(row.trigger),
     },
     '시작 시각': {
       rich_text: buildRichText(row.startTime),
@@ -202,26 +228,26 @@ function buildProperties(row, projectId) {
     '종료 시각': {
       rich_text: buildRichText(row.endTime),
     },
+    '시간 기준': {
+      rich_text: buildRichText(row.timeReference),
+    },
     '러닝타임(분)': {
       number: row.runtimeMinutes,
     },
     '무대 인원': {
       rich_text: buildRichText(row.personnel),
     },
-    '원본 Video': {
-      rich_text: buildRichText(row.sourceVideo),
+    '메인 화면': {
+      rich_text: buildRichText(row.mainScreen),
     },
-    '원본 Audio': {
-      rich_text: buildRichText(row.sourceAudio),
+    '오디오': {
+      rich_text: buildRichText(row.audio),
     },
-    '원본 비고': {
-      rich_text: buildRichText(row.sourceRemark),
+    '운영 메모': {
+      rich_text: buildRichText(row.operationNote),
     },
-    '그래픽 자산명': {
-      rich_text: buildRichText(row.graphicAssetName),
-    },
-    '그래픽 형식': {
-      select: row.graphicType ? { name: row.graphicType } : null,
+    '운영 액션': {
+      select: row.operationAction ? { name: row.operationAction } : null,
     },
     '미리보기 링크': {
       url: row.previewLink || null,
@@ -231,21 +257,6 @@ function buildProperties(row, projectId) {
     },
     '상태': {
       select: row.status ? { name: row.status } : null,
-    },
-    '담당자': {
-      rich_text: buildRichText(row.owner),
-    },
-    '업체 전달 메모': {
-      rich_text: buildRichText(row.vendorNote),
-    },
-    '원본 문서': {
-      rich_text: buildRichText(row.sourceDocument),
-    },
-    '원본 시트': {
-      rich_text: buildRichText(row.sourceSheet),
-    },
-    '원본 행번호': {
-      number: row.sourceRowNumber,
     },
     '귀속 프로젝트': {
       relation: projectId ? [{ id: projectId }] : [],
@@ -284,34 +295,34 @@ async function main() {
   }
 
   const existingByKey = new Map()
+  const existingByTitle = new Map()
   for (const page of timetablePages) {
     const properties = page?.properties ?? {}
-    const sourceDocument = extractRichTextValue(properties['원본 문서'])
-    const sourceSheet = extractRichTextValue(properties['원본 시트'])
-    const sourceRowNumber = extractNumberValue(properties['원본 행번호'])
+    const operationKey = extractRichTextValue(properties['운영 키'])
+    const legacySourceDocument = extractRichTextValue(properties['원본 문서'])
+    const legacySourceSheet = extractRichTextValue(properties['원본 시트'])
+    const legacySourceRowNumber = extractNumberValue(properties['원본 행번호'])
     const title = extractTitleValue(page)
     const key =
-      sourceDocument && sourceSheet && sourceRowNumber != null
-        ? `${sourceDocument}::${sourceSheet}::${sourceRowNumber}`
+      operationKey ||
+      (legacySourceDocument && legacySourceSheet && legacySourceRowNumber != null
+        ? `${legacySourceDocument}::${legacySourceSheet}::${legacySourceRowNumber}`
         : title
+      )
     if (key) existingByKey.set(key, page)
+    if (title && !existingByTitle.has(title)) existingByTitle.set(title, page)
   }
 
   let created = 0
   let updated = 0
 
   for (const row of rows) {
-    const key =
-      row.sourceDocument && row.sourceSheet && row.sourceRowNumber != null
-        ? `${row.sourceDocument}::${row.sourceSheet}::${row.sourceRowNumber}`
-        : row.rowTitle
+    const key = row.operationKey || row.rowTitle
     if (!key) continue
 
-    const existingPage = existingByKey.get(key)
+    const existingPage = existingByKey.get(key) ?? existingByTitle.get(row.rowTitle)
     const existingRelationIds = extractRelationIds(existingPage?.properties?.['귀속 프로젝트'])
     const projectId =
-      projectIdByName.get(row.projectSnapshot) ??
-      projectIdByName.get(row.projectSnapshot.toLowerCase()) ??
       projectIdByName.get(row.eventName) ??
       projectIdByName.get(row.eventName.toLowerCase()) ??
       existingRelationIds[0] ??

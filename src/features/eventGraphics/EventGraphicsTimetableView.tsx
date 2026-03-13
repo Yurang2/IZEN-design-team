@@ -336,7 +336,7 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): TimetableRow {
   const timetableMode =
     normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode'])) ?? 'event'
-  const cueOrderText = readCellText(row, columnIndex, 'Cue 순서')
+  const cueOrderText = readFirstCellText(row, columnIndex, ['정렬 순서', 'Cue 순서', '운영 순서', 'No'])
   const cueOrderNumeric = Number(cueOrderText)
   const displayCueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
   const manifestCue = displayCueNumber
@@ -352,19 +352,19 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
     rowTitle: readCellText(row, columnIndex, '행 제목') || '-',
     cueOrder: cueOrderText || '-',
     cueOrderNumeric: Number.isFinite(cueOrderNumeric) ? cueOrderNumeric : null,
-    cueType: readCellText(row, columnIndex, 'Cue 유형') || 'other',
+    cueType: readFirstCellText(row, columnIndex, ['카테고리', 'Cue 유형']) || 'other',
     cueTitle: readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '행 제목') || '-',
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '러닝타임(분)'),
     status: readCellText(row, columnIndex, '상태') || 'planned',
-    graphicAsset: readCellText(row, columnIndex, '그래픽 자산명') || '-',
-    graphicType: readCellText(row, columnIndex, '그래픽 형식') || '-',
-    sourceVideo: readCellText(row, columnIndex, '원본 Video'),
-    sourceAudio: readCellText(row, columnIndex, '원본 Audio'),
+    graphicAsset: readFirstCellText(row, columnIndex, ['메인 화면', '그래픽 자산명', 'Main Screen']) || '-',
+    graphicType: readFirstCellText(row, columnIndex, ['운영 액션', '그래픽 형식']) || '-',
+    sourceVideo: readFirstCellText(row, columnIndex, ['메인 화면', '원본 Video', '그래픽 자산명']),
+    sourceAudio: readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']),
     personnel: readCellText(row, columnIndex, '무대 인원'),
-    remark: readCellText(row, columnIndex, '원본 비고'),
-    vendorNote: readCellText(row, columnIndex, '업체 전달 메모'),
+    remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
+    vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     previewHref: previewHrefFromNotion || manifestCue?.previewUrl || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || null,
   }
@@ -374,7 +374,7 @@ function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, numb
   const timetableMode = normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode']))
   if (timetableMode !== 'exhibition') return null
 
-  const orderText = readFirstCellText(row, columnIndex, ['운영 순서', 'Cue 순서', 'No'])
+  const orderText = readFirstCellText(row, columnIndex, ['정렬 순서', '운영 순서', 'Cue 순서', 'No'])
   const order = Number(orderText)
   const mainScreen = readFirstCellText(row, columnIndex, ['메인 화면', 'Main Screen', '그래픽 자산명'])
   const previewHref = readFirstCellHref(row, columnIndex, ['미리보기 링크'])

@@ -645,28 +645,25 @@ function parseDbTitle(db: any): string {
 const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '행 제목',
   '행사명',
-  '프로젝트명 스냅샷',
-  'Cue 순서',
-  'Cue 유형',
+  '타임테이블 유형',
+  '운영 키',
+  '정렬 순서',
+  '카테고리',
   'Cue 제목',
+  '트리거 상황',
   '시작 시각',
   '종료 시각',
+  '시간 기준',
   '러닝타임(분)',
-  '그래픽 자산명',
-  '그래픽 형식',
+  '메인 화면',
+  '오디오',
+  '무대 인원',
+  '운영 액션',
+  '운영 메모',
   '상태',
   '미리보기 링크',
   '자산 링크',
-  '무대 인원',
-  '원본 Video',
-  '원본 Audio',
-  '원본 비고',
-  '업체 전달 메모',
-  '담당자',
   '행사일',
-  '원본 문서',
-  '원본 시트',
-  '원본 행번호',
   '귀속 프로젝트',
 ]
 
@@ -699,12 +696,23 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
         },
       },
     },
-    { name: '프로젝트명 스냅샷', definition: { rich_text: {} } },
     { name: '행사명', definition: { rich_text: {} } },
     { name: '행사일', definition: { date: {} } },
-    { name: 'Cue 순서', definition: { number: { format: 'number' } } },
     {
-      name: 'Cue 유형',
+      name: '타임테이블 유형',
+      definition: {
+        select: {
+          options: [
+            { name: '자체행사', color: 'blue' },
+            { name: '전시회', color: 'green' },
+          ],
+        },
+      },
+    },
+    { name: '운영 키', definition: { rich_text: {} } },
+    { name: '정렬 순서', definition: { number: { format: 'number' } } },
+    {
+      name: '카테고리',
       definition: {
         select: {
           options: [
@@ -716,30 +724,33 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
             { name: 'meal', color: 'green' },
             { name: 'closing', color: 'red' },
             { name: 'other', color: 'default' },
+            { name: 'Regular Operation', color: 'gray' },
+            { name: 'Seminar Starting Soon', color: 'blue' },
+            { name: 'In Seminar', color: 'purple' },
+            { name: 'Lucky Draw', color: 'yellow' },
           ],
         },
       },
     },
     { name: 'Cue 제목', definition: { rich_text: {} } },
+    { name: '트리거 상황', definition: { rich_text: {} } },
     { name: '시작 시각', definition: { rich_text: {} } },
     { name: '종료 시각', definition: { rich_text: {} } },
+    { name: '시간 기준', definition: { rich_text: {} } },
     { name: '러닝타임(분)', definition: { number: { format: 'number' } } },
     { name: '무대 인원', definition: { rich_text: {} } },
-    { name: '원본 Video', definition: { rich_text: {} } },
-    { name: '원본 Audio', definition: { rich_text: {} } },
-    { name: '원본 비고', definition: { rich_text: {} } },
-    { name: '그래픽 자산명', definition: { rich_text: {} } },
+    { name: '메인 화면', definition: { rich_text: {} } },
+    { name: '오디오', definition: { rich_text: {} } },
+    { name: '운영 메모', definition: { rich_text: {} } },
     {
-      name: '그래픽 형식',
+      name: '운영 액션',
       definition: {
         select: {
           options: [
-            { name: 'image', color: 'blue' },
-            { name: 'video', color: 'purple' },
-            { name: 'mixed', color: 'pink' },
-            { name: 'hold', color: 'brown' },
-            { name: 'unknown', color: 'gray' },
-            { name: 'none', color: 'default' },
+            { name: 'Play', color: 'blue' },
+            { name: 'Hold', color: 'brown' },
+            { name: 'Loop', color: 'purple' },
+            { name: 'Switch', color: 'green' },
           ],
         },
       },
@@ -760,11 +771,6 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
         },
       },
     },
-    { name: '담당자', definition: { rich_text: {} } },
-    { name: '업체 전달 메모', definition: { rich_text: {} } },
-    { name: '원본 문서', definition: { rich_text: {} } },
-    { name: '원본 시트', definition: { rich_text: {} } },
-    { name: '원본 행번호', definition: { number: { format: 'number' } } },
   ]
 }
 
@@ -1518,6 +1524,7 @@ export class NotionWorkService {
     const created: string[] = []
     const existing: string[] = []
     const renamed: string[] = []
+    const plannedNames = new Set<string>()
 
     const titleEntry = Object.entries(properties).find(([, prop]) => prop?.type === 'title')
     if (titleEntry) {
@@ -1530,8 +1537,24 @@ export class NotionWorkService {
       }
     }
 
+    const renameIfPresent = (fromName: string, toName: string) => {
+      if (fromName === toName) return
+      if (hasOwn(properties, toName)) return
+      if (plannedNames.has(toName)) return
+      if (!hasOwn(properties, fromName)) return
+      updates[fromName] = { name: toName }
+      renamed.push(`${fromName}->${toName}`)
+      plannedNames.add(toName)
+    }
+
+    renameIfPresent('Cue 순서', '정렬 순서')
+    renameIfPresent('Cue 유형', '카테고리')
+    renameIfPresent('원본 Video', '메인 화면')
+    renameIfPresent('원본 Audio', '오디오')
+    renameIfPresent('원본 비고', '운영 메모')
+
     for (const field of buildEventGraphicsTimetablePropertyDefinitions(this.env.NOTION_PROJECT_DB_ID)) {
-      if (hasOwn(properties, field.name)) {
+      if (hasOwn(properties, field.name) || plannedNames.has(field.name)) {
         existing.push(field.name)
         continue
       }
@@ -1607,8 +1630,8 @@ export class NotionWorkService {
       })
     }
 
-    const cueOrderField = columns.find((column) => column.name === 'Cue 순서')
-    const sourceRowField = columns.find((column) => column.name === '원본 행번호')
+    const orderField = columns.find((column) => ['정렬 순서', 'Cue 순서', '운영 순서'].includes(column.name))
+    const keyField = columns.find((column) => column.name === '운영 키')
     const pages = await this.queryAll(databaseId)
     const rows = pages
       .map((page) => {
@@ -1620,16 +1643,16 @@ export class NotionWorkService {
         }
       })
       .sort((left, right) => {
-        const cueOrderLeft = Number(left.cells.find((cell) => cell.columnId === cueOrderField?.id)?.text ?? Number.NaN)
-        const cueOrderRight = Number(right.cells.find((cell) => cell.columnId === cueOrderField?.id)?.text ?? Number.NaN)
-        if (Number.isFinite(cueOrderLeft) && Number.isFinite(cueOrderRight) && cueOrderLeft !== cueOrderRight) {
-          return cueOrderLeft - cueOrderRight
+        const orderLeft = Number(left.cells.find((cell) => cell.columnId === orderField?.id)?.text ?? Number.NaN)
+        const orderRight = Number(right.cells.find((cell) => cell.columnId === orderField?.id)?.text ?? Number.NaN)
+        if (Number.isFinite(orderLeft) && Number.isFinite(orderRight) && orderLeft !== orderRight) {
+          return orderLeft - orderRight
         }
 
-        const sourceRowLeft = Number(left.cells.find((cell) => cell.columnId === sourceRowField?.id)?.text ?? Number.NaN)
-        const sourceRowRight = Number(right.cells.find((cell) => cell.columnId === sourceRowField?.id)?.text ?? Number.NaN)
-        if (Number.isFinite(sourceRowLeft) && Number.isFinite(sourceRowRight) && sourceRowLeft !== sourceRowRight) {
-          return sourceRowLeft - sourceRowRight
+        const keyLeft = normalizeText(left.cells.find((cell) => cell.columnId === keyField?.id)?.text ?? '')
+        const keyRight = normalizeText(right.cells.find((cell) => cell.columnId === keyField?.id)?.text ?? '')
+        if (keyLeft && keyRight && keyLeft !== keyRight) {
+          return keyLeft.localeCompare(keyRight)
         }
 
         return left.id.localeCompare(right.id)
@@ -1663,17 +1686,22 @@ export class NotionWorkService {
 
     const existingPages = await this.queryAll(databaseId)
     const existingByKey = new Map<string, any>()
+    const existingByTitle = new Map<string, any>()
     for (const page of existingPages) {
       const props = (page.properties ?? {}) as AnyMap
-      const sourceDocument = extractTextFromProperty(props['원본 문서'])
-      const sourceSheet = extractTextFromProperty(props['원본 시트'])
-      const sourceRowNumber = extractNumberFromProperty(props['원본 행번호'])
+      const operationKey = extractTextFromProperty(props['운영 키'])
       const title = normalizeText(joinRichText(props['행 제목']?.title ?? []))
+      const legacySourceDocument = extractTextFromProperty(props['원본 문서'])
+      const legacySourceSheet = extractTextFromProperty(props['원본 시트'])
+      const legacySourceRowNumber = extractNumberFromProperty(props['원본 행번호'])
       const key =
-        sourceDocument && sourceSheet && Number.isFinite(sourceRowNumber)
-          ? `${sourceDocument}::${sourceSheet}::${sourceRowNumber}`
+        operationKey ||
+        (legacySourceDocument && legacySourceSheet && Number.isFinite(legacySourceRowNumber)
+          ? `${legacySourceDocument}::${legacySourceSheet}::${legacySourceRowNumber}`
           : title
+        )
       if (key) existingByKey.set(key, page)
+      if (title && !existingByTitle.has(title)) existingByTitle.set(title, page)
     }
 
     const projects = await this.listProjects()
@@ -1710,29 +1738,29 @@ export class NotionWorkService {
       }
 
       const title = readText('행 제목') || readText('Cue 제목')
-      const sourceDocument = readText('원본 문서')
-      const sourceSheet = readText('원본 시트')
-      const sourceRowNumber = readNumber('원본 행번호')
+      const operationKey = readText('운영 키')
+      const legacySourceDocument = readText('원본 문서')
+      const legacySourceSheet = readText('원본 시트')
+      const legacySourceRowNumber = readNumber('원본 행번호')
       const key =
-        sourceDocument && sourceSheet && sourceRowNumber != null
-          ? `${sourceDocument}::${sourceSheet}::${sourceRowNumber}`
+        operationKey ||
+        (legacySourceDocument && legacySourceSheet && legacySourceRowNumber != null
+          ? `${legacySourceDocument}::${legacySourceSheet}::${legacySourceRowNumber}`
           : title
+        )
 
       if (!key) {
         skipped += 1
         continue
       }
 
-      const projectSnapshot = readText('프로젝트명 스냅샷')
       const eventName = readText('행사명')
       const projectRelationId =
-        projectIdByName.get(projectSnapshot) ??
-        projectIdByName.get(projectSnapshot.toLowerCase()) ??
         projectIdByName.get(eventName) ??
         projectIdByName.get(eventName.toLowerCase()) ??
         ''
 
-      const existingPage = existingByKey.get(key)
+      const existingPage = existingByKey.get(key) ?? existingByTitle.get(title)
       const existingProps = (existingPage?.properties ?? {}) as AnyMap
       const existingRelationIds = extractRelationIdsFromProperty(existingProps['귀속 프로젝트'])
       const relationIds = projectRelationId ? [projectRelationId] : existingRelationIds
@@ -1740,33 +1768,34 @@ export class NotionWorkService {
       const buildRichText = (value: string) => (value ? [{ text: { content: value } }] : [])
       const properties: AnyMap = {
         '행 제목': {
-          title: buildRichText(title || `[${eventName || 'Event'}] ${String(sourceRowNumber ?? '').trim()}`.trim()),
+          title: buildRichText(title || `[${eventName || 'Event'}] ${String(readNumber('정렬 순서') ?? '').trim()}`.trim()),
         },
         '행사명': { rich_text: buildRichText(eventName) },
-        '프로젝트명 스냅샷': { rich_text: buildRichText(projectSnapshot) },
         '행사일': {
           date: readText('행사일') ? { start: readText('행사일') } : null,
         },
-        'Cue 순서': { number: readNumber('Cue 순서') },
-        'Cue 유형': { select: readText('Cue 유형') ? { name: readText('Cue 유형') } : null },
+        '타임테이블 유형': {
+          select: readText('타임테이블 유형') ? { name: readText('타임테이블 유형') } : { name: '자체행사' },
+        },
+        '운영 키': { rich_text: buildRichText(operationKey) },
+        '정렬 순서': { number: readNumber('정렬 순서') ?? readNumber('Cue 순서') ?? readNumber('운영 순서') },
+        '카테고리': { select: readText('카테고리') ? { name: readText('카테고리') } : readText('Cue 유형') ? { name: readText('Cue 유형') } : null },
         'Cue 제목': { rich_text: buildRichText(readText('Cue 제목')) },
+        '트리거 상황': { rich_text: buildRichText(readText('트리거 상황')) },
         '시작 시각': { rich_text: buildRichText(readText('시작 시각')) },
         '종료 시각': { rich_text: buildRichText(readText('종료 시각')) },
+        '시간 기준': { rich_text: buildRichText(readText('시간 기준')) },
         '러닝타임(분)': { number: readNumber('러닝타임(분)') },
         '무대 인원': { rich_text: buildRichText(readText('무대 인원')) },
-        '원본 Video': { rich_text: buildRichText(readText('원본 Video')) },
-        '원본 Audio': { rich_text: buildRichText(readText('원본 Audio')) },
-        '원본 비고': { rich_text: buildRichText(readText('원본 비고')) },
-        '그래픽 자산명': { rich_text: buildRichText(readText('그래픽 자산명')) },
-        '그래픽 형식': { select: readText('그래픽 형식') ? { name: readText('그래픽 형식') } : null },
+        '메인 화면': { rich_text: buildRichText(readText('메인 화면') || readText('그래픽 자산명') || readText('원본 Video')) },
+        '오디오': { rich_text: buildRichText(readText('오디오') || readText('원본 Audio')) },
+        '운영 액션': { select: readText('운영 액션') ? { name: readText('운영 액션') } : null },
+        '운영 메모': {
+          rich_text: buildRichText(readText('운영 메모') || readText('업체 전달 메모') || readText('원본 비고')),
+        },
         '미리보기 링크': { url: readText('미리보기 링크') || null },
         '자산 링크': { url: readText('자산 링크') || null },
         '상태': { select: readText('상태') ? { name: readText('상태') } : null },
-        '담당자': { rich_text: buildRichText(readText('담당자')) },
-        '업체 전달 메모': { rich_text: buildRichText(readText('업체 전달 메모')) },
-        '원본 문서': { rich_text: buildRichText(sourceDocument) },
-        '원본 시트': { rich_text: buildRichText(sourceSheet) },
-        '원본 행번호': { number: sourceRowNumber },
         '귀속 프로젝트': { relation: relationIds.map((id) => ({ id })) },
       }
 

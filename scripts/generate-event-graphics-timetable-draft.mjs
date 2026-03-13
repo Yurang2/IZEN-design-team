@@ -89,6 +89,20 @@ function padOrder(value) {
   return String(numeric).padStart(2, '0')
 }
 
+function slugify(value) {
+  return normalizeCell(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function buildOperationKey(eventName, cueOrder, cueTitle) {
+  const eventSlug = slugify(eventName) || 'event'
+  const orderSlug = padOrder(cueOrder)
+  const titleSlug = slugify(cueTitle) || 'item'
+  return `${eventSlug}::event::${orderSlug}::${titleSlug}`
+}
+
 function escapeCsv(value) {
   const text = String(value ?? '')
   if (!/[",\n]/.test(text)) return text
@@ -101,13 +115,12 @@ function buildRows(sheetRows, options) {
     throw new Error('header_row_not_found')
   }
 
-  const sourceDocument = path.basename(options.input)
   const eventName = normalizeCell(options.eventName) || normalizeCell(sheetRows[0]?.[0]) || path.basename(options.input, path.extname(options.input))
   const projectName = normalizeCell(options.projectName) || eventName
 
   return sheetRows
     .slice(headerRowIndex + 1)
-    .map((row, relativeIndex) => {
+    .map((row) => {
       const cueOrder = toNumber(row[0])
       if (cueOrder === '') return null
 
@@ -119,30 +132,27 @@ function buildRows(sheetRows, options) {
 
       return {
         '행 제목': `[${eventName}] ${padOrder(cueOrder)} ${cueTitle}`,
-        '귀속 프로젝트': '',
-        '프로젝트명 스냅샷': projectName,
         '행사명': eventName,
         '행사일': '',
-        'Cue 순서': cueOrder,
-        'Cue 유형': deriveCueType(cueTitle),
+        '타임테이블 유형': '자체행사',
+        '운영 키': buildOperationKey(eventName, cueOrder, cueTitle),
+        '정렬 순서': cueOrder,
+        '카테고리': deriveCueType(cueTitle),
         'Cue 제목': cueTitle,
+        '트리거 상황': '',
         '시작 시각': timeRange.start,
         '종료 시각': timeRange.end,
+        '시간 기준': '',
         '러닝타임(분)': toNumber(row[3]),
         '무대 인원': normalizeCell(row[4]),
-        '원본 Video': sourceVideo,
-        '원본 Audio': sourceAudio,
-        '원본 비고': remarks,
-        '그래픽 자산명': sourceVideo,
-        '그래픽 형식': deriveGraphicFormat(sourceVideo),
+        '메인 화면': sourceVideo,
+        '오디오': sourceAudio,
+        '운영 액션': deriveGraphicFormat(sourceVideo) === 'video' ? 'Play' : sourceVideo ? 'Hold' : '',
+        '운영 메모': remarks,
         '미리보기 링크': '',
         '자산 링크': '',
         '상태': 'planned',
-        '담당자': '',
-        '업체 전달 메모': '',
-        '원본 문서': sourceDocument,
-        '원본 시트': options.sheet,
-        '원본 행번호': headerRowIndex + relativeIndex + 2,
+        '귀속 프로젝트': projectName,
       }
     })
     .filter(Boolean)

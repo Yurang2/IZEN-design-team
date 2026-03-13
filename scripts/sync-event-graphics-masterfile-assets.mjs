@@ -44,60 +44,28 @@ function normalizeText(value) {
 }
 
 function normalizeRow(rawRow) {
-  const values = Object.values(rawRow)
-  const [
-    rowTitle,
-    _projectRelation,
-    projectSnapshot,
-    eventName,
-    eventDate,
-    cueOrder,
-    cueType,
-    cueTitle,
-    startTime,
-    endTime,
-    runtimeMinutes,
-    personnel,
-    sourceVideo,
-    sourceAudio,
-    sourceRemark,
-    graphicAssetName,
-    graphicType,
-    previewLink,
-    assetLink,
-    status,
-    owner,
-    vendorNote,
-    sourceDocument,
-    sourceSheet,
-    sourceRowNumber,
-  ] = values
-
   return {
-    rowTitle: normalizeText(rowTitle),
-    projectSnapshot: normalizeText(projectSnapshot),
-    eventName: normalizeText(eventName),
-    eventDate: normalizeText(eventDate),
-    cueOrder: Number.isFinite(Number(cueOrder)) ? Number(cueOrder) : null,
-    cueType: normalizeText(cueType),
-    cueTitle: normalizeText(cueTitle),
-    startTime: normalizeText(startTime),
-    endTime: normalizeText(endTime),
-    runtimeMinutes: Number.isFinite(Number(runtimeMinutes)) ? Number(runtimeMinutes) : null,
-    personnel: normalizeText(personnel),
-    sourceVideo: normalizeText(sourceVideo),
-    sourceAudio: normalizeText(sourceAudio),
-    sourceRemark: normalizeText(sourceRemark),
-    graphicAssetName: normalizeText(graphicAssetName),
-    graphicType: normalizeText(graphicType),
-    previewLink: normalizeText(previewLink),
-    assetLink: normalizeText(assetLink),
-    status: normalizeText(status),
-    owner: normalizeText(owner),
-    vendorNote: normalizeText(vendorNote),
-    sourceDocument: normalizeText(sourceDocument),
-    sourceSheet: normalizeText(sourceSheet),
-    sourceRowNumber: Number.isFinite(Number(sourceRowNumber)) ? Number(sourceRowNumber) : null,
+    rowTitle: normalizeText(rawRow['행 제목']),
+    eventName: normalizeText(rawRow['행사명']),
+    eventDate: normalizeText(rawRow['행사일']),
+    cueOrder:
+      Number.isFinite(Number(rawRow['정렬 순서'])) ? Number(rawRow['정렬 순서']) :
+      Number.isFinite(Number(rawRow['Cue 순서'])) ? Number(rawRow['Cue 순서']) :
+      Number.isFinite(Number(rawRow['운영 순서'])) ? Number(rawRow['운영 순서']) : null,
+    cueType: normalizeText(rawRow['카테고리'] ?? rawRow['Cue 유형']),
+    cueTitle: normalizeText(rawRow['Cue 제목']),
+    startTime: normalizeText(rawRow['시작 시각']),
+    endTime: normalizeText(rawRow['종료 시각']),
+    runtimeMinutes: Number.isFinite(Number(rawRow['러닝타임(분)'])) ? Number(rawRow['러닝타임(분)']) : null,
+    personnel: normalizeText(rawRow['무대 인원']),
+    mainScreen: normalizeText(rawRow['메인 화면'] ?? rawRow['그래픽 자산명'] ?? rawRow['원본 Video']),
+    sourceAudio: normalizeText(rawRow['오디오'] ?? rawRow['원본 Audio']),
+    sourceRemark: normalizeText(rawRow['운영 메모'] ?? rawRow['업체 전달 메모'] ?? rawRow['원본 비고']),
+    graphicType: normalizeText(rawRow['운영 액션'] ?? rawRow['그래픽 형식']),
+    previewLink: normalizeText(rawRow['미리보기 링크']),
+    assetLink: normalizeText(rawRow['자산 링크']),
+    status: normalizeText(rawRow['상태']),
+    vendorNote: normalizeText(rawRow['운영 메모'] ?? rawRow['업체 전달 메모'] ?? rawRow['원본 비고']),
   }
 }
 
@@ -136,8 +104,7 @@ function looksLikeLoopInstruction(value) {
 }
 
 function toPrimaryAsset(row) {
-  if (row.graphicAssetName && row.graphicAssetName !== '-') return row.graphicAssetName
-  if (row.sourceVideo) return row.sourceVideo
+  if (row.mainScreen && row.mainScreen !== '-') return row.mainScreen
   if (row.sourceAudio) return row.sourceAudio
   return MISSING_FILE_LABEL
 }
