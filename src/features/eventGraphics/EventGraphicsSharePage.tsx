@@ -30,6 +30,11 @@ type ShareRow = {
   assetHref: string | null
 }
 
+type EventGroup = {
+  eventName: string
+  rows: ShareRow[]
+}
+
 const ENTRANCE_LABEL = '등장'
 const MISSING_FILE_LABEL = '파일명 확인 필요'
 
@@ -142,16 +147,34 @@ export function EventGraphicsSharePage({
     [columnIndex, rows],
   )
 
-  const eventName = useMemo(
-    () => shareRows.find((row) => row.eventName.trim())?.eventName.trim() || databaseTitle.trim() || 'Event Graphics Timetable',
-    [databaseTitle, shareRows],
-  )
+  const groupedRows = useMemo(() => {
+    const groups = new Map<string, ShareRow[]>()
+    for (const row of shareRows) {
+      const groupName = row.eventName.trim() || '행사명 미지정'
+      const current = groups.get(groupName)
+      if (current) {
+        current.push(row)
+        continue
+      }
+      groups.set(groupName, [row])
+    }
+    return Array.from(groups.entries()).map<EventGroup>(([eventName, eventRows]) => ({
+      eventName,
+      rows: eventRows,
+    }))
+  }, [shareRows])
+
+  const pageTitle = useMemo(() => {
+    if (groupedRows.length === 1) return groupedRows[0]?.eventName || databaseTitle.trim() || 'Event Graphics Timetable'
+    return databaseTitle.trim() || 'Event Graphics Timetable'
+  }, [databaseTitle, groupedRows])
 
   const missingPreviewCount = useMemo(() => shareRows.filter((row) => !looksLikeImageUrl(row.previewHref)).length, [shareRows])
   const missingFileCount = useMemo(
     () => shareRows.filter((row) => toPrimaryFileLabel(row) === MISSING_FILE_LABEL).length,
     [shareRows],
   )
+  const missingAudioCount = useMemo(() => shareRows.filter((row) => !row.sourceAudio.trim()).length, [shareRows])
 
   if (loading) {
     return (
@@ -200,10 +223,14 @@ export function EventGraphicsSharePage({
         <header className="eventGraphicsShareHero">
           <div className="eventGraphicsShareHeroText">
             <p className="muted small">External Share</p>
-            <h1>{eventName}</h1>
-            <p>미디어업체용 진행표입니다. 시간 순서대로 이미지와 파일명만 빠르게 확인할 수 있게 구성했습니다.</p>
+            <h1>{pageTitle}</h1>
+            <p>미디어업체용 진행표입니다. 행사별로 구분해 시간 순서대로 이미지, 그래픽 파일, 오디오 파일을 확인할 수 있게 구성했습니다.</p>
           </div>
           <div className="eventGraphicsShareSummary" aria-label="진행표 요약">
+            <article>
+              <span>행사 수</span>
+              <strong>{groupedRows.length}</strong>
+            </article>
             <article>
               <span>전체 큐</span>
               <strong>{shareRows.length}</strong>
@@ -216,73 +243,89 @@ export function EventGraphicsSharePage({
               <span>파일명 확인 필요</span>
               <strong>{missingFileCount}</strong>
             </article>
+            <article>
+              <span>오디오 없음</span>
+              <strong>{missingAudioCount}</strong>
+            </article>
           </div>
         </header>
 
         <div className="eventGraphicsShareList">
-          {shareRows.map((row) => {
-            const hasPreview = looksLikeImageUrl(row.previewHref)
-            const isEntranceCue = row.cueTitle === ENTRANCE_LABEL
-            const primaryFileLabel = toPrimaryFileLabel(row)
-            const noteSummary =
-              joinSummary([
-                row.vendorNote,
-                row.personnel && `무대 ${row.personnel}`,
-                row.sourceAudio && `오디오 ${row.sourceAudio}`,
-              ]) || '특이사항 없음'
+          {groupedRows.map((group) => (
+            <section key={group.eventName} className="eventGraphicsShareGroup">
+              <header className="eventGraphicsShareGroupHead">
+                <h2>{group.eventName}</h2>
+                <p>총 {group.rows.length}개 큐</p>
+              </header>
 
-            return (
-              <article key={row.id} className={`eventGraphicsShareRow${isEntranceCue ? ' is-entrance' : ''}`}>
-                <div className="eventGraphicsShareTime">
-                  <strong>{row.startTime}</strong>
-                  <span>{row.endTime}</span>
-                  <small>{formatRuntimeLabel(row.runtime)}</small>
-                </div>
+              <div className="eventGraphicsShareGroupList">
+                {group.rows.map((row) => {
+                  const hasPreview = looksLikeImageUrl(row.previewHref)
+                  const isEntranceCue = row.cueTitle === ENTRANCE_LABEL
+                  const primaryFileLabel = toPrimaryFileLabel(row)
+                  const noteSummary = joinSummary([row.vendorNote, row.personnel && `무대 ${row.personnel}`]) || '특이사항 없음'
 
-                <div className="eventGraphicsShareBody">
-                  <div className="eventGraphicsShareHead">
-                    <div className="eventGraphicsCueHead">
-                      <span className="eventGraphicsOrder">{toDisplayCueOrder(row)}</span>
-                      <span className="eventGraphicsShareSection">{toCueTypeLabel(row.cueType)}</span>
-                      {isEntranceCue ? <span className="eventGraphicsEntranceFlag">입장</span> : null}
-                    </div>
-                    <h2>{isEntranceCue ? '입장' : row.cueTitle}</h2>
-                  </div>
+                  return (
+                    <article key={row.id} className={`eventGraphicsShareRow${isEntranceCue ? ' is-entrance' : ''}`}>
+                      <div className="eventGraphicsShareTime">
+                        <strong>{row.startTime}</strong>
+                        <span>{row.endTime}</span>
+                        <small>{formatRuntimeLabel(row.runtime)}</small>
+                      </div>
 
-                  <div className="eventGraphicsShareTimelineGrid">
-                    <section className="eventGraphicsShareVisual">
-                      <span className="eventGraphicsPanelLabel">이미지</span>
-                      {hasPreview ? (
-                        <div className="eventGraphicsSharePreview is-static">
-                          <img src={row.previewHref ?? ''} alt={`${row.cueTitle} preview`} loading="lazy" />
+                      <div className="eventGraphicsShareBody">
+                        <div className="eventGraphicsShareHead">
+                          <div className="eventGraphicsCueHead">
+                            <span className="eventGraphicsOrder">{toDisplayCueOrder(row)}</span>
+                            <span className="eventGraphicsShareSection">{toCueTypeLabel(row.cueType)}</span>
+                            {isEntranceCue ? <span className="eventGraphicsEntranceFlag">입장</span> : null}
+                          </div>
+                          <h3>{isEntranceCue ? '입장' : row.cueTitle}</h3>
                         </div>
-                      ) : (
-                        <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
-                      )}
-                    </section>
 
-                    <section className="eventGraphicsShareCore">
-                      <div className="eventGraphicsShareCoreCard">
-                        <span className="eventGraphicsPanelLabel">파일명</span>
-                        <strong>{primaryFileLabel}</strong>
-                        <p>{joinSummary([row.graphicType !== '-' && row.graphicType, row.sourceVideo && `원본 ${row.sourceVideo}`]) || '-'}</p>
-                        {row.assetHref ? (
-                          <a className="eventGraphicsInlineLink" href={row.assetHref} target="_blank" rel="noreferrer">
-                            파일 열기
-                          </a>
-                        ) : null}
-                      </div>
+                        <div className="eventGraphicsShareTimelineGrid">
+                          <section className="eventGraphicsShareVisual">
+                            <span className="eventGraphicsPanelLabel">이미지</span>
+                            {hasPreview ? (
+                              <div className="eventGraphicsSharePreview is-static">
+                                <img src={row.previewHref ?? ''} alt={`${row.cueTitle} preview`} loading="lazy" />
+                              </div>
+                            ) : (
+                              <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
+                            )}
+                          </section>
 
-                      <div className="eventGraphicsShareCoreCard">
-                        <span className="eventGraphicsPanelLabel">현장 메모</span>
-                        <p>{noteSummary}</p>
+                          <section className="eventGraphicsShareCore">
+                            <div className="eventGraphicsShareCoreCard">
+                              <span className="eventGraphicsPanelLabel">그래픽 파일</span>
+                              <strong>{primaryFileLabel}</strong>
+                              <p>{joinSummary([row.graphicType !== '-' && row.graphicType, row.sourceVideo && `원본 ${row.sourceVideo}`]) || '-'}</p>
+                              {row.assetHref ? (
+                                <a className="eventGraphicsInlineLink" href={row.assetHref} target="_blank" rel="noreferrer">
+                                  파일 열기
+                                </a>
+                              ) : null}
+                            </div>
+
+                            <div className="eventGraphicsShareCoreCard">
+                              <span className="eventGraphicsPanelLabel">오디오 파일</span>
+                              <strong>{row.sourceAudio || '오디오 없음'}</strong>
+                              <p>{row.sourceAudio ? '현장 송출 오디오 확인용' : '등록된 오디오 파일이 없습니다.'}</p>
+                            </div>
+
+                            <div className="eventGraphicsShareCoreCard">
+                              <span className="eventGraphicsPanelLabel">현장 메모</span>
+                              <p>{noteSummary}</p>
+                            </div>
+                          </section>
+                        </div>
                       </div>
-                    </section>
-                  </div>
-                </div>
-              </article>
-            )
-          })}
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       </section>
     </main>

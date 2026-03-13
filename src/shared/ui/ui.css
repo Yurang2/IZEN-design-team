@@ -3202,7 +3202,7 @@ button.dashboardNavButton {
 .eventGraphicsShareSummary {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 }
 
 .eventGraphicsShareSummary article {
@@ -3225,6 +3225,35 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsShareList {
+  display: grid;
+  gap: 14px;
+}
+
+.eventGraphicsShareGroup {
+  display: grid;
+  gap: 12px;
+}
+
+.eventGraphicsShareGroupHead {
+  align-items: end;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 4px 4px 0;
+}
+
+.eventGraphicsShareGroupHead h2,
+.eventGraphicsShareHead h2,
+.eventGraphicsShareHead h3 {
+  margin: 0;
+}
+
+.eventGraphicsShareGroupHead p {
+  color: var(--text-sub);
+  margin: 0;
+}
+
+.eventGraphicsShareGroupList {
   display: grid;
   gap: 14px;
 }
@@ -3312,7 +3341,7 @@ button.dashboardNavButton {
 .eventGraphicsShareCore {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .eventGraphicsShareCoreCard p,
@@ -3349,6 +3378,11 @@ button.dashboardNavButton {
   .eventGraphicsShareTimelineGrid,
   .eventGraphicsShareCore {
     grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsShareGroupHead {
+    align-items: start;
+    flex-direction: column;
   }
 
   .eventGraphicsShareTime {
@@ -3413,6 +3447,10 @@ button.dashboardNavButton {
   }
 
   .eventGraphicsShareHead h2 {
+    font-size: 18px;
+  }
+
+  .eventGraphicsShareHead h3 {
     font-size: 18px;
   }
 
