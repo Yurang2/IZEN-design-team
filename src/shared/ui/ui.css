@@ -3288,7 +3288,7 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditList {
   display: grid;
-  gap: 12px;
+  gap: 9px;
 }
 
 .eventGraphicsAuditCard {
@@ -3297,8 +3297,8 @@ button.dashboardNavButton {
   border-radius: 20px;
   box-shadow: var(--shadow-card);
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 7px;
+  padding: 11px 12px;
 }
 
 .eventGraphicsAuditCard.status-missing {
@@ -3334,7 +3334,7 @@ button.dashboardNavButton {
 .eventGraphicsAuditHead {
   align-items: start;
   display: grid;
-  gap: 12px;
+  gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
@@ -3350,14 +3350,14 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditMeta p {
   color: var(--text-sub);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .eventGraphicsAuditGrid {
   display: grid;
   align-items: stretch;
-  gap: 8px;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(220px, 1fr);
+  gap: 6px;
+  grid-template-columns: minmax(140px, 0.72fr) minmax(210px, 1fr) minmax(210px, 1fr);
 }
 
 .eventGraphicsAuditVisual,
@@ -3366,20 +3366,20 @@ button.dashboardNavButton {
   border: 1px solid var(--border);
   border-radius: 16px;
   display: grid;
-  gap: 6px;
-  padding: 10px;
+  gap: 4px;
+  padding: 8px;
 }
 
 .eventGraphicsAuditVisual .eventGraphicsPreviewInline,
 .eventGraphicsAuditVisual .eventGraphicsPreviewPlaceholder {
   aspect-ratio: 16 / 7;
-  min-height: 88px;
+  min-height: 68px;
 }
 
 .eventGraphicsAuditPanelHead {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: space-between;
 }
 
@@ -3391,7 +3391,7 @@ button.dashboardNavButton {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  padding: 3px 8px;
+  padding: 2px 6px;
   text-transform: uppercase;
 }
 
@@ -3446,7 +3446,7 @@ button.dashboardNavButton {
 .eventGraphicsAuditInlineRow {
   align-items: flex-start;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   grid-template-columns: max-content minmax(0, 1fr);
 }
 
@@ -3457,12 +3457,12 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsAuditCheck.is-compact {
-  gap: 5px;
+  gap: 4px;
 }
 
 .eventGraphicsAuditCheck.is-compact span {
   color: var(--text-sub);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -3471,8 +3471,8 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsAuditCheck.is-compact input {
-  block-size: 12px;
-  inline-size: 12px;
+  block-size: 11px;
+  inline-size: 11px;
 }
 
 .eventGraphicsAuditMissing {
@@ -3486,7 +3486,7 @@ button.dashboardNavButton {
 .eventGraphicsAuditMissing.is-inline {
   align-items: flex-start;
   border-top: 0;
-  gap: 6px;
+  gap: 4px;
   grid-template-columns: max-content minmax(0, 1fr);
   margin-top: 0;
   padding-top: 0;
@@ -3504,7 +3504,7 @@ button.dashboardNavButton {
 .eventGraphicsAuditChipList {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -3514,10 +3514,10 @@ button.dashboardNavButton {
   border-radius: 999px;
   color: var(--text-main);
   display: inline-flex;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.2;
   max-width: 100%;
-  padding: 4px 8px;
+  padding: 3px 7px;
   word-break: break-all;
 }
 
@@ -3678,18 +3678,18 @@ button.dashboardNavButton {
 
 .eventGraphicsShareBody {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .eventGraphicsShareHead {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .eventGraphicsShareHead p {
   color: var(--text-sub);
-  font-size: 12px;
+  font-size: 11px;
   margin: 0;
 }
 
@@ -3714,8 +3714,8 @@ button.dashboardNavButton {
 
 .eventGraphicsShareAssetGrid {
   display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(220px, 1fr);
+  gap: 6px;
+  grid-template-columns: minmax(140px, 0.72fr) minmax(210px, 1fr) minmax(210px, 1fr);
 }
 
 .eventGraphicsShareVisual,
