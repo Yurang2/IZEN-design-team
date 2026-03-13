@@ -1,8 +1,7 @@
 import fs from 'node:fs/promises'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
-const EXCLUDED_CUE_TYPES = new Set(['announcement', 'break', 'meal'])
-const ENTRANCE_USES_MAIN_AUDIO_TYPES = new Set(['certificate', 'closing'])
+const ENTRANCE_ALLOWED_TYPES = new Set(['opening', 'lecture'])
 
 function parseArgs(argv) {
   const options = {
@@ -55,15 +54,11 @@ function splitAudio(value) {
 
 function buildEntranceAudio(row, audio) {
   if (audio.entrance) return audio.entrance
-  if (ENTRANCE_USES_MAIN_AUDIO_TYPES.has(row.cueType)) return row.sourceAudio
   return 'Entrance Audio 확인 필요'
 }
 
 function buildEntranceRemark(row) {
   const base = '본 세션 직전 1분 등장 cue'
-  if (ENTRANCE_USES_MAIN_AUDIO_TYPES.has(row.cueType) && row.sourceAudio) {
-    return row.sourceRemark ? `${base} / 오디오는 본 큐와 동일 / ${row.sourceRemark}` : `${base} / 오디오는 본 큐와 동일`
-  }
   return row.sourceRemark ? `${base} / ${row.sourceRemark}` : base
 }
 
@@ -158,7 +153,7 @@ function denormalizeRow(headers, row) {
 }
 
 function shouldInsertEntranceCue(row) {
-  if (!row.cueType || EXCLUDED_CUE_TYPES.has(row.cueType)) return false
+  if (!row.cueType || !ENTRANCE_ALLOWED_TYPES.has(row.cueType)) return false
   if (!row.personnel || row.personnel === '-') return false
   if (row.runtimeMinutes == null || row.runtimeMinutes <= 1) return false
   return true

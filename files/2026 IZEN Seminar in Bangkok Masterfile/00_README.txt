@@ -16,5 +16,5 @@ How To Use
 - If a cue changes on site, replace only that cue folder contents and notify the vendor.
 
 Cue Count
-- 24
+- 19
 
