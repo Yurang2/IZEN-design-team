@@ -62,6 +62,11 @@ type EventGroup = {
   cues: VendorCue[]
 }
 
+type AssetEntry = {
+  name: string
+  role: string
+}
+
 type CopySet = {
   externalShare: string
   loading: string
@@ -176,21 +181,6 @@ const CUE_TYPE_LABELS: Record<Locale, Record<string, string>> = {
   },
 }
 
-const ACTION_LABELS: Record<Locale, Record<string, string>> = {
-  en: {
-    Play: 'Play',
-    Hold: 'Hold',
-    Loop: 'Loop',
-    '': '-',
-  },
-  ko: {
-    Play: 'Play',
-    Hold: 'Hold',
-    Loop: 'Loop',
-    '': '-',
-  },
-}
-
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
     accumulator[column.name] = index
@@ -227,10 +217,6 @@ function toCueTypeLabel(value: string, locale: Locale): string {
   const trimmed = value.trim().toLowerCase()
   if (!trimmed) return locale === 'ko' ? '기타' : 'Other'
   return CUE_TYPE_LABELS[locale][trimmed] ?? trimmed.replace(/_/g, ' ')
-}
-
-function toActionLabel(value: string, locale: Locale): string {
-  return ACTION_LABELS[locale][value] ?? (value || '-')
 }
 
 function toRuntimeMinutes(value: string): number | null {
@@ -399,46 +385,79 @@ function buildVendorCues(rows: ShareRow[]): VendorCue[] {
   return vendorCues
 }
 
-function ActionCard({
+function appendAssetEntry(entries: AssetEntry[], name: string, role: string) {
+  const trimmedName = name.trim()
+  if (!trimmedName || trimmedName === '-' || trimmedName === MISSING_FILE_LABEL) return
+  if (entries.some((entry) => entry.name === trimmedName)) return
+  entries.push({ name: trimmedName, role })
+}
+
+function buildFallbackGraphicEntries(cue: VendorCue, copy: CopySet): AssetEntry[] {
+  const entries: AssetEntry[] = []
+  appendAssetEntry(entries, cue.startGraphic, cue.startGraphicAction ? `${copy.start} ${cue.startGraphicAction}` : copy.start)
+  appendAssetEntry(entries, cue.nextGraphic, cue.nextGraphicAction ? `${copy.thenHold} ${cue.nextGraphicAction}` : copy.thenHold)
+  return entries
+}
+
+function buildFallbackAudioEntries(cue: VendorCue, copy: CopySet): AssetEntry[] {
+  const entries: AssetEntry[] = []
+  appendAssetEntry(entries, cue.startAudio, cue.startAudioAction ? `${copy.start} ${cue.startAudioAction}` : copy.start)
+  appendAssetEntry(entries, cue.nextAudio, cue.nextAudioAction ? `${copy.thenHold} ${cue.nextAudioAction}` : copy.thenHold)
+  return entries
+}
+
+function ShareAssetPanel({
   title,
-  graphic,
-  graphicAction,
-  audio,
-  audioAction,
+  files,
+  missingFiles,
   href,
-  locale,
   copy,
 }: {
   title: string
-  graphic: string
-  graphicAction: string
-  audio: string
-  audioAction: string
+  files: AssetEntry[]
+  missingFiles: string[]
   href: string | null
-  locale: Locale
   copy: CopySet
 }) {
+  const hasMissingFiles = missingFiles.length > 0
   return (
-    <div className="eventGraphicsShareCoreCard">
-      <span className="eventGraphicsPanelLabel">{title}</span>
-      <div className="eventGraphicsShareActionList">
-        <div className="eventGraphicsShareActionItem">
-          <span>{copy.graphic}</span>
-          <strong>{graphic || '-'}</strong>
-          <p>{toActionLabel(graphicAction, locale)}</p>
-        </div>
-        <div className="eventGraphicsShareActionItem">
-          <span>{copy.audio}</span>
-          <strong>{audio || '-'}</strong>
-          <p>{toActionLabel(audioAction, locale)}</p>
-        </div>
+    <section className={hasMissingFiles ? 'eventGraphicsAuditPanel is-missing' : 'eventGraphicsAuditPanel'}>
+      <div className="eventGraphicsAuditPanelHead">
+        <span className="eventGraphicsPanelLabel">{title}</span>
+        {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
       </div>
+
+      {files.length > 0 ? (
+        <div className="eventGraphicsAuditChipList">
+          {files.map((file) => (
+            <span key={`${title}-${file.name}`} className="eventGraphicsAuditChip" title={file.role}>
+              {file.name}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <span className="eventGraphicsSubline">-</span>
+      )}
+
+      {hasMissingFiles ? (
+        <div className="eventGraphicsAuditMissing is-inline">
+          <span className="eventGraphicsAuditMiniLabel">추가 필요</span>
+          <div className="eventGraphicsAuditChipList is-missing">
+            {missingFiles.map((file) => (
+              <span key={`${title}-${file}`} className="eventGraphicsAuditChip is-missing">
+                {file}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {href ? (
         <a className="eventGraphicsInlineLink" href={href} target="_blank" rel="noreferrer">
           {copy.openFile}
         </a>
       ) : null}
-    </div>
+    </section>
   )
 }
 
@@ -467,6 +486,10 @@ export function EventGraphicsSharePage({
   )
 
   const vendorCues = useMemo(() => buildVendorCues(normalizedRows), [normalizedRows])
+  const manifestByCueNumber = useMemo(
+    () => new Map<string, (typeof bangkokMasterfileManifest.cues)[number]>(bangkokMasterfileManifest.cues.map((cue) => [cue.cueNumber, cue])),
+    [],
+  )
 
   const groupedCues = useMemo(() => {
     const groups = new Map<string, VendorCue[]>()
@@ -596,7 +619,23 @@ export function EventGraphicsSharePage({
 
               <div className="eventGraphicsShareGroupList">
                 {group.cues.map((cue) => {
-                  const hasPreview = looksLikeImageUrl(cue.previewHref)
+                  const manifestCue = manifestByCueNumber.get(cue.cueNumber)
+                  const registeredFiles = (manifestCue?.registeredFiles ?? []) as ReadonlyArray<{ name: string; kind: string; role: string }>
+                  const missingFiles = (manifestCue?.missingFiles ?? []) as ReadonlyArray<{ kind: string; label: string; sourceName: string }>
+                  const graphicFiles = manifestCue
+                    ? registeredFiles.filter((file) => file.kind === 'image' || file.kind === 'video').map((file) => ({ name: file.name, role: file.role }))
+                    : buildFallbackGraphicEntries(cue, copy)
+                  const audioFiles = manifestCue
+                    ? registeredFiles.filter((file) => file.kind === 'audio').map((file) => ({ name: file.name, role: file.role }))
+                    : buildFallbackAudioEntries(cue, copy)
+                  const missingGraphicFiles = manifestCue
+                    ? missingFiles.filter((file) => file.kind !== 'audio').map((file) => file.sourceName || file.label)
+                    : []
+                  const missingAudioFiles = manifestCue
+                    ? missingFiles.filter((file) => file.kind === 'audio').map((file) => file.sourceName || file.label)
+                    : []
+                  const previewHref = cue.previewHref || manifestCue?.previewUrl || null
+                  const hasPreview = looksLikeImageUrl(previewHref)
                   return (
                     <article key={cue.id} className="eventGraphicsShareRow">
                       <div className="eventGraphicsShareTime">
@@ -612,46 +651,35 @@ export function EventGraphicsSharePage({
                             <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
                           </div>
                           <h3>{cue.title}</h3>
+                          <p>{cue.note || copy.noSpecialNote}</p>
                         </div>
 
-                        <div className="eventGraphicsShareTimelineGrid">
-                          <section className="eventGraphicsShareVisual">
+                        <div className="eventGraphicsShareAssetGrid">
+                          <section className="eventGraphicsAuditVisual">
                             <span className="eventGraphicsPanelLabel">{copy.image}</span>
                             {hasPreview ? (
-                              <div className="eventGraphicsSharePreview is-static">
-                                <img src={cue.previewHref ?? ''} alt={`${cue.title} preview`} loading="lazy" />
+                              <div className="eventGraphicsPreviewInline">
+                                <img src={previewHref ?? ''} alt={`${cue.title} preview`} loading="lazy" />
                               </div>
                             ) : (
                               <div className="eventGraphicsPreviewPlaceholder">{copy.noPreview}</div>
                             )}
                           </section>
 
-                          <section className="eventGraphicsShareCore">
-                            <ActionCard
-                              title={copy.start}
-                              graphic={cue.startGraphic}
-                              graphicAction={cue.startGraphicAction}
-                              audio={cue.startAudio}
-                              audioAction={cue.startAudioAction}
-                              href={cue.assetHref}
-                              locale={locale}
-                              copy={copy}
-                            />
-                            <ActionCard
-                              title={cue.nextGraphic || cue.nextAudio ? copy.thenHold : copy.main}
-                              graphic={cue.nextGraphic || cue.startGraphic}
-                              graphicAction={cue.nextGraphicAction || cue.startGraphicAction}
-                              audio={cue.nextAudio}
-                              audioAction={cue.nextAudioAction}
-                              href={cue.assetHref}
-                              locale={locale}
-                              copy={copy}
-                            />
-                            <div className="eventGraphicsShareCoreCard">
-                              <span className="eventGraphicsPanelLabel">{copy.fieldNote}</span>
-                              <p>{cue.note || copy.noSpecialNote}</p>
-                            </div>
-                          </section>
+                          <ShareAssetPanel
+                            title={copy.graphic}
+                            files={graphicFiles}
+                            missingFiles={missingGraphicFiles}
+                            href={cue.assetHref}
+                            copy={copy}
+                          />
+                          <ShareAssetPanel
+                            title={copy.audio}
+                            files={audioFiles}
+                            missingFiles={missingAudioFiles}
+                            href={cue.assetHref}
+                            copy={copy}
+                          />
                         </div>
                       </div>
                     </article>

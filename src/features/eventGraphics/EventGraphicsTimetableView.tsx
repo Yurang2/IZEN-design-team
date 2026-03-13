@@ -19,7 +19,7 @@ type EventGraphicsTimetableViewProps = {
 }
 
 type TimetableMode = 'event' | 'exhibition'
-type LayoutMode = 'compact' | 'cueSheet' | 'masterfile'
+type LayoutMode = 'compact' | 'masterfile'
 
 type TimetableRow = {
   id: string
@@ -333,19 +333,6 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
   })
 }
 
-function matchesSessionGroup(group: SessionGroup, query: string, statusFilter: string): boolean {
-  if (statusFilter && !group.stages.some((stage) => stage.status === statusFilter)) return false
-  if (!query) return true
-  const source = [
-    group.title,
-    group.cueType,
-    ...group.stages.flatMap((stage) => [stage.label, stage.title, stage.graphicLabel, stage.audioLabel, stage.note]),
-  ]
-    .join(' ')
-    .toLowerCase()
-  return source.includes(query)
-}
-
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): TimetableRow {
   const timetableMode =
     normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode'])) ?? 'event'
@@ -484,83 +471,6 @@ function TimelineLayout({
   )
 }
 
-function SessionLayout({
-  groups,
-}: {
-  groups: SessionGroup[]
-}) {
-  return (
-    <div className="eventGraphicsSessionList">
-      {groups.map((group) => {
-        const sessionTypeClassName = toCueTypeClassName(group.cueType)
-        return (
-          <article key={group.id} className="eventGraphicsSessionCard">
-            <div className="eventGraphicsSessionHead">
-              <div>
-                <div className="eventGraphicsCueHead">
-                  <span className="eventGraphicsOrder">{group.cueNumber}</span>
-                  <span className={`eventGraphicsCueType cue-${sessionTypeClassName}`}>{group.cueType}</span>
-                </div>
-                <h3>{group.title}</h3>
-                <p>
-                  {group.startTime} - {group.endTime} / {group.runtimeLabel}
-                </p>
-              </div>
-            </div>
-
-            <div className="eventGraphicsSessionStageList">
-              {group.stages.map((stage) => {
-                const stageStatusClassName = toStatusClassName(stage.status)
-                const hasPreview = looksLikeImageUrl(stage.previewHref)
-                return (
-                  <section key={stage.id} className={`eventGraphicsSessionStage status-${stageStatusClassName}`}>
-                    <div className="eventGraphicsSessionStageMeta">
-                      <div className="eventGraphicsCueHead">
-                        <span className="eventGraphicsEntranceFlag">{stage.label}</span>
-                        <span className="eventGraphicsOrder">
-                          {stage.startTime} - {stage.endTime}
-                        </span>
-                      </div>
-                      <span className={`eventGraphicsStatus status-${stageStatusClassName}`}>{stage.status}</span>
-                    </div>
-
-                    <div className="eventGraphicsSessionStageGrid">
-                      <div className="eventGraphicsCueSheetPanel">
-                        <span className="eventGraphicsPanelLabel">화면</span>
-                        <strong>{stage.graphicLabel}</strong>
-                        <p>{stage.title}</p>
-                        {hasPreview ? (
-                          <div className="eventGraphicsPreviewInline">
-                            <img src={stage.previewHref ?? ''} alt={`${stage.title} 미리보기`} loading="lazy" />
-                          </div>
-                        ) : (
-                          <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
-                        )}
-                      </div>
-
-                      <div className="eventGraphicsCueSheetPanel">
-                        <span className="eventGraphicsPanelLabel">오디오</span>
-                        <strong>{stage.audioLabel}</strong>
-                        <p>{stage.startTime} - {stage.endTime}</p>
-                      </div>
-
-                      <div className="eventGraphicsCueSheetPanel">
-                        <span className="eventGraphicsPanelLabel">메모</span>
-                        <p>{stage.note}</p>
-                        <p>{stage.runtimeLabel}</p>
-                      </div>
-                    </div>
-                  </section>
-                )
-              })}
-            </div>
-          </article>
-        )
-      })}
-    </div>
-  )
-}
-
 function ExhibitionPlaybookLayout({
   rows,
   isSample,
@@ -683,11 +593,23 @@ function MasterfileAssetPanel({
         {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
       </div>
 
-      <div className="eventGraphicsAuditChecks is-compact">
+      <div className="eventGraphicsAuditInlineRow">
         <label className="eventGraphicsAuditCheck is-compact">
           <input type="checkbox" checked={expected && hasLocalFiles} disabled />
           <span>로컬</span>
         </label>
+        {hasLocalFiles ? (
+          <div className="eventGraphicsAuditChipList">
+            {registeredFiles.map((file) => (
+              <span key={file.name} className="eventGraphicsAuditChip" title={file.role}>
+                {file.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="eventGraphicsAuditInlineRow">
         <label className="eventGraphicsAuditCheck is-compact">
           <input
             type="checkbox"
@@ -698,32 +620,16 @@ function MasterfileAssetPanel({
         </label>
       </div>
 
-      {hasLocalFiles ? (
-        <ul className="eventGraphicsAuditFileList is-compact">
-          {registeredFiles.map((file) => (
-            <li key={file.name}>
-              <strong>{file.name}</strong>
-              <span>{file.role}</span>
-            </li>
-          ))}
-        </ul>
-      ) : expected ? (
-        <div className="eventGraphicsPreviewPlaceholder is-compact">로컬 폴더에 아직 없습니다.</div>
-      ) : (
-        <div className="eventGraphicsPreviewPlaceholder is-compact">필수 파일 없음</div>
-      )}
-
       {hasMissingFiles ? (
-        <div className="eventGraphicsAuditMissing">
-          <span className="eventGraphicsPanelLabel">추가 필요 파일명</span>
-          <ul className="eventGraphicsAuditFileList is-missing is-compact">
+        <div className="eventGraphicsAuditMissing is-inline">
+          <span className="eventGraphicsAuditMiniLabel">추가 필요</span>
+          <div className="eventGraphicsAuditChipList is-missing">
             {missingFiles.map((file) => (
-              <li key={`${cueNumber}-${field}-${file.label}`}>
-                <strong>{file.sourceName || file.label}</strong>
-                <span>{file.label}</span>
-              </li>
+              <span key={`${cueNumber}-${field}-${file.label}`} className="eventGraphicsAuditChip is-missing" title={file.label}>
+                {file.sourceName || file.label}
+              </span>
             ))}
-          </ul>
+          </div>
         </div>
       ) : null}
     </section>
@@ -860,7 +766,6 @@ export function EventGraphicsTimetableView({
     [columnIndex, rows],
   )
   const tableRows = useMemo(() => normalizedRows.filter((row) => row.timetableMode === 'event'), [normalizedRows])
-  const sessionGroups = useMemo(() => buildSessionGroups(tableRows), [tableRows])
   const exhibitionRowsFromDb = useMemo(
     () =>
       rows
@@ -904,10 +809,6 @@ export function EventGraphicsTimetableView({
         return matchesMasterfileQuery(cue, normalizedQuery)
       }),
     [normalizedQuery, statusFilter],
-  )
-  const filteredSessionGroups = useMemo(
-    () => sessionGroups.filter((group) => matchesSessionGroup(group, normalizedQuery, statusFilter)),
-    [normalizedQuery, sessionGroups, statusFilter],
   )
   const filteredExhibitionRows = useMemo(
     () =>
@@ -992,9 +893,7 @@ export function EventGraphicsTimetableView({
   const visibleCount = isEventMode
     ? layoutMode === 'masterfile'
       ? filteredMasterfileCues.length
-      : layoutMode === 'cueSheet'
-        ? filteredSessionGroups.length
-        : filteredRows.length
+      : filteredRows.length
     : filteredExhibitionRows.length
 
   return (
@@ -1131,14 +1030,6 @@ export function EventGraphicsTimetableView({
           </button>
           <button
             type="button"
-            className={layoutMode === 'cueSheet' ? 'viewTab active' : 'viewTab'}
-            aria-pressed={layoutMode === 'cueSheet'}
-            onClick={() => onLayoutChange('cueSheet')}
-          >
-            세션 보기
-          </button>
-          <button
-            type="button"
             className={layoutMode === 'masterfile' ? 'viewTab active' : 'viewTab'}
             aria-pressed={layoutMode === 'masterfile'}
             onClick={() => onLayoutChange('masterfile')}
@@ -1168,8 +1059,6 @@ export function EventGraphicsTimetableView({
         />
       ) : isEventMode && layoutMode === 'compact' ? (
         <TimelineLayout rows={filteredRows} />
-      ) : isEventMode && layoutMode === 'cueSheet' ? (
-        <SessionLayout groups={filteredSessionGroups} />
       ) : isEventMode ? (
         <MasterfileAuditLayout
           cues={filteredMasterfileCues}

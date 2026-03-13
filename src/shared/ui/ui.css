@@ -3297,8 +3297,8 @@ button.dashboardNavButton {
   border-radius: 20px;
   box-shadow: var(--shadow-card);
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .eventGraphicsAuditCard.status-missing {
@@ -3340,7 +3340,7 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditMeta {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .eventGraphicsAuditMeta h3,
@@ -3350,14 +3350,14 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditMeta p {
   color: var(--text-sub);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .eventGraphicsAuditGrid {
   display: grid;
   align-items: stretch;
-  gap: 10px;
-  grid-template-columns: minmax(340px, 1.35fr) minmax(220px, 0.9fr) minmax(220px, 0.9fr);
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(220px, 1fr);
 }
 
 .eventGraphicsAuditVisual,
@@ -3366,14 +3366,14 @@ button.dashboardNavButton {
   border: 1px solid var(--border);
   border-radius: 16px;
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px;
 }
 
 .eventGraphicsAuditVisual .eventGraphicsPreviewInline,
 .eventGraphicsAuditVisual .eventGraphicsPreviewPlaceholder {
-  aspect-ratio: 21 / 9;
-  min-height: 164px;
+  aspect-ratio: 16 / 7;
+  min-height: 88px;
 }
 
 .eventGraphicsAuditPanelHead {
@@ -3443,6 +3443,13 @@ button.dashboardNavButton {
   grid-template-columns: repeat(2, max-content);
 }
 
+.eventGraphicsAuditInlineRow {
+  align-items: flex-start;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
 .eventGraphicsAuditCheck {
   align-items: center;
   display: flex;
@@ -3476,13 +3483,48 @@ button.dashboardNavButton {
   padding-top: 8px;
 }
 
-.eventGraphicsAuditFileList.is-compact li strong {
-  font-size: 12px;
+.eventGraphicsAuditMissing.is-inline {
+  align-items: flex-start;
+  border-top: 0;
+  gap: 6px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin-top: 0;
+  padding-top: 0;
 }
 
-.eventGraphicsPreviewPlaceholder.is-compact {
+.eventGraphicsAuditMiniLabel {
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.8;
+  text-transform: uppercase;
+}
+
+.eventGraphicsAuditChipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eventGraphicsAuditChip {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-main);
+  display: inline-flex;
   font-size: 11px;
-  padding: 10px;
+  line-height: 1.2;
+  max-width: 100%;
+  padding: 4px 8px;
+  word-break: break-all;
+}
+
+.eventGraphicsAuditChip.is-missing {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
 }
 
 .eventGraphicsShareShell {
@@ -3645,6 +3687,12 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
+.eventGraphicsShareHead p {
+  color: var(--text-sub);
+  font-size: 12px;
+  margin: 0;
+}
+
 .eventGraphicsShareSection {
   align-items: center;
   background: color-mix(in srgb, #e6eefc 82%, white);
@@ -3662,6 +3710,12 @@ button.dashboardNavButton {
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+}
+
+.eventGraphicsShareAssetGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(220px, 1fr);
 }
 
 .eventGraphicsShareVisual,
@@ -3777,6 +3831,7 @@ button.dashboardNavButton {
 
   .eventGraphicsShareSummary,
   .eventGraphicsShareTimelineGrid,
+  .eventGraphicsShareAssetGrid,
   .eventGraphicsShareCore,
   .eventGraphicsTimelineStage,
   .eventGraphicsTimelineAssets {
@@ -3901,6 +3956,11 @@ button.dashboardNavButton {
   .eventGraphicsShareTimelineGrid {
     gap: 8px;
     grid-template-columns: 124px minmax(0, 1fr);
+  }
+
+  .eventGraphicsShareAssetGrid {
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .eventGraphicsShareCore {
