@@ -1,20 +1,20 @@
 Event: 2026 IZEN Seminar in Bangkok
-Package Type: Cue-based masterfile handoff
+Package Type: Vendor playback package
 
 Structure
 - 00_README.txt: package overview
 - 01_Source: source workbook reference
-- 02_Cues: one folder per cue in playback order
+- 02_Cues: one folder per vendor playback cue
 
 Source Workbook
 - files/IZEN Seminar in Bangkok Timetable.xlsx
 
 How To Use
-- Put all final delivery files into each cue folder.
-- Keep image, video, and audio for the same cue together.
-- Do not move files between cue folders after vendor confirmation.
-- If a cue changes on site, replace only that cue folder contents and notify the vendor.
+- Folder names use the actual cue number from the show order.
+- Each cue folder includes Start order and Then/Hold order.
+- Put final delivery files for that cue into the same folder.
+- Do not rename or move files after the vendor has confirmed the package.
 
 Cue Count
-- 19
+- 14
 

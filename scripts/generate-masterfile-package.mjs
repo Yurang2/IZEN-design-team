@@ -25,7 +25,6 @@ function parseArgs(argv) {
 function normalizeText(value) {
   return String(value ?? '')
     .replace(/\r?\n+/g, ' / ')
-    .replace(/\s+\/\s+/g, ' / ')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -90,8 +89,6 @@ function normalizeRow(rawRow) {
 
 function sanitizeFolderName(value) {
   return value
-    .replace(/등장\s*-\s*/gi, 'Entrance ')
-    .replace(/등장/gi, 'Entrance')
     .replace(/&/g, 'And')
     .replace(/[\\/:"*?<>|]+/g, ' ')
     .replace(/[^a-zA-Z0-9._ -]+/g, ' ')
@@ -100,15 +97,119 @@ function sanitizeFolderName(value) {
     .replace(/^_+|_+$/g, '')
 }
 
-function toCueDisplayTitle(row) {
-  const withoutEvent = row.rowTitle.replace(/^\[[^\]]+\]\s*/, '')
-  const withoutOrder = withoutEvent.replace(/^\d+(?:\.\d+)?\s+/, '')
-  return withoutOrder || row.cueTitle || 'Untitled Cue'
+function looksLikeVideoAsset(value) {
+  return /\.(mp4|mov|m4v|avi|wmv|mkv)\b/i.test(value) || /\bvideo\b/i.test(value)
 }
 
-function toCellItems(value) {
-  const normalized = normalizeText(value)
-  return normalized ? [normalized] : []
+function looksLikeLoopInstruction(value) {
+  return /\bloop\b/i.test(value)
+}
+
+function toPrimaryAsset(row) {
+  if (row.graphicAssetName && row.graphicAssetName !== '-') return row.graphicAssetName
+  if (row.sourceVideo) return row.sourceVideo
+  if (row.sourceAudio) return row.sourceAudio
+  return '파일명 확인 필요'
+}
+
+function toCueNumber(value) {
+  const numeric = value == null ? Number.NaN : Math.round(value)
+  return Number.isFinite(numeric) ? String(numeric).padStart(2, '0') : '--'
+}
+
+function isEntranceRow(row) {
+  return row.cueTitle === '등장'
+}
+
+function canMergeEntranceWithMainRow(entranceRow, mainRow) {
+  if (!mainRow) return false
+  if (!isEntranceRow(entranceRow)) return false
+  if (!['opening', 'lecture'].includes(mainRow.cueType)) return false
+  if (entranceRow.eventName !== mainRow.eventName) return false
+  if (entranceRow.cueOrder == null || mainRow.cueOrder == null) return false
+  return Math.ceil(entranceRow.cueOrder) === Math.round(mainRow.cueOrder)
+}
+
+function joinSummary(parts) {
+  return parts.map((part) => String(part ?? '').trim()).filter(Boolean).join(' / ')
+}
+
+function toRuntimeLabel(value) {
+  return value != null ? `${value} min` : '-'
+}
+
+function buildMergedVendorCue(entranceRow, mainRow) {
+  const runtimeMinutes = (entranceRow.runtimeMinutes ?? 0) + (mainRow.runtimeMinutes ?? 0)
+  return {
+    cueNumber: toCueNumber(mainRow.cueOrder),
+    cueType: mainRow.cueType,
+    title: mainRow.cueTitle,
+    eventName: mainRow.eventName,
+    startTime: entranceRow.startTime,
+    endTime: mainRow.endTime,
+    runtimeLabel: toRuntimeLabel(runtimeMinutes),
+    personnel: mainRow.personnel,
+    startGraphic: toPrimaryAsset(entranceRow),
+    startGraphicAction: 'Play',
+    startAudio: entranceRow.sourceAudio,
+    startAudioAction: entranceRow.sourceAudio ? 'Play' : '-',
+    nextGraphic: toPrimaryAsset(mainRow),
+    nextGraphicAction: looksLikeVideoAsset(toPrimaryAsset(mainRow)) ? 'Play' : 'Hold',
+    nextAudio: mainRow.sourceAudio,
+    nextAudioAction: mainRow.sourceAudio ? (looksLikeLoopInstruction(mainRow.sourceAudio) ? 'Loop' : 'Play') : '-',
+    note: joinSummary([entranceRow.sourceRemark, mainRow.sourceRemark, mainRow.vendorNote]) || 'None',
+  }
+}
+
+function buildSingleVendorCue(row) {
+  const primaryAsset = toPrimaryAsset(row)
+  const graphicAction =
+    row.cueType === 'certificate' || row.cueType === 'closing' || row.cueType === 'break' || row.cueType === 'meal'
+      ? 'Hold'
+      : looksLikeVideoAsset(primaryAsset)
+        ? 'Play'
+        : 'Hold'
+
+  return {
+    cueNumber: toCueNumber(row.cueOrder),
+    cueType: row.cueType,
+    title: row.cueTitle,
+    eventName: row.eventName,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    runtimeLabel: toRuntimeLabel(row.runtimeMinutes),
+    personnel: row.personnel,
+    startGraphic: primaryAsset,
+    startGraphicAction: graphicAction,
+    startAudio: row.sourceAudio,
+    startAudioAction: row.sourceAudio ? (looksLikeLoopInstruction(row.sourceAudio) ? 'Loop' : 'Play') : '-',
+    nextGraphic: '',
+    nextGraphicAction: '-',
+    nextAudio: '',
+    nextAudioAction: '-',
+    note: joinSummary([row.sourceRemark, row.vendorNote]) || 'None',
+  }
+}
+
+function buildVendorCues(rows) {
+  const vendorCues = []
+  for (let index = 0; index < rows.length; index += 1) {
+    const current = rows[index]
+    const next = rows[index + 1]
+
+    if (canMergeEntranceWithMainRow(current, next)) {
+      vendorCues.push(buildMergedVendorCue(current, next))
+      index += 1
+      continue
+    }
+
+    if (isEntranceRow(current)) {
+      continue
+    }
+
+    vendorCues.push(buildSingleVendorCue(current))
+  }
+  return vendorCues
 }
 
 function toListBlock(title, items, fallback = '-') {
@@ -116,28 +217,28 @@ function toListBlock(title, items, fallback = '-') {
   return `${title}\n${lines.join('\n')}`
 }
 
-function buildRootReadme(rows, options) {
-  const eventName = rows[0]?.eventName || path.basename(options.output)
+function buildRootReadme(cues, options) {
+  const eventName = cues[0]?.eventName || path.basename(options.output)
   return [
     `Event: ${eventName}`,
-    'Package Type: Cue-based masterfile handoff',
+    'Package Type: Vendor playback package',
     '',
     'Structure',
     '- 00_README.txt: package overview',
     '- 01_Source: source workbook reference',
-    '- 02_Cues: one folder per cue in playback order',
+    '- 02_Cues: one folder per vendor playback cue',
     '',
     'Source Workbook',
     `- ${options.source}`,
     '',
     'How To Use',
-    '- Put all final delivery files into each cue folder.',
-    '- Keep image, video, and audio for the same cue together.',
-    '- Do not move files between cue folders after vendor confirmation.',
-    '- If a cue changes on site, replace only that cue folder contents and notify the vendor.',
+    '- Folder names use the actual cue number from the show order.',
+    '- Each cue folder includes Start order and Then/Hold order.',
+    '- Put final delivery files for that cue into the same folder.',
+    '- Do not rename or move files after the vendor has confirmed the package.',
     '',
     'Cue Count',
-    `- ${rows.length}`,
+    `- ${cues.length}`,
     '',
   ].join('\n')
 }
@@ -147,40 +248,48 @@ function buildSourceReadme(options) {
     'Source Reference',
     `- Workbook: ${options.source}`,
     '- This folder exists only as a reference pointer.',
-    '- The original workbook stays in its current location unless you manually copy it here.',
     '',
   ].join('\n')
 }
 
-function buildCueReadme(row, sequenceNumber) {
-  const displayTitle = toCueDisplayTitle(row)
-  const sourceVideos = toCellItems(row.sourceVideo)
-  const sourceAudios = toCellItems(row.sourceAudio)
-  const graphicAssets = toCellItems(row.graphicAssetName)
-  const notes = [row.sourceRemark, row.vendorNote].filter(Boolean)
+function buildCueReadme(cue) {
+  const nextOrderLines = cue.nextGraphic || cue.nextAudio
+    ? [
+        'Then / Hold Order',
+        `- Graphic: ${cue.nextGraphic || '-'}`,
+        `- Graphic Action: ${cue.nextGraphicAction || '-'}`,
+        `- Audio: ${cue.nextAudio || '-'}`,
+        `- Audio Action: ${cue.nextAudioAction || '-'}`,
+      ]
+    : [
+        'Then / Hold Order',
+        '- Graphic: -',
+        '- Graphic Action: -',
+        '- Audio: -',
+        '- Audio Action: -',
+      ]
 
   return [
-    `Cue Sequence: ${String(sequenceNumber).padStart(3, '0')}`,
-    `Cue Order: ${row.cueOrder ?? '-'}`,
-    `Cue Title: ${displayTitle}`,
-    `Cue Type: ${row.cueType || '-'}`,
-    `Time: ${row.startTime || '-'} - ${row.endTime || '-'}`,
-    `Runtime: ${row.runtimeMinutes ?? '-'} min`,
-    `Personnel: ${row.personnel || '-'}`,
-    `Graphic Type: ${row.graphicType || '-'}`,
-    `Status: ${row.status || '-'}`,
+    `Cue Number: ${cue.cueNumber}`,
+    `Cue Title: ${cue.title}`,
+    `Cue Type: ${cue.cueType || '-'}`,
+    `Time: ${cue.startTime || '-'} - ${cue.endTime || '-'}`,
+    `Runtime: ${cue.runtimeLabel}`,
+    `Personnel: ${cue.personnel || '-'}`,
     '',
-    toListBlock('Expected Graphic / Video References', sourceVideos.length > 0 ? sourceVideos : graphicAssets),
+    'Start Order',
+    `- Graphic: ${cue.startGraphic || '-'}`,
+    `- Graphic Action: ${cue.startGraphicAction || '-'}`,
+    `- Audio: ${cue.startAudio || '-'}`,
+    `- Audio Action: ${cue.startAudioAction || '-'}`,
     '',
-    toListBlock('Expected Audio References', sourceAudios),
+    ...nextOrderLines,
     '',
-    toListBlock('Graphic Asset Name Snapshot', graphicAssets),
-    '',
-    toListBlock('Operational Notes', notes, 'None'),
+    toListBlock('Operational Notes', cue.note && cue.note !== 'None' ? [cue.note] : [], 'None'),
     '',
     'Delivery Rule',
-    '- Put final files for this cue into this folder only.',
-    '- Keep vendor-ready filenames stable once shared.',
+    '- Put final vendor delivery files for this cue into this folder only.',
+    '- Keep one final file per actual playback target whenever possible.',
     '',
   ].join('\n')
 }
@@ -198,6 +307,7 @@ async function main() {
   if (sourceRows.length === 0) throw new Error('rows_missing')
 
   const rows = sourceRows.map(normalizeRow)
+  const cues = buildVendorCues(rows)
   await recreateDirectory(options.output)
 
   const sourceDirectory = path.join(options.output, '01_Source')
@@ -205,19 +315,18 @@ async function main() {
   await fs.mkdir(sourceDirectory, { recursive: true })
   await fs.mkdir(cuesDirectory, { recursive: true })
 
-  await fs.writeFile(path.join(options.output, '00_README.txt'), `${buildRootReadme(rows, options)}\n`, 'utf8')
+  await fs.writeFile(path.join(options.output, '00_README.txt'), `${buildRootReadme(cues, options)}\n`, 'utf8')
   await fs.writeFile(path.join(sourceDirectory, 'README.txt'), `${buildSourceReadme(options)}\n`, 'utf8')
 
-  for (const [index, row] of rows.entries()) {
-    const displayTitle = toCueDisplayTitle(row)
-    const folderName = `C${String(index + 1).padStart(3, '0')}_${sanitizeFolderName(displayTitle)}`
+  for (const cue of cues) {
+    const folderName = `Q${cue.cueNumber}_${sanitizeFolderName(cue.title)}`
     const cueDirectory = path.join(cuesDirectory, folderName)
     await fs.mkdir(cueDirectory, { recursive: true })
-    await fs.writeFile(path.join(cueDirectory, 'README.txt'), `${buildCueReadme(row, index + 1)}\n`, 'utf8')
+    await fs.writeFile(path.join(cueDirectory, 'README.txt'), `${buildCueReadme(cue)}\n`, 'utf8')
   }
 
   console.log(`Created masterfile package structure in ${options.output}`)
-  console.log(`Cue folders: ${rows.length}`)
+  console.log(`Cue folders: ${cues.length}`)
 }
 
 main().catch((error) => {

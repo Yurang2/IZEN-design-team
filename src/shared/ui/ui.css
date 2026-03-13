@@ -3349,6 +3349,27 @@ button.dashboardNavButton {
   margin: 0;
 }
 
+.eventGraphicsShareActionList {
+  display: grid;
+  gap: 10px;
+}
+
+.eventGraphicsShareActionItem {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.eventGraphicsShareActionItem span {
+  color: var(--text-sub);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .eventGraphicsSharePreview {
   aspect-ratio: 16 / 9;
   background: color-mix(in srgb, var(--surface-soft) 78%, white);
