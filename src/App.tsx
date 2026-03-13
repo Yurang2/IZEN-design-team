@@ -7,6 +7,7 @@ import { EventGraphicsTimetableView } from './features/eventGraphics/EventGraphi
 import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
 import { ScheduleView } from './features/schedule/ScheduleView'
+import { SnsPostGeneratorView } from './features/snsPost/SnsPostGeneratorView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 import { TasksView } from './features/tasks/TasksView'
@@ -233,6 +234,11 @@ type AuthLoginResponse = {
   expiresAt?: string
 }
 
+type CopyTextOptions = {
+  successMessage?: string
+  emptyMessage?: string
+}
+
 type Filters = {
   projectId: string
   status: string
@@ -249,7 +255,7 @@ type TaskViewFilters = {
   hideDone: boolean
 }
 
-type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'eventGraphics' | 'checklist' | 'meetings' | 'guide'
+type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'eventGraphics' | 'checklist' | 'meetings' | 'snsPost' | 'guide'
 
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
@@ -344,7 +350,18 @@ function createDefaultTaskViewFilters(): TaskViewFilters {
 }
 
 function parseTopView(value: string | null): TopView {
-  if (value === 'dashboard' || value === 'projects' || value === 'tasks' || value === 'schedule' || value === 'eventGraphics' || value === 'checklist' || value === 'meetings' || value === 'guide') return value
+  if (
+    value === 'dashboard' ||
+    value === 'projects' ||
+    value === 'tasks' ||
+    value === 'schedule' ||
+    value === 'eventGraphics' ||
+    value === 'checklist' ||
+    value === 'meetings' ||
+    value === 'snsPost' ||
+    value === 'guide'
+  )
+    return value
   return 'dashboard'
 }
 
@@ -603,6 +620,7 @@ function toTopViewPath(view: TopView): string {
   if (view === 'schedule') return 'Schedule'
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'meetings') return 'Meetings'
+  if (view === 'snsPost') return 'SNS Post Generator'
   if (view === 'guide') return 'Usage Guide'
   return 'Event Checklist'
 }
@@ -614,6 +632,7 @@ function toTopViewTitle(view: TopView): string {
   if (view === 'schedule') return '일정'
   if (view === 'eventGraphics') return '타임테이블'
   if (view === 'meetings') return '회의록'
+  if (view === 'snsPost') return 'SNS 본문 생성'
   if (view === 'checklist') return '행사 체크리스트'
   return '사용법'
 }
@@ -1047,16 +1066,16 @@ function App() {
   )
 
   const copyText = useCallback(
-    async (text: string) => {
+    async (text: string, options?: CopyTextOptions) => {
       const normalized = text.trim()
       if (!normalized) {
-        pushToast('error', '복사할 내용이 없습니다.')
+        pushToast('error', options?.emptyMessage ?? '복사할 내용이 없습니다.')
         return
       }
 
       try {
         await navigator.clipboard.writeText(normalized)
-        pushToast('success', '보고 문구를 복사했습니다.')
+        pushToast('success', options?.successMessage ?? '보고 문구를 복사했습니다.')
       } catch {
         pushToast('error', '클립보드 복사에 실패했습니다.')
       }
@@ -2999,6 +3018,19 @@ function App() {
               </button>
               <button
                 type="button"
+                className={activeView === 'snsPost' ? 'viewTab active' : 'viewTab'}
+                onClick={() => setActiveView('snsPost')}
+                title="SNS 본문 생성"
+              >
+                <span className="iconLabel">
+                  <span className="uiIcon">
+                    <UiGlyph name="list" />
+                  </span>
+                  <span>SNS 본문 생성</span>
+                </span>
+              </button>
+              <button
+                type="button"
                 className={activeView === 'guide' ? 'viewTab active' : 'viewTab'}
                 onClick={() => setActiveView('guide')}
                 title="사용법"
@@ -3306,6 +3338,8 @@ function App() {
 
       {activeView === 'meetings' ? <MeetingsView /> : null}
 
+      {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
+
       {activeView === 'guide' ? (
         <section className="guideView" aria-label="서비스 사용법">
           <article className="guideHero">
@@ -3359,6 +3393,13 @@ function App() {
                 <p>행사 기준으로 제작물 체크리스트와 할당 상태를 확인/수정하는 탭입니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('checklist')}>
                   체크리스트 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>SNS 본문 생성</h4>
+                <p>행사명, 국가명, 도시명, 날짜만 넣어 재사용 가능한 SNS 본문과 해시태그를 만드는 탭입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('snsPost')}>
+                  SNS 탭 열기
                 </button>
               </section>
               <section className="guideTabItem">

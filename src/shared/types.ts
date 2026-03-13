@@ -241,7 +241,7 @@ export type TaskViewFilters = {
   hideDone: boolean
 }
 
-export type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'eventGraphics' | 'checklist' | 'meetings' | 'guide'
+export type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'eventGraphics' | 'checklist' | 'meetings' | 'snsPost' | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 export type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
