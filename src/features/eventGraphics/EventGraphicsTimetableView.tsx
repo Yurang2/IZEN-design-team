@@ -274,91 +274,76 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
   }
 }
 
-function CompactLayout({
+function TimelineLayout({
   rows,
 }: {
   rows: TimetableRow[]
 }) {
+  const groups = buildSessionGroups(rows)
   return (
-    <div className="eventGraphicsCompactTableWrap">
-      <table className="eventGraphicsCompactTable">
-        <thead>
-          <tr>
-            <th>시간</th>
-            <th>구분</th>
-            <th>이미지</th>
-            <th>그래픽</th>
-            <th>오디오</th>
-            <th>상태</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const statusClassName = toStatusClassName(row.status)
-            const cueTypeClassName = toCueTypeClassName(row.cueType)
-            const hasPreview = looksLikeImageUrl(row.previewHref)
-            const displayCueOrder = toDisplayCueOrder(row)
-            return (
-              <tr key={row.id} className={`eventGraphicsCompactRow status-${statusClassName}`}>
-                <td className="eventGraphicsCompactTimeCell">
-                  <div className="eventGraphicsCompactCellInner">
-                    <strong>
-                      {row.startTime} - {row.endTime}
-                    </strong>
-                    <span>{formatRuntimeLabel(row.runtime)}</span>
-                  </div>
-                </td>
-                <td className="eventGraphicsCompactCueCell">
-                  <div className="eventGraphicsCompactCellInner">
-                    <div className="eventGraphicsCueHead">
-                      <span className="eventGraphicsOrder">{displayCueOrder}</span>
-                      <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                      {row.cueTitle === ENTRANCE_LABEL ? <span className="eventGraphicsEntranceFlag">입장</span> : null}
+    <div className="eventGraphicsTimelineList">
+      {groups.map((group) => {
+        const sessionTypeClassName = toCueTypeClassName(group.cueType)
+        return (
+          <article key={group.id} className="eventGraphicsTimelineCard">
+            <div className="eventGraphicsTimelineHead">
+              <div>
+                <div className="eventGraphicsCueHead">
+                  <span className="eventGraphicsOrder">{group.stages[0]?.cueNumber ?? '--'}</span>
+                  <span className={`eventGraphicsCueType cue-${sessionTypeClassName}`}>{group.cueType}</span>
+                </div>
+                <h3>{group.title}</h3>
+                <p>
+                  {group.startTime} - {group.endTime} / {group.runtimeLabel}
+                </p>
+              </div>
+            </div>
+
+            <div className="eventGraphicsTimelineStageList">
+              {group.stages.map((stage) => {
+                const stageStatusClassName = toStatusClassName(stage.status)
+                const hasPreview = looksLikeImageUrl(stage.previewHref)
+                return (
+                  <div key={stage.id} className={`eventGraphicsTimelineStage status-${stageStatusClassName}`}>
+                    <div className="eventGraphicsTimelineTime">
+                      <strong>{stage.startTime}</strong>
+                      <span>{stage.endTime}</span>
+                      <small>{stage.runtimeLabel}</small>
                     </div>
-                    <strong>{row.cueTitle}</strong>
-                    <p>{joinSummary([row.personnel && `무대 ${row.personnel}`, row.vendorNote || row.remark]) || '메모 없음'}</p>
-                  </div>
-                </td>
-                <td className="eventGraphicsCompactImageCell">
-                  <div className="eventGraphicsCompactCellInner">
-                    {hasPreview ? (
-                      <div className="eventGraphicsPreviewThumb">
-                        <img src={row.previewHref ?? ''} alt={`${row.cueTitle} 미리보기`} loading="lazy" />
+                    <div className="eventGraphicsTimelineBody">
+                      <div className="eventGraphicsTimelineMeta">
+                        <div className="eventGraphicsCueHead">
+                          <span className="eventGraphicsEntranceFlag">{stage.label}</span>
+                          <span className={`eventGraphicsStatus status-${stageStatusClassName}`}>{stage.status}</span>
+                        </div>
+                        <strong>{stage.title}</strong>
+                        <p>{stage.note}</p>
                       </div>
-                    ) : (
-                      <span className="eventGraphicsCompactImageHint">없음</span>
-                    )}
-                  </div>
-                </td>
-                <td className="eventGraphicsCompactMediaCell">
-                  <div className="eventGraphicsCompactCellInner">
-                    <strong>{row.graphicAsset}</strong>
-                    <p>{joinSummary([row.graphicType, row.sourceVideo && `파일명 ${row.sourceVideo}`]) || '-'}</p>
-                    <div className="eventGraphicsLinkRow">
-                      {row.assetHref ? (
-                        <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
-                          자산 링크
-                        </a>
-                      ) : null}
+                      <div className="eventGraphicsTimelineAssets">
+                        <div className="eventGraphicsCueSheetPanel">
+                          <span className="eventGraphicsPanelLabel">그래픽</span>
+                          <strong>{stage.graphicLabel}</strong>
+                          {hasPreview ? (
+                            <div className="eventGraphicsPreviewThumb">
+                              <img src={stage.previewHref ?? ''} alt={`${stage.title} 미리보기`} loading="lazy" />
+                            </div>
+                          ) : (
+                            <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
+                          )}
+                        </div>
+                        <div className="eventGraphicsCueSheetPanel">
+                          <span className="eventGraphicsPanelLabel">오디오</span>
+                          <strong>{stage.audioLabel}</strong>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </td>
-                <td className="eventGraphicsCompactAudioCell">
-                  <div className="eventGraphicsCompactCellInner">
-                    <strong>{row.sourceAudio || '-'}</strong>
-                    <p>{row.personnel ? `무대 ${row.personnel}` : '무대 정보 없음'}</p>
-                  </div>
-                </td>
-                <td className="eventGraphicsCompactStatusCell">
-                  <div className="eventGraphicsCompactCellInner">
-                    <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                )
+              })}
+            </div>
+          </article>
+        )
+      })}
     </div>
   )
 }
@@ -836,7 +821,7 @@ export function EventGraphicsTimetableView({
           className="scheduleEmptyState"
         />
       ) : layoutMode === 'compact' ? (
-        <CompactLayout rows={filteredRows} />
+        <TimelineLayout rows={filteredRows} />
       ) : layoutMode === 'cueSheet' ? (
         <SessionLayout groups={filteredSessionGroups} />
       ) : (

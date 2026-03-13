@@ -2858,97 +2858,85 @@ button.dashboardNavButton {
   font-size: 12px;
 }
 
-.eventGraphicsCompactTableWrap {
+.eventGraphicsTimelineList {
+  display: grid;
+  gap: 14px;
+}
+
+.eventGraphicsTimelineCard {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 22px;
   box-shadow: var(--shadow-card);
-  overflow: auto;
-}
-
-.eventGraphicsCompactTable {
-  border-collapse: collapse;
-  min-width: 900px;
-  width: 100%;
-}
-
-.eventGraphicsCompactTable th,
-.eventGraphicsCompactTable td {
-  border-bottom: 1px solid var(--border);
-  padding: 12px 14px;
-  text-align: left;
-  vertical-align: top;
-}
-
-.eventGraphicsCompactTable th {
-  background: color-mix(in srgb, var(--surface-soft) 88%, white);
-  color: var(--text-sub);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  position: sticky;
-  text-transform: uppercase;
-  top: 0;
-  z-index: 1;
-}
-
-.eventGraphicsCompactTable tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.eventGraphicsCompactRow.status-changed_on_site {
-  background: color-mix(in srgb, #fef2f2 72%, white);
-}
-
-.eventGraphicsCompactRow.status-ready,
-.eventGraphicsCompactRow.status-shared {
-  background: color-mix(in srgb, #f0fdf4 72%, white);
-}
-
-.eventGraphicsCompactTimeCell,
-.eventGraphicsCompactCueCell,
-.eventGraphicsCompactImageCell,
-.eventGraphicsCompactMediaCell,
-.eventGraphicsCompactAudioCell,
-.eventGraphicsCompactStatusCell {
-  width: auto;
-}
-
-.eventGraphicsCompactCellInner {
   display: grid;
-  gap: 6px;
+  gap: 14px;
+  padding: 18px;
 }
 
-.eventGraphicsCompactTimeCell strong {
+.eventGraphicsTimelineHead h3,
+.eventGraphicsTimelineHead p {
+  margin: 0;
+}
+
+.eventGraphicsTimelineHead p {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.eventGraphicsTimelineStageList {
+  display: grid;
+  gap: 10px;
+}
+
+.eventGraphicsTimelineStage {
+  background: color-mix(in srgb, var(--surface-soft) 84%, white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 128px minmax(0, 1fr);
+  padding: 14px;
+}
+
+.eventGraphicsTimelineTime {
+  align-content: start;
+  display: grid;
+  gap: 4px;
+}
+
+.eventGraphicsTimelineTime strong {
   color: var(--text-main);
-  font-size: 15px;
+  font-size: 24px;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-.eventGraphicsCompactTimeCell span,
-.eventGraphicsCompactCueCell p,
-.eventGraphicsCompactMediaCell p {
+.eventGraphicsTimelineTime span,
+.eventGraphicsTimelineTime small,
+.eventGraphicsTimelineMeta p {
   color: var(--text-sub);
   font-size: 12px;
   margin: 0;
 }
 
-.eventGraphicsCompactCueCell strong,
-.eventGraphicsCompactMediaCell strong,
-.eventGraphicsCompactAudioCell strong {
+.eventGraphicsTimelineBody {
+  display: grid;
+  gap: 12px;
+}
+
+.eventGraphicsTimelineMeta {
+  display: grid;
+  gap: 6px;
+}
+
+.eventGraphicsTimelineMeta strong {
   color: var(--text-main);
 }
 
-.eventGraphicsCompactImageHint {
-  color: var(--text-sub);
-  font-size: 12px;
-}
-
-.eventGraphicsCompactImageCell .eventGraphicsPreviewThumb {
-  max-width: 180px;
-}
-
-.eventGraphicsCompactStatusCell {
-  align-content: start;
+.eventGraphicsTimelineAssets {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
 }
 
 .eventGraphicsCueSheet {
@@ -3618,10 +3606,6 @@ button.dashboardNavButton {
     grid-template-columns: 1fr;
   }
 
-  .eventGraphicsCompactImageCell .eventGraphicsPreviewThumb {
-    max-width: none;
-  }
-
   .eventGraphicsShareHero,
   .eventGraphicsShareRow {
     grid-template-columns: 1fr;
@@ -3637,7 +3621,9 @@ button.dashboardNavButton {
 
   .eventGraphicsShareSummary,
   .eventGraphicsShareTimelineGrid,
-  .eventGraphicsShareCore {
+  .eventGraphicsShareCore,
+  .eventGraphicsTimelineStage,
+  .eventGraphicsTimelineAssets {
     grid-template-columns: 1fr;
   }
 
