@@ -3202,7 +3202,7 @@ button.dashboardNavButton {
 .eventGraphicsShareSummary {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(132px, 1fr));
+  grid-template-columns: repeat(3, minmax(132px, 1fr));
 }
 
 .eventGraphicsShareSummary article {
@@ -3276,13 +3276,27 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
-.eventGraphicsShareGrid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 1fr);
+.eventGraphicsShareSection {
+  align-items: center;
+  background: color-mix(in srgb, #e6eefc 82%, white);
+  border-radius: 999px;
+  color: #274472;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  text-transform: uppercase;
 }
 
-.eventGraphicsSharePanel {
+.eventGraphicsShareTimelineGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+}
+
+.eventGraphicsShareVisual,
+.eventGraphicsShareCoreCard {
   background: color-mix(in srgb, var(--surface-soft) 84%, white);
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -3291,13 +3305,19 @@ button.dashboardNavButton {
   padding: 14px;
 }
 
-.eventGraphicsSharePanel p,
-.eventGraphicsSharePanel strong {
-  margin: 0;
+.eventGraphicsShareVisual {
+  align-content: start;
 }
 
-.eventGraphicsSharePanel-note {
-  grid-column: 1 / -1;
+.eventGraphicsShareCore {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.eventGraphicsShareCoreCard p,
+.eventGraphicsShareCoreCard strong {
+  margin: 0;
 }
 
 .eventGraphicsSharePreview {
@@ -3306,6 +3326,10 @@ button.dashboardNavButton {
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
+}
+
+.eventGraphicsSharePreview.is-static {
+  min-height: 180px;
 }
 
 .eventGraphicsSharePreview img {
@@ -3322,7 +3346,8 @@ button.dashboardNavButton {
   }
 
   .eventGraphicsShareSummary,
-  .eventGraphicsShareGrid {
+  .eventGraphicsShareTimelineGrid,
+  .eventGraphicsShareCore {
     grid-template-columns: 1fr;
   }
 
@@ -3391,12 +3416,8 @@ button.dashboardNavButton {
     font-size: 18px;
   }
 
-  .eventGraphicsShareGrid {
-    gap: 8px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
-  }
-
-  .eventGraphicsSharePanel {
+  .eventGraphicsShareVisual,
+  .eventGraphicsShareCoreCard {
     background: white;
     border: 1px solid #dcdcdc;
     border-radius: 0;
@@ -3404,17 +3425,18 @@ button.dashboardNavButton {
     padding: 8px;
   }
 
-  .eventGraphicsSharePanel:nth-child(3) {
-    display: none;
+  .eventGraphicsShareTimelineGrid {
+    gap: 8px;
+    grid-template-columns: 124px minmax(0, 1fr);
   }
 
-  .eventGraphicsSharePanel-note {
-    grid-column: 1 / -1;
+  .eventGraphicsShareCore {
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .eventGraphicsPreviewPlaceholder,
-  .eventGraphicsInlineLink,
-  .eventGraphicsSharePanel button {
+  .eventGraphicsInlineLink {
     display: none;
   }
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 
@@ -30,6 +30,9 @@ type ShareRow = {
   assetHref: string | null
 }
 
+const ENTRANCE_LABEL = '등장'
+const MISSING_FILE_LABEL = '파일명 확인 필요'
+
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
     accumulator[column.name] = index
@@ -54,10 +57,6 @@ function looksLikeImageUrl(value: string | null): boolean {
   return /\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?|#|$)/i.test(value)
 }
 
-function toCueTypeClassName(value: string): string {
-  return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
-}
-
 function formatRuntimeLabel(runtime: string): string {
   return runtime ? `${runtime} min` : '-'
 }
@@ -68,15 +67,37 @@ function joinSummary(parts: Array<string | false | null | undefined>): string {
 
 function toDisplayCueOrder(row: ShareRow): string {
   const numeric = Number(row.cueOrder)
-  if (row.cueTitle === '등장' && Number.isFinite(numeric)) {
+  if (row.cueTitle === ENTRANCE_LABEL && Number.isFinite(numeric)) {
     return `${Math.ceil(numeric)}-ENT`
   }
   return row.cueOrder || '-'
 }
 
+function toSortMinutes(value: string): number {
+  const match = value.trim().match(/(\d{1,2})\s*:\s*(\d{2})/)
+  if (!match) return Number.MAX_SAFE_INTEGER
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return Number.MAX_SAFE_INTEGER
+  return hours * 60 + minutes
+}
+
 function toNumericCueOrder(value: string): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
+}
+
+function toCueTypeLabel(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return '기타'
+  return trimmed.replace(/_/g, ' ')
+}
+
+function toPrimaryFileLabel(row: ShareRow): string {
+  if (row.graphicAsset && row.graphicAsset !== '-') return row.graphicAsset
+  if (row.sourceVideo) return row.sourceVideo
+  if (row.sourceAudio) return row.sourceAudio
+  return MISSING_FILE_LABEL
 }
 
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ShareRow {
@@ -108,14 +129,16 @@ export function EventGraphicsSharePage({
   loading,
   error,
 }: EventGraphicsSharePageProps) {
-  const [openPreviewId, setOpenPreviewId] = useState<string | null>(null)
-
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
   const shareRows = useMemo(
     () =>
       rows
         .map((row) => toRowModel(row, columnIndex))
-        .sort((left, right) => toNumericCueOrder(left.cueOrder) - toNumericCueOrder(right.cueOrder)),
+        .sort((left, right) => {
+          const timeDiff = toSortMinutes(left.startTime) - toSortMinutes(right.startTime)
+          if (timeDiff !== 0) return timeDiff
+          return toNumericCueOrder(left.cueOrder) - toNumericCueOrder(right.cueOrder)
+        }),
     [columnIndex, rows],
   )
 
@@ -124,7 +147,11 @@ export function EventGraphicsSharePage({
     [databaseTitle, shareRows],
   )
 
-  const entranceCount = useMemo(() => shareRows.filter((row) => row.cueTitle === '등장').length, [shareRows])
+  const missingPreviewCount = useMemo(() => shareRows.filter((row) => !looksLikeImageUrl(row.previewHref)).length, [shareRows])
+  const missingFileCount = useMemo(
+    () => shareRows.filter((row) => toPrimaryFileLabel(row) === MISSING_FILE_LABEL).length,
+    [shareRows],
+  )
 
   if (loading) {
     return (
@@ -132,7 +159,7 @@ export function EventGraphicsSharePage({
         <section className="eventGraphicsSharePage">
           <header className="eventGraphicsShareHero">
             <p className="muted small">External Share</p>
-            <h1>Loading timetable...</h1>
+            <h1>진행표를 불러오는 중...</h1>
           </header>
         </section>
       </main>
@@ -142,7 +169,7 @@ export function EventGraphicsSharePage({
   if (error) {
     return (
       <main className="eventGraphicsShareShell">
-        <EmptyState title="Unable to load timetable." message={error} className="scheduleEmptyState" />
+        <EmptyState title="진행표를 불러오지 못했습니다." message={error} className="scheduleEmptyState" />
       </main>
     )
   }
@@ -151,8 +178,8 @@ export function EventGraphicsSharePage({
     return (
       <main className="eventGraphicsShareShell">
         <EmptyState
-          title="The timetable database is not connected."
-          message="The external share page could not read timetable data yet."
+          title="타임테이블 DB가 연결되지 않았습니다."
+          message="외부 공유 페이지에서 타임테이블 데이터를 아직 읽어오지 못했습니다."
           className="scheduleEmptyState"
         />
       </main>
@@ -162,7 +189,7 @@ export function EventGraphicsSharePage({
   if (shareRows.length === 0) {
     return (
       <main className="eventGraphicsShareShell">
-        <EmptyState title="No cues to display." message="There are no cue rows in the database yet." className="scheduleEmptyState" />
+        <EmptyState title="표시할 큐가 없습니다." message="타임테이블에 아직 큐 행이 없습니다." className="scheduleEmptyState" />
       </main>
     )
   }
@@ -174,16 +201,20 @@ export function EventGraphicsSharePage({
           <div className="eventGraphicsShareHeroText">
             <p className="muted small">External Share</p>
             <h1>{eventName}</h1>
-            <p>External event graphics timetable</p>
+            <p>미디어업체용 진행표입니다. 시간 순서대로 이미지와 파일명만 빠르게 확인할 수 있게 구성했습니다.</p>
           </div>
-          <div className="eventGraphicsShareSummary" aria-label="Timetable summary">
+          <div className="eventGraphicsShareSummary" aria-label="진행표 요약">
             <article>
-              <span>Total cues</span>
+              <span>전체 큐</span>
               <strong>{shareRows.length}</strong>
             </article>
             <article>
-              <span>Entrance cues</span>
-              <strong>{entranceCount}</strong>
+              <span>이미지 없음</span>
+              <strong>{missingPreviewCount}</strong>
+            </article>
+            <article>
+              <span>파일명 확인 필요</span>
+              <strong>{missingFileCount}</strong>
             </article>
           </div>
         </header>
@@ -191,9 +222,14 @@ export function EventGraphicsSharePage({
         <div className="eventGraphicsShareList">
           {shareRows.map((row) => {
             const hasPreview = looksLikeImageUrl(row.previewHref)
-            const previewOpen = openPreviewId === row.id && hasPreview
-            const cueTypeClassName = toCueTypeClassName(row.cueType)
-            const isEntranceCue = row.cueTitle === '등장'
+            const isEntranceCue = row.cueTitle === ENTRANCE_LABEL
+            const primaryFileLabel = toPrimaryFileLabel(row)
+            const noteSummary =
+              joinSummary([
+                row.vendorNote,
+                row.personnel && `무대 ${row.personnel}`,
+                row.sourceAudio && `오디오 ${row.sourceAudio}`,
+              ]) || '특이사항 없음'
 
             return (
               <article key={row.id} className={`eventGraphicsShareRow${isEntranceCue ? ' is-entrance' : ''}`}>
@@ -205,64 +241,43 @@ export function EventGraphicsSharePage({
 
                 <div className="eventGraphicsShareBody">
                   <div className="eventGraphicsShareHead">
-                    <div>
-                      <div className="eventGraphicsCueHead">
-                        <span className="eventGraphicsOrder">{toDisplayCueOrder(row)}</span>
-                        <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                        {isEntranceCue ? <span className="eventGraphicsEntranceFlag">Entrance</span> : null}
-                      </div>
-                      <h2>{isEntranceCue ? 'Entrance' : row.cueTitle}</h2>
+                    <div className="eventGraphicsCueHead">
+                      <span className="eventGraphicsOrder">{toDisplayCueOrder(row)}</span>
+                      <span className="eventGraphicsShareSection">{toCueTypeLabel(row.cueType)}</span>
+                      {isEntranceCue ? <span className="eventGraphicsEntranceFlag">입장</span> : null}
                     </div>
+                    <h2>{isEntranceCue ? '입장' : row.cueTitle}</h2>
                   </div>
 
-                  <div className="eventGraphicsShareGrid">
-                    <section className="eventGraphicsSharePanel">
-                      <span className="eventGraphicsPanelLabel">Graphics</span>
-                      <strong>{row.graphicAsset}</strong>
-                      <p>{joinSummary([row.graphicType, row.sourceVideo && `Filename ${row.sourceVideo}`]) || '-'}</p>
-                      {row.assetHref ? (
-                        <a className="eventGraphicsInlineLink" href={row.assetHref} target="_blank" rel="noreferrer">
-                          Open file link
-                        </a>
-                      ) : null}
-                    </section>
-
-                    <section className="eventGraphicsSharePanel">
-                      <span className="eventGraphicsPanelLabel">Audio</span>
-                      <strong>{row.sourceAudio || '-'}</strong>
-                      <p>{row.personnel ? `On stage ${row.personnel}` : 'No stage note'}</p>
-                    </section>
-
-                    <section className="eventGraphicsSharePanel">
-                      <span className="eventGraphicsPanelLabel">Image</span>
+                  <div className="eventGraphicsShareTimelineGrid">
+                    <section className="eventGraphicsShareVisual">
+                      <span className="eventGraphicsPanelLabel">이미지</span>
                       {hasPreview ? (
-                        <>
-                          <button
-                            type="button"
-                            className={previewOpen ? 'secondary mini is-active' : 'secondary mini'}
-                            onClick={() => setOpenPreviewId((current) => (current === row.id ? null : row.id))}
-                          >
-                            {previewOpen ? 'Hide image' : 'Show image'}
-                          </button>
-                          {previewOpen ? (
-                            <div className="eventGraphicsSharePreview">
-                              <img src={row.previewHref ?? ''} alt={`${row.cueTitle} preview`} loading="lazy" />
-                            </div>
-                          ) : (
-                            <div className="eventGraphicsPreviewPlaceholder">Open the image only when needed.</div>
-                          )}
-                        </>
+                        <div className="eventGraphicsSharePreview is-static">
+                          <img src={row.previewHref ?? ''} alt={`${row.cueTitle} preview`} loading="lazy" />
+                        </div>
                       ) : (
-                        <div className="eventGraphicsPreviewPlaceholder">No preview image has been added yet.</div>
+                        <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
                       )}
                     </section>
 
-                    {row.vendorNote ? (
-                      <section className="eventGraphicsSharePanel eventGraphicsSharePanel-note">
-                        <span className="eventGraphicsPanelLabel">Note</span>
-                        <p>{row.vendorNote}</p>
-                      </section>
-                    ) : null}
+                    <section className="eventGraphicsShareCore">
+                      <div className="eventGraphicsShareCoreCard">
+                        <span className="eventGraphicsPanelLabel">파일명</span>
+                        <strong>{primaryFileLabel}</strong>
+                        <p>{joinSummary([row.graphicType !== '-' && row.graphicType, row.sourceVideo && `원본 ${row.sourceVideo}`]) || '-'}</p>
+                        {row.assetHref ? (
+                          <a className="eventGraphicsInlineLink" href={row.assetHref} target="_blank" rel="noreferrer">
+                            파일 열기
+                          </a>
+                        ) : null}
+                      </div>
+
+                      <div className="eventGraphicsShareCoreCard">
+                        <span className="eventGraphicsPanelLabel">현장 메모</span>
+                        <p>{noteSummary}</p>
+                      </div>
+                    </section>
                   </div>
                 </div>
               </article>
