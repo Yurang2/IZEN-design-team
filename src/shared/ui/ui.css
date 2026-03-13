@@ -688,6 +688,30 @@ button.quickSearchItem span:last-child {
   margin-top: 10px;
 }
 
+.viewMenuGroups {
+  display: grid;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.viewMenuGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.viewMenuGroupTitle {
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding-left: 2px;
+  text-transform: uppercase;
+}
+
+.viewMenuGroup .viewTabs {
+  margin-top: 0;
+}
+
 button.viewTab {
   align-items: center;
   background: transparent;
@@ -842,6 +866,7 @@ button.viewTab.active .viewTabCount {
 .mondaySidebar.collapsed .workspaceMeta,
 .mondaySidebar.collapsed .sidebarBrand,
 .mondaySidebar.collapsed .viewMenuHeader strong,
+.mondaySidebar.collapsed .viewMenuGroupTitle,
 .mondaySidebar.collapsed .viewTabCount,
 .mondaySidebar.collapsed .dbJump,
 .mondaySidebar.collapsed .sidebarControls,
@@ -853,6 +878,11 @@ button.viewTab.active .viewTabCount {
 .mondaySidebar.collapsed .viewTabs {
   justify-items: center;
   margin-top: 2px;
+}
+
+.mondaySidebar.collapsed .viewMenuGroups {
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .mondaySidebar.collapsed .viewMenuHeader {

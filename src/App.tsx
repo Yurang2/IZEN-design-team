@@ -2216,6 +2216,41 @@ function App() {
   const projectTabCountLabel = loadingProjects ? '...' : String(projects.length)
   const taskTabCountLabel = loadingList ? '...' : String(tasks.length)
   const hasQuickSearchResults = quickSearchSections.projects.length > 0 || quickSearchSections.tasks.length > 0
+  const viewMenuGroups: Array<{
+    label: string
+    items: Array<{
+      view: TopView
+      title: string
+      label: string
+      icon: UiGlyphName
+      count?: string
+    }>
+  }> = [
+    {
+      label: '운영',
+      items: [
+        { view: 'dashboard', title: '팀 운영 대시보드', label: '대시보드', icon: 'pulse' },
+        { view: 'projects', title: '프로젝트', label: '프로젝트', icon: 'grid', count: projectTabCountLabel },
+        { view: 'tasks', title: '업무', label: '업무', icon: 'list', count: taskTabCountLabel },
+        { view: 'schedule', title: '일정', label: '일정', icon: 'calendar' },
+        { view: 'meetings', title: '회의록', label: '회의록', icon: 'list' },
+      ],
+    },
+    {
+      label: '행사',
+      items: [
+        { view: 'eventGraphics', title: '타임테이블', label: '타임테이블', icon: 'calendar' },
+        { view: 'checklist', title: '행사 체크리스트', label: '행사 체크리스트', icon: 'checksquare' },
+      ],
+    },
+    {
+      label: '도구',
+      items: [
+        { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
+        { view: 'guide', title: '사용법', label: '사용법', icon: 'list' },
+      ],
+    },
+  ]
 
   const onQuickSearchPick = (scope: QuickSearchScope, id: string) => {
     if (scope === 'project') {
@@ -2922,126 +2957,31 @@ function App() {
             </button>
           </div>
           {menuCollapsed ? null : (
-            <div className="viewTabs">
-              <button
-                type="button"
-                className={activeView === 'dashboard' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('dashboard')}
-                title="팀 운영 대시보드"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="pulse" />
-                  </span>
-                  <span>대시보드</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'projects' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('projects')}
-                title="프로젝트"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="grid" />
-                  </span>
-                  <span>프로젝트</span>
-                </span>
-                <span className="viewTabCount">{projectTabCountLabel}</span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'tasks' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('tasks')}
-                title="업무"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="list" />
-                  </span>
-                  <span>업무</span>
-                </span>
-                <span className="viewTabCount">{taskTabCountLabel}</span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'schedule' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('schedule')}
-                title="일정"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="calendar" />
-                  </span>
-                  <span>일정</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'eventGraphics' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('eventGraphics')}
-                title="타임테이블"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="calendar" />
-                  </span>
-                  <span>타임테이블</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'checklist' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('checklist')}
-                title="행사 체크리스트"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="checksquare" />
-                  </span>
-                  <span>행사 체크리스트</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'meetings' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('meetings')}
-                title="회의록"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="list" />
-                  </span>
-                  <span>회의록</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'snsPost' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('snsPost')}
-                title="SNS 본문 생성"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="list" />
-                  </span>
-                  <span>SNS 본문 생성</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={activeView === 'guide' ? 'viewTab active' : 'viewTab'}
-                onClick={() => setActiveView('guide')}
-                title="사용법"
-              >
-                <span className="iconLabel">
-                  <span className="uiIcon">
-                    <UiGlyph name="list" />
-                  </span>
-                  <span>사용법</span>
-                </span>
-              </button>
+            <div className="viewMenuGroups">
+              {viewMenuGroups.map((group) => (
+                <section key={group.label} className="viewMenuGroup" aria-label={group.label}>
+                  <div className="viewMenuGroupTitle">{group.label}</div>
+                  <div className="viewTabs">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.view}
+                        type="button"
+                        className={activeView === item.view ? 'viewTab active' : 'viewTab'}
+                        onClick={() => setActiveView(item.view)}
+                        title={item.title}
+                      >
+                        <span className="iconLabel">
+                          <span className="uiIcon">
+                            <UiGlyph name={item.icon} />
+                          </span>
+                          <span>{item.label}</span>
+                        </span>
+                        {item.count ? <span className="viewTabCount">{item.count}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
               {selectedViewDbUrl ? (
                 <a className="linkButton secondary dbJump" href={selectedViewDbUrl} target="_blank" rel="noreferrer">
                   <span className="iconLabel">
