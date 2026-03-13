@@ -12,13 +12,13 @@ Expected Graphic / Video References
 - Closing & Commemorative Photo 소개 그래픽
 
 Expected Audio References
-- Entrance Audio 확인 필요
+- Certi Audio (Loop)
 
 Graphic Asset Name Snapshot
 - Closing & Commemorative Photo 소개 그래픽
 
 Operational Notes
-- 본 세션 직전 1분 등장 cue / 오디오 루프로 / 돌릴만하게 설정
+- 본 세션 직전 1분 등장 cue / 오디오는 본 큐와 동일 / 오디오 루프로 / 돌릴만하게 설정
 
 Delivery Rule
 - Put final files for this cue into this folder only.

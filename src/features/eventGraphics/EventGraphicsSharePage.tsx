@@ -13,6 +13,7 @@ type EventGraphicsSharePageProps = {
 
 type ShareRow = {
   id: string
+  rowTitle: string
   cueOrder: string
   cueType: string
   cueTitle: string
@@ -105,11 +106,22 @@ function toPrimaryFileLabel(row: ShareRow): string {
   return MISSING_FILE_LABEL
 }
 
+function toEntranceDetailFromRowTitle(rowTitle: string): string {
+  return rowTitle
+    .replace(/^\[[^\]]+\]\s*/, '')
+    .replace(/^\d+(?:\.\d+)?\s+/, '')
+    .replace(/^등장\s*-\s*/, '')
+    .trim()
+}
+
 function toDisplayCueTitle(row: ShareRow): string {
   const title = row.cueTitle.trim()
   if (title && title !== ENTRANCE_LABEL) return title
 
-  const entranceDetail = [row.personnel, row.graphicAsset !== '-' ? row.graphicAsset : '', row.sourceVideo, row.eventName]
+  const fromRowTitle = toEntranceDetailFromRowTitle(row.rowTitle)
+  if (fromRowTitle) return `입장 - ${fromRowTitle}`
+
+  const entranceDetail = [row.graphicAsset !== '-' ? row.graphicAsset : '', row.sourceVideo, row.personnel, row.eventName]
     .map((value) => value.trim())
     .find(Boolean)
 
@@ -119,6 +131,7 @@ function toDisplayCueTitle(row: ShareRow): string {
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ShareRow {
   return {
     id: row.id,
+    rowTitle: readCellText(row, columnIndex, '행 제목') || '-',
     cueOrder: readCellText(row, columnIndex, 'Cue 순서') || '-',
     cueType: readCellText(row, columnIndex, 'Cue 유형') || 'other',
     cueTitle: readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '행 제목') || '-',

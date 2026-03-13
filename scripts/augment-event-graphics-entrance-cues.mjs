@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
 const EXCLUDED_CUE_TYPES = new Set(['announcement', 'break', 'meal'])
+const ENTRANCE_USES_MAIN_AUDIO_TYPES = new Set(['certificate', 'closing'])
 
 function parseArgs(argv) {
   const options = {
@@ -50,6 +51,20 @@ function splitAudio(value) {
     entrance: entrance.join(' / '),
     remaining: remaining.join(' / '),
   }
+}
+
+function buildEntranceAudio(row, audio) {
+  if (audio.entrance) return audio.entrance
+  if (ENTRANCE_USES_MAIN_AUDIO_TYPES.has(row.cueType)) return row.sourceAudio
+  return 'Entrance Audio 확인 필요'
+}
+
+function buildEntranceRemark(row) {
+  const base = '본 세션 직전 1분 등장 cue'
+  if (ENTRANCE_USES_MAIN_AUDIO_TYPES.has(row.cueType) && row.sourceAudio) {
+    return row.sourceRemark ? `${base} / 오디오는 본 큐와 동일 / ${row.sourceRemark}` : `${base} / 오디오는 본 큐와 동일`
+  }
+  return row.sourceRemark ? `${base} / ${row.sourceRemark}` : base
 }
 
 function normalizeRow(rawRow) {
@@ -179,8 +194,8 @@ function expandRows(rows) {
       endTime: formatTime(entranceEnd),
       runtimeMinutes: 1,
       sourceVideo: `${row.cueTitle} 소개 그래픽`,
-      sourceAudio: audio.entrance || 'Entrance Audio 확인 필요',
-      sourceRemark: row.sourceRemark ? `본 세션 직전 1분 등장 cue / ${row.sourceRemark}` : '본 세션 직전 1분 등장 cue',
+      sourceAudio: buildEntranceAudio(row, audio),
+      sourceRemark: buildEntranceRemark(row),
       graphicAssetName: `${row.cueTitle} 소개 그래픽`,
       graphicType: 'unknown',
       previewLink: '',

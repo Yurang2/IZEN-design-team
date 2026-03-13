@@ -12,13 +12,13 @@ Expected Graphic / Video References
 - Lecture 3 Certi 소개 그래픽
 
 Expected Audio References
-- Entrance Audio 확인 필요
+- Certi Audio
 
 Graphic Asset Name Snapshot
 - Lecture 3 Certi 소개 그래픽
 
 Operational Notes
-- 본 세션 직전 1분 등장 cue
+- 본 세션 직전 1분 등장 cue / 오디오는 본 큐와 동일
 
 Delivery Rule
 - Put final files for this cue into this folder only.
