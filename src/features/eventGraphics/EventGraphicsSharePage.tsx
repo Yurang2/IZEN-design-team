@@ -105,6 +105,17 @@ function toPrimaryFileLabel(row: ShareRow): string {
   return MISSING_FILE_LABEL
 }
 
+function toDisplayCueTitle(row: ShareRow): string {
+  const title = row.cueTitle.trim()
+  if (title && title !== ENTRANCE_LABEL) return title
+
+  const entranceDetail = [row.personnel, row.graphicAsset !== '-' ? row.graphicAsset : '', row.sourceVideo, row.eventName]
+    .map((value) => value.trim())
+    .find(Boolean)
+
+  return entranceDetail ? `입장 - ${entranceDetail}` : ENTRANCE_LABEL
+}
+
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ShareRow {
   return {
     id: row.id,
@@ -263,6 +274,7 @@ export function EventGraphicsSharePage({
                   const hasPreview = looksLikeImageUrl(row.previewHref)
                   const isEntranceCue = row.cueTitle === ENTRANCE_LABEL
                   const primaryFileLabel = toPrimaryFileLabel(row)
+                  const displayCueTitle = toDisplayCueTitle(row)
                   const noteSummary = joinSummary([row.vendorNote, row.personnel && `무대 ${row.personnel}`]) || '특이사항 없음'
 
                   return (
@@ -280,7 +292,7 @@ export function EventGraphicsSharePage({
                             <span className="eventGraphicsShareSection">{toCueTypeLabel(row.cueType)}</span>
                             {isEntranceCue ? <span className="eventGraphicsEntranceFlag">입장</span> : null}
                           </div>
-                          <h3>{isEntranceCue ? '입장' : row.cueTitle}</h3>
+                          <h3>{displayCueTitle}</h3>
                         </div>
 
                         <div className="eventGraphicsShareTimelineGrid">
@@ -288,7 +300,7 @@ export function EventGraphicsSharePage({
                             <span className="eventGraphicsPanelLabel">이미지</span>
                             {hasPreview ? (
                               <div className="eventGraphicsSharePreview is-static">
-                                <img src={row.previewHref ?? ''} alt={`${row.cueTitle} preview`} loading="lazy" />
+                                <img src={row.previewHref ?? ''} alt={`${displayCueTitle} preview`} loading="lazy" />
                               </div>
                             ) : (
                               <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
