@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
+import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
 
 type EventGraphicsSharePageProps = {
   configured: boolean
@@ -206,11 +207,6 @@ function readFirstCellText(row: ScheduleRow, columnIndex: Record<string, number>
     if (value) return value
   }
   return ''
-}
-
-function looksLikeImageUrl(value: string | null): boolean {
-  if (!value) return false
-  return /\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?|#|$)/i.test(value)
 }
 
 function looksLikeVideoAsset(value: string): boolean {
@@ -518,7 +514,7 @@ export function EventGraphicsSharePage({
     return databaseTitle.trim() || 'Event Graphics Timetable'
   }, [databaseTitle, groupedCues])
 
-  const missingPreviewCount = useMemo(() => vendorCues.filter((cue) => !looksLikeImageUrl(cue.previewHref)).length, [vendorCues])
+  const missingPreviewCount = useMemo(() => vendorCues.filter((cue) => !hasVisualPreviewUrl(cue.previewHref)).length, [vendorCues])
   const missingGraphicCount = useMemo(() => vendorCues.filter((cue) => !cue.startGraphic || cue.startGraphic === MISSING_FILE_LABEL).length, [vendorCues])
   const missingAudioCount = useMemo(
     () => vendorCues.filter((cue) => !cue.startAudio && !cue.nextAudio).length,
@@ -643,7 +639,7 @@ export function EventGraphicsSharePage({
                     ? missingFiles.filter((file) => file.kind === 'audio').map((file) => file.sourceName || file.label)
                     : []
                   const previewHref = cue.previewHref || manifestCue?.previewUrl || null
-                  const hasPreview = looksLikeImageUrl(previewHref)
+                  const hasPreview = hasVisualPreviewUrl(previewHref)
                   return (
                     <article key={cue.id} className="eventGraphicsShareRow">
                       <div className="eventGraphicsShareTime">
@@ -666,9 +662,12 @@ export function EventGraphicsSharePage({
                           <section className="eventGraphicsAuditVisual">
                             <span className="eventGraphicsPanelLabel">{copy.image}</span>
                             {hasPreview ? (
-                              <div className="eventGraphicsPreviewInline">
-                                <img src={previewHref ?? ''} alt={`${cue.title} preview`} loading="lazy" />
-                              </div>
+                              <EventGraphicsPreviewMedia
+                                src={previewHref ?? ''}
+                                alt={`${cue.title} preview`}
+                                className="eventGraphicsPreviewInline"
+                                noPreviewText={copy.noPreview}
+                              />
                             ) : (
                               <div className="eventGraphicsPreviewPlaceholder">{copy.noPreview}</div>
                             )}

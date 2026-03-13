@@ -500,7 +500,7 @@ async function main() {
           relativePath,
         }
 
-        if (slot.kind === 'image' && !publicCopies.has(destinationName)) {
+        if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
           await fs.copyFile(destinationPath, path.join(options.publicRoot, destinationName))
           publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
         }
@@ -508,7 +508,7 @@ async function main() {
         sharedAssignments.set(sharedKey, {
           extension,
           registeredFile,
-          previewUrl: slot.kind === 'image' ? publicCopies.get(destinationName) ?? null : null,
+          previewUrl: slot.kind === 'image' || slot.kind === 'video' ? publicCopies.get(destinationName) ?? null : null,
         })
         registeredFiles.push(registeredFile)
         continue
@@ -545,13 +545,13 @@ async function main() {
         relativePath,
       })
 
-      if (slot.kind === 'image' && !publicCopies.has(destinationName)) {
+      if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
         await fs.copyFile(destinationPath, path.join(options.publicRoot, destinationName))
         publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
       }
     }
 
-    const previewFile = registeredFiles.find((file) => file.kind === 'image')
+    const previewFile = registeredFiles.find((file) => file.kind === 'image') ?? registeredFiles.find((file) => file.kind === 'video')
 
     syncedCues.push({
       cueNumber: cue.cueNumber,

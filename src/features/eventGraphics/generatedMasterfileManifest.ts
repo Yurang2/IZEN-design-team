@@ -1,5 +1,5 @@
 export const bangkokMasterfileManifest = {
-  "generatedAt": "2026-03-13T07:11:45.715Z",
+  "generatedAt": "2026-03-13T07:22:16.703Z",
   "eventName": "2026 IZEN Seminar in Bangkok",
   "structure": {
     "filesDirectory": "02_Files"
@@ -55,7 +55,7 @@ export const bangkokMasterfileManifest = {
         }
       ],
       "missingFiles": [],
-      "previewUrl": null,
+      "previewUrl": "/event-graphics-registered/bangkok/V_Q02_Opening.mp4",
       "status": "complete"
     },
     {

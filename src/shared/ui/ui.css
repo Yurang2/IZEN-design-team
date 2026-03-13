@@ -2087,6 +2087,120 @@ button.dashboardNavButton {
   border-color: var(--border);
 }
 
+.snsPostView {
+  display: grid;
+  gap: 12px;
+}
+
+.snsPostHero {
+  background: linear-gradient(180deg, #fff8f2 0%, #fffdf8 100%);
+  border: 1px solid #f3d5b4;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.snsPostHero h2 {
+  color: var(--text-main);
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.snsPostHero p {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.snsPostGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+.snsPostTemplateList {
+  display: grid;
+  gap: 12px;
+}
+
+.snsPostCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.snsPostFormFields {
+  display: grid;
+  gap: 10px;
+}
+
+.snsPostCardHeader {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.snsPostCardHeader h3 {
+  color: var(--text-main);
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+.snsPostCardHeader p {
+  margin: 0;
+}
+
+.snsPostTagSection {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.snsPostTagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.snsPostTag {
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  border-radius: 999px;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.snsPostTextarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  min-height: 220px;
+  white-space: pre-wrap;
+}
+
+[data-theme='v2'] .snsPostHero {
+  background: linear-gradient(180deg, #2b2119 0%, #1c1713 100%);
+  border-color: #5b4636;
+}
+
+[data-theme='v2'] .snsPostTag {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+
+@media (max-width: 1080px) {
+  .snsPostGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .meetingsView {
   display: grid;
   gap: 12px;
@@ -3172,7 +3286,7 @@ button.dashboardNavButton {
   overflow: hidden;
 }
 
-.eventGraphicsPreviewThumb img {
+.eventGraphicsPreviewMedia {
   display: block;
   height: 100%;
   object-fit: cover;
@@ -3187,7 +3301,7 @@ button.dashboardNavButton {
   overflow: hidden;
 }
 
-.eventGraphicsPreviewInline img {
+.eventGraphicsPreviewInline .eventGraphicsPreviewMedia {
   display: block;
   height: 100%;
   object-fit: contain;

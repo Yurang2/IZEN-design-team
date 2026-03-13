@@ -7,6 +7,7 @@ import {
   type ExhibitionPlaybookRow,
 } from './exhibitionPlaybookExample'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
+import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
 
 type EventGraphicsTimetableViewProps = {
   configured: boolean
@@ -113,11 +114,6 @@ function readFirstCellHref(row: ScheduleRow, columnIndex: Record<string, number>
     if (value) return value
   }
   return null
-}
-
-function looksLikeImageUrl(value: string | null): boolean {
-  if (!value) return false
-  return /\.(png|jpg|jpeg|gif|webp|bmp|svg)(\?|#|$)/i.test(value)
 }
 
 function toStatusClassName(value: string): string {
@@ -425,7 +421,7 @@ function TimelineLayout({
             <div className="eventGraphicsTimelineStageList">
               {group.stages.map((stage) => {
                 const stageStatusClassName = toStatusClassName(stage.status)
-                const hasPreview = looksLikeImageUrl(stage.previewHref)
+                const hasPreview = hasVisualPreviewUrl(stage.previewHref)
                 return (
                   <div key={stage.id} className={`eventGraphicsTimelineStage status-${stageStatusClassName}`}>
                     <div className="eventGraphicsTimelineTime">
@@ -447,9 +443,12 @@ function TimelineLayout({
                           <span className="eventGraphicsPanelLabel">그래픽</span>
                           <strong>{stage.graphicLabel}</strong>
                           {hasPreview ? (
-                            <div className="eventGraphicsPreviewThumb">
-                              <img src={stage.previewHref ?? ''} alt={`${stage.title} 미리보기`} loading="lazy" />
-                            </div>
+                            <EventGraphicsPreviewMedia
+                              src={stage.previewHref ?? ''}
+                              alt={`${stage.title} 미리보기`}
+                              className="eventGraphicsPreviewThumb"
+                              noPreviewText="등록된 이미지가 없습니다."
+                            />
                           ) : (
                             <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
                           )}
@@ -490,7 +489,7 @@ function ExhibitionPlaybookLayout({
       <div className="eventGraphicsExhibitionList">
         {rows.map((row) => {
           const statusClassName = toStatusClassName(row.status)
-          const hasPreview = looksLikeImageUrl(row.previewHref)
+          const hasPreview = hasVisualPreviewUrl(row.previewHref)
           return (
             <article key={row.id} className={`eventGraphicsExhibitionCard status-${statusClassName}`}>
               <div className="eventGraphicsExhibitionHead">
@@ -510,9 +509,12 @@ function ExhibitionPlaybookLayout({
                   <span className="eventGraphicsPanelLabel">Main Screen</span>
                   <strong>{row.mainScreen}</strong>
                   {hasPreview ? (
-                    <div className="eventGraphicsPreviewInline">
-                      <img src={row.previewHref ?? ''} alt={`${row.category} 미리보기`} loading="lazy" />
-                    </div>
+                    <EventGraphicsPreviewMedia
+                      src={row.previewHref ?? ''}
+                      alt={`${row.category} 미리보기`}
+                      className="eventGraphicsPreviewInline"
+                      noPreviewText="등록된 미리보기가 없습니다."
+                    />
                   ) : (
                     <div className="eventGraphicsPreviewPlaceholder">등록된 미리보기가 없습니다.</div>
                   )}
@@ -682,11 +684,12 @@ function MasterfileAuditLayout({
               <section className="eventGraphicsAuditVisual">
                 <span className="eventGraphicsPanelLabel">등록 이미지</span>
                 {cue.previewUrl ? (
-                  <>
-                    <div className="eventGraphicsPreviewInline">
-                      <img src={cue.previewUrl} alt={`${cue.title} 등록 이미지`} loading="lazy" />
-                    </div>
-                  </>
+                  <EventGraphicsPreviewMedia
+                    src={cue.previewUrl}
+                    alt={`${cue.title} 등록 이미지`}
+                    className="eventGraphicsPreviewInline"
+                    noPreviewText="등록된 이미지가 없습니다."
+                  />
                 ) : (
                   <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
                 )}
