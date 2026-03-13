@@ -105,6 +105,13 @@ function parseIsoDateToken(value: string): Date | null {
   return date
 }
 
+function formatDateInput(rawValue: string): string {
+  const digits = rawValue.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 4) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`
+}
+
 function formatDay(date: Date): string {
   return String(date.getUTCDate()).padStart(2, '0')
 }
@@ -250,6 +257,10 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
     }))
   }
 
+  const onChangeDateField = (key: 'startDate' | 'endDate', value: string) => {
+    onChangeField(key, formatDateInput(value))
+  }
+
   const onRandomizeHeart = () => {
     setHeartSeed(Math.floor(Math.random() * HEART_OPTIONS.length))
   }
@@ -304,19 +315,27 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
             <label>
               시작일
               <input
-                type="date"
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                className="snsPostDateInput"
                 value={form.startDate}
-                onChange={(event) => onChangeField('startDate', event.target.value)}
+                onChange={(event) => onChangeDateField('startDate', event.target.value)}
                 placeholder="2025-12-14"
+                autoComplete="off"
               />
             </label>
             <label>
               종료일(선택)
               <input
-                type="date"
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                className="snsPostDateInput"
                 value={form.endDate}
-                onChange={(event) => onChangeField('endDate', event.target.value)}
+                onChange={(event) => onChangeDateField('endDate', event.target.value)}
                 placeholder="2025-12-14"
+                autoComplete="off"
               />
             </label>
           </div>
@@ -351,10 +370,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
         <div className="snsPostTemplateList">
           <article className="snsPostCard snsPostTemplateCard">
             <div className="snsPostCardHeader">
-              <div>
-                <h3>생성 결과</h3>
-                <p className="muted">하트 랜덤 버튼을 누를 때마다 첫 줄 하트가 바뀝니다.</p>
-              </div>
+              <h3>생성 결과</h3>
               <Button
                 type="button"
                 variant="secondary"
@@ -371,6 +387,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
               </Button>
             </div>
             <textarea className="snsPostTextarea" value={postText} readOnly rows={10} />
+            <p className="muted snsPostTemplateHint">하트 랜덤 버튼을 누를 때마다 첫 줄 하트가 바뀝니다.</p>
           </article>
         </div>
       </div>

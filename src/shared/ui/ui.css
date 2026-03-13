@@ -2143,6 +2143,7 @@ button.dashboardNavButton {
 }
 
 .snsPostGrid {
+  align-items: start;
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
@@ -2154,6 +2155,7 @@ button.dashboardNavButton {
 }
 
 .snsPostCard {
+  align-content: start;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -2166,6 +2168,11 @@ button.dashboardNavButton {
 .snsPostFormFields {
   display: grid;
   gap: 10px;
+}
+
+.snsPostDateInput {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .snsPostCardHeader {
@@ -2213,6 +2220,10 @@ button.dashboardNavButton {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   min-height: 220px;
   white-space: pre-wrap;
+}
+
+.snsPostTemplateHint {
+  margin-top: -2px;
 }
 
 [data-theme='v2'] .snsPostHero {
