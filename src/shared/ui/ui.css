@@ -3033,6 +3033,65 @@ button.dashboardNavButton {
   margin: 0;
 }
 
+.eventGraphicsSessionList {
+  display: grid;
+  gap: 14px;
+}
+
+.eventGraphicsSessionCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.eventGraphicsSessionHead {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsSessionHead h3,
+.eventGraphicsSessionHead p {
+  margin: 0;
+}
+
+.eventGraphicsSessionHead p {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.eventGraphicsSessionStageList {
+  display: grid;
+  gap: 12px;
+}
+
+.eventGraphicsSessionStage {
+  background: color-mix(in srgb, var(--surface-soft) 84%, white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.eventGraphicsSessionStageMeta {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.eventGraphicsSessionStageGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .eventGraphicsPanelLabel {
   color: var(--text-sub);
   font-size: 11px;
@@ -3545,7 +3604,9 @@ button.dashboardNavButton {
   .eventGraphicsHero,
   .eventGraphicsCueSheetRow,
   .eventGraphicsAuditHead,
-  .eventGraphicsAuditGrid {
+  .eventGraphicsAuditGrid,
+  .eventGraphicsSessionHead,
+  .eventGraphicsSessionStageGrid {
     grid-template-columns: 1fr;
   }
 

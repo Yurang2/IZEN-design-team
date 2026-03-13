@@ -18,6 +18,7 @@ type LayoutMode = 'compact' | 'cueSheet' | 'masterfile'
 type TimetableRow = {
   id: string
   url: string | null
+  rowTitle: string
   cueOrder: string
   cueOrderNumeric: number | null
   cueType: string
@@ -39,6 +40,31 @@ type TimetableRow = {
 
 type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
 type DriveChecklistState = Record<string, { graphic: boolean; audio: boolean }>
+type SessionStage = {
+  id: string
+  cueNumber: string
+  sortOrder: number
+  label: string
+  title: string
+  cueType: string
+  startTime: string
+  endTime: string
+  runtimeLabel: string
+  status: string
+  graphicLabel: string
+  audioLabel: string
+  note: string
+  previewHref: string | null
+}
+type SessionGroup = {
+  id: string
+  title: string
+  cueType: string
+  startTime: string
+  endTime: string
+  runtimeLabel: string
+  stages: SessionStage[]
+}
 
 const EXTERNAL_SHARE_PATH = '/share/timetable'
 const ENTRANCE_LABEL = '입장'
@@ -125,6 +151,95 @@ function matchesMasterfileQuery(cue: MasterfileCue, query: string): boolean {
   return source.includes(query)
 }
 
+function normalizeSessionTitle(value: string): string {
+  return value
+    .replace(/^\[[^\]]+\]\s*/u, '')
+    .replace(/^\d+\s*/u, '')
+    .replace(/^입장\s*-\s*/u, '')
+    .replace(/\s+Certi$/u, '')
+    .trim()
+}
+
+function toSessionTitle(row: TimetableRow): string {
+  if (row.cueTitle === ENTRANCE_LABEL) return normalizeSessionTitle(row.rowTitle || row.cueTitle) || row.cueTitle
+  return normalizeSessionTitle(row.cueTitle || row.rowTitle) || row.cueTitle
+}
+
+function toSessionStageLabel(row: TimetableRow): string {
+  if (row.cueTitle === ENTRANCE_LABEL) return '등장'
+  if (/\bcerti\b/i.test(row.cueTitle) || row.cueType === 'certificate') return '서티 증정'
+  if (row.cueType === 'lecture') return '강연'
+  return '메인'
+}
+
+function toStageGraphicLabel(row: TimetableRow): string {
+  return row.graphicAsset && row.graphicAsset !== '-' ? row.graphicAsset : row.sourceVideo || '-'
+}
+
+function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
+  const groups = new Map<string, SessionGroup>()
+
+  for (const row of rows) {
+    const title = toSessionTitle(row)
+    const existing = groups.get(title)
+    const stage: SessionStage = {
+      id: row.id,
+      cueNumber: toDisplayCueOrder(row),
+      sortOrder: row.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER,
+      label: toSessionStageLabel(row),
+      title: row.cueTitle,
+      cueType: row.cueType,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      runtimeLabel: formatRuntimeLabel(row.runtime),
+      status: row.status,
+      graphicLabel: toStageGraphicLabel(row),
+      audioLabel: row.sourceAudio || '-',
+      note: joinSummary([row.vendorNote, row.remark, row.personnel && `무대 ${row.personnel}`]) || '메모 없음',
+      previewHref: row.previewHref,
+    }
+
+    if (existing) {
+      existing.stages.push(stage)
+      existing.endTime = row.endTime
+      continue
+    }
+
+    groups.set(title, {
+      id: row.id,
+      title,
+      cueType: row.cueType,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      runtimeLabel: formatRuntimeLabel(row.runtime),
+      stages: [stage],
+    })
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    const sortedStages = [...group.stages].sort((left, right) => left.sortOrder - right.sortOrder)
+    return {
+      ...group,
+      stages: sortedStages,
+      startTime: sortedStages[0]?.startTime ?? group.startTime,
+      endTime: sortedStages[sortedStages.length - 1]?.endTime ?? group.endTime,
+    }
+  })
+}
+
+function matchesSessionGroup(group: SessionGroup, query: string, statusFilter: string): boolean {
+  if (statusFilter && !group.stages.some((stage) => stage.status === statusFilter)) return false
+  if (!query) return true
+  const source = [
+    group.title,
+    group.cueType,
+    ...group.stages.flatMap((stage) => [stage.label, stage.title, stage.graphicLabel, stage.audioLabel, stage.note]),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return source.includes(query)
+}
+
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): TimetableRow {
   const cueOrderText = readCellText(row, columnIndex, 'Cue 순서')
   const cueOrderNumeric = Number(cueOrderText)
@@ -138,6 +253,7 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
   return {
     id: row.id,
     url: row.url,
+    rowTitle: readCellText(row, columnIndex, '행 제목') || '-',
     cueOrder: cueOrderText || '-',
     cueOrderNumeric: Number.isFinite(cueOrderNumeric) ? cueOrderNumeric : null,
     cueType: readCellText(row, columnIndex, 'Cue 유형') || 'other',
@@ -247,80 +363,73 @@ function CompactLayout({
   )
 }
 
-function CueSheetLayout({
-  rows,
+function SessionLayout({
+  groups,
 }: {
-  rows: TimetableRow[]
+  groups: SessionGroup[]
 }) {
   return (
-    <div className="eventGraphicsCueSheet">
-      {rows.map((row) => {
-        const statusClassName = toStatusClassName(row.status)
-        const cueTypeClassName = toCueTypeClassName(row.cueType)
-        const isEntranceCue = row.cueTitle === ENTRANCE_LABEL
-        const hasPreview = looksLikeImageUrl(row.previewHref)
-        const displayCueOrder = toDisplayCueOrder(row)
-
+    <div className="eventGraphicsSessionList">
+      {groups.map((group) => {
+        const sessionTypeClassName = toCueTypeClassName(group.cueType)
         return (
-          <article key={row.id} className={`eventGraphicsCueSheetRow status-${statusClassName}${isEntranceCue ? ' is-entrance' : ''}`}>
-            <div className="eventGraphicsCueSheetTime">
-              <strong>{row.startTime}</strong>
-              <span>{row.endTime}</span>
-              <small>{formatRuntimeLabel(row.runtime)}</small>
+          <article key={group.id} className="eventGraphicsSessionCard">
+            <div className="eventGraphicsSessionHead">
+              <div>
+                <div className="eventGraphicsCueHead">
+                  <span className="eventGraphicsOrder">{group.stages[0]?.cueNumber ?? '--'}</span>
+                  <span className={`eventGraphicsCueType cue-${sessionTypeClassName}`}>{group.cueType}</span>
+                </div>
+                <h3>{group.title}</h3>
+                <p>
+                  {group.startTime} - {group.endTime} / {group.runtimeLabel}
+                </p>
+              </div>
             </div>
 
-            <div className="eventGraphicsCueSheetBody">
-              <div className="eventGraphicsCueSheetHead">
-                <div>
-                  <div className="eventGraphicsCueHead">
-                    <span className="eventGraphicsOrder">{displayCueOrder}</span>
-                    <span className={`eventGraphicsCueType cue-${cueTypeClassName}`}>{row.cueType}</span>
-                    {isEntranceCue ? <span className="eventGraphicsEntranceFlag">입장 화면</span> : null}
-                  </div>
-                  <h3>{row.cueTitle}</h3>
-                </div>
-                <span className={`eventGraphicsStatus status-${statusClassName}`}>{row.status}</span>
-              </div>
-
-              <div className="eventGraphicsCueSheetGrid">
-                <section className="eventGraphicsCueSheetPanel">
-                  <span className="eventGraphicsPanelLabel">Graphics</span>
-                  <strong>{row.graphicAsset}</strong>
-                  <p>{row.graphicType || '-'}</p>
-                  {row.sourceVideo ? <p className="eventGraphicsSubline">파일명: {row.sourceVideo}</p> : null}
-                  {row.assetHref ? (
-                    <div className="eventGraphicsLinkRow">
-                      <a className="linkButton secondary mini" href={row.assetHref} target="_blank" rel="noreferrer">
-                        자산 링크
-                      </a>
+            <div className="eventGraphicsSessionStageList">
+              {group.stages.map((stage) => {
+                const stageStatusClassName = toStatusClassName(stage.status)
+                const hasPreview = looksLikeImageUrl(stage.previewHref)
+                return (
+                  <section key={stage.id} className={`eventGraphicsSessionStage status-${stageStatusClassName}`}>
+                    <div className="eventGraphicsSessionStageMeta">
+                      <div className="eventGraphicsCueHead">
+                        <span className="eventGraphicsOrder">{stage.cueNumber}</span>
+                        <span className="eventGraphicsEntranceFlag">{stage.label}</span>
+                      </div>
+                      <span className={`eventGraphicsStatus status-${stageStatusClassName}`}>{stage.status}</span>
                     </div>
-                  ) : null}
-                  {hasPreview ? (
-                    <div className="eventGraphicsPreviewInline">
-                      <img src={row.previewHref ?? ''} alt={`${row.cueTitle} 미리보기`} loading="lazy" />
+
+                    <div className="eventGraphicsSessionStageGrid">
+                      <div className="eventGraphicsCueSheetPanel">
+                        <span className="eventGraphicsPanelLabel">화면</span>
+                        <strong>{stage.graphicLabel}</strong>
+                        <p>{stage.title}</p>
+                        {hasPreview ? (
+                          <div className="eventGraphicsPreviewInline">
+                            <img src={stage.previewHref ?? ''} alt={`${stage.title} 미리보기`} loading="lazy" />
+                          </div>
+                        ) : (
+                          <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
+                        )}
+                      </div>
+
+                      <div className="eventGraphicsCueSheetPanel">
+                        <span className="eventGraphicsPanelLabel">오디오</span>
+                        <strong>{stage.audioLabel}</strong>
+                        <p>{stage.startTime} - {stage.endTime}</p>
+                      </div>
+
+                      <div className="eventGraphicsCueSheetPanel">
+                        <span className="eventGraphicsPanelLabel">메모</span>
+                        <p>{stage.note}</p>
+                        <p>{stage.runtimeLabel}</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="eventGraphicsPreviewPlaceholder">등록된 미리보기 이미지가 없습니다.</div>
-                  )}
-                </section>
-
-                <section className="eventGraphicsCueSheetPanel">
-                  <span className="eventGraphicsPanelLabel">Audio</span>
-                  <strong>{row.sourceAudio || '-'}</strong>
-                  {row.personnel ? <p>무대: {row.personnel}</p> : null}
-                </section>
-
-                <section className="eventGraphicsCueSheetPanel">
-                  <span className="eventGraphicsPanelLabel">Note</span>
-                  <p>{row.vendorNote || '업체 전달 메모 없음'}</p>
-                  {row.remark ? <p>비고: {row.remark}</p> : null}
-                  {row.url ? (
-                    <a className="eventGraphicsInlineLink" href={row.url} target="_blank" rel="noreferrer">
-                      Notion 상세 보기
-                    </a>
-                  ) : null}
-                </section>
-              </div>
+                  </section>
+                )
+              })}
             </div>
           </article>
         )
@@ -502,7 +611,18 @@ export function EventGraphicsTimetableView({
 
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
-  const tableRows = useMemo(() => rows.map((row) => toRowModel(row, columnIndex)), [columnIndex, rows])
+  const tableRows = useMemo(
+    () =>
+      rows
+        .map((row) => toRowModel(row, columnIndex))
+        .sort((left, right) => {
+          const orderDiff = (left.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER) - (right.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER)
+          if (orderDiff !== 0) return orderDiff
+          return left.startTime.localeCompare(right.startTime, 'en')
+        }),
+    [columnIndex, rows],
+  )
+  const sessionGroups = useMemo(() => buildSessionGroups(tableRows), [tableRows])
 
   const rowStatusOptions = useMemo(
     () => Array.from(new Set(tableRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
@@ -529,6 +649,10 @@ export function EventGraphicsTimetableView({
         return matchesMasterfileQuery(cue, normalizedQuery)
       }),
     [normalizedQuery, statusFilter],
+  )
+  const filteredSessionGroups = useMemo(
+    () => sessionGroups.filter((group) => matchesSessionGroup(group, normalizedQuery, statusFilter)),
+    [normalizedQuery, sessionGroups, statusFilter],
   )
 
   const readyCount = useMemo(() => tableRows.filter((row) => ['ready', 'shared'].includes(row.status)).length, [tableRows])
@@ -589,7 +713,8 @@ export function EventGraphicsTimetableView({
 
   const isMasterfileMode = layoutMode === 'masterfile'
   const statusOptions = isMasterfileMode ? masterfileStatusOptions : rowStatusOptions
-  const visibleCount = isMasterfileMode ? filteredMasterfileCues.length : filteredRows.length
+  const visibleCount =
+    layoutMode === 'masterfile' ? filteredMasterfileCues.length : layoutMode === 'cueSheet' ? filteredSessionGroups.length : filteredRows.length
 
   return (
     <section className="eventGraphicsView">
@@ -597,7 +722,7 @@ export function EventGraphicsTimetableView({
         <div className="eventGraphicsHeroText">
           <p className="muted small">Event Graphics Timetable</p>
           <h2>{effectiveTitle}</h2>
-          <p>오더 확인은 타임테이블 뷰에서, 실제 업로드 파일 점검은 Masterfile Check에서 바로 확인할 수 있게 구성했습니다.</p>
+          <p>시간표는 전체 흐름을, 세션 보기는 Lecture 단위 위계를, Masterfile Check는 실제 파일 등록 상태를 확인하는 용도입니다.</p>
         </div>
         <div className="eventGraphicsHeroActions">
           <a className="linkButton" href={EXTERNAL_SHARE_PATH} target="_blank" rel="noreferrer">
@@ -676,7 +801,7 @@ export function EventGraphicsTimetableView({
           aria-pressed={layoutMode === 'compact'}
           onClick={() => onLayoutChange('compact')}
         >
-          A형 표
+          시간표
         </button>
         <button
           type="button"
@@ -684,7 +809,7 @@ export function EventGraphicsTimetableView({
           aria-pressed={layoutMode === 'cueSheet'}
           onClick={() => onLayoutChange('cueSheet')}
         >
-          B형 큐시트
+          세션 보기
         </button>
         <button
           type="button"
@@ -713,7 +838,7 @@ export function EventGraphicsTimetableView({
       ) : layoutMode === 'compact' ? (
         <CompactLayout rows={filteredRows} />
       ) : layoutMode === 'cueSheet' ? (
-        <CueSheetLayout rows={filteredRows} />
+        <SessionLayout groups={filteredSessionGroups} />
       ) : (
         <MasterfileAuditLayout
           cues={filteredMasterfileCues}
