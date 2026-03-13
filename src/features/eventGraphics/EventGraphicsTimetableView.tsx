@@ -653,6 +653,83 @@ function ExhibitionPlaybookLayout({
   )
 }
 
+function MasterfileAssetPanel({
+  title,
+  cueNumber,
+  field,
+  driveChecked,
+  expected,
+  registeredFiles,
+  missingFiles,
+  onToggleDriveCheck,
+}: {
+  title: string
+  cueNumber: string
+  field: 'graphic' | 'audio'
+  driveChecked: boolean
+  expected: boolean
+  registeredFiles: ReadonlyArray<{ name: string; kind: string; role: string }>
+  missingFiles: ReadonlyArray<{ kind: string; label: string; sourceName: string }>
+  onToggleDriveCheck: (cueNumber: string, field: 'graphic' | 'audio', checked: boolean) => void
+}) {
+  const hasLocalFiles = registeredFiles.length > 0
+  const hasMissingFiles = missingFiles.length > 0
+  const panelClassName = hasMissingFiles ? 'eventGraphicsAuditPanel is-missing' : 'eventGraphicsAuditPanel'
+
+  return (
+    <section className={panelClassName}>
+      <div className="eventGraphicsAuditPanelHead">
+        <span className="eventGraphicsPanelLabel">{title}</span>
+        {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
+      </div>
+
+      <div className="eventGraphicsAuditChecks is-compact">
+        <label className="eventGraphicsAuditCheck is-compact">
+          <input type="checkbox" checked={expected && hasLocalFiles} disabled />
+          <span>로컬</span>
+        </label>
+        <label className="eventGraphicsAuditCheck is-compact">
+          <input
+            type="checkbox"
+            checked={driveChecked}
+            onChange={(event) => onToggleDriveCheck(cueNumber, field, event.target.checked)}
+          />
+          <span>드라이브</span>
+        </label>
+      </div>
+
+      {hasLocalFiles ? (
+        <ul className="eventGraphicsAuditFileList is-compact">
+          {registeredFiles.map((file) => (
+            <li key={file.name}>
+              <strong>{file.name}</strong>
+              <span>{file.role}</span>
+            </li>
+          ))}
+        </ul>
+      ) : expected ? (
+        <div className="eventGraphicsPreviewPlaceholder is-compact">로컬 폴더에 아직 없습니다.</div>
+      ) : (
+        <div className="eventGraphicsPreviewPlaceholder is-compact">필수 파일 없음</div>
+      )}
+
+      {hasMissingFiles ? (
+        <div className="eventGraphicsAuditMissing">
+          <span className="eventGraphicsPanelLabel">추가 필요 파일명</span>
+          <ul className="eventGraphicsAuditFileList is-missing is-compact">
+            {missingFiles.map((file) => (
+              <li key={`${cueNumber}-${field}-${file.label}`}>
+                <strong>{file.sourceName || file.label}</strong>
+                <span>{file.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
 function MasterfileAuditLayout({
   cues,
   driveChecklist,
@@ -670,9 +747,11 @@ function MasterfileAuditLayout({
         const missingFiles = cue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>
         const graphicFiles = registeredFiles.filter((file) => file.kind === 'image' || file.kind === 'video')
         const audioFiles = registeredFiles.filter((file) => file.kind === 'audio')
+        const missingGraphicFiles = missingFiles.filter((file) => file.kind !== 'audio')
+        const missingAudioFiles = missingFiles.filter((file) => file.kind === 'audio')
         const expectedGraphic =
-          graphicFiles.length > 0 || missingFiles.some((file) => file.kind !== 'audio')
-        const expectedAudio = audioFiles.length > 0 || missingFiles.some((file) => file.kind === 'audio')
+          graphicFiles.length > 0 || missingGraphicFiles.length > 0
+        const expectedAudio = audioFiles.length > 0 || missingAudioFiles.length > 0
         const driveState = driveChecklist[cue.cueNumber] ?? { graphic: false, audio: false }
 
         return (
@@ -707,84 +786,26 @@ function MasterfileAuditLayout({
                 )}
               </section>
 
-              <section className="eventGraphicsAuditPanel">
-                <span className="eventGraphicsPanelLabel">Graphics Check</span>
-                <div className="eventGraphicsAuditChecks">
-                  <label className="eventGraphicsAuditCheck">
-                    <input type="checkbox" checked={expectedGraphic && graphicFiles.length > 0} disabled />
-                    <span>로컬 폴더 확인</span>
-                  </label>
-                  <label className="eventGraphicsAuditCheck">
-                    <input
-                      type="checkbox"
-                      checked={driveState.graphic}
-                      onChange={(event) => onToggleDriveCheck(cue.cueNumber, 'graphic', event.target.checked)}
-                    />
-                    <span>구글드라이브 업로드 확인</span>
-                  </label>
-                </div>
-                {graphicFiles.length > 0 ? (
-                  <ul className="eventGraphicsAuditFileList">
-                    {graphicFiles.map((file) => (
-                      <li key={file.name}>
-                        <strong>{file.name}</strong>
-                        <span>{file.role}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : expectedGraphic ? (
-                  <div className="eventGraphicsPreviewPlaceholder">그래픽 파일이 아직 로컬 폴더에 없습니다.</div>
-                ) : (
-                  <div className="eventGraphicsPreviewPlaceholder">이 cue에는 별도 그래픽 파일이 필요 없습니다.</div>
-                )}
-              </section>
-
-              <section className="eventGraphicsAuditPanel">
-                <span className="eventGraphicsPanelLabel">Audio Check</span>
-                <div className="eventGraphicsAuditChecks">
-                  <label className="eventGraphicsAuditCheck">
-                    <input type="checkbox" checked={expectedAudio && audioFiles.length > 0} disabled />
-                    <span>로컬 폴더 확인</span>
-                  </label>
-                  <label className="eventGraphicsAuditCheck">
-                    <input
-                      type="checkbox"
-                      checked={driveState.audio}
-                      onChange={(event) => onToggleDriveCheck(cue.cueNumber, 'audio', event.target.checked)}
-                    />
-                    <span>구글드라이브 업로드 확인</span>
-                  </label>
-                </div>
-                {audioFiles.length > 0 ? (
-                  <ul className="eventGraphicsAuditFileList">
-                    {audioFiles.map((file) => (
-                      <li key={file.name}>
-                        <strong>{file.name}</strong>
-                        <span>{file.role}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : expectedAudio ? (
-                  <div className="eventGraphicsPreviewPlaceholder">오디오 파일이 아직 로컬 폴더에 없습니다.</div>
-                ) : (
-                  <div className="eventGraphicsPreviewPlaceholder">이 cue에는 별도 오디오 파일이 필요 없습니다.</div>
-                )}
-                {missingFiles.length > 0 ? (
-                  <div className="eventGraphicsAuditMissing">
-                    <span className="eventGraphicsPanelLabel">추가 필요 파일명</span>
-                    <ul className="eventGraphicsAuditFileList is-missing">
-                      {missingFiles.map((file) => (
-                        <li key={`${cue.cueNumber}-${file.label}`}>
-                          <strong>{file.sourceName || file.label}</strong>
-                          <span>{file.label}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="eventGraphicsPreviewPlaceholder">현재 예상 파일은 모두 들어와 있습니다.</div>
-                )}
-              </section>
+              <MasterfileAssetPanel
+                title="Graphics Check"
+                cueNumber={cue.cueNumber}
+                field="graphic"
+                driveChecked={driveState.graphic}
+                expected={expectedGraphic}
+                registeredFiles={graphicFiles}
+                missingFiles={missingGraphicFiles}
+                onToggleDriveCheck={onToggleDriveCheck}
+              />
+              <MasterfileAssetPanel
+                title="Audio Check"
+                cueNumber={cue.cueNumber}
+                field="audio"
+                driveChecked={driveState.audio}
+                expected={expectedAudio}
+                registeredFiles={audioFiles}
+                missingFiles={missingAudioFiles}
+                onToggleDriveCheck={onToggleDriveCheck}
+              />
             </div>
           </article>
         )

@@ -3355,8 +3355,9 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditGrid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(240px, 320px) repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 10px;
+  grid-template-columns: minmax(340px, 1.35fr) minmax(220px, 0.9fr) minmax(220px, 0.9fr);
 }
 
 .eventGraphicsAuditVisual,
@@ -3365,13 +3366,43 @@ button.dashboardNavButton {
   border: 1px solid var(--border);
   border-radius: 16px;
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
+}
+
+.eventGraphicsAuditVisual .eventGraphicsPreviewInline,
+.eventGraphicsAuditVisual .eventGraphicsPreviewPlaceholder {
+  aspect-ratio: 21 / 9;
+  min-height: 164px;
+}
+
+.eventGraphicsAuditPanelHead {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.eventGraphicsAuditMissingFlag {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.eventGraphicsAuditPanel.is-missing {
+  background: color-mix(in srgb, #fef2f2 84%, white);
+  border-color: #fecaca;
 }
 
 .eventGraphicsAuditFileList {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -3383,7 +3414,7 @@ button.dashboardNavButton {
   border-radius: 12px;
   display: grid;
   gap: 2px;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .eventGraphicsAuditFileList li strong,
@@ -3393,16 +3424,23 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditFileList li span {
   color: var(--text-sub);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .eventGraphicsAuditFileList.is-missing li {
   border-style: dashed;
+  border-color: #fca5a5;
 }
 
 .eventGraphicsAuditChecks {
   display: grid;
   gap: 8px;
+}
+
+.eventGraphicsAuditChecks.is-compact {
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: repeat(2, max-content);
 }
 
 .eventGraphicsAuditCheck {
@@ -3411,13 +3449,40 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
+.eventGraphicsAuditCheck.is-compact {
+  gap: 5px;
+}
+
+.eventGraphicsAuditCheck.is-compact span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .eventGraphicsAuditCheck input {
   margin: 0;
 }
 
+.eventGraphicsAuditCheck.is-compact input {
+  block-size: 12px;
+  inline-size: 12px;
+}
+
 .eventGraphicsAuditMissing {
+  border-top: 1px dashed var(--border);
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 8px;
+}
+
+.eventGraphicsAuditFileList.is-compact li strong {
+  font-size: 12px;
+}
+
+.eventGraphicsPreviewPlaceholder.is-compact {
+  font-size: 11px;
+  padding: 10px;
 }
 
 .eventGraphicsShareShell {
