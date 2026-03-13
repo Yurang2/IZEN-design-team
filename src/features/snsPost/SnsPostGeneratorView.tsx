@@ -14,7 +14,8 @@ type FormState = {
   eventName: string
   countryName: string
   cityName: string
-  dateText: string
+  startDate: string
+  endDate: string
 }
 
 type PreviewValues = {
@@ -30,16 +31,12 @@ type HeartOption = {
   emoji: string
 }
 
-type ParsedDateRange = {
-  start: Date
-  end: Date
-}
-
 const EMPTY_FORM: FormState = {
   eventName: '',
   countryName: '',
   cityName: '',
-  dateText: '',
+  startDate: '',
+  endDate: '',
 }
 
 const HEART_OPTIONS: HeartOption[] = [
@@ -108,26 +105,6 @@ function parseIsoDateToken(value: string): Date | null {
   return date
 }
 
-function extractDateTokens(value: string): string[] {
-  return value.match(/\d{4}-\d{2}-\d{2}/g) ?? []
-}
-
-function parseDateRange(value: string): ParsedDateRange | null {
-  const tokens = extractDateTokens(value)
-  if (tokens.length === 0) return null
-
-  const parsed = tokens.map(parseIsoDateToken)
-  if (parsed.some((entry) => entry === null)) return null
-
-  const dates = parsed as Date[]
-  dates.sort((a, b) => a.getTime() - b.getTime())
-
-  return {
-    start: dates[0],
-    end: dates[dates.length - 1],
-  }
-}
-
 function formatDay(date: Date): string {
   return String(date.getUTCDate()).padStart(2, '0')
 }
@@ -139,29 +116,29 @@ function formatMonth(date: Date): string {
   }).format(date)
 }
 
-function formatDateRange(value: string): string | null {
-  const parsed = parseDateRange(value)
-  if (!parsed) return null
+function formatDateRange(startValue: string, endValue: string): string | null {
+  const start = parseIsoDateToken(startValue)
+  if (!start) return null
 
-  const { start, end } = parsed
-  const startYear = start.getUTCFullYear()
-  const endYear = end.getUTCFullYear()
-  const startMonth = start.getUTCMonth()
-  const endMonth = end.getUTCMonth()
+  const end = endValue ? parseIsoDateToken(endValue) : start
+  if (!end) return null
 
-  if (start.getTime() === end.getTime()) {
-    return `${formatDay(start)} ${formatMonth(start)}, ${startYear}`
+  const sorted = start.getTime() <= end.getTime() ? { start, end } : { start: end, end: start }
+  const { start: first, end: last } = sorted
+
+  if (first.getTime() === last.getTime()) {
+    return `${formatDay(first)} ${formatMonth(first)}, ${first.getUTCFullYear()}`
   }
 
-  if (startYear === endYear && startMonth === endMonth) {
-    return `${formatDay(start)}-${formatDay(end)} ${formatMonth(start)}, ${startYear}`
+  if (first.getUTCFullYear() === last.getUTCFullYear() && first.getUTCMonth() === last.getUTCMonth()) {
+    return `${formatDay(first)}-${formatDay(last)} ${formatMonth(first)}, ${first.getUTCFullYear()}`
   }
 
-  if (startYear === endYear) {
-    return `${formatDay(start)} ${formatMonth(start)} - ${formatDay(end)} ${formatMonth(end)}, ${startYear}`
+  if (first.getUTCFullYear() === last.getUTCFullYear()) {
+    return `${formatDay(first)} ${formatMonth(first)} - ${formatDay(last)} ${formatMonth(last)}, ${first.getUTCFullYear()}`
   }
 
-  return `${formatDay(start)} ${formatMonth(start)}, ${startYear} - ${formatDay(end)} ${formatMonth(end)}, ${endYear}`
+  return `${formatDay(first)} ${formatMonth(first)}, ${first.getUTCFullYear()} - ${formatDay(last)} ${formatMonth(last)}, ${last.getUTCFullYear()}`
 }
 
 function buildHashtags(countryName: string, cityName: string, isReady: boolean): string[] {
@@ -216,20 +193,30 @@ function buildPostText(values: PreviewValues, heart: string, hashtags: string[])
 
 export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [heartSeed, setHeartSeed] = useState(0)
 
   const normalizedForm = useMemo(
     () => ({
       eventName: normalizeValue(form.eventName),
       countryName: normalizeValue(form.countryName),
       cityName: normalizeValue(form.cityName),
-      dateText: normalizeValue(form.dateText),
+      startDate: normalizeValue(form.startDate),
+      endDate: normalizeValue(form.endDate),
     }),
     [form],
   )
 
-  const formattedDate = useMemo(() => formatDateRange(normalizedForm.dateText), [normalizedForm.dateText])
+  const selectedHeart = HEART_OPTIONS[heartSeed % HEART_OPTIONS.length]
+  const formattedDate = useMemo(
+    () => formatDateRange(normalizedForm.startDate, normalizedForm.endDate),
+    [normalizedForm.endDate, normalizedForm.startDate],
+  )
+
   const hasRequiredFields =
-    Boolean(normalizedForm.eventName) && Boolean(normalizedForm.countryName) && Boolean(normalizedForm.cityName)
+    Boolean(normalizedForm.eventName) &&
+    Boolean(normalizedForm.countryName) &&
+    Boolean(normalizedForm.cityName) &&
+    Boolean(normalizedForm.startDate)
   const isReady = hasRequiredFields && Boolean(formattedDate)
 
   const previewValues: PreviewValues = isReady
@@ -251,6 +238,11 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
     [isReady, normalizedForm.cityName, normalizedForm.countryName],
   )
 
+  const postText = useMemo(
+    () => buildPostText(previewValues, selectedHeart.emoji, hashtags),
+    [hashtags, previewValues, selectedHeart.emoji],
+  )
+
   const onChangeField = (key: keyof FormState, value: string) => {
     setForm((current) => ({
       ...current,
@@ -258,11 +250,18 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
     }))
   }
 
+  const onRandomizeHeart = () => {
+    const nextOptions = HEART_OPTIONS.filter((option) => option.key !== selectedHeart.key)
+    const randomOption = nextOptions[Math.floor(Math.random() * nextOptions.length)] ?? HEART_OPTIONS[0]
+    const nextIndex = HEART_OPTIONS.findIndex((option) => option.key === randomOption.key)
+    setHeartSeed(nextIndex >= 0 ? nextIndex : 0)
+  }
+
   return (
     <section className="snsPostView" aria-label="SNS 본문 생성기">
       <article className="snsPostHero">
         <h2>SNS 본문 자동 생성</h2>
-        <p>첫 줄은 `IZEN IMPLANT in 국가명 + 하트`로 고정하고, 행사명은 둘째 줄에 그대로 넣습니다.</p>
+        <p>하트는 랜덤으로 바꾸고, 국가명과 도시명만 반영해서 본문과 해시태그를 생성합니다.</p>
       </article>
 
       <div className="snsPostGrid">
@@ -270,7 +269,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
           <div className="snsPostCardHeader">
             <div>
               <h3>입력</h3>
-              <p className="muted">날짜는 `YYYY-MM-DD` 형식으로 입력해 주세요. 여러 날짜는 쉼표 또는 `~`로 구분할 수 있습니다.</p>
+              <p className="muted">종료일은 비워두면 단일 날짜로 처리됩니다. 날짜는 `YYYY-MM-DD` 형식으로 입력해 주세요.</p>
             </div>
             <Button type="button" variant="secondary" size="mini" onClick={() => setForm(EMPTY_FORM)}>
               초기화
@@ -306,12 +305,21 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
               />
             </label>
             <label>
-              날짜
+              시작일
               <input
                 type="text"
-                value={form.dateText}
-                onChange={(event) => onChangeField('dateText', event.target.value)}
-                placeholder="2025-12-14 또는 2026-01-31,2026-02-01"
+                value={form.startDate}
+                onChange={(event) => onChangeField('startDate', event.target.value)}
+                placeholder="2025-12-14"
+              />
+            </label>
+            <label>
+              종료일(선택)
+              <input
+                type="text"
+                value={form.endDate}
+                onChange={(event) => onChangeField('endDate', event.target.value)}
+                placeholder="2025-12-14"
               />
             </label>
           </div>
@@ -319,9 +327,15 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
           <div className="snsPostTagSection">
             <div className="snsPostCardHeader">
               <div>
-                <h3>해시태그</h3>
-                <p className="muted">브랜드 관련 태그는 고정하고, 국가명과 도시명만 치환합니다.</p>
+                <h3>하트 / 해시태그</h3>
+                <p className="muted">브랜드 태그는 고정이고, 현재 하트는 버튼으로 랜덤 변경할 수 있습니다.</p>
               </div>
+              <Button type="button" variant="secondary" size="mini" onClick={onRandomizeHeart}>
+                하트 랜덤
+              </Button>
+            </div>
+            <div className="snsPostTagList" aria-label="현재 선택된 하트">
+              <span className="snsPostTag">{selectedHeart.emoji}</span>
             </div>
             <div className="snsPostTagList" aria-label="생성된 해시태그">
               {hashtags.map((tag) => (
@@ -332,41 +346,35 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
             </div>
           </div>
 
-          {!formattedDate && normalizedForm.dateText ? (
-            <p className="error">날짜는 `YYYY-MM-DD`, `YYYY-MM-DD,YYYY-MM-DD`, `YYYY-MM-DD~YYYY-MM-DD` 형식으로 입력해 주세요.</p>
+          {normalizedForm.startDate && !formattedDate ? (
+            <p className="error">시작일과 종료일은 `YYYY-MM-DD` 형식으로 입력해 주세요.</p>
           ) : null}
         </article>
 
         <div className="snsPostTemplateList">
-          {HEART_OPTIONS.map((heartOption) => {
-            const text = buildPostText(previewValues, heartOption.emoji, hashtags)
-
-            return (
-              <article key={heartOption.key} className="snsPostCard snsPostTemplateCard">
-                <div className="snsPostCardHeader">
-                  <div>
-                    <h3>{heartOption.label}</h3>
-                    <p className="muted">본문 구조는 고정이고 하트만 다르게 복사할 수 있습니다.</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="mini"
-                    disabled={!isReady}
-                    onClick={() =>
-                      void onCopy(text, {
-                        successMessage: 'SNS 본문을 복사했습니다.',
-                        emptyMessage: '행사명, 국가명, 도시명, 날짜를 올바르게 입력해 주세요.',
-                      })
-                    }
-                  >
-                    복사
-                  </Button>
-                </div>
-                <textarea className="snsPostTextarea" value={text} readOnly rows={10} />
-              </article>
-            )
-          })}
+          <article className="snsPostCard snsPostTemplateCard">
+            <div className="snsPostCardHeader">
+              <div>
+                <h3>생성 결과</h3>
+                <p className="muted">하트 랜덤 버튼을 누를 때마다 첫 줄 하트가 바뀝니다.</p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="mini"
+                disabled={!isReady}
+                onClick={() =>
+                  void onCopy(postText, {
+                    successMessage: 'SNS 본문을 복사했습니다.',
+                    emptyMessage: '행사명, 국가명, 도시명, 시작일을 올바르게 입력해 주세요.',
+                  })
+                }
+              >
+                복사
+              </Button>
+            </div>
+            <textarea className="snsPostTextarea" value={postText} readOnly rows={10} />
+          </article>
         </div>
       </div>
     </section>
