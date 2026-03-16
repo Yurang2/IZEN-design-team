@@ -2,7 +2,19 @@ import { useMemo } from 'react'
 import type { ChecklistAssignmentStatus, ProjectRecord, TaskRecord } from '../../shared/types'
 import { Badge, Button } from '../../shared/ui'
 
-type DashboardTopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'eventGraphics' | 'checklist' | 'meetings' | 'snsPost' | 'guide'
+type DashboardTopView =
+  | 'dashboard'
+  | 'projects'
+  | 'tasks'
+  | 'schedule'
+  | 'screeningHistory'
+  | 'screeningPlan'
+  | 'eventGraphics'
+  | 'checklist'
+  | 'meetings'
+  | 'snsPost'
+  | 'mailTemplate'
+  | 'guide'
 type FocusBucketTone = 'red' | 'blue' | 'green' | 'gray'
 
 type DashboardChecklistRow = {

@@ -8,6 +8,7 @@ import { MailTemplateView } from './features/mailTemplate/MailTemplateView'
 import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
 import { ScheduleView } from './features/schedule/ScheduleView'
+import { ScreeningDbView } from './features/screening/ScreeningDbView'
 import { SnsPostGeneratorView } from './features/snsPost/SnsPostGeneratorView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
@@ -212,6 +213,17 @@ type EventGraphicsTimetableResponse = {
   cacheTtlMs: number
 }
 
+type ScreeningPlanHistorySyncResponse = {
+  ok: boolean
+  configured: boolean
+  planDatabaseId: string | null
+  historyDatabaseId: string | null
+  created: number
+  updated: number
+  skipped: number
+  syncedPlanIds: string[]
+}
+
 type MetaResponse = {
   ok: boolean
   databases: {
@@ -264,6 +276,8 @@ type TopView =
   | 'projects'
   | 'tasks'
   | 'schedule'
+  | 'screeningHistory'
+  | 'screeningPlan'
   | 'eventGraphics'
   | 'checklist'
   | 'meetings'
@@ -378,6 +392,8 @@ function parseTopView(value: string | null): TopView {
     value === 'projects' ||
     value === 'tasks' ||
     value === 'schedule' ||
+    value === 'screeningHistory' ||
+    value === 'screeningPlan' ||
     value === 'eventGraphics' ||
     value === 'checklist' ||
     value === 'meetings' ||
@@ -642,6 +658,8 @@ function toTopViewPath(view: TopView): string {
   if (view === 'projects') return 'Projects'
   if (view === 'tasks') return 'Tasks'
   if (view === 'schedule') return 'Schedule'
+  if (view === 'screeningHistory') return 'Screening History'
+  if (view === 'screeningPlan') return 'Screening Plan'
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'meetings') return 'Meetings'
   if (view === 'snsPost') return 'SNS Post Generator'
@@ -655,6 +673,8 @@ function toTopViewTitle(view: TopView): string {
   if (view === 'projects') return '프로젝트'
   if (view === 'tasks') return '업무'
   if (view === 'schedule') return '일정'
+  if (view === 'screeningHistory') return '상영 기록'
+  if (view === 'screeningPlan') return '상영 준비'
   if (view === 'eventGraphics') return '타임테이블'
   if (view === 'meetings') return '회의록'
   if (view === 'snsPost') return 'SNS 본문 생성'
@@ -1034,6 +1054,19 @@ function App() {
   const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([])
   const [scheduleLoading, setScheduleLoading] = useState(false)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [screeningHistoryConfigured, setScreeningHistoryConfigured] = useState(false)
+  const [screeningHistoryDatabaseTitle, setScreeningHistoryDatabaseTitle] = useState('')
+  const [screeningHistoryColumns, setScreeningHistoryColumns] = useState<ScheduleColumn[]>([])
+  const [screeningHistoryRows, setScreeningHistoryRows] = useState<ScheduleRow[]>([])
+  const [screeningHistoryLoading, setScreeningHistoryLoading] = useState(false)
+  const [screeningHistoryError, setScreeningHistoryError] = useState<string | null>(null)
+  const [screeningPlanConfigured, setScreeningPlanConfigured] = useState(false)
+  const [screeningPlanDatabaseTitle, setScreeningPlanDatabaseTitle] = useState('')
+  const [screeningPlanColumns, setScreeningPlanColumns] = useState<ScheduleColumn[]>([])
+  const [screeningPlanRows, setScreeningPlanRows] = useState<ScheduleRow[]>([])
+  const [screeningPlanLoading, setScreeningPlanLoading] = useState(false)
+  const [screeningPlanError, setScreeningPlanError] = useState<string | null>(null)
+  const [screeningPlanSyncing, setScreeningPlanSyncing] = useState(false)
   const [eventGraphicsConfigured, setEventGraphicsConfigured] = useState(false)
   const [eventGraphicsDatabaseTitle, setEventGraphicsDatabaseTitle] = useState('')
   const [eventGraphicsColumns, setEventGraphicsColumns] = useState<ScheduleColumn[]>([])
@@ -1465,6 +1498,75 @@ function App() {
     }
   }, [])
 
+  const fetchScreeningHistory = useCallback(async () => {
+    setScreeningHistoryLoading(true)
+    setScreeningHistoryError(null)
+
+    try {
+      const response = await api<ScheduleResponse>('/screening-history')
+      setScreeningHistoryConfigured(response.configured)
+      setScreeningHistoryDatabaseTitle(response.database.title)
+      setScreeningHistoryColumns(response.columns)
+      setScreeningHistoryRows(response.rows)
+      setDbLinks((prev) => ({
+        ...prev,
+        screeningHistory: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
+      }))
+      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+    } catch (error: unknown) {
+      setScreeningHistoryConfigured(false)
+      setScreeningHistoryColumns([])
+      setScreeningHistoryRows([])
+      setScreeningHistoryError(toErrorMessage(error, '상영 기록 DB를 불러오지 못했습니다.'))
+    } finally {
+      setScreeningHistoryLoading(false)
+    }
+  }, [])
+
+  const fetchScreeningPlan = useCallback(async () => {
+    setScreeningPlanLoading(true)
+    setScreeningPlanError(null)
+
+    try {
+      const response = await api<ScheduleResponse>('/screening-plan')
+      setScreeningPlanConfigured(response.configured)
+      setScreeningPlanDatabaseTitle(response.database.title)
+      setScreeningPlanColumns(response.columns)
+      setScreeningPlanRows(response.rows)
+      setDbLinks((prev) => ({
+        ...prev,
+        screeningPlan: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
+      }))
+      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+    } catch (error: unknown) {
+      setScreeningPlanConfigured(false)
+      setScreeningPlanColumns([])
+      setScreeningPlanRows([])
+      setScreeningPlanError(toErrorMessage(error, '상영 준비 DB를 불러오지 못했습니다.'))
+    } finally {
+      setScreeningPlanLoading(false)
+    }
+  }, [])
+
+  const syncScreeningPlanHistory = useCallback(async () => {
+    setScreeningPlanSyncing(true)
+    try {
+      const response = await api<ScreeningPlanHistorySyncResponse>('/admin/notion/screening-plan-history-sync', { method: 'POST' })
+      const syncCount = response.created + response.updated
+      pushToast(
+        'success',
+        syncCount > 0
+          ? `상영 히스토리를 ${syncCount}건 반영했습니다.`
+          : `상영 히스토리 반영 대상이 없습니다. ${response.skipped}건은 그대로 유지했습니다.`,
+      )
+      await Promise.all([fetchScreeningPlan(), fetchScreeningHistory()])
+    } catch (error: unknown) {
+      pushToast('error', toErrorMessage(error, '상영 히스토리 반영에 실패했습니다.'))
+    } finally {
+      setScreeningPlanSyncing(false)
+    }
+  }, [fetchScreeningHistory, fetchScreeningPlan, pushToast])
+
   const fetchEventGraphicsTimetable = useCallback(async () => {
     setEventGraphicsLoading(true)
     setEventGraphicsError(null)
@@ -1569,6 +1671,20 @@ function App() {
   }, [activeView, authState, fetchSchedule, route.kind])
 
   useEffect(() => {
+    if (authState !== 'authenticated') return
+    if (route.kind !== 'list') return
+    if (activeView !== 'screeningHistory') return
+    void fetchScreeningHistory()
+  }, [activeView, authState, fetchScreeningHistory, route.kind])
+
+  useEffect(() => {
+    if (authState !== 'authenticated') return
+    if (route.kind !== 'list') return
+    if (activeView !== 'screeningPlan') return
+    void fetchScreeningPlan()
+  }, [activeView, authState, fetchScreeningPlan, route.kind])
+
+  useEffect(() => {
     if (route.kind === 'eventGraphicsShare') {
       void fetchEventGraphicsTimetable()
       return
@@ -1582,9 +1698,11 @@ function App() {
   const refreshListAndProjects = useCallback(async () => {
     const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
     if (activeView === 'schedule') jobs.push(fetchSchedule())
+    if (activeView === 'screeningHistory') jobs.push(fetchScreeningHistory())
+    if (activeView === 'screeningPlan') jobs.push(fetchScreeningPlan())
     if (activeView === 'eventGraphics') jobs.push(fetchEventGraphicsTimetable())
     await Promise.all(jobs)
-  }, [activeView, fetchEventGraphicsTimetable, fetchProjects, fetchSchedule, fetchTasks])
+  }, [activeView, fetchEventGraphicsTimetable, fetchProjects, fetchSchedule, fetchScreeningHistory, fetchScreeningPlan, fetchTasks])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -2240,10 +2358,12 @@ function App() {
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
     if (activeView === 'schedule') return dbLinks.schedule
+    if (activeView === 'screeningHistory') return dbLinks.screeningHistory
+    if (activeView === 'screeningPlan') return dbLinks.screeningPlan
     if (activeView === 'eventGraphics') return dbLinks.eventGraphics
     if (activeView === 'checklist') return dbLinks.checklist
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.eventGraphics, dbLinks.project, dbLinks.schedule, dbLinks.task])
+  }, [activeView, dbLinks.checklist, dbLinks.eventGraphics, dbLinks.project, dbLinks.schedule, dbLinks.screeningHistory, dbLinks.screeningPlan, dbLinks.task])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -2286,6 +2406,8 @@ function App() {
       key: 'tools',
       label: '도구',
       items: [
+        { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list' },
+        { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
         { view: 'guide', title: '사용법', label: '사용법', icon: 'list' },
@@ -3324,6 +3446,41 @@ function App() {
           rows={scheduleRows}
           loading={scheduleLoading}
           error={scheduleError}
+        />
+      ) : null}
+
+      {activeView === 'screeningHistory' ? (
+        <ScreeningDbView
+          configured={screeningHistoryConfigured}
+          databaseTitle={screeningHistoryDatabaseTitle}
+          databaseUrl={dbLinks.screeningHistory}
+          columns={screeningHistoryColumns}
+          rows={screeningHistoryRows}
+          loading={screeningHistoryLoading}
+          error={screeningHistoryError}
+          eyebrow="Notion Screening History DB"
+          emptyTitle="상영 기록 DB가 연결되지 않았습니다."
+          emptyMessage="Cloudflare Workers 환경변수에 NOTION_SCREENING_HISTORY_DB_ID를 추가하면 상영 기록 화면이 활성화됩니다."
+          description="이전 행사와 전시에서 실제로 무엇을 상영했는지 기록하는 원장입니다."
+        />
+      ) : null}
+
+      {activeView === 'screeningPlan' ? (
+        <ScreeningDbView
+          configured={screeningPlanConfigured}
+          databaseTitle={screeningPlanDatabaseTitle}
+          databaseUrl={dbLinks.screeningPlan}
+          columns={screeningPlanColumns}
+          rows={screeningPlanRows}
+          loading={screeningPlanLoading}
+          error={screeningPlanError}
+          eyebrow="Notion Screening Plan DB"
+          emptyTitle="상영 준비 DB가 연결되지 않았습니다."
+          emptyMessage="Cloudflare Workers 환경변수에 NOTION_SCREENING_PLAN_DB_ID를 추가하면 상영 준비 화면이 활성화됩니다."
+          description="다음 행사에 어떤 영상을 어떤 상태로 준비 중인지 관리하는 작업판입니다."
+          syncActionLabel="히스토리 반영 실행"
+          syncActionBusy={screeningPlanSyncing}
+          onSyncAction={syncScreeningPlanHistory}
         />
       ) : null}
 
