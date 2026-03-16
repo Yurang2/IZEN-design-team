@@ -80,6 +80,7 @@ const EXTERNAL_SHARE_PATH = '/share/timetable'
 const ENTRANCE_LABEL = '입장'
 const APPEARANCE_LABEL = '등장'
 const DRIVE_CHECKLIST_STORAGE_KEY = 'event-graphics-drive-checklist:v1'
+const masterfileCueByNumber = new Map<string, MasterfileCue>(bangkokMasterfileManifest.cues.map((cue) => [cue.cueNumber, cue]))
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
@@ -143,6 +144,26 @@ function toRuntimeMinutes(value: string): number {
 
 function joinSummary(parts: string[]): string {
   return parts.map((part) => part.trim()).filter(Boolean).join(' / ')
+}
+
+function joinManifestFileNames(files: ReadonlyArray<{ name: string }>): string {
+  return files.map((file) => file.name).join(' / ')
+}
+
+function getMasterfileGraphicLabel(cue: MasterfileCue | null, fallback: string): string {
+  if (!cue) return fallback
+  const graphicFiles = (cue.registeredFiles as ReadonlyArray<{ name: string; kind: string }>).filter(
+    (file) => file.kind === 'image' || file.kind === 'video',
+  )
+  if (graphicFiles.length > 0) return joinManifestFileNames(graphicFiles)
+  return fallback
+}
+
+function getMasterfileAudioLabel(cue: MasterfileCue | null, fallback: string): string {
+  if (!cue) return fallback
+  const audioFiles = (cue.registeredFiles as ReadonlyArray<{ name: string; kind: string }>).filter((file) => file.kind === 'audio')
+  if (audioFiles.length > 0) return joinManifestFileNames(audioFiles)
+  return fallback
 }
 
 function toDisplayCueOrder(row: TimetableRow): string {
@@ -335,11 +356,14 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
   const cueOrderText = readFirstCellText(row, columnIndex, ['정렬 순서', 'Cue 순서', '운영 순서', 'No'])
   const cueOrderNumeric = Number(cueOrderText)
   const displayCueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
-  const manifestCue = displayCueNumber
-    ? bangkokMasterfileManifest.cues.find((cue) => cue.cueNumber === displayCueNumber)
-    : null
+  const manifestCue = displayCueNumber ? masterfileCueByNumber.get(displayCueNumber) ?? null : null
   const previewHrefFromNotion =
     readCellHref(row, columnIndex, '미리보기 링크') || readCellText(row, columnIndex, '미리보기 링크') || null
+
+  const notionGraphicAsset = readFirstCellText(row, columnIndex, ['메인 화면', '그래픽 자산명', 'Main Screen']) || '-'
+  const notionSourceAudio = readFirstCellText(row, columnIndex, ['오디오', '원본 Audio'])
+  const masterfileGraphicLabel = getMasterfileGraphicLabel(manifestCue, notionGraphicAsset)
+  const masterfileAudioLabel = getMasterfileAudioLabel(manifestCue, notionSourceAudio)
 
   return {
     id: row.id,
@@ -354,14 +378,14 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Time
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '러닝타임(분)'),
     status: readCellText(row, columnIndex, '상태') || 'planned',
-    graphicAsset: readFirstCellText(row, columnIndex, ['메인 화면', '그래픽 자산명', 'Main Screen']) || '-',
+    graphicAsset: masterfileGraphicLabel,
     graphicType: readFirstCellText(row, columnIndex, ['운영 액션', '그래픽 형식']) || '-',
-    sourceVideo: readFirstCellText(row, columnIndex, ['메인 화면', '원본 Video', '그래픽 자산명']),
-    sourceAudio: readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']),
+    sourceVideo: masterfileGraphicLabel,
+    sourceAudio: masterfileAudioLabel,
     personnel: readCellText(row, columnIndex, '무대 인원'),
     remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
-    previewHref: previewHrefFromNotion || manifestCue?.previewUrl || null,
+    previewHref: manifestCue?.previewUrl || previewHrefFromNotion || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || null,
   }
 }
