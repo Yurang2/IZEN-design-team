@@ -2236,7 +2236,113 @@ button.dashboardNavButton {
   border-color: var(--border);
 }
 
+.mailTemplateView {
+  display: grid;
+  gap: 12px;
+}
+
+.mailTemplateHero {
+  background: linear-gradient(180deg, #f4f8ff 0%, #fcfdff 100%);
+  border: 1px solid #cdddff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.mailTemplateHero h2 {
+  color: var(--text-main);
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.mailTemplateHero p {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.mailTemplateGrid {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+}
+
+.mailTemplatePreviewList {
+  display: grid;
+  gap: 12px;
+}
+
+.mailTemplateCard {
+  align-content: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.mailTemplateCardHeader {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.mailTemplateCardHeader h3 {
+  color: var(--text-main);
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+.mailTemplateCardHeader p {
+  margin: 0;
+}
+
+.mailTemplateTypeHint {
+  background: color-mix(in srgb, var(--primary-soft) 70%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border));
+  border-radius: 10px;
+  color: var(--text-sub);
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.mailTemplateTypeHint strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.mailTemplateFields {
+  display: grid;
+  gap: 10px;
+}
+
+.mailTemplateTextarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  min-height: 280px;
+  white-space: pre-wrap;
+}
+
+[data-theme='v2'] .mailTemplateHero {
+  background: linear-gradient(180deg, #1c2637 0%, #131b28 100%);
+  border-color: #334155;
+}
+
+[data-theme='v2'] .mailTemplateTypeHint {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+
 @media (max-width: 1080px) {
+  .mailTemplateGrid {
+    grid-template-columns: 1fr;
+  }
+
   .snsPostGrid {
     grid-template-columns: 1fr;
   }

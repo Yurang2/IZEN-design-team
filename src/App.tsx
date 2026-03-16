@@ -4,6 +4,7 @@ import { ChecklistView } from './features/checklist/ChecklistView'
 import { EventGraphicsSharePage } from './features/eventGraphics/EventGraphicsSharePage'
 import { DashboardView } from './features/dashboard/DashboardView'
 import { EventGraphicsTimetableView } from './features/eventGraphics/EventGraphicsTimetableView'
+import { MailTemplateView } from './features/mailTemplate/MailTemplateView'
 import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
 import { ScheduleView } from './features/schedule/ScheduleView'
@@ -258,7 +259,17 @@ type TaskViewFilters = {
   hideDone: boolean
 }
 
-type TopView = 'dashboard' | 'projects' | 'tasks' | 'schedule' | 'eventGraphics' | 'checklist' | 'meetings' | 'snsPost' | 'guide'
+type TopView =
+  | 'dashboard'
+  | 'projects'
+  | 'tasks'
+  | 'schedule'
+  | 'eventGraphics'
+  | 'checklist'
+  | 'meetings'
+  | 'snsPost'
+  | 'mailTemplate'
+  | 'guide'
 
 type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
 type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_asc' | 'name_asc'
@@ -362,6 +373,7 @@ function parseTopView(value: string | null): TopView {
     value === 'checklist' ||
     value === 'meetings' ||
     value === 'snsPost' ||
+    value === 'mailTemplate' ||
     value === 'guide'
   )
     return value
@@ -624,6 +636,7 @@ function toTopViewPath(view: TopView): string {
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'meetings') return 'Meetings'
   if (view === 'snsPost') return 'SNS Post Generator'
+  if (view === 'mailTemplate') return 'Mail Template'
   if (view === 'guide') return 'Usage Guide'
   return 'Event Checklist'
 }
@@ -636,6 +649,7 @@ function toTopViewTitle(view: TopView): string {
   if (view === 'eventGraphics') return '타임테이블'
   if (view === 'meetings') return '회의록'
   if (view === 'snsPost') return 'SNS 본문 생성'
+  if (view === 'mailTemplate') return '메일 템플릿'
   if (view === 'checklist') return '행사 체크리스트'
   return '사용법'
 }
@@ -2259,6 +2273,7 @@ function App() {
       label: '도구',
       items: [
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
+        { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
         { view: 'guide', title: '사용법', label: '사용법', icon: 'list' },
       ],
     },
@@ -3292,6 +3307,8 @@ function App() {
 
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
 
+      {activeView === 'mailTemplate' ? <MailTemplateView onCopy={copyText} /> : null}
+
       {activeView === 'guide' ? (
         <section className="guideView" aria-label="서비스 사용법">
           <article className="guideHero">
@@ -3352,6 +3369,13 @@ function App() {
                 <p>행사명, 국가명, 도시명, 날짜만 넣어 재사용 가능한 SNS 본문과 해시태그를 만드는 탭입니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('snsPost')}>
                   SNS 탭 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>메일 템플릿</h4>
+                <p>반복 발송하는 메일 본문을 템플릿으로 만들고, 필요한 값만 넣어 바로 복사하는 탭입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('mailTemplate')}>
+                  메일 탭 열기
                 </button>
               </section>
               <section className="guideTabItem">
