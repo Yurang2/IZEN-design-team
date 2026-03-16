@@ -1,5 +1,5 @@
 export const bangkokMasterfileManifest = {
-  "generatedAt": "2026-03-16T00:18:44.913Z",
+  "generatedAt": "2026-03-16T00:32:05.601Z",
   "eventName": "2026 IZEN Seminar in Bangkok",
   "structure": {
     "filesDirectory": "02_Files"
@@ -157,11 +157,11 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im",
       "registeredFiles": [
         {
-          "name": "I_Show_Room.png",
-          "kind": "image",
+          "name": "V_IZEN_Seminar_Showroom_1008x432.mp4",
+          "kind": "video",
           "role": "Main Graphic",
-          "sourceName": "Show Room",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Show_Room.png"
+          "sourceName": "IZEN Seminar_Showroom_1008x432.mp4",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_IZEN_Seminar_Showroom_1008x432.mp4"
         }
       ],
       "missingFiles": [
@@ -171,7 +171,7 @@ export const bangkokMasterfileManifest = {
           "sourceName": "Show Room"
         }
       ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Show_Room.png",
+      "previewUrl": "/event-graphics-registered/bangkok/V_IZEN_Seminar_Showroom_1008x432.mp4",
       "status": "partial"
     },
     {
@@ -244,11 +244,11 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im",
       "registeredFiles": [
         {
-          "name": "I_Show_Room.png",
-          "kind": "image",
+          "name": "V_Q09_Lunch_Buffet.mp4",
+          "kind": "video",
           "role": "Main Graphic",
-          "sourceName": "Show Room",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Show_Room.png"
+          "sourceName": "IZEN Seminar_LunchLoop_1008x432.mp4",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_Q09_Lunch_Buffet.mp4"
         }
       ],
       "missingFiles": [
@@ -258,7 +258,7 @@ export const bangkokMasterfileManifest = {
           "sourceName": "Show Room"
         }
       ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Show_Room.png",
+      "previewUrl": "/event-graphics-registered/bangkok/V_Q09_Lunch_Buffet.mp4",
       "status": "partial"
     },
     {
@@ -331,11 +331,11 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im",
       "registeredFiles": [
         {
-          "name": "I_Show_Room.png",
-          "kind": "image",
+          "name": "V_IZEN_Seminar_Showroom_1008x432.mp4",
+          "kind": "video",
           "role": "Main Graphic",
-          "sourceName": "Show Room",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Show_Room.png"
+          "sourceName": "IZEN Seminar_Showroom_1008x432.mp4",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_IZEN_Seminar_Showroom_1008x432.mp4"
         }
       ],
       "missingFiles": [
@@ -345,7 +345,7 @@ export const bangkokMasterfileManifest = {
           "sourceName": "Show Room"
         }
       ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Show_Room.png",
+      "previewUrl": "/event-graphics-registered/bangkok/V_IZEN_Seminar_Showroom_1008x432.mp4",
       "status": "partial"
     },
     {

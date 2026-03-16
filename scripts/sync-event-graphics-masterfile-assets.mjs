@@ -8,6 +8,12 @@ const DEFAULT_MASTERFILE_ROOT = 'files/2026 IZEN Seminar in Bangkok Masterfile'
 const DEFAULT_PUBLIC_ROOT = 'public/event-graphics-registered/bangkok'
 const DEFAULT_OUTPUT = 'src/features/eventGraphics/generatedMasterfileManifest.ts'
 const VIDEO_THUMBNAIL_EXTENSION = '.jpg'
+const DEFAULT_VIDEO_THUMBNAIL_TIME = '00:00:01.000'
+const VIDEO_THUMBNAIL_TIME_BY_BASENAME = {
+  V_Q02_Opening: '00:00:15.000',
+  'IZEN Seminar_LunchLoop_1008x432': '00:00:05.000',
+  'IZEN Seminar_Showroom_1008x432': '00:00:05.000',
+}
 const WINDOWS_FFMPEG_CANDIDATES = [
   'C:\\Program Files\\Storyboarder\\resources\\app.asar.unpacked\\node_modules\\@ffmpeg-installer\\win32-x64\\ffmpeg.exe',
   'C:\\Program Files\\Topaz Labs LLC\\Topaz Video\\ffmpeg.exe',
@@ -345,11 +351,13 @@ async function findFfmpegPath() {
 async function generateVideoThumbnail(videoPath, thumbnailPath) {
   const ffmpegPath = await findFfmpegPath()
   if (!ffmpegPath) return false
+  const videoBasename = path.basename(videoPath, path.extname(videoPath))
+  const thumbnailTime = VIDEO_THUMBNAIL_TIME_BY_BASENAME[videoBasename] ?? DEFAULT_VIDEO_THUMBNAIL_TIME
 
   try {
     await execFileAsync(
       ffmpegPath,
-      ['-y', '-ss', '00:00:00.500', '-i', videoPath, '-frames:v', '1', '-update', '1', '-q:v', '2', thumbnailPath],
+      ['-y', '-ss', thumbnailTime, '-i', videoPath, '-frames:v', '1', '-update', '1', '-q:v', '2', thumbnailPath],
       { windowsHide: true },
     )
     return await pathExists(thumbnailPath)
