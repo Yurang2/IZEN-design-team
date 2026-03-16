@@ -2353,6 +2353,26 @@ function App() {
     [tasks],
   )
 
+  const screeningProjectLabelMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const project of projects) {
+      const normalized = project.id.replace(/-/g, '').toLowerCase()
+      map[normalized] = project.name
+      map[project.id] = project.name
+    }
+    return map
+  }, [projects])
+
+  const screeningTaskLabelMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const task of tasks) {
+      const normalized = task.id.replace(/-/g, '').toLowerCase()
+      map[normalized] = task.taskName
+      map[task.id] = task.taskName
+    }
+    return map
+  }, [tasks])
+
   const selectedViewDbUrl = useMemo(() => {
     if (activeView === 'dashboard') return null
     if (activeView === 'projects') return dbLinks.project
@@ -3462,6 +3482,14 @@ function App() {
           emptyTitle="상영 기록 DB가 연결되지 않았습니다."
           emptyMessage="Cloudflare Workers 환경변수에 NOTION_SCREENING_HISTORY_DB_ID를 추가하면 상영 기록 화면이 활성화됩니다."
           description="이전 행사와 전시에서 실제로 무엇을 상영했는지 기록하는 원장입니다."
+          presentation="gallery"
+          groupByColumnName="귀속 프로젝트"
+          thumbnailColumnName="대표 이미지"
+          detailColumnNames={['행사명', '상영일', '변환 후 파일명', '관련 업무']}
+          relationColumnLabelMaps={{
+            '귀속 프로젝트': screeningProjectLabelMap,
+            '관련 업무': screeningTaskLabelMap,
+          }}
         />
       ) : null}
 
@@ -3478,6 +3506,10 @@ function App() {
           emptyTitle="상영 준비 DB가 연결되지 않았습니다."
           emptyMessage="Cloudflare Workers 환경변수에 NOTION_SCREENING_PLAN_DB_ID를 추가하면 상영 준비 화면이 활성화됩니다."
           description="다음 행사에 어떤 영상을 어떤 상태로 준비 중인지 관리하는 작업판입니다."
+          relationColumnLabelMaps={{
+            '귀속 프로젝트': screeningProjectLabelMap,
+            '관련 업무': screeningTaskLabelMap,
+          }}
           syncActionLabel="히스토리 반영 실행"
           syncActionBusy={screeningPlanSyncing}
           onSyncAction={syncScreeningPlanHistory}

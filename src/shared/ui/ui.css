@@ -3000,6 +3000,113 @@ button.dashboardNavButton {
   text-decoration: none;
 }
 
+.screeningGalleryGroups {
+  display: grid;
+  gap: 20px;
+}
+
+.screeningGallerySection {
+  display: grid;
+  gap: 12px;
+}
+
+.screeningGallerySectionHeader {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.screeningGallerySectionHeader h3 {
+  margin: 0;
+}
+
+.screeningGallerySectionHeader span {
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.screeningGalleryGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.screeningGalleryCard {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.screeningGalleryThumb {
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  display: block;
+}
+
+.screeningGalleryThumb img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.screeningGalleryThumb.is-empty {
+  align-items: center;
+  color: var(--text-sub);
+  display: flex;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.screeningGalleryBody {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.screeningGalleryTitle {
+  color: var(--text-main);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 0;
+  text-decoration: none;
+}
+
+.screeningGalleryTitle:hover {
+  text-decoration: underline;
+}
+
+.screeningGalleryMeta {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.screeningGalleryMetaRow {
+  display: grid;
+  gap: 2px;
+}
+
+.screeningGalleryMetaRow dt {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.screeningGalleryMetaRow dd {
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .eventGraphicsView {
   display: grid;
   gap: 16px;

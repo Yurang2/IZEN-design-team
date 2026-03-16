@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
-import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
+import type { ScheduleCell, ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState, Skeleton, TableWrap } from '../../shared/ui'
 
 type ScreeningDbViewProps = {
@@ -14,9 +14,29 @@ type ScreeningDbViewProps = {
   emptyTitle: string
   emptyMessage: string
   description: string
+  presentation?: 'table' | 'gallery'
+  groupByColumnName?: string
+  thumbnailColumnName?: string
+  detailColumnNames?: string[]
+  relationColumnLabelMaps?: Record<string, Record<string, string>>
   syncActionLabel?: string
   syncActionBusy?: boolean
   onSyncAction?: () => void | Promise<void>
+}
+
+type GalleryGroup = {
+  key: string
+  label: string
+  items: Array<{
+    row: ScheduleRow
+    title: string
+    thumbnailUrl: string | null
+    details: Array<{ label: string; value: string }>
+  }>
+}
+
+function normalizeKey(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/-/g, '').toLowerCase()
 }
 
 function matchesQuery(row: ScheduleRow, query: string): boolean {
@@ -25,9 +45,30 @@ function matchesQuery(row: ScheduleRow, query: string): boolean {
   return source.includes(query)
 }
 
-function toCellLabel(cell: ScheduleRow['cells'][number] | undefined): string {
-  const value = (cell?.text ?? '').trim()
-  return value || '-'
+function resolveCellText(
+  cell: ScheduleCell | undefined,
+  columnName: string | undefined,
+  relationColumnLabelMaps: Record<string, Record<string, string>>,
+): string {
+  const raw = (cell?.text ?? '').trim()
+  if (!raw) return '-'
+  if (!columnName) return raw
+
+  const relationMap = relationColumnLabelMaps[columnName]
+  if (!relationMap) return raw
+
+  const labels = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => relationMap[normalizeKey(value)] ?? relationMap[value] ?? value)
+
+  return labels.join(', ') || '-'
+}
+
+function getColumnIndex(columns: ScheduleColumn[], targetName: string | undefined): number {
+  if (!targetName) return -1
+  return columns.findIndex((column) => column.name === targetName)
 }
 
 function ScreeningSkeleton({ columnCount }: { columnCount: number }) {
@@ -59,6 +100,25 @@ function ScreeningSkeleton({ columnCount }: { columnCount: number }) {
   )
 }
 
+function GallerySkeleton() {
+  return (
+    <div className="screeningGalleryGrid">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <article key={`screening-gallery-skeleton-${index}`} className="screeningGalleryCard">
+          <div className="screeningGalleryThumb">
+            <Skeleton width="100%" height="180px" />
+          </div>
+          <div className="screeningGalleryBody">
+            <Skeleton width="70%" height="18px" />
+            <Skeleton width="100%" height="14px" />
+            <Skeleton width="80%" height="14px" />
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
 export function ScreeningDbView({
   configured,
   databaseTitle,
@@ -71,6 +131,11 @@ export function ScreeningDbView({
   emptyTitle,
   emptyMessage,
   description,
+  presentation = 'table',
+  groupByColumnName,
+  thumbnailColumnName,
+  detailColumnNames = [],
+  relationColumnLabelMaps = {},
   syncActionLabel,
   syncActionBusy = false,
   onSyncAction,
@@ -79,6 +144,47 @@ export function ScreeningDbView({
   const normalizedQuery = query.trim().toLowerCase()
   const filteredRows = useMemo(() => rows.filter((row) => matchesQuery(row, normalizedQuery)), [normalizedQuery, rows])
   const effectiveTitle = databaseTitle.trim() || eyebrow
+
+  const groupIndex = getColumnIndex(columns, groupByColumnName)
+  const thumbnailIndex = getColumnIndex(columns, thumbnailColumnName)
+
+  const galleryGroups = useMemo<GalleryGroup[]>(() => {
+    if (presentation !== 'gallery') return []
+
+    const detailIndexes = detailColumnNames
+      .map((name) => ({ name, index: getColumnIndex(columns, name) }))
+      .filter((entry) => entry.index >= 0)
+
+    const groups = new Map<string, GalleryGroup>()
+    for (const row of filteredRows) {
+      const groupCell = groupIndex >= 0 ? row.cells[groupIndex] : undefined
+      const rawGroupLabel = resolveCellText(groupCell, groupByColumnName, relationColumnLabelMaps)
+      const groupLabel = rawGroupLabel === '-' ? '미분류 프로젝트' : rawGroupLabel
+      const groupKey = groupLabel
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, { key: groupKey, label: groupLabel, items: [] })
+      }
+
+      const title = resolveCellText(row.cells[0], columns[0]?.name, relationColumnLabelMaps)
+      const thumbCell = thumbnailIndex >= 0 ? row.cells[thumbnailIndex] : undefined
+      const details = detailIndexes
+        .map(({ name, index }) => ({
+          label: name,
+          value: resolveCellText(row.cells[index], name, relationColumnLabelMaps),
+        }))
+        .filter((entry) => entry.value !== '-')
+
+      groups.get(groupKey)?.items.push({
+        row,
+        title,
+        thumbnailUrl: thumbCell?.href ?? null,
+        details,
+      })
+    }
+
+    return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label, 'ko'))
+  }, [columns, detailColumnNames, filteredRows, groupByColumnName, groupIndex, presentation, relationColumnLabelMaps, thumbnailIndex])
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value)
@@ -101,7 +207,7 @@ export function ScreeningDbView({
             <strong>...</strong>
           </article>
         </div>
-        <ScreeningSkeleton columnCount={Math.max(columns.length, 4)} />
+        {presentation === 'gallery' ? <GallerySkeleton /> : <ScreeningSkeleton columnCount={Math.max(columns.length, 4)} />}
       </section>
     )
   }
@@ -115,13 +221,7 @@ export function ScreeningDbView({
   }
 
   if (columns.length === 0) {
-    return (
-      <EmptyState
-        title="표시할 컬럼이 없습니다."
-        message="Notion DB 속성을 확인해 주세요."
-        className="scheduleEmptyState"
-      />
-    )
+    return <EmptyState title="표시할 컬럼이 없습니다." message="Notion DB 속성을 확인해 주세요." className="scheduleEmptyState" />
   }
 
   return (
@@ -162,13 +262,7 @@ export function ScreeningDbView({
       </div>
 
       <div className="scheduleToolbar">
-        <input
-          type="search"
-          value={query}
-          onChange={onQueryChange}
-          placeholder="행사명, 파일명, 상태로 검색"
-          aria-label={`${eyebrow} 검색`}
-        />
+        <input type="search" value={query} onChange={onQueryChange} placeholder="행사명, 파일명, 상태로 검색" aria-label={`${eyebrow} 검색`} />
       </div>
 
       {filteredRows.length === 0 ? (
@@ -177,6 +271,49 @@ export function ScreeningDbView({
           message={normalizedQuery ? '검색 조건에 맞는 결과가 없습니다.' : '현재 DB에 데이터가 없습니다.'}
           className="scheduleEmptyState"
         />
+      ) : presentation === 'gallery' ? (
+        <div className="screeningGalleryGroups">
+          {galleryGroups.map((group) => (
+            <section key={group.key} className="screeningGallerySection" aria-label={group.label}>
+              <div className="screeningGallerySectionHeader">
+                <h3>{group.label}</h3>
+                <span>{group.items.length}건</span>
+              </div>
+              <div className="screeningGalleryGrid">
+                {group.items.map((item) => (
+                  <article key={item.row.id} className="screeningGalleryCard">
+                    {item.thumbnailUrl ? (
+                      <a className="screeningGalleryThumb" href={item.row.url ?? item.thumbnailUrl} target="_blank" rel="noreferrer">
+                        <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
+                      </a>
+                    ) : (
+                      <a className="screeningGalleryThumb is-empty" href={item.row.url ?? undefined} target="_blank" rel="noreferrer">
+                        <span>대표 이미지 없음</span>
+                      </a>
+                    )}
+                    <div className="screeningGalleryBody">
+                      {item.row.url ? (
+                        <a className="screeningGalleryTitle" href={item.row.url} target="_blank" rel="noreferrer">
+                          {item.title}
+                        </a>
+                      ) : (
+                        <strong className="screeningGalleryTitle">{item.title}</strong>
+                      )}
+                      <dl className="screeningGalleryMeta">
+                        {item.details.map((detail) => (
+                          <div key={`${item.row.id}-${detail.label}`} className="screeningGalleryMetaRow">
+                            <dt>{detail.label}</dt>
+                            <dd>{detail.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <TableWrap>
           <table className="scheduleGridTable">
@@ -197,7 +334,7 @@ export function ScreeningDbView({
                 <tr key={row.id}>
                   {columns.map((column, index) => {
                     const cell = row.cells[index]
-                    const label = toCellLabel(cell)
+                    const label = resolveCellText(cell, column.name, relationColumnLabelMaps)
                     const cellClassName = index === 0 ? 'schedulePrimaryColumn scheduleCell' : 'scheduleCell'
 
                     if (index === 0 && row.url) {
