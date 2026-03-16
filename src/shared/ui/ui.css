@@ -3017,6 +3017,13 @@ button.dashboardNavButton {
   gap: 12px;
 }
 
+.screeningGallerySectionTitle {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
 .screeningGallerySectionHeader h3 {
   margin: 0;
 }
@@ -3025,6 +3032,41 @@ button.dashboardNavButton {
   color: var(--text-sub);
   font-size: 13px;
   font-weight: 700;
+}
+
+.screeningGalleryProjectVisual {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 40px;
+  overflow: hidden;
+  position: relative;
+  width: 40px;
+}
+
+.screeningGalleryProjectCover,
+.screeningGalleryProjectIcon {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.screeningGalleryProjectEmoji {
+  align-items: center;
+  display: inline-flex;
+  font-size: 22px;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
+.screeningGalleryProjectEmoji img {
+  display: block;
+  height: 22px;
+  width: 22px;
 }
 
 .screeningGalleryGrid {

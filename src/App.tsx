@@ -2373,6 +2373,20 @@ function App() {
     return map
   }, [tasks])
 
+  const screeningProjectVisualMap = useMemo(() => {
+    const map: Record<string, { iconEmoji?: string; iconUrl?: string; coverUrl?: string }> = {}
+    for (const project of projects) {
+      const value = {
+        iconEmoji: project.iconEmoji,
+        iconUrl: project.iconUrl,
+        coverUrl: project.coverUrl,
+      }
+      map[project.name] = value
+      map[project.name.toLowerCase()] = value
+    }
+    return map
+  }, [projects])
+
   const selectedViewDbUrl = useMemo(() => {
     if (activeView === 'dashboard') return null
     if (activeView === 'projects') return dbLinks.project
@@ -3490,6 +3504,7 @@ function App() {
             '귀속 프로젝트': screeningProjectLabelMap,
             '관련 업무': screeningTaskLabelMap,
           }}
+          groupVisualMap={screeningProjectVisualMap}
         />
       ) : null}
 

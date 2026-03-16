@@ -1,5 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import type { ScheduleCell, ScheduleColumn, ScheduleRow } from '../../shared/types'
+import { emojiToTwemojiUrl, formatProjectIconLabel } from '../../shared/emoji'
 import { EmptyState, Skeleton, TableWrap } from '../../shared/ui'
 
 type ScreeningDbViewProps = {
@@ -19,6 +20,7 @@ type ScreeningDbViewProps = {
   thumbnailColumnName?: string
   detailColumnNames?: string[]
   relationColumnLabelMaps?: Record<string, Record<string, string>>
+  groupVisualMap?: Record<string, { iconEmoji?: string; iconUrl?: string; coverUrl?: string }>
   syncActionLabel?: string
   syncActionBusy?: boolean
   onSyncAction?: () => void | Promise<void>
@@ -27,6 +29,7 @@ type ScreeningDbViewProps = {
 type GalleryGroup = {
   key: string
   label: string
+  visual?: { iconEmoji?: string; iconUrl?: string; coverUrl?: string }
   items: Array<{
     row: ScheduleRow
     title: string
@@ -136,11 +139,13 @@ export function ScreeningDbView({
   thumbnailColumnName,
   detailColumnNames = [],
   relationColumnLabelMaps = {},
+  groupVisualMap = {},
   syncActionLabel,
   syncActionBusy = false,
   onSyncAction,
 }: ScreeningDbViewProps) {
   const [query, setQuery] = useState('')
+  const [groupedGallery, setGroupedGallery] = useState(true)
   const normalizedQuery = query.trim().toLowerCase()
   const filteredRows = useMemo(() => rows.filter((row) => matchesQuery(row, normalizedQuery)), [normalizedQuery, rows])
   const effectiveTitle = databaseTitle.trim() || eyebrow
@@ -160,10 +165,15 @@ export function ScreeningDbView({
       const groupCell = groupIndex >= 0 ? row.cells[groupIndex] : undefined
       const rawGroupLabel = resolveCellText(groupCell, groupByColumnName, relationColumnLabelMaps)
       const groupLabel = rawGroupLabel === '-' ? '미분류 프로젝트' : rawGroupLabel
-      const groupKey = groupLabel
+      const groupKey = groupedGallery ? groupLabel : '전체'
 
       if (!groups.has(groupKey)) {
-        groups.set(groupKey, { key: groupKey, label: groupLabel, items: [] })
+        groups.set(groupKey, {
+          key: groupKey,
+          label: groupedGallery ? groupLabel : '전체',
+          visual: groupedGallery ? groupVisualMap[groupLabel] ?? groupVisualMap[groupLabel.toLowerCase()] : undefined,
+          items: [],
+        })
       }
 
       const title = resolveCellText(row.cells[0], columns[0]?.name, relationColumnLabelMaps)
@@ -184,7 +194,7 @@ export function ScreeningDbView({
     }
 
     return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label, 'ko'))
-  }, [columns, detailColumnNames, filteredRows, groupByColumnName, groupIndex, presentation, relationColumnLabelMaps, thumbnailIndex])
+  }, [columns, detailColumnNames, filteredRows, groupByColumnName, groupIndex, groupVisualMap, groupedGallery, presentation, relationColumnLabelMaps, thumbnailIndex])
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value)
@@ -233,6 +243,11 @@ export function ScreeningDbView({
           <p>{description}</p>
         </div>
         <div className="scheduleHeroActions">
+          {presentation === 'gallery' && groupByColumnName ? (
+            <button type="button" className="secondary mini" onClick={() => setGroupedGallery((current) => !current)}>
+              {groupedGallery ? '전체 보기' : `${groupByColumnName}별 그룹`}
+            </button>
+          ) : null}
           {onSyncAction ? (
             <button type="button" className="secondary mini" onClick={() => void onSyncAction()} disabled={syncActionBusy}>
               {syncActionBusy ? '동기화 중...' : syncActionLabel ?? '동기화'}
@@ -276,7 +291,24 @@ export function ScreeningDbView({
           {galleryGroups.map((group) => (
             <section key={group.key} className="screeningGallerySection" aria-label={group.label}>
               <div className="screeningGallerySectionHeader">
-                <h3>{group.label}</h3>
+                <div className="screeningGallerySectionTitle">
+                  {group.visual ? (
+                    <span className="screeningGalleryProjectVisual" aria-hidden="true">
+                      {group.visual.coverUrl ? <img className="screeningGalleryProjectCover" src={group.visual.coverUrl} alt="" /> : null}
+                      {group.visual.iconUrl ? <img className="screeningGalleryProjectIcon" src={group.visual.iconUrl} alt="" /> : null}
+                      {group.visual.iconEmoji ? (
+                        <span className="screeningGalleryProjectEmoji" title={formatProjectIconLabel(group.visual.iconEmoji)}>
+                          {emojiToTwemojiUrl(group.visual.iconEmoji) ? (
+                            <img src={emojiToTwemojiUrl(group.visual.iconEmoji) ?? undefined} alt={group.visual.iconEmoji} />
+                          ) : (
+                            group.visual.iconEmoji
+                          )}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                  <h3>{group.label}</h3>
+                </div>
                 <span>{group.items.length}건</span>
               </div>
               <div className="screeningGalleryGrid">
