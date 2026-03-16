@@ -863,6 +863,11 @@ button.viewTab.active .viewTabCount {
   white-space: nowrap;
 }
 
+.metaCardCode {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  letter-spacing: 0.04em;
+}
+
 .mondaySidebar.collapsed .workspaceMeta,
 .mondaySidebar.collapsed .sidebarBrand,
 .mondaySidebar.collapsed .viewMenuHeader strong,

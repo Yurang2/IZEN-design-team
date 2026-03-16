@@ -3190,6 +3190,12 @@ function App() {
             <span className="muted small">업무</span>
             <strong>{tasks.length}</strong>
           </article>
+          <article className="metaCard">
+            <span className="muted small">빌드</span>
+            <strong className="metaCardCode" title={`현재 빌드 ${currentBuild.id}`}>
+              {currentBuild.id}
+            </strong>
+          </article>
         </section>
       </aside>
       <main className="mondayMain">
