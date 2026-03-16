@@ -6166,6 +6166,44 @@ export default {
         )
       }
 
+      if (request.method === 'GET' && path === '/screening-history') {
+        const screeningHistory = await service.listScreeningHistoryView()
+        return ok(
+          {
+            ok: true,
+            configured: screeningHistory.configured,
+            database: {
+              id: screeningHistory.database.id,
+              url: notionDatabaseUrl(screeningHistory.database.id ?? undefined),
+              title: screeningHistory.database.title,
+            },
+            columns: screeningHistory.columns,
+            rows: screeningHistory.rows,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && path === '/screening-plan') {
+        const screeningPlan = await service.listScreeningPlanView()
+        return ok(
+          {
+            ok: true,
+            configured: screeningPlan.configured,
+            database: {
+              id: screeningPlan.database.id,
+              url: notionDatabaseUrl(screeningPlan.database.id ?? undefined),
+              title: screeningPlan.database.title,
+            },
+            columns: screeningPlan.columns,
+            rows: screeningPlan.rows,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
       if (request.method === 'GET' && path === '/event-graphics-timetable') {
         const timetable = await service.listEventGraphicsTimetableView()
         return ok(
