@@ -578,13 +578,15 @@ async function main() {
         }
 
         if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
-          const publicPath = path.join(options.publicRoot, destinationName)
-          await fs.copyFile(destinationPath, publicPath)
-          if (slot.kind === 'video') {
+          if (slot.kind === 'image') {
+            const publicPath = path.join(options.publicRoot, destinationName)
+            await fs.copyFile(destinationPath, publicPath)
+            publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
+          } else {
             const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
-            await generateVideoThumbnail(publicPath, thumbnailPath)
+            await generateVideoThumbnail(destinationPath, thumbnailPath)
+            publicCopies.set(destinationName, buildPublicAssetUrl(path.basename(thumbnailPath)))
           }
-          publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
         }
 
         sharedAssignments.set(sharedKey, {
@@ -628,13 +630,15 @@ async function main() {
       })
 
       if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
-        const publicPath = path.join(options.publicRoot, destinationName)
-        await fs.copyFile(destinationPath, publicPath)
-        if (slot.kind === 'video') {
+        if (slot.kind === 'image') {
+          const publicPath = path.join(options.publicRoot, destinationName)
+          await fs.copyFile(destinationPath, publicPath)
+          publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
+        } else {
           const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
-          await generateVideoThumbnail(publicPath, thumbnailPath)
+          await generateVideoThumbnail(destinationPath, thumbnailPath)
+          publicCopies.set(destinationName, buildPublicAssetUrl(path.basename(thumbnailPath)))
         }
-        publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
       }
     }
 
