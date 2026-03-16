@@ -14,6 +14,7 @@ fi
 
 rm -rf "$ROOT_DIR/assets"
 cp -f "$DIST_DIR/index.html" "$ROOT_DIR/index.html"
+cp -f "$DIST_DIR/app-version.json" "$ROOT_DIR/app-version.json"
 cp -R "$DIST_DIR/assets" "$ROOT_DIR/assets"
 
 if [[ -f "$ROOT_DIR/public/_redirects" ]]; then
