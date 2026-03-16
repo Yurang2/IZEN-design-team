@@ -1671,6 +1671,98 @@ export class NotionWorkService {
     }
   }
 
+  private async listDatabaseGridView(databaseId: string | null): Promise<{
+    configured: boolean
+    database: {
+      id: string | null
+      title: string
+    }
+    columns: ScheduleColumn[]
+    rows: ScheduleRow[]
+  }> {
+    if (!databaseId) {
+      return {
+        configured: false,
+        database: {
+          id: null,
+          title: '',
+        },
+        columns: [],
+        rows: [],
+      }
+    }
+
+    const db: any = await this.api.retrieveDatabase(databaseId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    const columns = Object.entries(properties).map(([name, prop]) => ({
+      id: normalizeText(String(prop?.id ?? name)) || name,
+      name,
+      type: normalizeText(String(prop?.type ?? 'unknown')) || 'unknown',
+    }))
+
+    const pages = await this.queryAll(databaseId)
+    const rows = pages.map((page) => {
+      const props = (page.properties ?? {}) as AnyMap
+      return {
+        id: page.id,
+        url: normalizeText(page.url) || null,
+        cells: columns.map((column) => serializeScheduleCell(props[column.name], column)),
+      }
+    })
+
+    return {
+      configured: true,
+      database: {
+        id: databaseId,
+        title: parseDbTitle(db),
+      },
+      columns,
+      rows,
+    }
+  }
+
+  async listScreeningHistoryView(): Promise<{
+    configured: boolean
+    schema: ScreeningSchemaSyncResult
+    database: {
+      id: string | null
+      title: string
+    }
+    columns: ScheduleColumn[]
+    rows: ScheduleRow[]
+  }> {
+    const schema = await this.syncScreeningHistoryDatabaseProperties()
+    const view = await this.listDatabaseGridView(schema.databaseId)
+    return {
+      configured: view.configured,
+      schema,
+      database: view.database,
+      columns: view.columns,
+      rows: view.rows,
+    }
+  }
+
+  async listScreeningPlanView(): Promise<{
+    configured: boolean
+    schema: ScreeningSchemaSyncResult
+    database: {
+      id: string | null
+      title: string
+    }
+    columns: ScheduleColumn[]
+    rows: ScheduleRow[]
+  }> {
+    const schema = await this.syncScreeningPlanDatabaseProperties()
+    const view = await this.listDatabaseGridView(schema.databaseId)
+    return {
+      configured: view.configured,
+      schema,
+      database: view.database,
+      columns: view.columns,
+      rows: view.rows,
+    }
+  }
+
   private getScreeningHistoryDbId(): string {
     return normalizeText(this.env.NOTION_SCREENING_HISTORY_DB_ID) || normalizeText(this.env.NOTION_SCREENING_VIDEO_DB_ID)
   }
@@ -1694,7 +1786,18 @@ export class NotionWorkService {
       }
     }
 
-    const db: any = await this.api.retrieveDatabase(databaseId)
+    const relationTargets = fieldDefinitions
+      .filter((field) => field.definition?.relation?.database_id)
+      .map((field) => `${field.name}=>${normalizeText(field.definition.relation.database_id)}`)
+    let db: any
+    try {
+      db = await this.api.retrieveDatabase(databaseId)
+    } catch (error: any) {
+      const cause = normalizeText(error?.message) || normalizeText(error?.code) || 'unknown_error'
+      throw new Error(
+        `screening_schema_sync_failed:stage=retrieveDatabase:db_title=${databaseTitle}:db_id=${databaseId}:relations=${relationTargets.join(',') || 'none'}:cause=${cause}`,
+      )
+    }
     const properties = (db.properties ?? {}) as Record<string, any>
     const updates: AnyMap = {}
     const created: string[] = []
@@ -1739,7 +1842,16 @@ export class NotionWorkService {
     }
 
     if (Object.keys(payload).length > 0) {
-      await this.api.updateDatabase(databaseId, payload)
+      try {
+        await this.api.updateDatabase(databaseId, payload)
+      } catch (error: any) {
+        const cause = normalizeText(error?.message) || normalizeText(error?.code) || 'unknown_error'
+        const updateNames =
+          Object.keys(updates).length > 0 ? Object.keys(updates).join(',') : payload.title ? 'database_title' : 'none'
+        throw new Error(
+          `screening_schema_sync_failed:stage=updateDatabase:db_title=${databaseTitle}:db_id=${databaseId}:fields=${updateNames}:relations=${relationTargets.join(',') || 'none'}:cause=${cause}`,
+        )
+      }
     }
 
     return {
