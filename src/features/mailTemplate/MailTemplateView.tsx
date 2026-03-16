@@ -62,12 +62,12 @@ function buildVideoDeliveryBody(values: VideoDeliveryForm): string {
     `안녕하세요 ${values.recipient}, 디자인팀 ${values.sender}입니다.`,
     '',
     `협조전 '${values.cooperationDocumentNumber}' 건으로 요청주신 ${values.videoName} 제작이 완료되었습니다.`,
-    '구글 및 나스 다운로드 링크를 전달드립니다.(영상은 동일합니다.)',
+    '구글 드라이브 및 NAS 다운로드 링크를 전달드립니다.(영상은 동일합니다.)',
     '',
-    '[구글 다운로드 링크]',
+    '[구글 드라이브 다운로드 링크]',
     values.googleLink,
     '',
-    '[나스 다운로드 링크]',
+    '[NAS 다운로드 링크]',
     values.nasLink,
     '',
     '확인 부탁드립니다.',
@@ -198,7 +198,7 @@ export function MailTemplateView({ onCopy }: MailTemplateViewProps) {
                   />
                 </label>
                 <label>
-                  구글 링크
+                  구글 드라이브 링크
                   <input
                     type="url"
                     value={videoDeliveryForm.googleLink}
@@ -207,7 +207,7 @@ export function MailTemplateView({ onCopy }: MailTemplateViewProps) {
                   />
                 </label>
                 <label>
-                  나스 링크
+                  NAS 링크
                   <input
                     type="url"
                     value={videoDeliveryForm.nasLink}
@@ -235,7 +235,7 @@ export function MailTemplateView({ onCopy }: MailTemplateViewProps) {
                 onClick={() =>
                   void onCopy(videoDeliveryPreview, {
                     successMessage: '메일 본문을 복사했습니다.',
-                    emptyMessage: '수신자, 발신자, 문서번호, 영상명, 구글 링크, 나스 링크를 모두 입력해 주세요.',
+                    emptyMessage: '수신자, 발신자, 문서번호, 영상명, 구글 드라이브 링크, NAS 링크를 모두 입력해 주세요.',
                   })
                 }
               >
