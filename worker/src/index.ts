@@ -63,6 +63,7 @@ const SEOUL_TIME_ZONE = 'Asia/Seoul'
 const LINE_PUSH_API_URL = 'https://api.line.me/v2/bot/message/push'
 const LINE_MORNING_CRON_UTC = '0 0 * * *'
 const LINE_EVENING_CRON_UTC = '30 8 * * *'
+const SCREENING_PLAN_HISTORY_SYNC_CRON_UTC = '*/30 * * * *'
 const DEFAULT_LINE_NOTIFY_ASSIGNEE_NAME = '조정훈'
 const MAX_LINE_REMINDER_TASKS = 20
 
@@ -6120,9 +6121,17 @@ export default {
                 id: env.NOTION_SCHEDULE_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_SCHEDULE_DB_ID),
               },
+              screeningHistory: {
+                id: env.NOTION_SCREENING_HISTORY_DB_ID ?? env.NOTION_SCREENING_VIDEO_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_SCREENING_HISTORY_DB_ID ?? env.NOTION_SCREENING_VIDEO_DB_ID),
+              },
+              screeningPlan: {
+                id: env.NOTION_SCREENING_PLAN_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_SCREENING_PLAN_DB_ID),
+              },
               screeningVideo: {
-                id: env.NOTION_SCREENING_VIDEO_DB_ID ?? null,
-                url: notionDatabaseUrl(env.NOTION_SCREENING_VIDEO_DB_ID),
+                id: env.NOTION_SCREENING_HISTORY_DB_ID ?? env.NOTION_SCREENING_VIDEO_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_SCREENING_HISTORY_DB_ID ?? env.NOTION_SCREENING_VIDEO_DB_ID),
               },
               eventGraphicsTimetable: {
                 id: env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID ?? null,
@@ -6190,8 +6199,55 @@ export default {
         )
       }
 
+      if (request.method === 'POST' && path === '/admin/notion/screening-history-schema/sync') {
+        const sync = await service.syncScreeningHistoryDatabaseProperties()
+        return ok(
+          {
+            ok: true,
+            configured: sync.configured,
+            databaseId: sync.databaseId,
+            created: sync.created,
+            existing: sync.existing,
+            renamed: sync.renamed,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/admin/notion/screening-plan-schema/sync') {
+        const sync = await service.syncScreeningPlanDatabaseProperties()
+        return ok(
+          {
+            ok: true,
+            configured: sync.configured,
+            databaseId: sync.databaseId,
+            created: sync.created,
+            existing: sync.existing,
+            renamed: sync.renamed,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/admin/notion/screening-plan-history-sync') {
+        const sync = await service.syncCompletedScreeningPlansToHistory()
+        return ok(
+          {
+            ok: true,
+            configured: sync.configured,
+            planDatabaseId: sync.planDatabaseId,
+            historyDatabaseId: sync.historyDatabaseId,
+            created: sync.created,
+            updated: sync.updated,
+            skipped: sync.skipped,
+            syncedPlanIds: sync.syncedPlanIds,
+          },
+          origin,
+        )
+      }
+
       if (request.method === 'POST' && path === '/admin/notion/screening-video-schema/sync') {
-        const sync = await service.syncScreeningVideoDatabaseProperties()
+        const sync = await service.syncScreeningHistoryDatabaseProperties()
         return ok(
           {
             ok: true,
@@ -6678,6 +6734,9 @@ export default {
               'POST /api/admin/line/reminders/send?kind=morning|evening',
               'GET /api/projects',
               'GET /api/meta',
+              'POST /api/admin/notion/screening-history-schema/sync',
+              'POST /api/admin/notion/screening-plan-schema/sync',
+              'POST /api/admin/notion/screening-plan-history-sync',
               'GET /api/checklists?eventName=...&eventCategory=...',
               'GET /api/checklist-assignments?projectId=...',
               'GET /api/checklist-assignments/export?logLimit=1000',
@@ -6730,6 +6789,12 @@ export default {
 
       if (controller.cron === LINE_EVENING_CRON_UTC) {
         await sendLineReminder(env, ctx, 'evening')
+        return
+      }
+
+      if (controller.cron === SCREENING_PLAN_HISTORY_SYNC_CRON_UTC) {
+        const service = serviceFromEnv(env)
+        await service.syncCompletedScreeningPlansToHistory()
       }
     } catch (error: unknown) {
       console.error('scheduled_task_failed', error instanceof Error ? error.message : error)

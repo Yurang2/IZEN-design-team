@@ -3,19 +3,33 @@ import fs from 'node:fs/promises'
 const DEFAULT_ENV_PATH = 'worker/.dev.vars'
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
-const DATABASE_TITLE = '\uC0C1\uC601 \uC601\uC0C1 \uAE30\uB85D DB'
+const DATABASE_TITLE = '\uC601\uC0C1 \uD3B8\uC131 \uC900\uBE44 DB'
 const TITLE_FIELD = '\uC81C\uBAA9'
 const PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const RELATED_TASK_FIELD = '\uAD00\uB828 \uC5C5\uBB34'
 const EVENT_FIELD = '\uD589\uC0AC\uBA85'
 const DATE_FIELD = '\uC0C1\uC601\uC77C'
 const ORDER_FIELD = '\uC0C1\uC601 \uC21C\uC11C'
 const SCREEN_FIELD = '\uC2A4\uD06C\uB9B0/\uAD6C\uC5ED'
-const SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
-const OUTPUT_NAME_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85'
-const ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
 const THUMBNAIL_FIELD = '\uB300\uD45C \uC774\uBBF8\uC9C0'
-const RELATED_TASK_FIELD = '\uAD00\uB828 \uC5C5\uBB34'
-const SOURCE_PLAN_ID_FIELD = '\uC6D0\uBCF8 \uC900\uBE44 Row ID'
+const SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
+const TARGET_OUTPUT_FIELD = '\uBAA9\uD45C \uC0C1\uC601 \uD30C\uC77C\uBA85'
+const ACTUAL_OUTPUT_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85'
+const ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
+const STATUS_FIELD = '\uC0C1\uD0DC'
+const HISTORY_SYNCED_FIELD = '\uD788\uC2A4\uD1A0\uB9AC \uBC18\uC601'
+const HISTORY_PAGE_ID_FIELD = '\uD788\uC2A4\uD1A0\uB9AC \uD398\uC774\uC9C0 ID'
+const ACTUAL_PLAYED_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC5EC\uBD80'
+const ACTUAL_ORDER_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC21C\uC11C'
+const ISSUE_REASON_FIELD = '\uC774\uC288 \uC0AC\uC720'
+const STATUS_OPTIONS = [
+  { name: 'planned', color: 'gray' },
+  { name: 'editing', color: 'yellow' },
+  { name: 'ready', color: 'green' },
+  { name: 'locked', color: 'blue' },
+  { name: 'completed', color: 'purple' },
+  { name: 'cancelled', color: 'red' },
+]
 
 function parseArgs(argv) {
   const options = { envPath: DEFAULT_ENV_PATH }
@@ -49,7 +63,6 @@ async function notionRequest(token, path, init = {}) {
       ...(init.headers ?? {}),
     },
   })
-
   const text = await response.text()
   let payload
   try {
@@ -97,7 +110,8 @@ function buildPropertyDefinitions(projectDatabaseId, taskDatabaseId) {
     { name: SCREEN_FIELD, definition: { rich_text: {} } },
     { name: THUMBNAIL_FIELD, definition: { files: {} } },
     { name: SOURCE_NAME_FIELD, definition: { rich_text: {} } },
-    { name: OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
+    { name: TARGET_OUTPUT_FIELD, definition: { rich_text: {} } },
+    { name: ACTUAL_OUTPUT_FIELD, definition: { rich_text: {} } },
     {
       name: ASPECT_RATIO_FIELD,
       definition: {
@@ -113,7 +127,12 @@ function buildPropertyDefinitions(projectDatabaseId, taskDatabaseId) {
         },
       },
     },
-    { name: SOURCE_PLAN_ID_FIELD, definition: { rich_text: {} } },
+    { name: STATUS_FIELD, definition: { select: { options: STATUS_OPTIONS } } },
+    { name: HISTORY_SYNCED_FIELD, definition: { checkbox: {} } },
+    { name: HISTORY_PAGE_ID_FIELD, definition: { rich_text: {} } },
+    { name: ACTUAL_PLAYED_FIELD, definition: { checkbox: {} } },
+    { name: ACTUAL_ORDER_FIELD, definition: { number: { format: 'number' } } },
+    { name: ISSUE_REASON_FIELD, definition: { rich_text: {} } },
   ]
 }
 
@@ -124,14 +143,14 @@ async function main() {
   const notionToken = env.NOTION_TOKEN
   const projectDbId = env.NOTION_PROJECT_DB_ID
   const taskDbId = env.NOTION_TASK_DB_ID
-  const historyDbId = env.NOTION_SCREENING_HISTORY_DB_ID || env.NOTION_SCREENING_VIDEO_DB_ID
+  const planDbId = env.NOTION_SCREENING_PLAN_DB_ID
 
   if (!notionToken) throw new Error('NOTION_TOKEN_missing')
   if (!projectDbId) throw new Error('NOTION_PROJECT_DB_ID_missing')
   if (!taskDbId) throw new Error('NOTION_TASK_DB_ID_missing')
-  if (!historyDbId) throw new Error('NOTION_SCREENING_HISTORY_DB_ID_missing')
+  if (!planDbId) throw new Error('NOTION_SCREENING_PLAN_DB_ID_missing')
 
-  const db = await notionRequest(notionToken, `/databases/${historyDbId}`)
+  const db = await notionRequest(notionToken, `/databases/${planDbId}`)
   const properties = db?.properties ?? {}
   const updates = {}
   const created = []
@@ -173,13 +192,13 @@ async function main() {
 
   if (Object.keys(updates).length > 0) payload.properties = updates
   if (Object.keys(payload).length > 0) {
-    await notionRequest(notionToken, `/databases/${historyDbId}`, {
+    await notionRequest(notionToken, `/databases/${planDbId}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     })
   }
 
-  console.log(JSON.stringify({ ok: true, databaseId: historyDbId, created, existing, renamed }, null, 2))
+  console.log(JSON.stringify({ ok: true, databaseId: planDbId, created, existing, renamed }, null, 2))
 }
 
 main().catch((error) => {

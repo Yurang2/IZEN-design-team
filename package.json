@@ -17,6 +17,7 @@
     "generate:event-graphics-draft": "node scripts/generate-event-graphics-timetable-draft.mjs && node scripts/augment-event-graphics-entrance-cues.mjs",
     "sync:event-graphics-masterfiles": "node scripts/sync-event-graphics-masterfile-assets.mjs",
     "sync:screening-video-schema": "node scripts/sync-screening-video-schema-direct.mjs",
+    "sync:screening-plan-schema": "node scripts/sync-screening-plan-schema-direct.mjs",
     "upload:screening-video-thumbnails": "node scripts/upload-screening-video-thumbnails.mjs",
     "watch:event-graphics-masterfiles": "node scripts/watch-event-graphics-masterfile-assets.mjs",
     "import:event-graphics-draft": "node scripts/import-event-graphics-timetable-draft.mjs",

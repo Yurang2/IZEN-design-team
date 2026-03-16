@@ -184,6 +184,13 @@ function extractTextFromProperty(prop: any): string | undefined {
   return undefined
 }
 
+function extractCheckboxFromProperty(prop: any): boolean | undefined {
+  if (!prop || typeof prop !== 'object') return undefined
+  if (prop.type === 'checkbox') return prop.checkbox === true
+  if (prop.type === 'formula' && prop.formula?.type === 'boolean') return prop.formula.boolean === true
+  return undefined
+}
+
 function normalizeCompactText(value: string | undefined): string {
   return normalizeText(value).replace(/\s+/g, '').toLowerCase()
 }
@@ -642,19 +649,46 @@ function parseDbTitle(db: any): string {
   return (db?.title ?? []).map((item: any) => item?.plain_text ?? '').join('').trim()
 }
 
-const SCREENING_VIDEO_DATABASE_TITLE = '\uC0C1\uC601 \uC601\uC0C1 DB'
-const SCREENING_VIDEO_TITLE_FIELD = '\uC81C\uBAA9'
-const SCREENING_VIDEO_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
-const SCREENING_VIDEO_EXHIBITION_FIELD = '\uC0C1\uC601 \uC804\uC2DC\uD68C'
-const SCREENING_VIDEO_SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
-const SCREENING_VIDEO_OUTPUT_NAME_FIELD = '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85'
-const SCREENING_VIDEO_ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
-const SCREENING_VIDEO_THUMBNAIL_FIELD = '\uB300\uD45C \uC774\uBBF8\uC9C0'
-const SCREENING_VIDEO_KEY_FIELD = '\uC601\uC0C1 \uD0A4'
-const SCREENING_VIDEO_REV_FIELD = 'Rev'
-const SCREENING_VIDEO_CURRENT_FINAL_FIELD = '\uD604\uC7AC \uCD5C\uC885\uBCF8'
-const SCREENING_VIDEO_PLAYBACK_STATUS_FIELD = '\uC0C1\uC601 \uAC00\uB2A5 \uC0C1\uD0DC'
-const SCREENING_VIDEO_ISSUE_REASON_FIELD = '\uC774\uC288 \uC0AC\uC720'
+const SCREENING_HISTORY_DATABASE_TITLE = '\uC0C1\uC601 \uC601\uC0C1 \uAE30\uB85D DB'
+const SCREENING_PLAN_DATABASE_TITLE = '\uC601\uC0C1 \uD3B8\uC131 \uC900\uBE44 DB'
+const SCREENING_COMMON_TITLE_FIELD = '\uC81C\uBAA9'
+const SCREENING_COMMON_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const SCREENING_COMMON_EVENT_FIELD = '\uD589\uC0AC\uBA85'
+const SCREENING_COMMON_DATE_FIELD = '\uC0C1\uC601\uC77C'
+const SCREENING_COMMON_ORDER_FIELD = '\uC0C1\uC601 \uC21C\uC11C'
+const SCREENING_COMMON_SCREEN_FIELD = '\uC2A4\uD06C\uB9B0/\uAD6C\uC5ED'
+const SCREENING_COMMON_SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
+const SCREENING_COMMON_OUTPUT_NAME_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85'
+const SCREENING_COMMON_ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
+const SCREENING_COMMON_THUMBNAIL_FIELD = '\uB300\uD45C \uC774\uBBF8\uC9C0'
+const SCREENING_COMMON_RELATED_TASK_FIELD = '\uAD00\uB828 \uC5C5\uBB34'
+const SCREENING_HISTORY_SOURCE_PLAN_ID_FIELD = '\uC6D0\uBCF8 \uC900\uBE44 Row ID'
+const SCREENING_PLAN_TARGET_OUTPUT_FIELD = '\uBAA9\uD45C \uC0C1\uC601 \uD30C\uC77C\uBA85'
+const SCREENING_PLAN_STATUS_FIELD = '\uC0C1\uD0DC'
+const SCREENING_PLAN_HISTORY_SYNCED_FIELD = '\uD788\uC2A4\uD1A0\uB9AC \uBC18\uC601'
+const SCREENING_PLAN_HISTORY_PAGE_ID_FIELD = '\uD788\uC2A4\uD1A0\uB9AC \uD398\uC774\uC9C0 ID'
+const SCREENING_PLAN_ACTUAL_PLAYED_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC5EC\uBD80'
+const SCREENING_PLAN_ACTUAL_ORDER_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC21C\uC11C'
+const SCREENING_PLAN_ISSUE_REASON_FIELD = '\uC774\uC288 \uC0AC\uC720'
+
+const SCREENING_PLAN_STATUS_OPTIONS = [
+  { name: 'planned', color: 'gray' },
+  { name: 'editing', color: 'yellow' },
+  { name: 'ready', color: 'green' },
+  { name: 'locked', color: 'blue' },
+  { name: 'completed', color: 'purple' },
+  { name: 'cancelled', color: 'red' },
+]
+
+// Backward-compatible aliases for the older screening-video naming.
+const SCREENING_VIDEO_DATABASE_TITLE = SCREENING_HISTORY_DATABASE_TITLE
+const SCREENING_VIDEO_TITLE_FIELD = SCREENING_COMMON_TITLE_FIELD
+const SCREENING_VIDEO_PROJECT_FIELD = SCREENING_COMMON_PROJECT_FIELD
+const SCREENING_VIDEO_EXHIBITION_FIELD = SCREENING_COMMON_EVENT_FIELD
+const SCREENING_VIDEO_SOURCE_NAME_FIELD = SCREENING_COMMON_SOURCE_NAME_FIELD
+const SCREENING_VIDEO_OUTPUT_NAME_FIELD = SCREENING_COMMON_OUTPUT_NAME_FIELD
+const SCREENING_VIDEO_ASPECT_RATIO_FIELD = SCREENING_COMMON_ASPECT_RATIO_FIELD
+const SCREENING_VIDEO_THUMBNAIL_FIELD = SCREENING_COMMON_THUMBNAIL_FIELD
 
 const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '행 제목',
@@ -689,7 +723,7 @@ type EventGraphicsSchemaSyncResult = {
   renamed: string[]
 }
 
-type ScreeningVideoSchemaSyncResult = {
+type ScreeningSchemaSyncResult = {
   configured: boolean
   databaseId: string | null
   created: string[]
@@ -796,10 +830,10 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
   ]
 }
 
-function buildScreeningVideoPropertyDefinitions(projectDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
+function buildScreeningHistoryPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
   return [
     {
-      name: SCREENING_VIDEO_PROJECT_FIELD,
+      name: SCREENING_COMMON_PROJECT_FIELD,
       definition: {
         relation: {
           database_id: projectDatabaseId,
@@ -808,15 +842,74 @@ function buildScreeningVideoPropertyDefinitions(projectDatabaseId: string): Arra
         },
       },
     },
-    { name: SCREENING_VIDEO_EXHIBITION_FIELD, definition: { rich_text: {} } },
-    { name: SCREENING_VIDEO_THUMBNAIL_FIELD, definition: { files: {} } },
-    { name: SCREENING_VIDEO_KEY_FIELD, definition: { rich_text: {} } },
-    { name: SCREENING_VIDEO_REV_FIELD, definition: { number: { format: 'number' } } },
-    { name: SCREENING_VIDEO_CURRENT_FINAL_FIELD, definition: { checkbox: {} } },
-    { name: SCREENING_VIDEO_SOURCE_NAME_FIELD, definition: { rich_text: {} } },
-    { name: SCREENING_VIDEO_OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
     {
-      name: SCREENING_VIDEO_ASPECT_RATIO_FIELD,
+      name: SCREENING_COMMON_RELATED_TASK_FIELD,
+      definition: {
+        relation: {
+          database_id: taskDatabaseId,
+          type: 'single_property',
+          single_property: {},
+        },
+      },
+    },
+    { name: SCREENING_COMMON_EVENT_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_COMMON_DATE_FIELD, definition: { date: {} } },
+    { name: SCREENING_COMMON_ORDER_FIELD, definition: { number: { format: 'number' } } },
+    { name: SCREENING_COMMON_SCREEN_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_COMMON_THUMBNAIL_FIELD, definition: { files: {} } },
+    { name: SCREENING_COMMON_SOURCE_NAME_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_COMMON_OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
+    {
+      name: SCREENING_COMMON_ASPECT_RATIO_FIELD,
+      definition: {
+        select: {
+          options: [
+            { name: '16:9', color: 'blue' },
+            { name: '9:16', color: 'green' },
+            { name: '1:1', color: 'gray' },
+            { name: '21:9', color: 'orange' },
+            { name: '32:9', color: 'purple' },
+            { name: '\uAE30\uD0C0', color: 'default' },
+          ],
+        },
+      },
+    },
+    { name: SCREENING_HISTORY_SOURCE_PLAN_ID_FIELD, definition: { rich_text: {} } },
+  ]
+}
+
+function buildScreeningPlanPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
+  return [
+    {
+      name: SCREENING_COMMON_PROJECT_FIELD,
+      definition: {
+        relation: {
+          database_id: projectDatabaseId,
+          type: 'single_property',
+          single_property: {},
+        },
+      },
+    },
+    {
+      name: SCREENING_COMMON_RELATED_TASK_FIELD,
+      definition: {
+        relation: {
+          database_id: taskDatabaseId,
+          type: 'single_property',
+          single_property: {},
+        },
+      },
+    },
+    { name: SCREENING_COMMON_EVENT_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_COMMON_DATE_FIELD, definition: { date: {} } },
+    { name: SCREENING_COMMON_ORDER_FIELD, definition: { number: { format: 'number' } } },
+    { name: SCREENING_COMMON_SCREEN_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_COMMON_THUMBNAIL_FIELD, definition: { files: {} } },
+    { name: SCREENING_COMMON_SOURCE_NAME_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_PLAN_TARGET_OUTPUT_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_COMMON_OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
+    {
+      name: SCREENING_COMMON_ASPECT_RATIO_FIELD,
       definition: {
         select: {
           options: [
@@ -831,19 +924,18 @@ function buildScreeningVideoPropertyDefinitions(projectDatabaseId: string): Arra
       },
     },
     {
-      name: SCREENING_VIDEO_PLAYBACK_STATUS_FIELD,
+      name: SCREENING_PLAN_STATUS_FIELD,
       definition: {
         select: {
-          options: [
-            { name: 'ready', color: 'green' },
-            { name: 'live', color: 'blue' },
-            { name: 'issue', color: 'red' },
-            { name: 'retired', color: 'gray' },
-          ],
+          options: SCREENING_PLAN_STATUS_OPTIONS,
         },
       },
     },
-    { name: SCREENING_VIDEO_ISSUE_REASON_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_PLAN_HISTORY_SYNCED_FIELD, definition: { checkbox: {} } },
+    { name: SCREENING_PLAN_HISTORY_PAGE_ID_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_PLAN_ACTUAL_PLAYED_FIELD, definition: { checkbox: {} } },
+    { name: SCREENING_PLAN_ACTUAL_ORDER_FIELD, definition: { number: { format: 'number' } } },
+    { name: SCREENING_PLAN_ISSUE_REASON_FIELD, definition: { rich_text: {} } },
   ]
 }
 
@@ -1579,8 +1671,19 @@ export class NotionWorkService {
     }
   }
 
-  async syncScreeningVideoDatabaseProperties(): Promise<ScreeningVideoSchemaSyncResult> {
-    const databaseId = normalizeText(this.env.NOTION_SCREENING_VIDEO_DB_ID)
+  private getScreeningHistoryDbId(): string {
+    return normalizeText(this.env.NOTION_SCREENING_HISTORY_DB_ID) || normalizeText(this.env.NOTION_SCREENING_VIDEO_DB_ID)
+  }
+
+  private getScreeningPlanDbId(): string {
+    return normalizeText(this.env.NOTION_SCREENING_PLAN_DB_ID)
+  }
+
+  private async syncScreeningDatabaseProperties(
+    databaseId: string,
+    databaseTitle: string,
+    fieldDefinitions: Array<{ name: string; definition: AnyMap }>,
+  ): Promise<ScreeningSchemaSyncResult> {
     if (!databaseId) {
       return {
         configured: false,
@@ -1601,28 +1704,28 @@ export class NotionWorkService {
 
     const currentTitle = parseDbTitle(db)
     const payload: AnyMap = {}
-    if (currentTitle !== SCREENING_VIDEO_DATABASE_TITLE) {
-      payload.title = [{ type: 'text', text: { content: SCREENING_VIDEO_DATABASE_TITLE } }]
-      renamed.push(`database_title:${currentTitle || '[EMPTY]'}->${SCREENING_VIDEO_DATABASE_TITLE}`)
+    if (currentTitle !== databaseTitle) {
+      payload.title = [{ type: 'text', text: { content: databaseTitle } }]
+      renamed.push(`database_title:${currentTitle || '[EMPTY]'}->${databaseTitle}`)
     }
 
     const titleEntry = Object.entries(properties).find(([, prop]) => prop?.type === 'title')
     if (titleEntry) {
       const [titlePropertyName] = titleEntry
-      if (titlePropertyName !== SCREENING_VIDEO_TITLE_FIELD && !hasOwn(properties, SCREENING_VIDEO_TITLE_FIELD)) {
-        updates[titlePropertyName] = { name: SCREENING_VIDEO_TITLE_FIELD }
-        renamed.push(`title:${titlePropertyName}->${SCREENING_VIDEO_TITLE_FIELD}`)
-        plannedNames.add(SCREENING_VIDEO_TITLE_FIELD)
+      if (titlePropertyName !== SCREENING_COMMON_TITLE_FIELD && !hasOwn(properties, SCREENING_COMMON_TITLE_FIELD)) {
+        updates[titlePropertyName] = { name: SCREENING_COMMON_TITLE_FIELD }
+        renamed.push(`title:${titlePropertyName}->${SCREENING_COMMON_TITLE_FIELD}`)
+        plannedNames.add(SCREENING_COMMON_TITLE_FIELD)
       } else {
-        existing.push(SCREENING_VIDEO_TITLE_FIELD)
+        existing.push(SCREENING_COMMON_TITLE_FIELD)
       }
-    } else if (!hasOwn(properties, SCREENING_VIDEO_TITLE_FIELD)) {
-      updates[SCREENING_VIDEO_TITLE_FIELD] = { title: {} }
-      created.push(SCREENING_VIDEO_TITLE_FIELD)
-      plannedNames.add(SCREENING_VIDEO_TITLE_FIELD)
+    } else if (!hasOwn(properties, SCREENING_COMMON_TITLE_FIELD)) {
+      updates[SCREENING_COMMON_TITLE_FIELD] = { title: {} }
+      created.push(SCREENING_COMMON_TITLE_FIELD)
+      plannedNames.add(SCREENING_COMMON_TITLE_FIELD)
     }
 
-    for (const field of buildScreeningVideoPropertyDefinitions(this.env.NOTION_PROJECT_DB_ID)) {
+    for (const field of fieldDefinitions) {
       if (hasOwn(properties, field.name) || plannedNames.has(field.name)) {
         existing.push(field.name)
         continue
@@ -1645,6 +1748,139 @@ export class NotionWorkService {
       created,
       existing,
       renamed,
+    }
+  }
+
+  async syncScreeningHistoryDatabaseProperties(): Promise<ScreeningSchemaSyncResult> {
+    return this.syncScreeningDatabaseProperties(
+      this.getScreeningHistoryDbId(),
+      SCREENING_HISTORY_DATABASE_TITLE,
+      buildScreeningHistoryPropertyDefinitions(this.env.NOTION_PROJECT_DB_ID, this.env.NOTION_TASK_DB_ID),
+    )
+  }
+
+  async syncScreeningPlanDatabaseProperties(): Promise<ScreeningSchemaSyncResult> {
+    return this.syncScreeningDatabaseProperties(
+      this.getScreeningPlanDbId(),
+      SCREENING_PLAN_DATABASE_TITLE,
+      buildScreeningPlanPropertyDefinitions(this.env.NOTION_PROJECT_DB_ID, this.env.NOTION_TASK_DB_ID),
+    )
+  }
+
+  async syncCompletedScreeningPlansToHistory(): Promise<{
+    configured: boolean
+    planDatabaseId: string | null
+    historyDatabaseId: string | null
+    created: number
+    updated: number
+    skipped: number
+    syncedPlanIds: string[]
+  }> {
+    const historySchema = await this.syncScreeningHistoryDatabaseProperties()
+    const planSchema = await this.syncScreeningPlanDatabaseProperties()
+    const historyDatabaseId = historySchema.databaseId
+    const planDatabaseId = planSchema.databaseId
+
+    if (!historyDatabaseId || !planDatabaseId) {
+      return {
+        configured: false,
+        planDatabaseId,
+        historyDatabaseId,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        syncedPlanIds: [],
+      }
+    }
+
+    const [planPages, historyPages] = await Promise.all([this.queryAll(planDatabaseId), this.queryAll(historyDatabaseId)])
+    const historyBySourcePlanId = new Map<string, any>()
+    for (const page of historyPages) {
+      const props = (page.properties ?? {}) as AnyMap
+      const sourcePlanId = extractTextFromProperty(props[SCREENING_HISTORY_SOURCE_PLAN_ID_FIELD])
+      if (sourcePlanId) historyBySourcePlanId.set(sourcePlanId, page)
+    }
+
+    let created = 0
+    let updated = 0
+    let skipped = 0
+    const syncedPlanIds: string[] = []
+
+    for (const page of planPages) {
+      const props = (page.properties ?? {}) as AnyMap
+      const status = normalizeText(extractTextFromProperty(props[SCREENING_PLAN_STATUS_FIELD])).toLowerCase()
+      const historySynced = extractCheckboxFromProperty(props[SCREENING_PLAN_HISTORY_SYNCED_FIELD]) === true
+      if (status !== 'completed' || historySynced) {
+        skipped += 1
+        continue
+      }
+
+      const title = joinRichText(props[SCREENING_COMMON_TITLE_FIELD]?.title ?? []) || 'Untitled screening'
+      const eventName = extractTextFromProperty(props[SCREENING_COMMON_EVENT_FIELD])
+      const screeningDate =
+        props[SCREENING_COMMON_DATE_FIELD]?.type === 'date' ? props[SCREENING_COMMON_DATE_FIELD]?.date?.start ?? null : null
+      const plannedOrder = extractNumberFromProperty(props[SCREENING_COMMON_ORDER_FIELD])
+      const actualOrder = extractNumberFromProperty(props[SCREENING_PLAN_ACTUAL_ORDER_FIELD])
+      const screenLabel = extractTextFromProperty(props[SCREENING_COMMON_SCREEN_FIELD])
+      const sourceFileName = extractTextFromProperty(props[SCREENING_COMMON_SOURCE_NAME_FIELD])
+      const actualOutputFileName =
+        extractTextFromProperty(props[SCREENING_COMMON_OUTPUT_NAME_FIELD]) ||
+        extractTextFromProperty(props[SCREENING_PLAN_TARGET_OUTPUT_FIELD])
+      const aspectRatio = extractTextFromProperty(props[SCREENING_COMMON_ASPECT_RATIO_FIELD])
+      const taskIds = extractRelationIdsFromProperty(props[SCREENING_COMMON_RELATED_TASK_FIELD])
+      const projectIds = extractRelationIdsFromProperty(props[SCREENING_COMMON_PROJECT_FIELD])
+
+      const historyProperties: AnyMap = {
+        [SCREENING_COMMON_TITLE_FIELD]: { title: [{ text: { content: title } }] },
+        [SCREENING_COMMON_PROJECT_FIELD]: { relation: projectIds.map((id) => ({ id })) },
+        [SCREENING_COMMON_RELATED_TASK_FIELD]: { relation: taskIds.map((id) => ({ id })) },
+        [SCREENING_COMMON_EVENT_FIELD]: eventName ? { rich_text: [{ text: { content: eventName } }] } : { rich_text: [] },
+        [SCREENING_COMMON_DATE_FIELD]: screeningDate ? { date: { start: screeningDate } } : { date: null },
+        [SCREENING_COMMON_ORDER_FIELD]: { number: actualOrder ?? plannedOrder ?? null },
+        [SCREENING_COMMON_SCREEN_FIELD]: screenLabel ? { rich_text: [{ text: { content: screenLabel } }] } : { rich_text: [] },
+        [SCREENING_COMMON_SOURCE_NAME_FIELD]: sourceFileName ? { rich_text: [{ text: { content: sourceFileName } }] } : { rich_text: [] },
+        [SCREENING_COMMON_OUTPUT_NAME_FIELD]: actualOutputFileName
+          ? { rich_text: [{ text: { content: actualOutputFileName } }] }
+          : { rich_text: [] },
+        [SCREENING_COMMON_ASPECT_RATIO_FIELD]: aspectRatio ? { select: { name: aspectRatio } } : { select: null },
+        [SCREENING_HISTORY_SOURCE_PLAN_ID_FIELD]: { rich_text: [{ text: { content: page.id } }] },
+      }
+
+      const existingHistory = historyBySourcePlanId.get(page.id)
+      let historyPageId = normalizeText(existingHistory?.id)
+      if (existingHistory?.id) {
+        await this.api.updatePage(existingHistory.id, { properties: historyProperties })
+        updated += 1
+      } else {
+        const createdPage = await this.api.createPage({
+          parent: { database_id: historyDatabaseId },
+          properties: historyProperties,
+        })
+        historyBySourcePlanId.set(page.id, createdPage)
+        historyPageId = normalizeText(createdPage?.id)
+        created += 1
+      }
+
+      await this.api.updatePage(page.id, {
+        properties: {
+          [SCREENING_PLAN_HISTORY_SYNCED_FIELD]: { checkbox: true },
+          [SCREENING_PLAN_HISTORY_PAGE_ID_FIELD]: historyPageId
+            ? { rich_text: [{ text: { content: historyPageId } }] }
+            : { rich_text: [] },
+        },
+      })
+
+      syncedPlanIds.push(page.id)
+    }
+
+    return {
+      configured: true,
+      planDatabaseId,
+      historyDatabaseId,
+      created,
+      updated,
+      skipped,
+      syncedPlanIds,
     }
   }
 

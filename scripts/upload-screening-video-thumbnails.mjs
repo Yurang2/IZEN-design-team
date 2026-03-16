@@ -212,10 +212,10 @@ async function main() {
   const fileEnv = await readEnvFile(options.envPath)
   const env = { ...fileEnv, ...process.env }
   const notionToken = env.NOTION_TOKEN
-  const screeningVideoDbId = env.NOTION_SCREENING_VIDEO_DB_ID
+  const screeningVideoDbId = env.NOTION_SCREENING_HISTORY_DB_ID || env.NOTION_SCREENING_VIDEO_DB_ID
 
   if (!notionToken) throw new Error('NOTION_TOKEN_missing')
-  if (!screeningVideoDbId) throw new Error('NOTION_SCREENING_VIDEO_DB_ID_missing')
+  if (!screeningVideoDbId) throw new Error('NOTION_SCREENING_HISTORY_DB_ID_missing')
   if (!(await pathExists(options.sourceDir))) throw new Error(`source_dir_missing:${options.sourceDir}`)
 
   await fs.mkdir(options.thumbnailDir, { recursive: true })

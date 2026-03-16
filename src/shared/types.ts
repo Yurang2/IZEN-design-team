@@ -220,6 +220,8 @@ export type MetaResponse = {
     task: { id: string; url: string | null }
     checklist: { id: string | null; url: string | null }
     schedule?: { id: string | null; url: string | null }
+    screeningHistory?: { id: string | null; url: string | null }
+    screeningPlan?: { id: string | null; url: string | null }
     screeningVideo?: { id: string | null; url: string | null }
     eventGraphicsTimetable?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }

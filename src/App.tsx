@@ -218,6 +218,8 @@ type MetaResponse = {
     task: { id: string; url: string | null }
     checklist: { id: string | null; url: string | null }
     schedule?: { id: string | null; url: string | null }
+    screeningHistory?: { id: string | null; url: string | null }
+    screeningPlan?: { id: string | null; url: string | null }
     screeningVideo?: { id: string | null; url: string | null }
     eventGraphicsTimetable?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
@@ -964,6 +966,8 @@ function App() {
     task: string | null
     checklist: string | null
     schedule: string | null
+    screeningHistory: string | null
+    screeningPlan: string | null
     screeningVideo: string | null
     eventGraphics: string | null
   }>({
@@ -971,6 +975,8 @@ function App() {
     task: null,
     checklist: null,
     schedule: null,
+    screeningHistory: null,
+    screeningPlan: null,
     screeningVideo: null,
     eventGraphics: null,
   })
@@ -1302,6 +1308,8 @@ function App() {
         task: response.databases.task.url ?? toNotionUrlById(response.databases.task.id),
         checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
         schedule: response.databases.schedule?.url ?? toNotionUrlById(response.databases.schedule?.id ?? undefined),
+        screeningHistory: response.databases.screeningHistory?.url ?? toNotionUrlById(response.databases.screeningHistory?.id ?? undefined),
+        screeningPlan: response.databases.screeningPlan?.url ?? toNotionUrlById(response.databases.screeningPlan?.id ?? undefined),
         screeningVideo: response.databases.screeningVideo?.url ?? toNotionUrlById(response.databases.screeningVideo?.id ?? undefined),
         eventGraphics: response.databases.eventGraphicsTimetable?.url ?? toNotionUrlById(response.databases.eventGraphicsTimetable?.id ?? undefined),
       })
@@ -3409,6 +3417,20 @@ function App() {
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">일정 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.screeningHistory ? (
+                  <a className="guideDbLink" href={dbLinks.screeningHistory} target="_blank" rel="noreferrer">
+                    상영 기록 DB: {dbLinks.screeningHistory}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">상영 기록 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.screeningPlan ? (
+                  <a className="guideDbLink" href={dbLinks.screeningPlan} target="_blank" rel="noreferrer">
+                    상영 준비 DB: {dbLinks.screeningPlan}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">상영 준비 DB: 연결 안 됨</span>
                 )}
                 {dbLinks.screeningVideo ? (
                   <a className="guideDbLink" href={dbLinks.screeningVideo} target="_blank" rel="noreferrer">
