@@ -1,12 +1,12 @@
 export const bangkokMasterfileManifest = {
-  "generatedAt": "2026-03-16T00:32:05.601Z",
+  "generatedAt": "2026-03-16T01:16:47.198Z",
   "eventName": "2026 IZEN Seminar in Bangkok",
   "structure": {
     "filesDirectory": "02_Files"
   },
   "totalCueCount": 15,
-  "completeCueCount": 1,
-  "partialCueCount": 13,
+  "completeCueCount": 4,
+  "partialCueCount": 10,
   "missingCueCount": 1,
   "cues": [
     {
@@ -55,7 +55,7 @@ export const bangkokMasterfileManifest = {
         }
       ],
       "missingFiles": [],
-      "previewUrl": "/event-graphics-registered/bangkok/V_Q02_Opening.mp4",
+      "previewUrl": "/event-graphics-registered/bangkok/V_Q02_Opening.jpg",
       "status": "complete"
     },
     {
@@ -164,15 +164,9 @@ export const bangkokMasterfileManifest = {
           "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_IZEN_Seminar_Showroom_1008x432.mp4"
         }
       ],
-      "missingFiles": [
-        {
-          "kind": "audio",
-          "label": "Main Audio",
-          "sourceName": "Show Room"
-        }
-      ],
-      "previewUrl": "/event-graphics-registered/bangkok/V_IZEN_Seminar_Showroom_1008x432.mp4",
-      "status": "partial"
+      "missingFiles": [],
+      "previewUrl": "/event-graphics-registered/bangkok/V_IZEN_Seminar_Showroom_1008x432.jpg",
+      "status": "complete"
     },
     {
       "cueNumber": "Q07",
@@ -251,15 +245,9 @@ export const bangkokMasterfileManifest = {
           "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_Q09_Lunch_Buffet.mp4"
         }
       ],
-      "missingFiles": [
-        {
-          "kind": "audio",
-          "label": "Main Audio",
-          "sourceName": "Show Room"
-        }
-      ],
-      "previewUrl": "/event-graphics-registered/bangkok/V_Q09_Lunch_Buffet.mp4",
-      "status": "partial"
+      "missingFiles": [],
+      "previewUrl": "/event-graphics-registered/bangkok/V_Q09_Lunch_Buffet.jpg",
+      "status": "complete"
     },
     {
       "cueNumber": "Q10",
@@ -338,15 +326,9 @@ export const bangkokMasterfileManifest = {
           "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_IZEN_Seminar_Showroom_1008x432.mp4"
         }
       ],
-      "missingFiles": [
-        {
-          "kind": "audio",
-          "label": "Main Audio",
-          "sourceName": "Show Room"
-        }
-      ],
-      "previewUrl": "/event-graphics-registered/bangkok/V_IZEN_Seminar_Showroom_1008x432.mp4",
-      "status": "partial"
+      "missingFiles": [],
+      "previewUrl": "/event-graphics-registered/bangkok/V_IZEN_Seminar_Showroom_1008x432.jpg",
+      "status": "complete"
     },
     {
       "cueNumber": "Q13",

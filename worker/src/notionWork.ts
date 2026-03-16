@@ -649,6 +649,7 @@ const SCREENING_VIDEO_EXHIBITION_FIELD = '\uC0C1\uC601 \uC804\uC2DC\uD68C'
 const SCREENING_VIDEO_SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
 const SCREENING_VIDEO_OUTPUT_NAME_FIELD = '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85'
 const SCREENING_VIDEO_ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
+const SCREENING_VIDEO_THUMBNAIL_FIELD = '\uB300\uD45C \uC774\uBBF8\uC9C0'
 const SCREENING_VIDEO_KEY_FIELD = '\uC601\uC0C1 \uD0A4'
 const SCREENING_VIDEO_REV_FIELD = 'Rev'
 const SCREENING_VIDEO_CURRENT_FINAL_FIELD = '\uD604\uC7AC \uCD5C\uC885\uBCF8'
@@ -808,6 +809,7 @@ function buildScreeningVideoPropertyDefinitions(projectDatabaseId: string): Arra
       },
     },
     { name: SCREENING_VIDEO_EXHIBITION_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_VIDEO_THUMBNAIL_FIELD, definition: { files: {} } },
     { name: SCREENING_VIDEO_KEY_FIELD, definition: { rich_text: {} } },
     { name: SCREENING_VIDEO_REV_FIELD, definition: { number: { format: 'number' } } },
     { name: SCREENING_VIDEO_CURRENT_FINAL_FIELD, definition: { checkbox: {} } },

@@ -480,6 +480,19 @@ function buildManifestModule(manifest) {
   return `export const bangkokMasterfileManifest = ${JSON.stringify(manifest, null, 2)} as const\n`
 }
 
+function buildPublicAssetUrl(filename) {
+  return `/${path.posix.join('event-graphics-registered', 'bangkok', filename)}`
+}
+
+function buildPreviewUrl(file) {
+  if (!file) return null
+  if (file.kind === 'video') {
+    return buildPublicAssetUrl(`${path.basename(file.name, path.extname(file.name))}${VIDEO_THUMBNAIL_EXTENSION}`)
+  }
+  if (file.kind === 'image') return buildPublicAssetUrl(file.name)
+  return null
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   const raw = await fs.readFile(options.input, 'utf8')
@@ -571,13 +584,13 @@ async function main() {
             const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
             await generateVideoThumbnail(publicPath, thumbnailPath)
           }
-          publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
+          publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
         }
 
         sharedAssignments.set(sharedKey, {
           extension,
           registeredFile,
-          previewUrl: slot.kind === 'image' || slot.kind === 'video' ? publicCopies.get(destinationName) ?? null : null,
+          previewUrl: buildPreviewUrl(registeredFile),
         })
         registeredFiles.push(registeredFile)
         continue
@@ -621,7 +634,7 @@ async function main() {
           const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
           await generateVideoThumbnail(publicPath, thumbnailPath)
         }
-        publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
+        publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
       }
     }
 
@@ -639,7 +652,7 @@ async function main() {
       personnel: cue.personnel,
       registeredFiles,
       missingFiles,
-      previewUrl: previewFile ? publicCopies.get(previewFile.name) ?? null : null,
+      previewUrl: buildPreviewUrl(previewFile),
       status:
         registeredFiles.length === 0
           ? 'missing'

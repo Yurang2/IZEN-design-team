@@ -58,7 +58,7 @@ async function main() {
     'Delivery Assets',
     '- One flat folder for all final media files.',
     '- Cue-specific example: I_Q04_Lecture_1.png, V_Q02_Opening_Cinematic.mp4',
-    '- Repeated asset example: I_Certification.jpg, I_Show_Room.png',
+    '- Repeated asset example: I_Certification.jpg, V_IZEN_Seminar_Showroom_1008x432.mp4',
     '',
   ].join('\n')
 

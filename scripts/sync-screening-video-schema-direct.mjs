@@ -10,6 +10,7 @@ const EXHIBITION_FIELD = '\uC0C1\uC601 \uC804\uC2DC\uD68C'
 const SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
 const OUTPUT_NAME_FIELD = '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85'
 const ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
+const THUMBNAIL_FIELD = '\uB300\uD45C \uC774\uBBF8\uC9C0'
 const VIDEO_KEY_FIELD = '\uC601\uC0C1 \uD0A4'
 const REV_FIELD = 'Rev'
 const CURRENT_FINAL_FIELD = '\uD604\uC7AC \uCD5C\uC885\uBCF8'
@@ -91,6 +92,7 @@ function buildPropertyDefinitions(projectDatabaseId) {
       },
     },
     { name: EXHIBITION_FIELD, definition: { rich_text: {} } },
+    { name: THUMBNAIL_FIELD, definition: { files: {} } },
     { name: VIDEO_KEY_FIELD, definition: { rich_text: {} } },
     { name: REV_FIELD, definition: { number: { format: 'number' } } },
     { name: CURRENT_FINAL_FIELD, definition: { checkbox: {} } },

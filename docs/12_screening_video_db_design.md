@@ -29,6 +29,7 @@ Target DB title:
 | `제목` | `title` | yes | row title |
 | `귀속 프로젝트` | `relation -> NOTION_PROJECT_DB_ID` | no | project linkage |
 | `상영 전시회` | `rich_text` | no | exhibition/event label |
+| `대표 이미지` | `files` | no | thumbnail shown in Notion table |
 | `영상 키` | `rich_text` | yes | stable video family key |
 | `Rev` | `number` | yes | revision number |
 | `현재 최종본` | `checkbox` | yes | final playable master flag |
@@ -51,6 +52,7 @@ Target DB title:
 
 - Worker admin route: `POST /admin/notion/screening-video-schema/sync`
 - Direct script: `npm run sync:screening-video-schema`
+- Thumbnail upload script: `npm run upload:screening-video-thumbnails`
 
 ## Playback status options
 
