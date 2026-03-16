@@ -649,6 +649,11 @@ const SCREENING_VIDEO_EXHIBITION_FIELD = '\uC0C1\uC601 \uC804\uC2DC\uD68C'
 const SCREENING_VIDEO_SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
 const SCREENING_VIDEO_OUTPUT_NAME_FIELD = '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85'
 const SCREENING_VIDEO_ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
+const SCREENING_VIDEO_KEY_FIELD = '\uC601\uC0C1 \uD0A4'
+const SCREENING_VIDEO_REV_FIELD = 'Rev'
+const SCREENING_VIDEO_CURRENT_FINAL_FIELD = '\uD604\uC7AC \uCD5C\uC885\uBCF8'
+const SCREENING_VIDEO_PLAYBACK_STATUS_FIELD = '\uC0C1\uC601 \uAC00\uB2A5 \uC0C1\uD0DC'
+const SCREENING_VIDEO_ISSUE_REASON_FIELD = '\uC774\uC288 \uC0AC\uC720'
 
 const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '행 제목',
@@ -803,6 +808,9 @@ function buildScreeningVideoPropertyDefinitions(projectDatabaseId: string): Arra
       },
     },
     { name: SCREENING_VIDEO_EXHIBITION_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_VIDEO_KEY_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_VIDEO_REV_FIELD, definition: { number: { format: 'number' } } },
+    { name: SCREENING_VIDEO_CURRENT_FINAL_FIELD, definition: { checkbox: {} } },
     { name: SCREENING_VIDEO_SOURCE_NAME_FIELD, definition: { rich_text: {} } },
     { name: SCREENING_VIDEO_OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
     {
@@ -820,6 +828,20 @@ function buildScreeningVideoPropertyDefinitions(projectDatabaseId: string): Arra
         },
       },
     },
+    {
+      name: SCREENING_VIDEO_PLAYBACK_STATUS_FIELD,
+      definition: {
+        select: {
+          options: [
+            { name: 'ready', color: 'green' },
+            { name: 'live', color: 'blue' },
+            { name: 'issue', color: 'red' },
+            { name: 'retired', color: 'gray' },
+          ],
+        },
+      },
+    },
+    { name: SCREENING_VIDEO_ISSUE_REASON_FIELD, definition: { rich_text: {} } },
   ]
 }
 
