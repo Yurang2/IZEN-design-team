@@ -1,10 +1,19 @@
+import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
 const DEFAULT_MASTERFILE_ROOT = 'files/2026 IZEN Seminar in Bangkok Masterfile'
 const DEFAULT_PUBLIC_ROOT = 'public/event-graphics-registered/bangkok'
 const DEFAULT_OUTPUT = 'src/features/eventGraphics/generatedMasterfileManifest.ts'
+const VIDEO_THUMBNAIL_EXTENSION = '.jpg'
+const WINDOWS_FFMPEG_CANDIDATES = [
+  'C:\\Program Files\\Storyboarder\\resources\\app.asar.unpacked\\node_modules\\@ffmpeg-installer\\win32-x64\\ffmpeg.exe',
+  'C:\\Program Files\\Topaz Labs LLC\\Topaz Video\\ffmpeg.exe',
+  'C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe',
+  'C:\\Program Files\\Adobe\\Adobe Dimension\\ffmpeg.exe',
+]
 
 const LEGACY_CUES_DIR = '02_Cues'
 const LEGACY_SHARED_DIR = '02_Shared'
@@ -17,6 +26,8 @@ const MISSING_FILE_LABEL = '파일명 확인 필요'
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.avi', '.wmv', '.mkv'])
 const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.m4a', '.aac', '.aif', '.aiff', '.ogg', '.flac'])
+const execFileAsync = promisify(execFile)
+let cachedFfmpegPathPromise = null
 
 function parseArgs(argv) {
   const options = {
@@ -302,6 +313,51 @@ async function pathExists(targetPath) {
   }
 }
 
+async function findFfmpegPath() {
+  if (cachedFfmpegPathPromise) return cachedFfmpegPathPromise
+
+  cachedFfmpegPathPromise = (async () => {
+    if (process.env.FFMPEG_PATH && (await pathExists(process.env.FFMPEG_PATH))) {
+      return process.env.FFMPEG_PATH
+    }
+
+    try {
+      const { stdout } = await execFileAsync('where.exe', ['ffmpeg'], { windowsHide: true })
+      const resolved = stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find(Boolean)
+      if (resolved) return resolved
+    } catch {
+      // Fall through to common Windows install paths.
+    }
+
+    for (const candidate of WINDOWS_FFMPEG_CANDIDATES) {
+      if (await pathExists(candidate)) return candidate
+    }
+
+    return null
+  })()
+
+  return cachedFfmpegPathPromise
+}
+
+async function generateVideoThumbnail(videoPath, thumbnailPath) {
+  const ffmpegPath = await findFfmpegPath()
+  if (!ffmpegPath) return false
+
+  try {
+    await execFileAsync(
+      ffmpegPath,
+      ['-y', '-ss', '00:00:00.500', '-i', videoPath, '-frames:v', '1', '-update', '1', '-q:v', '2', thumbnailPath],
+      { windowsHide: true },
+    )
+    return await pathExists(thumbnailPath)
+  } catch {
+    return false
+  }
+}
+
 async function listMediaFiles(rootDirectory) {
   if (!(await pathExists(rootDirectory))) return []
 
@@ -501,7 +557,12 @@ async function main() {
         }
 
         if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
-          await fs.copyFile(destinationPath, path.join(options.publicRoot, destinationName))
+          const publicPath = path.join(options.publicRoot, destinationName)
+          await fs.copyFile(destinationPath, publicPath)
+          if (slot.kind === 'video') {
+            const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
+            await generateVideoThumbnail(publicPath, thumbnailPath)
+          }
           publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
         }
 
@@ -546,7 +607,12 @@ async function main() {
       })
 
       if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
-        await fs.copyFile(destinationPath, path.join(options.publicRoot, destinationName))
+        const publicPath = path.join(options.publicRoot, destinationName)
+        await fs.copyFile(destinationPath, publicPath)
+        if (slot.kind === 'video') {
+          const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
+          await generateVideoThumbnail(publicPath, thumbnailPath)
+        }
         publicCopies.set(destinationName, `/${path.posix.join('event-graphics-registered', 'bangkok', destinationName)}`)
       }
     }

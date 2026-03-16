@@ -1,5 +1,5 @@
 export const bangkokMasterfileManifest = {
-  "generatedAt": "2026-03-13T07:22:16.703Z",
+  "generatedAt": "2026-03-16T00:18:44.913Z",
   "eventName": "2026 IZEN Seminar in Bangkok",
   "structure": {
     "filesDirectory": "02_Files"

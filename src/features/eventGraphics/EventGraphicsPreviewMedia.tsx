@@ -21,6 +21,11 @@ export function hasVisualPreviewUrl(value: string | null): boolean {
   return isImageUrl(value) || isVideoUrl(value)
 }
 
+function toStaticVideoPosterUrl(value: string): string | null {
+  if (!isVideoUrl(value)) return null
+  return value.replace(/\.(mp4|mov|m4v|webm|ogg)(\?|#|$)/i, '.jpg$2')
+}
+
 function VideoFramePreview({
   src,
   alt,
@@ -117,6 +122,32 @@ function VideoFramePreview({
   )
 }
 
+function VideoPreviewWithStaticPoster(props: EventGraphicsPreviewMediaProps) {
+  const { src, alt, className, noPreviewText } = props
+  const [preferDynamicCapture, setPreferDynamicCapture] = useState(false)
+  const staticPosterUrl = toStaticVideoPosterUrl(src)
+
+  useEffect(() => {
+    setPreferDynamicCapture(false)
+  }, [src])
+
+  if (!preferDynamicCapture && staticPosterUrl) {
+    return (
+      <div className={className}>
+        <img
+          className="eventGraphicsPreviewMedia"
+          src={staticPosterUrl}
+          alt={alt}
+          loading="lazy"
+          onError={() => setPreferDynamicCapture(true)}
+        />
+      </div>
+    )
+  }
+
+  return <VideoFramePreview src={src} alt={alt} className={className} noPreviewText={noPreviewText} />
+}
+
 export function EventGraphicsPreviewMedia({
   src,
   alt,
@@ -132,7 +163,7 @@ export function EventGraphicsPreviewMedia({
   }
 
   if (isVideoUrl(src)) {
-    return <VideoFramePreview src={src} alt={alt} className={className} noPreviewText={noPreviewText} />
+    return <VideoPreviewWithStaticPoster src={src} alt={alt} className={className} noPreviewText={noPreviewText} />
   }
 
   return <div className="eventGraphicsPreviewPlaceholder">{noPreviewText}</div>
