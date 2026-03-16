@@ -699,12 +699,28 @@ button.quickSearchItem span:last-child {
   gap: 6px;
 }
 
+.viewMenuGroupToggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text-faint);
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 6px;
+}
+
+.viewMenuGroupToggle:hover {
+  background: var(--control-soft);
+  border-color: var(--control-soft-border);
+  color: var(--text-sub);
+}
+
 .viewMenuGroupTitle {
   color: var(--text-faint);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  padding-left: 2px;
   text-transform: uppercase;
 }
 
@@ -863,15 +879,21 @@ button.viewTab.active .viewTabCount {
   white-space: nowrap;
 }
 
-.metaCardCode {
+.sidebarBuildStamp {
+  color: var(--text-main);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  margin-top: 8px;
+  opacity: 0.15;
+  padding: 0 4px 2px 0;
+  text-align: right;
+  user-select: none;
 }
 
 .mondaySidebar.collapsed .workspaceMeta,
 .mondaySidebar.collapsed .sidebarBrand,
 .mondaySidebar.collapsed .viewMenuHeader strong,
-.mondaySidebar.collapsed .viewMenuGroupTitle,
 .mondaySidebar.collapsed .viewTabCount,
 .mondaySidebar.collapsed .dbJump,
 .mondaySidebar.collapsed .sidebarControls,
@@ -2329,7 +2351,7 @@ button.dashboardNavButton {
 
 .mailTemplateTextarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  min-height: 280px;
+  min-height: 560px;
   white-space: pre-wrap;
 }
 

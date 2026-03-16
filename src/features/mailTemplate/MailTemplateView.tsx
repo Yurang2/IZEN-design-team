@@ -242,7 +242,7 @@ export function MailTemplateView({ onCopy }: MailTemplateViewProps) {
                 본문 복사
               </Button>
             </div>
-            <textarea className="mailTemplateTextarea" value={videoDeliveryPreview} readOnly rows={14} />
+            <textarea className="mailTemplateTextarea" value={videoDeliveryPreview} readOnly rows={28} />
           </article>
         </div>
       </div>

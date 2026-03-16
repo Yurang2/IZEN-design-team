@@ -276,6 +276,7 @@ type TaskSort = 'due_asc' | 'due_desc' | 'start_asc' | 'start_desc' | 'status_as
 type ChecklistSort = 'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'lead_asc' | 'lead_desc'
 type TaskLayoutMode = 'list' | 'board' | 'kanban'
 type TaskQuickGroupBy = 'assignee' | 'project' | 'status' | 'due'
+type ViewMenuGroupKey = 'operations' | 'events' | 'tools'
 
 type ChecklistPreviewFilters = {
   eventName: string
@@ -361,6 +362,14 @@ function createDefaultFilters(): Filters {
 
 function createDefaultTaskViewFilters(): TaskViewFilters {
   return { ...DEFAULT_TASK_VIEW_FILTERS }
+}
+
+function createDefaultViewMenuOpenState(): Record<ViewMenuGroupKey, boolean> {
+  return {
+    operations: true,
+    events: true,
+    tools: true,
+  }
 }
 
 function parseTopView(value: string | null): TopView {
@@ -960,6 +969,7 @@ function App() {
   const [activeView, setActiveView] = useState<TopView>(initialListUiState.activeView)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuCollapsed, setMenuCollapsed] = useState(false)
+  const [viewMenuOpenState, setViewMenuOpenState] = useState<Record<ViewMenuGroupKey, boolean>>(createDefaultViewMenuOpenState)
   const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
   const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
   const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>(initialListUiState.taskLayout)
@@ -2243,6 +2253,7 @@ function App() {
   const taskTabCountLabel = loadingList ? '...' : String(tasks.length)
   const hasQuickSearchResults = quickSearchSections.projects.length > 0 || quickSearchSections.tasks.length > 0
   const viewMenuGroups: Array<{
+    key: ViewMenuGroupKey
     label: string
     items: Array<{
       view: TopView
@@ -2253,6 +2264,7 @@ function App() {
     }>
   }> = [
     {
+      key: 'operations',
       label: '운영',
       items: [
         { view: 'dashboard', title: '팀 운영 대시보드', label: '대시보드', icon: 'pulse' },
@@ -2263,6 +2275,7 @@ function App() {
       ],
     },
     {
+      key: 'events',
       label: '행사',
       items: [
         { view: 'eventGraphics', title: '타임테이블', label: '타임테이블', icon: 'calendar' },
@@ -2270,6 +2283,7 @@ function App() {
       ],
     },
     {
+      key: 'tools',
       label: '도구',
       items: [
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
@@ -2295,6 +2309,13 @@ function App() {
       setActiveView('tasks')
     }
     setQuickSearchOpen(false)
+  }
+
+  const toggleViewMenuGroup = (groupKey: ViewMenuGroupKey) => {
+    setViewMenuOpenState((current) => ({
+      ...current,
+      [groupKey]: !current[groupKey],
+    }))
   }
 
   const onQuickSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -2987,8 +3008,20 @@ function App() {
             <div className="viewMenuGroups">
               {viewMenuGroups.map((group) => (
                 <section key={group.label} className="viewMenuGroup" aria-label={group.label}>
-                  <div className="viewMenuGroupTitle">{group.label}</div>
-                  <div className="viewTabs">
+                  {sidebarCollapsed ? null : (
+                    <button
+                      type="button"
+                      className="viewMenuGroupToggle"
+                      aria-expanded={viewMenuOpenState[group.key]}
+                      onClick={() => toggleViewMenuGroup(group.key)}
+                    >
+                      <span className="viewMenuGroupTitle">{group.label}</span>
+                      <span className="uiIcon">
+                        <UiGlyph name={viewMenuOpenState[group.key] ? 'chevronDown' : 'chevronRight'} />
+                      </span>
+                    </button>
+                  )}
+                  {sidebarCollapsed || viewMenuOpenState[group.key] ? <div className="viewTabs">
                     {group.items.map((item) => (
                       <button
                         key={item.view}
@@ -3006,7 +3039,7 @@ function App() {
                         {item.count ? <span className="viewTabCount">{item.count}</span> : null}
                       </button>
                     ))}
-                  </div>
+                  </div> : null}
                 </section>
               ))}
               {selectedViewDbUrl ? (
@@ -3190,13 +3223,10 @@ function App() {
             <span className="muted small">업무</span>
             <strong>{tasks.length}</strong>
           </article>
-          <article className="metaCard">
-            <span className="muted small">빌드</span>
-            <strong className="metaCardCode" title={`현재 빌드 ${currentBuild.id}`}>
-              {currentBuild.id}
-            </strong>
-          </article>
         </section>
+        <div className="sidebarBuildStamp" aria-label="현재 빌드" title={`현재 빌드 ${currentBuild.id}`}>
+          {currentBuild.id.slice(0, 7)}
+        </div>
       </aside>
       <main className="mondayMain">
         <header className="header topbarHeader">
