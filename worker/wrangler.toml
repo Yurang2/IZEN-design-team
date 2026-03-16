@@ -12,6 +12,7 @@ enabled = true
 API_CACHE_TTL_SECONDS = "60"
 NOTION_CHECKLIST_ASSIGNMENT_DB_ID = "311c1cc7ec2780998a4cd2d38e44cc7a"
 NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID = "321c1cc7ec278044b752d1b813b95559"
+NOTION_SCREENING_VIDEO_DB_ID = "325c1cc7ec2780ecaca5ff2bd6d81428"
 # Temporary toggle: disable password/session auth gate.
 AUTH_DISABLED = "true"
 # PAGE_PASSWORD is required. Prefer setting it as a secret:

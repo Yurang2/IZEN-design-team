@@ -6120,6 +6120,10 @@ export default {
                 id: env.NOTION_SCHEDULE_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_SCHEDULE_DB_ID),
               },
+              screeningVideo: {
+                id: env.NOTION_SCREENING_VIDEO_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_SCREENING_VIDEO_DB_ID),
+              },
               eventGraphicsTimetable: {
                 id: env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID),
@@ -6181,6 +6185,21 @@ export default {
             projectDatabaseId: env.NOTION_PROJECT_DB_ID,
             created: sync.created,
             existing: sync.existing,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/admin/notion/screening-video-schema/sync') {
+        const sync = await service.syncScreeningVideoDatabaseProperties()
+        return ok(
+          {
+            ok: true,
+            configured: sync.configured,
+            databaseId: sync.databaseId,
+            created: sync.created,
+            existing: sync.existing,
+            renamed: sync.renamed,
           },
           origin,
         )

@@ -642,6 +642,14 @@ function parseDbTitle(db: any): string {
   return (db?.title ?? []).map((item: any) => item?.plain_text ?? '').join('').trim()
 }
 
+const SCREENING_VIDEO_DATABASE_TITLE = '\uC0C1\uC601 \uC601\uC0C1 DB'
+const SCREENING_VIDEO_TITLE_FIELD = '\uC81C\uBAA9'
+const SCREENING_VIDEO_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const SCREENING_VIDEO_EXHIBITION_FIELD = '\uC0C1\uC601 \uC804\uC2DC\uD68C'
+const SCREENING_VIDEO_SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
+const SCREENING_VIDEO_OUTPUT_NAME_FIELD = '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85'
+const SCREENING_VIDEO_ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
+
 const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '행 제목',
   '행사명',
@@ -668,6 +676,14 @@ const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
 ]
 
 type EventGraphicsSchemaSyncResult = {
+  configured: boolean
+  databaseId: string | null
+  created: string[]
+  existing: string[]
+  renamed: string[]
+}
+
+type ScreeningVideoSchemaSyncResult = {
   configured: boolean
   databaseId: string | null
   created: string[]
@@ -767,6 +783,39 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
             { name: 'ready', color: 'green' },
             { name: 'shared', color: 'purple' },
             { name: 'changed_on_site', color: 'red' },
+          ],
+        },
+      },
+    },
+  ]
+}
+
+function buildScreeningVideoPropertyDefinitions(projectDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
+  return [
+    {
+      name: SCREENING_VIDEO_PROJECT_FIELD,
+      definition: {
+        relation: {
+          database_id: projectDatabaseId,
+          type: 'single_property',
+          single_property: {},
+        },
+      },
+    },
+    { name: SCREENING_VIDEO_EXHIBITION_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_VIDEO_SOURCE_NAME_FIELD, definition: { rich_text: {} } },
+    { name: SCREENING_VIDEO_OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
+    {
+      name: SCREENING_VIDEO_ASPECT_RATIO_FIELD,
+      definition: {
+        select: {
+          options: [
+            { name: '16:9', color: 'blue' },
+            { name: '9:16', color: 'green' },
+            { name: '1:1', color: 'gray' },
+            { name: '21:9', color: 'orange' },
+            { name: '32:9', color: 'purple' },
+            { name: '\uAE30\uD0C0', color: 'default' },
           ],
         },
       },
@@ -1503,6 +1552,75 @@ export class NotionWorkService {
       },
       columns,
       rows,
+    }
+  }
+
+  async syncScreeningVideoDatabaseProperties(): Promise<ScreeningVideoSchemaSyncResult> {
+    const databaseId = normalizeText(this.env.NOTION_SCREENING_VIDEO_DB_ID)
+    if (!databaseId) {
+      return {
+        configured: false,
+        databaseId: null,
+        created: [],
+        existing: [],
+        renamed: [],
+      }
+    }
+
+    const db: any = await this.api.retrieveDatabase(databaseId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    const updates: AnyMap = {}
+    const created: string[] = []
+    const existing: string[] = []
+    const renamed: string[] = []
+    const plannedNames = new Set<string>()
+
+    const currentTitle = parseDbTitle(db)
+    const payload: AnyMap = {}
+    if (currentTitle !== SCREENING_VIDEO_DATABASE_TITLE) {
+      payload.title = [{ type: 'text', text: { content: SCREENING_VIDEO_DATABASE_TITLE } }]
+      renamed.push(`database_title:${currentTitle || '[EMPTY]'}->${SCREENING_VIDEO_DATABASE_TITLE}`)
+    }
+
+    const titleEntry = Object.entries(properties).find(([, prop]) => prop?.type === 'title')
+    if (titleEntry) {
+      const [titlePropertyName] = titleEntry
+      if (titlePropertyName !== SCREENING_VIDEO_TITLE_FIELD && !hasOwn(properties, SCREENING_VIDEO_TITLE_FIELD)) {
+        updates[titlePropertyName] = { name: SCREENING_VIDEO_TITLE_FIELD }
+        renamed.push(`title:${titlePropertyName}->${SCREENING_VIDEO_TITLE_FIELD}`)
+        plannedNames.add(SCREENING_VIDEO_TITLE_FIELD)
+      } else {
+        existing.push(SCREENING_VIDEO_TITLE_FIELD)
+      }
+    } else if (!hasOwn(properties, SCREENING_VIDEO_TITLE_FIELD)) {
+      updates[SCREENING_VIDEO_TITLE_FIELD] = { title: {} }
+      created.push(SCREENING_VIDEO_TITLE_FIELD)
+      plannedNames.add(SCREENING_VIDEO_TITLE_FIELD)
+    }
+
+    for (const field of buildScreeningVideoPropertyDefinitions(this.env.NOTION_PROJECT_DB_ID)) {
+      if (hasOwn(properties, field.name) || plannedNames.has(field.name)) {
+        existing.push(field.name)
+        continue
+      }
+      updates[field.name] = field.definition
+      created.push(field.name)
+    }
+
+    if (Object.keys(updates).length > 0) {
+      payload.properties = updates
+    }
+
+    if (Object.keys(payload).length > 0) {
+      await this.api.updateDatabase(databaseId, payload)
+    }
+
+    return {
+      configured: true,
+      databaseId,
+      created,
+      existing,
+      renamed,
     }
   }
 

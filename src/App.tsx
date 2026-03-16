@@ -218,6 +218,7 @@ type MetaResponse = {
     task: { id: string; url: string | null }
     checklist: { id: string | null; url: string | null }
     schedule?: { id: string | null; url: string | null }
+    screeningVideo?: { id: string | null; url: string | null }
     eventGraphicsTimetable?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
   }
@@ -963,12 +964,14 @@ function App() {
     task: string | null
     checklist: string | null
     schedule: string | null
+    screeningVideo: string | null
     eventGraphics: string | null
   }>({
     project: null,
     task: null,
     checklist: null,
     schedule: null,
+    screeningVideo: null,
     eventGraphics: null,
   })
 
@@ -1299,6 +1302,7 @@ function App() {
         task: response.databases.task.url ?? toNotionUrlById(response.databases.task.id),
         checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
         schedule: response.databases.schedule?.url ?? toNotionUrlById(response.databases.schedule?.id ?? undefined),
+        screeningVideo: response.databases.screeningVideo?.url ?? toNotionUrlById(response.databases.screeningVideo?.id ?? undefined),
         eventGraphics: response.databases.eventGraphicsTimetable?.url ?? toNotionUrlById(response.databases.eventGraphicsTimetable?.id ?? undefined),
       })
     } catch {
@@ -3405,6 +3409,13 @@ function App() {
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">일정 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.screeningVideo ? (
+                  <a className="guideDbLink" href={dbLinks.screeningVideo} target="_blank" rel="noreferrer">
+                    상영 영상 DB: {dbLinks.screeningVideo}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">상영 영상 DB: 연결 안 됨</span>
                 )}
                 {dbLinks.eventGraphics ? (
                   <a className="guideDbLink" href={dbLinks.eventGraphics} target="_blank" rel="noreferrer">
