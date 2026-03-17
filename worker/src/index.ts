@@ -102,6 +102,7 @@ type VideoThumbnailRenderInput = {
   outputSlug: string
   eventName: string
   model?: string
+  outputFormats?: string[]
   dateText: string
   locationText: string
   subtitleText: string
@@ -111,7 +112,7 @@ type VideoThumbnailRenderInput = {
   fontDirection: string
   compositionNotes: string
   customPrompt: string
-  aspectRatio: string
+  aspectRatio?: string
   backgroundImage: ThumbnailInlineImageInput | null
   styleReferenceImages: ThumbnailInlineImageInput[]
 }
@@ -1061,11 +1062,15 @@ function parseVideoThumbnailRenderBody(body: unknown): VideoThumbnailRenderInput
   const payload = parsePatchBody(body)
   const backgroundImage = parseThumbnailInlineImage(payload.backgroundImage) ?? null
   const styleReferenceImagesRaw = Array.isArray(payload.styleReferenceImages) ? payload.styleReferenceImages : []
+  const outputFormatsRaw = Array.isArray(payload.outputFormats) ? payload.outputFormats : []
 
   return {
     outputSlug: asString(payload.outputSlug) ?? 'video-thumbnail',
     eventName: asString(payload.eventName) ?? '',
     model: asString(payload.model),
+    outputFormats: outputFormatsRaw
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter(Boolean),
     dateText: asString(payload.dateText) ?? '',
     locationText: asString(payload.locationText) ?? '',
     subtitleText: asString(payload.subtitleText) ?? '',
@@ -1075,12 +1080,20 @@ function parseVideoThumbnailRenderBody(body: unknown): VideoThumbnailRenderInput
     fontDirection: asString(payload.fontDirection) ?? '',
     compositionNotes: asString(payload.compositionNotes) ?? '',
     customPrompt: asString(payload.customPrompt) ?? '',
-    aspectRatio: asString(payload.aspectRatio) ?? '16:9',
+    aspectRatio: asString(payload.aspectRatio) ?? undefined,
     backgroundImage,
     styleReferenceImages: styleReferenceImagesRaw
       .map((entry) => parseThumbnailInlineImage(entry))
       .filter((entry): entry is ThumbnailInlineImageInput => Boolean(entry)),
   }
+}
+
+function resolveThumbnailOutputFormats(input: VideoThumbnailRenderInput): string[] {
+  const requested = Array.isArray(input.outputFormats) ? input.outputFormats : []
+  const normalized = requested.filter((value) => value === '9:16' || value === '16:9')
+  if (normalized.length > 0) return Array.from(new Set(normalized))
+  if (input.aspectRatio === '9:16' || input.aspectRatio === '16:9') return [input.aspectRatio]
+  return ['16:9']
 }
 
 function getGeminiApiKey(env: Env): string {
@@ -1243,6 +1256,30 @@ async function renderVideoThumbnailWithGemini(
     imageMimeType,
     textResponse: textParts.length > 0 ? textParts.join('\n').trim() : null,
   }
+}
+
+async function renderVideoThumbnailVariantsWithGemini(
+  env: Env,
+  input: VideoThumbnailRenderInput,
+): Promise<Array<{ aspectRatio: string; model: string; imageDataUrl: string; imageMimeType: string; textResponse: string | null }>> {
+  const formats = resolveThumbnailOutputFormats(input)
+  const renders: Array<{ aspectRatio: string; model: string; imageDataUrl: string; imageMimeType: string; textResponse: string | null }> = []
+
+  for (const aspectRatio of formats) {
+    const rendered = await renderVideoThumbnailWithGemini(env, {
+      ...input,
+      aspectRatio,
+    })
+    renders.push({
+      aspectRatio,
+      model: rendered.model,
+      imageDataUrl: rendered.imageDataUrl,
+      imageMimeType: rendered.imageMimeType,
+      textResponse: rendered.textResponse,
+    })
+  }
+
+  return renders
 }
 
 function hasOwn(obj: Record<string, unknown>, key: string): boolean {
@@ -6321,14 +6358,11 @@ export default {
     if (request.method === 'POST' && path === '/event-graphics/video-thumbnail/render') {
       try {
         const payload = parseVideoThumbnailRenderBody(await readJsonBody(request))
-        const rendered = await renderVideoThumbnailWithGemini(env, payload)
+        const rendered = await renderVideoThumbnailVariantsWithGemini(env, payload)
         return ok(
           {
             ok: true,
-            model: rendered.model,
-            imageDataUrl: rendered.imageDataUrl,
-            imageMimeType: rendered.imageMimeType,
-            textResponse: rendered.textResponse,
+            renders: rendered,
           },
           origin,
         )

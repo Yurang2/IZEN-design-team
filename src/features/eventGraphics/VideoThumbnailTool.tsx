@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { api } from '../../shared/api/client'
 import { Button } from '../../shared/ui'
+import './VideoThumbnailTool.css'
 
 type VideoThumbnailToolProps = {
   suggestedTitle?: string
@@ -10,6 +11,7 @@ type ThumbnailFormState = {
   eventName: string
   versionNumber: string
   model: string
+  outputFormats: string[]
   dateText: string
   locationText: string
   subtitleText: string
@@ -19,7 +21,6 @@ type ThumbnailFormState = {
   fontDirection: string
   compositionNotes: string
   customPrompt: string
-  aspectRatio: string
 }
 
 type UploadedImage = {
@@ -28,12 +29,17 @@ type UploadedImage = {
   dataUrl: string
 }
 
-type ThumbnailRenderResponse = {
-  ok: boolean
+type ThumbnailRenderItem = {
+  aspectRatio: string
   model: string
   imageDataUrl: string
   imageMimeType: string
   textResponse?: string | null
+}
+
+type ThumbnailRenderResponse = {
+  ok: boolean
+  renders: ThumbnailRenderItem[]
 }
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -52,6 +58,7 @@ function buildInitialFormState(suggestedTitle?: string): ThumbnailFormState {
     eventName: suggestedTitle?.trim() || '',
     versionNumber: '01',
     model: MODEL_OPTIONS[0]?.value ?? 'gemini-3.1-flash-image-preview',
+    outputFormats: ['16:9'],
     dateText: '',
     locationText: '',
     subtitleText: '',
@@ -61,7 +68,6 @@ function buildInitialFormState(suggestedTitle?: string): ThumbnailFormState {
     fontDirection: '',
     compositionNotes: '',
     customPrompt: '',
-    aspectRatio: '16:9',
   }
 }
 
@@ -115,6 +121,11 @@ function toVersionLabel(value: string): string {
   return digits.padStart(2, '0')
 }
 
+function toFormatSuffix(value: string): string {
+  if (value === '9:16') return 'reels'
+  return 'youtube'
+}
+
 export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [form, setForm] = useState<ThumbnailFormState>(() => buildInitialFormState(suggestedTitle))
@@ -123,17 +134,26 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
   const [isPreparing, setIsPreparing] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<ThumbnailRenderResponse | null>(null)
+  const [result, setResult] = useState<ThumbnailRenderItem[]>([])
 
-  const downloadName = useMemo(() => {
-    const extension = result ? toFileExtension(result.imageMimeType) : 'png'
-    return `${toDownloadName(form.eventName)}_thumbnail_v${toVersionLabel(form.versionNumber)}.${extension}`
-  }, [form.eventName, form.versionNumber, result])
+  const downloadBaseName = useMemo(
+    () => `${toDownloadName(form.eventName)}_thumbnail_v${toVersionLabel(form.versionNumber)}`,
+    [form.eventName, form.versionNumber],
+  )
 
   const onChangeField = (key: keyof ThumbnailFormState, value: string) => {
     setForm((current) => ({
       ...current,
       [key]: value,
+    }))
+  }
+
+  const onToggleOutputFormat = (value: string, checked: boolean) => {
+    setForm((current) => ({
+      ...current,
+      outputFormats: checked
+        ? Array.from(new Set([...current.outputFormats, value]))
+        : current.outputFormats.filter((entry) => entry !== value),
     }))
   }
 
@@ -177,6 +197,11 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
       return
     }
 
+    if (form.outputFormats.length === 0) {
+      setError('최소 1개의 출력 형식을 선택해 주세요.')
+      return
+    }
+
     setError(null)
     setIsGenerating(true)
     try {
@@ -188,7 +213,7 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
           styleReferenceImages,
         }),
       })
-      setResult(response)
+      setResult(response.renders)
     } catch (nextError: unknown) {
       setError(nextError instanceof Error ? nextError.message : '썸네일 생성에 실패했습니다.')
     } finally {
@@ -225,7 +250,7 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
                 setForm(buildInitialFormState(suggestedTitle))
                 setBackgroundImage(null)
                 setStyleReferenceImages([])
-                setResult(null)
+                setResult([])
                 setError(null)
               }}
             >
@@ -266,6 +291,21 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
                       </option>
                     ))}
                   </select>
+                </label>
+                <label>
+                  출력 형식
+                  <div className="eventGraphicsThumbnailFormatChecks">
+                    {OUTPUT_FORMAT_OPTIONS.map((option) => (
+                      <label key={option.value} className="eventGraphicsThumbnailFormatCheck">
+                        <input
+                          type="checkbox"
+                          checked={form.outputFormats.includes(option.value)}
+                          onChange={(event) => onToggleOutputFormat(option.value, event.target.checked)}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </label>
                 <label>
                   날짜
@@ -348,16 +388,6 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
                     placeholder="더 강조하고 싶은 톤, 금지 요소, 색감, 질감 등을 자유롭게 입력"
                   />
                 </label>
-                <label>
-                  출력 형식
-                  <select value={form.aspectRatio} onChange={(event) => onChangeField('aspectRatio', event.target.value)}>
-                    {OUTPUT_FORMAT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
             </section>
 
@@ -418,7 +448,7 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
           <div className="eventGraphicsThumbnailFooter">
             <div>
               <p className="muted small">
-                생성 전에 값만 저장해 두는 기능은 없습니다. Google API 키를 넣기 전에는 생성 시 설정 오류가 날 수 있습니다.
+                선택한 형식 수만큼 같은 입력값과 같은 레퍼런스를 기준으로 한 번에 생성합니다.
               </p>
               {error ? <p className="error">{error}</p> : null}
             </div>
@@ -427,23 +457,32 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
             </Button>
           </div>
 
-          {result ? (
-            <section className="eventGraphicsThumbnailResult">
-              <div className="eventGraphicsThumbnailResultHead">
-                <div>
-                  <p className="muted small">Generated</p>
-                  <h4>{downloadName}</h4>
-                  <p className="muted small">model: {result.model}</p>
-                </div>
-                <a className="linkButton" href={result.imageDataUrl} download={downloadName}>
-                  다운로드
-                </a>
-              </div>
-              <div className="eventGraphicsThumbnailResultFrame">
-                <img src={result.imageDataUrl} alt="생성된 비디오 썸네일" />
-              </div>
-              {result.textResponse ? <p className="muted small">{result.textResponse}</p> : null}
-            </section>
+          {result.length > 0 ? (
+            <div className="eventGraphicsThumbnailResultList">
+              {result.map((item) => {
+                const downloadName = `${downloadBaseName}_${toFormatSuffix(item.aspectRatio)}.${toFileExtension(item.imageMimeType)}`
+                return (
+                  <section key={`${item.aspectRatio}-${item.model}`} className="eventGraphicsThumbnailResult">
+                    <div className="eventGraphicsThumbnailResultHead">
+                      <div>
+                        <p className="muted small">Generated</p>
+                        <h4>{downloadName}</h4>
+                        <p className="muted small">
+                          {item.aspectRatio} / model: {item.model}
+                        </p>
+                      </div>
+                      <a className="linkButton" href={item.imageDataUrl} download={downloadName}>
+                        다운로드
+                      </a>
+                    </div>
+                    <div className="eventGraphicsThumbnailResultFrame">
+                      <img src={item.imageDataUrl} alt={`생성된 비디오 썸네일 ${item.aspectRatio}`} />
+                    </div>
+                    {item.textResponse ? <p className="muted small">{item.textResponse}</p> : null}
+                  </section>
+                )
+              })}
+            </div>
           ) : null}
         </div>
       ) : null}

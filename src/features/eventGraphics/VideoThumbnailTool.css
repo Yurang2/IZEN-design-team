@@ -1,0 +1,27 @@
+.eventGraphicsThumbnailFormatChecks {
+  display: grid;
+  gap: 8px;
+}
+
+.eventGraphicsThumbnailFormatCheck {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-soft) 90%, white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-main);
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.eventGraphicsThumbnailFormatCheck input {
+  margin: 0;
+}
+
+.eventGraphicsThumbnailResultList {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
