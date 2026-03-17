@@ -5014,6 +5014,21 @@ button.taskGroupToggleCompact:hover {
   margin: 12px 0;
 }
 
+.screeningImportModal {
+  max-width: 560px;
+}
+
+.screeningImportModalActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.screeningImportHint {
+  margin: 10px 0 0;
+}
+
 .assignmentList {
   border: 1px solid var(--border);
   border-radius: 10px;

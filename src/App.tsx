@@ -9,6 +9,7 @@ import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
 import { ScheduleView } from './features/schedule/ScheduleView'
 import { ScreeningDbView } from './features/screening/ScreeningDbView'
+import { ScreeningPlanImportModal, type ScreeningPlanImportForm } from './features/screening/ScreeningPlanImportModal'
 import { SnsPostGeneratorView } from './features/snsPost/SnsPostGeneratorView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
@@ -200,6 +201,21 @@ type ScheduleResponse = {
   cacheTtlMs: number
 }
 
+function getScheduleColumnIndex(columns: ScheduleColumn[], columnName: string): number {
+  return columns.findIndex((column) => column.name === columnName)
+}
+
+function readScheduleCellText(row: ScheduleRow, columns: ScheduleColumn[], columnName: string): string {
+  const index = getScheduleColumnIndex(columns, columnName)
+  return index >= 0 ? row.cells[index]?.text?.trim() ?? '' : ''
+}
+
+function readScheduleTitleText(row: ScheduleRow, columns: ScheduleColumn[]): string {
+  const titleIndex = columns.findIndex((column) => column.type === 'title')
+  const effectiveIndex = titleIndex >= 0 ? titleIndex : 0
+  return row.cells[effectiveIndex]?.text?.trim() ?? ''
+}
+
 type EventGraphicsTimetableResponse = {
   ok: boolean
   configured: boolean
@@ -222,6 +238,17 @@ type ScreeningPlanHistorySyncResponse = {
   updated: number
   skipped: number
   syncedPlanIds: string[]
+}
+
+type ScreeningPlanImportResponse = {
+  ok: boolean
+  configured: boolean
+  planDatabaseId: string | null
+  historyDatabaseId: string | null
+  matched: number
+  created: number
+  skipped: number
+  createdPlanIds: string[]
 }
 
 type MetaResponse = {
@@ -361,6 +388,12 @@ const THEME_QUERY_KEY = 'theme'
 const THEME_STORAGE_KEY = 'izen_theme'
 const DEFAULT_THEME: ThemeKey = 'v3'
 const ENABLE_SYSTEM_THEME_FALLBACK = false
+const INITIAL_SCREENING_PLAN_IMPORT_FORM: ScreeningPlanImportForm = {
+  sourceEventName: '',
+  targetEventName: '',
+  targetProjectId: '',
+  targetDate: '',
+}
 
 const GUIDE_SECRET_ROWS: GuideConfigRow[] = [
   {
@@ -1221,6 +1254,9 @@ function App() {
   const [screeningPlanLoading, setScreeningPlanLoading] = useState(false)
   const [screeningPlanError, setScreeningPlanError] = useState<string | null>(null)
   const [screeningPlanSyncing, setScreeningPlanSyncing] = useState(false)
+  const [screeningPlanImportOpen, setScreeningPlanImportOpen] = useState(false)
+  const [screeningPlanImporting, setScreeningPlanImporting] = useState(false)
+  const [screeningPlanImportForm, setScreeningPlanImportForm] = useState<ScreeningPlanImportForm>(INITIAL_SCREENING_PLAN_IMPORT_FORM)
   const [eventGraphicsConfigured, setEventGraphicsConfigured] = useState(false)
   const [eventGraphicsDatabaseTitle, setEventGraphicsDatabaseTitle] = useState('')
   const [eventGraphicsColumns, setEventGraphicsColumns] = useState<ScheduleColumn[]>([])
@@ -1720,6 +1756,65 @@ function App() {
       setScreeningPlanSyncing(false)
     }
   }, [fetchScreeningHistory, fetchScreeningPlan, pushToast])
+
+  const openScreeningPlanImportModal = useCallback(() => {
+    setScreeningPlanImportForm(INITIAL_SCREENING_PLAN_IMPORT_FORM)
+    setScreeningPlanImportOpen(true)
+  }, [])
+
+  const closeScreeningPlanImportModal = useCallback(() => {
+    if (screeningPlanImporting) return
+    setScreeningPlanImportOpen(false)
+  }, [screeningPlanImporting])
+
+  const updateScreeningPlanImportForm = useCallback(
+    (key: keyof ScreeningPlanImportForm, value: string) => {
+      setScreeningPlanImportForm((current) => {
+        const next = { ...current, [key]: value }
+        if (key === 'targetProjectId') {
+          const project = projects.find((entry) => entry.id === value)
+          if (project) {
+            if (!next.targetEventName.trim()) next.targetEventName = project.name
+            if (!next.targetDate && project.eventDate) next.targetDate = project.eventDate
+          }
+        }
+        return next
+      })
+    },
+    [projects],
+  )
+
+  const importScreeningPlanFromHistory = useCallback(async () => {
+    setScreeningPlanImporting(true)
+    try {
+      const response = await api<ScreeningPlanImportResponse>('/admin/notion/screening-plan-import-from-history', {
+        method: 'POST',
+        body: JSON.stringify({
+          sourceEventName: screeningPlanImportForm.sourceEventName.trim(),
+          targetEventName: screeningPlanImportForm.targetEventName.trim(),
+          targetProjectId: screeningPlanImportForm.targetProjectId || null,
+          targetDate: screeningPlanImportForm.targetDate || null,
+        }),
+      })
+
+      if (response.created > 0) {
+        pushToast(
+          'success',
+          `${screeningPlanImportForm.sourceEventName} 기준 ${response.matched}건 중 ${response.created}건을 상영 준비 초안으로 만들었습니다.`,
+        )
+      } else {
+        pushToast('success', `새로 생성된 항목은 없습니다. ${response.skipped}건은 기존 초안과 중복되어 건너뛰었습니다.`)
+      }
+
+      await Promise.all([fetchScreeningPlan(), fetchScreeningHistory()])
+      setScreeningPlanImportOpen(false)
+      setScreeningPlanImportForm(INITIAL_SCREENING_PLAN_IMPORT_FORM)
+    } catch (error: unknown) {
+      pushToast('error', toErrorMessage(error, '기준 행사 불러오기에 실패했습니다.'))
+    } finally {
+      setScreeningPlanImporting(false)
+    }
+  }, [fetchScreeningHistory, fetchScreeningPlan, pushToast, screeningPlanImportForm])
 
   const fetchEventGraphicsTimetable = useCallback(async () => {
     setEventGraphicsLoading(true)
@@ -2530,10 +2625,8 @@ function App() {
 
   const screeningHistoryLabelMap = useMemo(() => {
     const map: Record<string, string> = {}
-    const titleIndex = screeningHistoryColumns.findIndex((column) => column.type === 'title')
-    const effectiveTitleIndex = titleIndex >= 0 ? titleIndex : 0
     for (const row of screeningHistoryRows) {
-      const title = row.cells[effectiveTitleIndex]?.text?.trim()
+      const title = readScheduleTitleText(row, screeningHistoryColumns)
       if (!title || title === '-') continue
       const normalized = row.id.replace(/-/g, '').toLowerCase()
       map[normalized] = title
@@ -2541,6 +2634,27 @@ function App() {
     }
     return map
   }, [screeningHistoryColumns, screeningHistoryRows])
+
+  const screeningHistoryEventOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        screeningHistoryRows
+          .map((row) => readScheduleCellText(row, screeningHistoryColumns, '행사명'))
+          .map((value) => value.trim())
+          .filter((value) => value && value !== '-'),
+      ),
+    ).sort((left, right) => left.localeCompare(right, 'ko'))
+  }, [screeningHistoryColumns, screeningHistoryRows])
+
+  const screeningPlanImportProjectOptions = useMemo(() => {
+    return [...projects]
+      .sort((left, right) => left.name.localeCompare(right.name, 'ko'))
+      .map((project) => ({
+        id: project.id,
+        name: project.name,
+        eventDate: project.eventDate,
+      }))
+  }, [projects])
 
   const screeningProjectVisualMap = useMemo(() => {
     const map: Record<string, { iconEmoji?: string; iconUrl?: string; coverUrl?: string }> = {}
@@ -3700,7 +3814,11 @@ function App() {
           relationColumnLabelMaps={{
             '귀속 프로젝트': screeningProjectLabelMap,
             '관련 업무': screeningTaskLabelMap,
+            '기준 상영 기록': screeningHistoryLabelMap,
           }}
+          importActionLabel="기준 행사에서 불러오기"
+          importActionBusy={screeningPlanImporting}
+          onImportAction={openScreeningPlanImportModal}
           syncActionLabel="히스토리 반영 실행"
           syncActionBusy={screeningPlanSyncing}
           onSyncAction={syncScreeningPlanHistory}
@@ -4035,6 +4153,17 @@ function App() {
         onAssignmentProjectFilterChange={setAssignmentProjectFilter}
         onSelectAssignmentTask={onSelectAssignmentTask}
         joinOrDash={joinOrDash}
+      />
+
+      <ScreeningPlanImportModal
+        open={screeningPlanImportOpen}
+        busy={screeningPlanImporting}
+        form={screeningPlanImportForm}
+        sourceEventOptions={screeningHistoryEventOptions}
+        projectOptions={screeningPlanImportProjectOptions}
+        onClose={closeScreeningPlanImportModal}
+        onChange={updateScreeningPlanImportForm}
+        onSubmit={importScreeningPlanFromHistory}
       />
 
       <TaskCreateModal

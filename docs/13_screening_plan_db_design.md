@@ -46,9 +46,11 @@ Target DB title:
 - `상태=completed` and `히스토리 반영=false`
 - Worker cron copies the row to the history DB
 - After copy, the plan row is updated with `히스토리 반영=true`
+- `POST /admin/notion/screening-plan-import-from-history` creates draft plan rows from one source event
 
 ## Sync paths
 
 - `POST /admin/notion/screening-plan-schema/sync`
 - `POST /admin/notion/screening-plan-history-sync`
+- `POST /admin/notion/screening-plan-import-from-history`
 - `npm run sync:screening-plan-schema`

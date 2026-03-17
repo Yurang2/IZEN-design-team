@@ -24,6 +24,9 @@ type ScreeningDbViewProps = {
   syncActionLabel?: string
   syncActionBusy?: boolean
   onSyncAction?: () => void | Promise<void>
+  importActionLabel?: string
+  importActionBusy?: boolean
+  onImportAction?: () => void | Promise<void>
 }
 
 type GalleryGroup = {
@@ -161,6 +164,9 @@ export function ScreeningDbView({
   syncActionLabel,
   syncActionBusy = false,
   onSyncAction,
+  importActionLabel,
+  importActionBusy = false,
+  onImportAction,
 }: ScreeningDbViewProps) {
   const [query, setQuery] = useState('')
   const [groupedGallery, setGroupedGallery] = useState(true)
@@ -262,6 +268,11 @@ export function ScreeningDbView({
           <p>{description}</p>
         </div>
         <div className="scheduleHeroActions">
+          {onImportAction ? (
+            <button type="button" className="secondary mini" onClick={() => void onImportAction()} disabled={importActionBusy}>
+              {importActionBusy ? '불러오기 준비 중...' : importActionLabel ?? '기준 행사에서 불러오기'}
+            </button>
+          ) : null}
           {presentation === 'gallery' && groupByColumnName ? (
             <button type="button" className="secondary mini" onClick={() => setGroupedGallery((current) => !current)}>
               {groupedGallery ? '전체 보기' : `${groupByColumnName}별 그룹`}

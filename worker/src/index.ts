@@ -998,6 +998,26 @@ function parseEventGraphicsImportBody(body: unknown): {
   }
 }
 
+function parseScreeningPlanImportBody(body: unknown): {
+  sourceEventName: string
+  targetEventName: string
+  targetProjectId?: string | null
+  targetDate?: string | null
+} {
+  const payload = parsePatchBody(body)
+  const sourceEventName = asString(payload.sourceEventName)
+  const targetEventName = asString(payload.targetEventName)
+  if (!sourceEventName) throw new Error('sourceEventName_required')
+  if (!targetEventName) throw new Error('targetEventName_required')
+
+  return {
+    sourceEventName,
+    targetEventName,
+    targetProjectId: asString(payload.targetProjectId) ?? null,
+    targetDate: parseDate(payload.targetDate),
+  }
+}
+
 function hasOwn(obj: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key)
 }
@@ -6284,6 +6304,43 @@ export default {
         )
       }
 
+      if (request.method === 'POST' && path === '/admin/notion/screening-plan-import-from-history') {
+        let payload: {
+          sourceEventName: string
+          targetEventName: string
+          targetProjectId?: string | null
+          targetDate?: string | null
+        }
+        try {
+          payload = parseScreeningPlanImportBody(await readJsonBody(request))
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'invalid_request'
+          return json({ ok: false, error: message }, 400, origin)
+        }
+
+        let imported
+        try {
+          imported = await service.importScreeningPlanFromHistory(payload)
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'screening_plan_import_failed'
+          const status = message === 'screening_history_source_event_not_found' ? 404 : 500
+          return json({ ok: false, error: status === 404 ? 'not_found' : 'internal_error', message }, status, origin)
+        }
+        return ok(
+          {
+            ok: true,
+            configured: imported.configured,
+            planDatabaseId: imported.planDatabaseId,
+            historyDatabaseId: imported.historyDatabaseId,
+            matched: imported.matched,
+            created: imported.created,
+            skipped: imported.skipped,
+            createdPlanIds: imported.createdPlanIds,
+          },
+          origin,
+        )
+      }
+
       if (request.method === 'POST' && path === '/admin/notion/screening-video-schema/sync') {
         const sync = await service.syncScreeningHistoryDatabaseProperties()
         return ok(
@@ -6775,6 +6832,7 @@ export default {
               'POST /api/admin/notion/screening-history-schema/sync',
               'POST /api/admin/notion/screening-plan-schema/sync',
               'POST /api/admin/notion/screening-plan-history-sync',
+              'POST /api/admin/notion/screening-plan-import-from-history',
               'GET /api/checklists?eventName=...&eventCategory=...',
               'GET /api/checklist-assignments?projectId=...',
               'GET /api/checklist-assignments/export?logLimit=1000',

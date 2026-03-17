@@ -1043,6 +1043,10 @@ function normalizeNotionId(value: string | undefined | null): string {
   return (value ?? '').replace(/-/g, '').toLowerCase()
 }
 
+function normalizeScreeningEventKey(value: string | undefined | null): string {
+  return normalizeText(value).replace(/\s+/g, ' ').toLowerCase()
+}
+
 function fieldToApi(field: FieldSchema): ApiSchemaField {
   return {
     key: field.key,
@@ -2099,6 +2103,144 @@ export class NotionWorkService {
       updated,
       skipped,
       syncedPlanIds,
+    }
+  }
+
+  async importScreeningPlanFromHistory(params: {
+    sourceEventName: string
+    targetEventName: string
+    targetProjectId?: string | null
+    targetDate?: string | null
+  }): Promise<{
+    configured: boolean
+    planDatabaseId: string | null
+    historyDatabaseId: string | null
+    matched: number
+    created: number
+    skipped: number
+    createdPlanIds: string[]
+  }> {
+    const sourceEventName = normalizeText(params.sourceEventName)
+    const targetEventName = normalizeText(params.targetEventName)
+    const targetProjectId = normalizeText(params.targetProjectId) || null
+    const targetDate = normalizeText(params.targetDate) || null
+
+    if (!sourceEventName) throw new Error('source_event_name_required')
+    if (!targetEventName) throw new Error('target_event_name_required')
+
+    const historySchema = await this.syncScreeningHistoryDatabaseProperties()
+    const planSchema = await this.syncScreeningPlanDatabaseProperties()
+    const historyDatabaseId = historySchema.databaseId
+    const planDatabaseId = planSchema.databaseId
+
+    if (!historyDatabaseId || !planDatabaseId) {
+      return {
+        configured: false,
+        planDatabaseId,
+        historyDatabaseId,
+        matched: 0,
+        created: 0,
+        skipped: 0,
+        createdPlanIds: [],
+      }
+    }
+
+    const [historyPages, planPages] = await Promise.all([this.queryAll(historyDatabaseId), this.queryAll(planDatabaseId)])
+    const sourceEventKey = normalizeScreeningEventKey(sourceEventName)
+    const targetEventKey = normalizeScreeningEventKey(targetEventName)
+
+    const matchingHistoryPages = historyPages
+      .filter((page) => {
+        const props = (page.properties ?? {}) as AnyMap
+        return normalizeScreeningEventKey(extractTextFromProperty(props[SCREENING_COMMON_EVENT_FIELD])) === sourceEventKey
+      })
+      .sort((left, right) => {
+        const leftProps = (left.properties ?? {}) as AnyMap
+        const rightProps = (right.properties ?? {}) as AnyMap
+        const leftOrder = extractNumberFromProperty(leftProps[SCREENING_COMMON_ORDER_FIELD]) ?? Number.MAX_SAFE_INTEGER
+        const rightOrder = extractNumberFromProperty(rightProps[SCREENING_COMMON_ORDER_FIELD]) ?? Number.MAX_SAFE_INTEGER
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder
+        const leftTitle = joinRichText(leftProps[SCREENING_COMMON_TITLE_FIELD]?.title ?? [])
+        const rightTitle = joinRichText(rightProps[SCREENING_COMMON_TITLE_FIELD]?.title ?? [])
+        return leftTitle.localeCompare(rightTitle, 'ko')
+      })
+
+    if (matchingHistoryPages.length === 0) {
+      throw new Error('screening_history_source_event_not_found')
+    }
+
+    const existingBaseKeys = new Set<string>()
+    for (const page of planPages) {
+      const props = (page.properties ?? {}) as AnyMap
+      const planEventKey = normalizeScreeningEventKey(extractTextFromProperty(props[SCREENING_COMMON_EVENT_FIELD]))
+      if (planEventKey !== targetEventKey) continue
+      const baseHistoryIds = extractRelationIdsFromProperty(props[SCREENING_PLAN_BASE_HISTORY_FIELD])
+      for (const baseHistoryId of baseHistoryIds) {
+        existingBaseKeys.add(`${targetEventKey}::${normalizeNotionId(baseHistoryId)}`)
+      }
+    }
+
+    let created = 0
+    let skipped = 0
+    const createdPlanIds: string[] = []
+
+    for (const historyPage of matchingHistoryPages) {
+      const dedupeKey = `${targetEventKey}::${normalizeNotionId(historyPage.id)}`
+      if (existingBaseKeys.has(dedupeKey)) {
+        skipped += 1
+        continue
+      }
+
+      const props = (historyPage.properties ?? {}) as AnyMap
+      const title = joinRichText(props[SCREENING_COMMON_TITLE_FIELD]?.title ?? []) || 'Untitled screening'
+      const plannedOrder = extractNumberFromProperty(props[SCREENING_COMMON_ORDER_FIELD])
+      const screenLabel = extractTextFromProperty(props[SCREENING_COMMON_SCREEN_FIELD])
+      const sourceFileName = extractTextFromProperty(props[SCREENING_COMMON_SOURCE_NAME_FIELD])
+      const playedFileName = extractTextFromProperty(props[SCREENING_HISTORY_PLAYED_FILE_NAME_FIELD])
+      const aspectRatio = extractTextFromProperty(props[SCREENING_COMMON_ASPECT_RATIO_FIELD])
+      const reviewNote = `${sourceEventName} 기준 상영 기록을 불러왔습니다. 최신화 여부를 검토하세요.`
+
+      const planProperties: AnyMap = {
+        [SCREENING_COMMON_TITLE_FIELD]: { title: [{ text: { content: title } }] },
+        [SCREENING_COMMON_PROJECT_FIELD]: targetProjectId ? { relation: [{ id: targetProjectId }] } : { relation: [] },
+        [SCREENING_COMMON_RELATED_TASK_FIELD]: { relation: [] },
+        [SCREENING_COMMON_EVENT_FIELD]: { rich_text: [{ text: { content: targetEventName } }] },
+        [SCREENING_COMMON_DATE_FIELD]: targetDate ? { date: { start: targetDate } } : { date: null },
+        [SCREENING_COMMON_ORDER_FIELD]: { number: plannedOrder ?? null },
+        [SCREENING_COMMON_SCREEN_FIELD]: screenLabel ? { rich_text: [{ text: { content: screenLabel } }] } : { rich_text: [] },
+        [SCREENING_COMMON_SOURCE_NAME_FIELD]: sourceFileName ? { rich_text: [{ text: { content: sourceFileName } }] } : { rich_text: [] },
+        [SCREENING_PLAN_BASE_HISTORY_FIELD]: { relation: [{ id: historyPage.id }] },
+        [SCREENING_PLAN_BASE_USAGE_MODE_FIELD]: { select: { name: 'reuse_with_edit' } },
+        [SCREENING_PLAN_REVIEW_STATUS_FIELD]: { select: { name: 'pending' } },
+        [SCREENING_PLAN_REVIEW_NOTE_FIELD]: { rich_text: [{ text: { content: reviewNote } }] },
+        [SCREENING_PLAN_TARGET_OUTPUT_FIELD]: playedFileName ? { rich_text: [{ text: { content: playedFileName } }] } : { rich_text: [] },
+        [SCREENING_PLAN_ACTUAL_OUTPUT_FIELD]: { rich_text: [] },
+        [SCREENING_COMMON_ASPECT_RATIO_FIELD]: aspectRatio ? { select: { name: aspectRatio } } : { select: null },
+        [SCREENING_PLAN_STATUS_FIELD]: { select: { name: 'planned' } },
+        [SCREENING_PLAN_HISTORY_SYNCED_FIELD]: { checkbox: false },
+        [SCREENING_PLAN_HISTORY_PAGE_ID_FIELD]: { rich_text: [] },
+        [SCREENING_PLAN_ACTUAL_PLAYED_FIELD]: { checkbox: false },
+        [SCREENING_PLAN_ACTUAL_ORDER_FIELD]: { number: null },
+        [SCREENING_PLAN_ISSUE_REASON_FIELD]: { rich_text: [] },
+      }
+
+      const createdPage = await this.api.createPage({
+        parent: { database_id: planDatabaseId },
+        properties: planProperties,
+      })
+      created += 1
+      createdPlanIds.push(createdPage.id)
+      existingBaseKeys.add(dedupeKey)
+    }
+
+    return {
+      configured: true,
+      planDatabaseId,
+      historyDatabaseId,
+      matched: matchingHistoryPages.length,
+      created,
+      skipped,
+      createdPlanIds,
     }
   }
 
