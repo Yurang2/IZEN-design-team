@@ -767,7 +767,6 @@ const EVENT_GRAPHICS_DEPRECATED_FIELDS = [
   '원본 Video',
   '원본 Audio',
   '원본 비고',
-  '그래픽 형식',
   '그래픽 자산명',
   '업체 전달 메모',
   '프로젝트명 스냅샷',
@@ -775,6 +774,8 @@ const EVENT_GRAPHICS_DEPRECATED_FIELDS = [
   '원본 시트',
   '원본 행번호',
   '담당자',
+  '운영 액션',
+  '상태',
 ] as const
 
 const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
@@ -795,9 +796,7 @@ const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '오디오',
   EVENT_GRAPHICS_AUDIO_FILES_FIELD,
   '무대 인원',
-  '운영 액션',
   '운영 메모',
-  '상태',
   '미리보기 링크',
   '자산 링크',
   '행사일',
@@ -863,6 +862,7 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
           options: [
             { name: 'announcement', color: 'gray' },
             { name: 'opening', color: 'blue' },
+            { name: 'entrance', color: 'orange' },
             { name: 'introduce', color: 'purple' },
             { name: 'lecture', color: 'purple' },
             { name: 'certificate', color: 'yellow' },
@@ -890,35 +890,8 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
     { name: '오디오', definition: { rich_text: {} } },
     { name: EVENT_GRAPHICS_AUDIO_FILES_FIELD, definition: { files: {} } },
     { name: '운영 메모', definition: { rich_text: {} } },
-    {
-      name: '운영 액션',
-      definition: {
-        select: {
-          options: [
-            { name: 'Play', color: 'blue' },
-            { name: 'Hold', color: 'brown' },
-            { name: 'Loop', color: 'purple' },
-            { name: 'Switch', color: 'green' },
-          ],
-        },
-      },
-    },
     { name: '미리보기 링크', definition: { url: {} } },
     { name: '자산 링크', definition: { url: {} } },
-    {
-      name: '상태',
-      definition: {
-        select: {
-          options: [
-            { name: 'planned', color: 'gray' },
-            { name: 'designing', color: 'blue' },
-            { name: 'ready', color: 'green' },
-            { name: 'shared', color: 'purple' },
-            { name: 'changed_on_site', color: 'red' },
-          ],
-        },
-      },
-    },
   ]
 }
 
@@ -2626,13 +2599,11 @@ export class NotionWorkService {
         [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_CAPTURE_FILES_FIELD]),
         '오디오': { rich_text: buildRichText(readText('오디오') || readText('원본 Audio')) },
         [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_AUDIO_FILES_FIELD]),
-        '운영 액션': { select: readText('운영 액션') ? { name: readText('운영 액션') } : null },
         '운영 메모': {
           rich_text: buildRichText(readText('운영 메모') || readText('업체 전달 메모') || readText('원본 비고')),
         },
         '미리보기 링크': { url: readText('미리보기 링크') || null },
         '자산 링크': { url: readText('자산 링크') || null },
-        '상태': { select: readText('상태') ? { name: readText('상태') } : null },
         '귀속 프로젝트': { relation: relationIds.map((id) => ({ id })) },
       }
 

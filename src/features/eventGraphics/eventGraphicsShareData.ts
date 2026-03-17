@@ -19,6 +19,7 @@ const CUE_TYPE_LABELS: Record<EventGraphicsShareLocale, Record<string, string>> 
   en: {
     announcement: 'Announcement',
     opening: 'Opening',
+    entrance: 'Entrance',
     introduce: 'Introduce',
     lecture: 'Lecture',
     certificate: 'Certificate',
@@ -30,7 +31,8 @@ const CUE_TYPE_LABELS: Record<EventGraphicsShareLocale, Record<string, string>> 
   ko: {
     announcement: '공지',
     opening: '오프닝',
-    introduce: '인트로듀스',
+    entrance: '등장',
+    introduce: '인트로',
     lecture: '강연',
     certificate: '증정',
     break: '브레이크',
@@ -40,8 +42,11 @@ const CUE_TYPE_LABELS: Record<EventGraphicsShareLocale, Record<string, string>> 
   },
 }
 
-export const eventGraphicsManifestByCueNumber = new Map<string, (typeof bangkokMasterfileManifest.cues)[number]>(
-  bangkokMasterfileManifest.cues.map((cue) => [cue.cueNumber, cue]),
+export const eventGraphicsManifestByKey = new Map<string, (typeof bangkokMasterfileManifest.cues)[number]>(
+  bangkokMasterfileManifest.cues.flatMap((cue) => {
+    const keys = [typeof cue.operationKey === 'string' ? cue.operationKey.trim() : '', cue.cueNumber.trim()].filter(Boolean)
+    return keys.map((key) => [key, cue] as const)
+  }),
 )
 
 export function buildEventGraphicsShareData(columns: ScheduleColumn[], rows: ScheduleRow[], untitledEvent: string): {

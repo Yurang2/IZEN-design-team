@@ -68,6 +68,7 @@ function normalizeRow(rawRow) {
     rowTitle: normalizeText(rawRow['행 제목']),
     eventName: normalizeText(rawRow['행사명']),
     eventDate: normalizeText(rawRow['행사일']),
+    operationKey: normalizeText(rawRow['운영 키']),
     cueOrder:
       Number.isFinite(Number(rawRow['정렬 순서'])) ? Number(rawRow['정렬 순서']) :
       Number.isFinite(Number(rawRow['Cue 순서'])) ? Number(rawRow['Cue 순서']) :
@@ -139,8 +140,9 @@ function toRuntimeLabel(value) {
 }
 
 function isEntranceRow(row) {
+  if (row.cueType === 'entrance') return true
   if (row.cueTitle === ENTRANCE_LABEL) return true
-  return row.cueType === 'other' && row.cueOrder != null && !Number.isInteger(row.cueOrder)
+  return false
 }
 
 function canMergeEntranceWithMainRow(entranceRow, mainRow) {
@@ -200,10 +202,10 @@ function buildExpectedSlots(cue) {
 
 function buildMergedVendorCue(entranceRow, mainRow) {
   const runtimeMinutes = (entranceRow.runtimeMinutes ?? 0) + (mainRow.runtimeMinutes ?? 0)
-  const cueNumber = toCueNumber(mainRow.cueOrder)
 
   return {
-    cueNumber,
+    cueNumber: '',
+    operationKey: mainRow.operationKey,
     cueType: mainRow.cueType,
     title: mainRow.cueTitle,
     eventName: mainRow.eventName,
@@ -220,9 +222,9 @@ function buildMergedVendorCue(entranceRow, mainRow) {
 }
 
 function buildSingleVendorCue(row) {
-  const cueNumber = toCueNumber(row.cueOrder)
   return {
-    cueNumber,
+    cueNumber: '',
+    operationKey: row.operationKey,
     cueType: row.cueType,
     title: row.cueTitle,
     eventName: row.eventName,
@@ -246,13 +248,19 @@ function buildVendorCues(rows) {
     const next = rows[index + 1]
 
     if (canMergeEntranceWithMainRow(current, next)) {
-      cues.push(buildMergedVendorCue(current, next))
+      cues.push({
+        ...buildMergedVendorCue(current, next),
+        cueNumber: toCueNumber(cues.length + 1),
+      })
       index += 1
       continue
     }
 
     if (isEntranceRow(current)) continue
-    cues.push(buildSingleVendorCue(current))
+    cues.push({
+      ...buildSingleVendorCue(current),
+      cueNumber: toCueNumber(cues.length + 1),
+    })
   }
 
   return cues
@@ -735,6 +743,7 @@ async function main() {
 
     syncedCues.push({
       cueNumber: cue.cueNumber,
+      operationKey: cue.operationKey,
       title: cue.title,
       cueType: cue.cueType,
       eventName: cue.eventName,
@@ -783,10 +792,15 @@ async function main() {
 
   await ensureRegisteredFilesExist(options.masterfileRoot, options.publicRoot, syncedCues)
 
-  const syncedCueByNumber = new Map(syncedCues.map((cue) => [cue.cueNumber, cue]))
+  const syncedCueByKey = new Map(
+    syncedCues.flatMap((cue) => {
+      const keys = [cue.operationKey, cue.cueNumber].filter(Boolean)
+      return keys.map((key) => [key, cue])
+    }),
+  )
   parsed.rows = sourceRows.map((rawRow) => {
     const row = normalizeRow(rawRow)
-    const cue = syncedCueByNumber.get(toCueNumber(row.cueOrder))
+    const cue = syncedCueByKey.get(row.operationKey) ?? syncedCueByKey.get(toCueNumber(row.cueOrder))
     if (!cue) {
       return {
         ...rawRow,

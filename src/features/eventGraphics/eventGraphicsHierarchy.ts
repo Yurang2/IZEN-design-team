@@ -4,11 +4,14 @@ import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 export type EventGraphicsTimetableMode = 'event' | 'exhibition'
 export type EventGraphicsStageKind = 'appearance' | 'main' | 'certificate'
 
+type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
+
 export type EventGraphicsEventRow = {
   id: string
   url: string | null
   timetableMode: EventGraphicsTimetableMode
   rowTitle: string
+  operationKey: string
   cueOrder: string
   cueOrderNumeric: number | null
   cueType: string
@@ -17,10 +20,7 @@ export type EventGraphicsEventRow = {
   startTime: string
   endTime: string
   runtime: string
-  status: string
   graphicAsset: string
-  graphicType: string
-  sourceVideo: string
   sourceAudio: string
   personnel: string
   remark: string
@@ -35,7 +35,7 @@ export type EventGraphicsEventRow = {
 export type EventGraphicsSessionStage = {
   id: string
   cueNumber: string
-  manifestCueNumber: string | null
+  manifestKey: string | null
   stageKind: EventGraphicsStageKind
   sortOrder: number
   label: string
@@ -46,7 +46,6 @@ export type EventGraphicsSessionStage = {
   endTime: string
   runtimeMinutes: number
   runtimeLabel: string
-  status: string
   graphicLabel: string
   audioLabel: string
   note: string
@@ -66,10 +65,12 @@ export type EventGraphicsSessionGroup = {
   stages: EventGraphicsSessionStage[]
 }
 
-const ENTRANCE_LABEL = '입장'
-const APPEARANCE_LABEL = '등장'
-const masterfileCueByNumber = new Map<string, (typeof bangkokMasterfileManifest.cues)[number]>(
-  bangkokMasterfileManifest.cues.map((cue) => [cue.cueNumber, cue]),
+const ENTRANCE_LABELS = new Set(['등장', '입장'])
+const masterfileCueByKey = new Map<string, MasterfileCue>(
+  bangkokMasterfileManifest.cues.flatMap((cue) => {
+    const keys = [typeof cue.operationKey === 'string' ? cue.operationKey.trim() : '', cue.cueNumber.trim()].filter(Boolean)
+    return keys.map((key) => [key, cue] as const)
+  }),
 )
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
@@ -124,9 +125,19 @@ function joinManifestFileNames(files: ReadonlyArray<{ name: string }>): string {
   return files.map((file) => file.name).join(' / ')
 }
 
-function getMasterfileGraphicLabel(cueNumber: string | null, fallback: string): string {
-  if (!cueNumber) return fallback
-  const cue = masterfileCueByNumber.get(cueNumber)
+function getMasterfileCue(operationKey: string, cueNumber: string | null): MasterfileCue | null {
+  if (operationKey) {
+    const cue = masterfileCueByKey.get(operationKey)
+    if (cue) return cue
+  }
+  if (cueNumber) {
+    const cue = masterfileCueByKey.get(cueNumber)
+    if (cue) return cue
+  }
+  return null
+}
+
+function getMasterfileGraphicLabel(cue: MasterfileCue | null, fallback: string): string {
   if (!cue) return fallback
   const graphicFiles = (cue.registeredFiles as ReadonlyArray<{ name: string; kind: string }>).filter(
     (file) => file.kind === 'image' || file.kind === 'video',
@@ -135,9 +146,7 @@ function getMasterfileGraphicLabel(cueNumber: string | null, fallback: string): 
   return fallback
 }
 
-function getMasterfileAudioLabel(cueNumber: string | null, fallback: string): string {
-  if (!cueNumber) return fallback
-  const cue = masterfileCueByNumber.get(cueNumber)
+function getMasterfileAudioLabel(cue: MasterfileCue | null, fallback: string): string {
   if (!cue) return fallback
   const audioFiles = (cue.registeredFiles as ReadonlyArray<{ name: string; kind: string }>).filter((file) => file.kind === 'audio')
   if (audioFiles.length > 0) return joinManifestFileNames(audioFiles)
@@ -147,8 +156,10 @@ function getMasterfileAudioLabel(cueNumber: string | null, fallback: string): st
 export function normalizeEventCueType(rawType: string, title: string): string {
   const normalizedType = rawType.trim().toLowerCase()
   const normalizedTitle = title.trim().toLowerCase()
+  if (normalizedType === 'entrance') return 'entrance'
   if (normalizedType === 'lecture') return 'lecture'
   if (normalizedType === 'introduce') return 'introduce'
+  if (ENTRANCE_LABELS.has(title.trim())) return 'entrance'
   if (/\bintroduction\b|\bintroduce\b/.test(normalizedTitle)) return 'introduce'
   return normalizedType || 'other'
 }
@@ -168,10 +179,10 @@ export function toCueSortValue(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
 }
 
-export function isAppearanceRow(row: Pick<EventGraphicsEventRow, 'cueTitle' | 'rowTitle'>): boolean {
+export function isAppearanceRow(row: Pick<EventGraphicsEventRow, 'cueTitle' | 'cueType' | 'rowTitle'>): boolean {
   const cueTitle = row.cueTitle.trim()
   const rowTitle = row.rowTitle.trim()
-  return cueTitle === ENTRANCE_LABEL || cueTitle === APPEARANCE_LABEL || /등장\s*-/u.test(rowTitle)
+  return row.cueType === 'entrance' || ENTRANCE_LABELS.has(cueTitle) || /등장\s*-/u.test(rowTitle) || /입장\s*-/u.test(rowTitle)
 }
 
 function normalizeSessionTitle(value: string): string {
@@ -189,28 +200,9 @@ function toSessionTitle(row: EventGraphicsEventRow): string {
   return normalizeSessionTitle(row.cueTitle || row.rowTitle) || row.cueTitle
 }
 
-function findLinkedMainRow(rows: EventGraphicsEventRow[], index: number): EventGraphicsEventRow | null {
-  const appearanceRow = rows[index]
-
-  for (let offset = index + 1; offset < rows.length; offset += 1) {
-    const candidate = rows[offset]
-    if (candidate.eventName !== appearanceRow.eventName) return null
-    if (isAppearanceRow(candidate)) continue
-    return supportsAppearanceStage(candidate.cueType) ? candidate : null
-  }
-
-  return null
-}
-
-function toBaseCueNumber(value: number | null): string {
-  return value != null ? `Q${String(Math.ceil(value)).padStart(2, '0')}` : 'Q--'
-}
-
-function toDisplayCueOrder(row: EventGraphicsEventRow): string {
-  const numeric = row.cueOrderNumeric
-  const cueNumber = numeric != null ? `Q${String(Math.ceil(numeric)).padStart(2, '0')}` : row.cueOrder
-  if (isAppearanceRow(row) && numeric != null) return `${cueNumber}-등장`
-  return cueNumber
+function toDisplayCueNumber(value: number | null, fallback: string): string {
+  if (value == null) return fallback || 'Q--'
+  return `Q${String(Math.round(value)).padStart(2, '0')}`
 }
 
 function toStageKind(row: EventGraphicsEventRow): EventGraphicsStageKind {
@@ -227,48 +219,73 @@ function toSessionStageLabel(row: EventGraphicsEventRow): string {
   return '메인'
 }
 
+function toStageSortOrder(row: EventGraphicsEventRow): number {
+  const baseOrder = row.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER
+  const stageKind = toStageKind(row)
+  const stageOffset = stageKind === 'appearance' ? 0 : stageKind === 'main' ? 1 : 2
+  return baseOrder * 10 + stageOffset
+}
+
+function findLinkedMainRow(rows: EventGraphicsEventRow[], index: number): EventGraphicsEventRow | null {
+  const appearanceRow = rows[index]
+  const appearanceCueNumber = toDisplayCueNumber(appearanceRow.cueOrderNumeric, appearanceRow.cueOrder)
+
+  for (let offset = index + 1; offset < rows.length; offset += 1) {
+    const candidate = rows[offset]
+    if (candidate.eventName !== appearanceRow.eventName) return null
+    if (isAppearanceRow(candidate)) continue
+    if (!supportsAppearanceStage(candidate.cueType)) return null
+    const candidateCueNumber = toDisplayCueNumber(candidate.cueOrderNumeric, candidate.cueOrder)
+    if (candidateCueNumber !== appearanceCueNumber) return null
+    return candidate
+  }
+
+  return null
+}
+
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): EventGraphicsEventRow {
   const timetableMode =
     normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode'])) ?? 'event'
   const cueOrderText = readFirstCellText(row, columnIndex, ['정렬 순서', 'Cue 순서', '운영 순서', 'No'])
   const cueOrderNumeric = Number(cueOrderText)
-  const baseCueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
+  const cueNumber = Number.isFinite(cueOrderNumeric) ? toDisplayCueNumber(cueOrderNumeric, cueOrderText) : null
   const cueTitle = readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '행 제목') || '-'
   const normalizedCueType = normalizeEventCueType(readFirstCellText(row, columnIndex, ['카테고리', 'Cue 유형']) || 'other', cueTitle)
+  const operationKey = readCellText(row, columnIndex, '운영 키')
   const previewHrefFromNotion =
     readCellHref(row, columnIndex, '미리보기 링크') || readCellText(row, columnIndex, '미리보기 링크') || null
   const notionGraphicAsset = readFirstCellText(row, columnIndex, ['메인 화면', '그래픽 자산명', 'Main Screen']) || '-'
-  const notionSourceAudio = readFirstCellText(row, columnIndex, ['오디오', '원본 Audio'])
+  const notionSourceAudio = readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']) || ''
+  const eventName = readFirstCellText(row, columnIndex, ['행사명', '귀속 프로젝트']) || ''
+  const manifestCue = getMasterfileCue(operationKey, cueNumber)
+  const note = joinSummary([
+    readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
+    readCellText(row, columnIndex, '무대 인원') ? `무대 ${readCellText(row, columnIndex, '무대 인원')}` : '',
+  ])
 
   return {
     id: row.id,
     url: row.url,
     timetableMode,
     rowTitle: readCellText(row, columnIndex, '행 제목') || '-',
+    operationKey,
     cueOrder: cueOrderText || '-',
     cueOrderNumeric: Number.isFinite(cueOrderNumeric) ? cueOrderNumeric : null,
     cueType: normalizedCueType,
     cueTitle,
-    eventName: readCellText(row, columnIndex, '행사명'),
+    eventName,
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
-    runtime: readCellText(row, columnIndex, '러닝타임(분)') || readCellText(row, columnIndex, '상영시간(분)'),
-    status: readCellText(row, columnIndex, '상태') || 'planned',
-    graphicAsset: getMasterfileGraphicLabel(baseCueNumber, notionGraphicAsset),
-    graphicType: readFirstCellText(row, columnIndex, ['운영 액션', '그래픽 형식']) || '-',
-    sourceVideo: getMasterfileGraphicLabel(baseCueNumber, notionGraphicAsset),
-    sourceAudio: getMasterfileAudioLabel(baseCueNumber, notionSourceAudio) || '',
+    runtime: readCellText(row, columnIndex, '러닝타임(분)') || readCellText(row, columnIndex, '예상시간(분)'),
+    graphicAsset: getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
+    sourceAudio: getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '',
     personnel: readCellText(row, columnIndex, '무대 인원'),
     remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
-    graphicLabel: getMasterfileGraphicLabel(baseCueNumber, notionGraphicAsset),
-    audioLabel: getMasterfileAudioLabel(baseCueNumber, notionSourceAudio) || '-',
-    note:
-      joinSummary([
-        readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
-        readCellText(row, columnIndex, '무대 인원') ? `무대 ${readCellText(row, columnIndex, '무대 인원')}` : '',
-      ]) || '메모 없음',
-    previewHref: masterfileCueByNumber.get(baseCueNumber ?? '')?.previewUrl || previewHrefFromNotion || null,
+    graphicLabel: getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
+    audioLabel: getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '-',
+    note: note || '메모 없음',
+    previewHref: manifestCue?.previewUrl || previewHrefFromNotion || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || null,
   }
 }
@@ -299,13 +316,13 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
     const previousGroup = groups[groups.length - 1]
     const title = toSessionTitle(row)
     const stageKind = toStageKind(row)
-    const manifestCueNumber = stageKind === 'appearance' ? null : toBaseCueNumber(row.cueOrderNumeric)
+    const rowCueNumber = toDisplayCueNumber(row.cueOrderNumeric, row.cueOrder)
     const stage: EventGraphicsSessionStage = {
       id: row.id,
-      cueNumber: toDisplayCueOrder(row),
-      manifestCueNumber,
+      cueNumber: rowCueNumber,
+      manifestKey: stageKind === 'appearance' ? null : row.operationKey || rowCueNumber,
       stageKind,
-      sortOrder: row.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER,
+      sortOrder: toStageSortOrder(row),
       label: toSessionStageLabel(row),
       title: row.cueTitle,
       cueType: row.cueType,
@@ -314,19 +331,17 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
       endTime: row.endTime,
       runtimeMinutes: toRuntimeMinutes(row.runtime),
       runtimeLabel: formatRuntimeLabel(row.runtime),
-      status: row.status,
       graphicLabel: row.graphicLabel,
       audioLabel: row.audioLabel,
       note: row.note,
       previewHref: row.previewHref,
       assetHref: row.assetHref,
     }
-    const rowCueNumber = toBaseCueNumber(row.cueOrderNumeric)
 
     if (stageKind === 'appearance') {
       const nextRow = findLinkedMainRow(rows, index)
       const nextTitle = nextRow ? toSessionTitle(nextRow) : title
-      const nextCueNumber = toBaseCueNumber(nextRow?.cueOrderNumeric ?? row.cueOrderNumeric)
+      const nextCueNumber = toDisplayCueNumber(nextRow?.cueOrderNumeric ?? row.cueOrderNumeric, row.cueOrder)
       groups.push({
         id: nextRow?.id ?? row.id,
         eventName: nextRow?.eventName ?? row.eventName,
@@ -346,6 +361,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
       previousGroup &&
       previousGroup.eventName === row.eventName &&
       ['introduce', 'lecture'].includes(previousGroup.cueType) &&
+      previousGroup.cueNumber === rowCueNumber &&
       normalizeSessionTitle(row.cueTitle) === previousGroup.title
 
     if (shouldAttachCertificate) {
@@ -388,7 +404,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
   }
 
   return groups.map((group) => {
-    const sortedStages = [...group.stages].sort((left, right) => toCueSortValue(left.cueNumber) - toCueSortValue(right.cueNumber))
+    const sortedStages = [...group.stages].sort((left, right) => left.sortOrder - right.sortOrder)
     const runtimeTotal = sortedStages.reduce((sum, currentStage) => sum + currentStage.runtimeMinutes, 0)
     return {
       ...group,

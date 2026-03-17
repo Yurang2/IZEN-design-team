@@ -157,12 +157,10 @@ function normalizeRow(rawRow) {
   const audio = normalizeText(rawRow['오디오']) || normalizeText(rawRow['원본 Audio'])
   const operationNote =
     normalizeText(rawRow['운영 메모']) || normalizeText(rawRow['업체 전달 메모']) || normalizeText(rawRow['원본 비고'])
-  const operationAction = normalizeText(rawRow['운영 액션'])
   const trigger = normalizeText(rawRow['트리거 상황'])
   const timeReference = normalizeText(rawRow['시간 기준'])
   const previewLink = normalizeText(rawRow['미리보기 링크'])
   const assetLink = normalizeText(rawRow['자산 링크'])
-  const status = normalizeText(rawRow['상태']) || 'planned'
   const operationKey =
     normalizeText(rawRow['운영 키']) || buildOperationKey(timetableMode, eventName, sortOrder, category, cueTitle || rowTitle)
 
@@ -181,13 +179,11 @@ function normalizeRow(rawRow) {
     personnel,
     mainScreen,
     audio,
-    operationAction,
     operationNote,
     trigger,
     timeReference,
     previewLink,
     assetLink,
-    status,
   }
 }
 
@@ -306,17 +302,11 @@ function buildProperties(row, projectId) {
     '운영 메모': {
       rich_text: buildRichText(row.operationNote),
     },
-    '운영 액션': {
-      select: row.operationAction ? { name: row.operationAction } : null,
-    },
     '미리보기 링크': {
       url: row.previewLink || null,
     },
     '자산 링크': {
       url: row.assetLink || null,
-    },
-    '상태': {
-      select: row.status ? { name: row.status } : null,
     },
     '귀속 프로젝트': {
       relation: projectId ? [{ id: projectId }] : [],

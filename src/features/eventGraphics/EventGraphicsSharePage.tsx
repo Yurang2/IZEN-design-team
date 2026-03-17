@@ -13,7 +13,7 @@ import { usesSpeakerPptPlaceholder } from './eventGraphicsHierarchy'
 import {
   buildEventGraphicsShareData,
   buildEventGraphicsSharePageTitle,
-  eventGraphicsManifestByCueNumber,
+  eventGraphicsManifestByKey,
   toCueTypeLabel,
   type EventGraphicsShareLocale,
 } from './eventGraphicsShareData'
@@ -269,8 +269,8 @@ export function EventGraphicsSharePage({
 
                         <div className="eventGraphicsShareStageList">
                           {cue.stages.map((stage) => {
-                            const manifestCue = stage.manifestCueNumber
-                              ? eventGraphicsManifestByCueNumber.get(stage.manifestCueNumber) ?? null
+                            const manifestCue = stage.manifestKey
+                              ? eventGraphicsManifestByKey.get(stage.manifestKey) ?? null
                               : null
                             const graphicFiles =
                               manifestCue != null

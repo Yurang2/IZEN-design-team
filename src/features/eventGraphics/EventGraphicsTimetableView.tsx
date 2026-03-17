@@ -18,6 +18,7 @@ import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsP
 import {
   buildEventGraphicsEventRows,
   buildEventGraphicsSessionGroups,
+  usesSpeakerPptPlaceholder,
 } from './eventGraphicsHierarchy'
 import { VideoThumbnailTool } from './VideoThumbnailTool'
 
@@ -39,6 +40,7 @@ type TimetableRow = {
   url: string | null
   timetableMode: TimetableMode
   rowTitle: string
+  operationKey?: string
   cueOrder: string
   cueOrderNumeric: number | null
   cueType: string
@@ -46,16 +48,16 @@ type TimetableRow = {
   startTime: string
   endTime: string
   runtime: string
-  status: string
+  status?: string
   graphicAsset: string
-  graphicType: string
-  sourceVideo: string
+  graphicType?: string
+  sourceVideo?: string
   sourceAudio: string
   personnel: string
   remark: string
   vendorNote: string
   previewHref: string | null
-  assetHref: string | null
+  assetHref?: string | null
 }
 
 type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
@@ -63,7 +65,8 @@ type DriveChecklistState = Record<string, { graphic: boolean; audio: boolean }>
 type SessionStage = {
   id: string
   cueNumber: string
-  manifestCueNumber: string | null
+  manifestKey?: string | null
+  manifestCueNumber?: string | null
   stageKind: 'appearance' | 'main' | 'certificate'
   sortOrder: number
   label: string
@@ -73,14 +76,16 @@ type SessionStage = {
   endTime: string
   runtimeMinutes: number
   runtimeLabel: string
-  status: string
+  status?: string
   graphicLabel: string
   audioLabel: string
   note: string
   previewHref: string | null
+  assetHref?: string | null
 }
 type SessionGroup = {
   id: string
+  eventName?: string
   cueNumber: string
   title: string
   cueType: string
@@ -94,7 +99,13 @@ const EXTERNAL_SHARE_PATH = '/share/timetable'
 const ENTRANCE_LABEL = '입장'
 const APPEARANCE_LABEL = '등장'
 const DRIVE_CHECKLIST_STORAGE_KEY = 'event-graphics-drive-checklist:v2'
-const masterfileCueByNumber = new Map<string, MasterfileCue>(bangkokMasterfileManifest.cues.map((cue) => [cue.cueNumber, cue]))
+const masterfileCueByKey = new Map<string, MasterfileCue>(
+  bangkokMasterfileManifest.cues.flatMap((cue) => {
+    const keys = [typeof cue.operationKey === 'string' ? cue.operationKey.trim() : '', cue.cueNumber.trim()].filter(Boolean)
+    return keys.map((key) => [key, cue] as const)
+  }),
+)
+const masterfileCueByNumber = masterfileCueByKey
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
@@ -144,10 +155,6 @@ export function toCueSortValue(value: string): number {
   if (!match) return Number.MAX_SAFE_INTEGER
   const parsed = Number(match[1])
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
-}
-
-function usesSpeakerPptPlaceholder(cueType: string): boolean {
-  return cueType === 'introduce' || cueType === 'lecture'
 }
 
 export function normalizeEventCueType(cueType: string, title: string): string {
@@ -254,12 +261,15 @@ function matchesExhibitionQuery(row: ExhibitionPlaybookRow, query: string): bool
 }
 
 function getStageMasterfileCue(stage: SessionStage): MasterfileCue | null {
-  if (!stage.manifestCueNumber) return null
-  return masterfileCueByNumber.get(stage.manifestCueNumber) ?? null
+  if (!stage.manifestKey) return null
+  return masterfileCueByKey.get(stage.manifestKey) ?? null
 }
 
-function matchesTimelineGroup(group: SessionGroup, query: string, statusFilter: string): boolean {
-  if (statusFilter && !group.stages.some((stage) => stage.status === statusFilter)) return false
+function toDriveChecklistKey(stage: SessionStage): string {
+  return stage.manifestKey || `${stage.cueNumber}:${stage.stageKind}:${stage.title}`
+}
+
+function matchesTimelineGroup(group: SessionGroup, query: string): boolean {
   if (!query) return true
   const source = [
     group.cueNumber,
@@ -277,8 +287,7 @@ function matchesMasterfileGroup(group: SessionGroup, query: string, statusFilter
     const cue = getStageMasterfileCue(stage)
     const registeredFiles = ((cue?.registeredFiles as ReadonlyArray<{ name: string }>) ?? [])
     const missingFiles = ((cue?.missingFiles as ReadonlyArray<{ sourceName: string; label: string }>) ?? [])
-    const stageStatus = cue?.status ?? stage.status
-    if (statusFilter && stageStatus !== statusFilter) return false
+    if (statusFilter && cue?.status !== statusFilter) return false
     if (!query) return true
     const source = [
       group.cueNumber,
@@ -544,11 +553,10 @@ function TimelineLayout({
 
             <div className="eventGraphicsTimelineStageList">
               {group.stages.map((stage) => {
-                const stageStatusClassName = toStatusClassName(stage.status)
                 const hasPreview = hasVisualPreviewUrl(stage.previewHref)
-                const showSpeakerPptPlaceholder = stage.stageKind === 'main' && usesSpeakerPptPlaceholder(stage.cueType)
+                const showSpeakerPptPlaceholder = usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
                 return (
-                  <div key={stage.id} className={`eventGraphicsTimelineStage status-${stageStatusClassName}`}>
+                  <div key={stage.id} className="eventGraphicsTimelineStage">
                     <div className="eventGraphicsTimelineTime">
                       <strong>{stage.startTime}</strong>
                       <span>{stage.endTime}</span>
@@ -558,7 +566,6 @@ function TimelineLayout({
                       <div className="eventGraphicsTimelineMeta">
                         <div className="eventGraphicsCueHead">
                           <span className="eventGraphicsEntranceFlag">{stage.label}</span>
-                          <span className={`eventGraphicsStatus status-${stageStatusClassName}`}>{stage.status}</span>
                         </div>
                         <strong>{stage.title}</strong>
                         <p>{stage.note}</p>
@@ -694,7 +701,7 @@ function ExhibitionPlaybookLayout({
 
 function MasterfileAssetPanel({
   title,
-  cueNumber,
+  checklistKey,
   field,
   driveChecked,
   expected,
@@ -703,13 +710,13 @@ function MasterfileAssetPanel({
   onToggleDriveCheck,
 }: {
   title: string
-  cueNumber: string
+  checklistKey: string
   field: 'graphic' | 'audio'
   driveChecked: boolean
   expected: boolean
   registeredFiles: ReadonlyArray<{ name: string; kind: string; role: string }>
   missingFiles: ReadonlyArray<{ kind: string; label: string; sourceName: string }>
-  onToggleDriveCheck: (cueNumber: string, field: 'graphic' | 'audio', checked: boolean) => void
+  onToggleDriveCheck: (checklistKey: string, field: 'graphic' | 'audio', checked: boolean) => void
 }) {
   const hasLocalFiles = registeredFiles.length > 0
   const hasMissingFiles = missingFiles.length > 0
@@ -745,7 +752,7 @@ function MasterfileAssetPanel({
           <input
             type="checkbox"
             checked={driveChecked}
-            onChange={(event) => onToggleDriveCheck(cueNumber, field, event.target.checked)}
+            onChange={(event) => onToggleDriveCheck(checklistKey, field, event.target.checked)}
           />
           <span>드라이브</span>
         </label>
@@ -757,7 +764,7 @@ function MasterfileAssetPanel({
           <span className="eventGraphicsAuditMiniLabel">추가 필요</span>
           <div className="eventGraphicsAuditChipList is-missing">
             {missingFiles.map((file) => (
-              <span key={`${cueNumber}-${field}-${file.label}`} className="eventGraphicsAuditChip is-missing" title={file.label}>
+              <span key={`${checklistKey}-${field}-${file.label}`} className="eventGraphicsAuditChip is-missing" title={file.label}>
                 {file.sourceName || file.label}
               </span>
             ))}
@@ -775,7 +782,7 @@ function MasterfileAuditLayout({
 }: {
   groups: SessionGroup[]
   driveChecklist: DriveChecklistState
-  onToggleDriveCheck: (cueNumber: string, field: 'graphic' | 'audio', checked: boolean) => void
+  onToggleDriveCheck: (checklistKey: string, field: 'graphic' | 'audio', checked: boolean) => void
 }) {
   return (
     <div className="eventGraphicsAuditList">
@@ -800,7 +807,7 @@ function MasterfileAuditLayout({
             <div className="eventGraphicsAuditStageList">
               {group.stages.map((stage) => {
                 const cue = getStageMasterfileCue(stage)
-                const stageStatus = cue?.status ?? stage.status
+                const stageStatus = cue?.status ?? 'missing'
                 const statusClassName = toStatusClassName(stageStatus)
                 const registeredFiles = cue
                   ? ((cue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>) ?? [])
@@ -822,8 +829,9 @@ function MasterfileAuditLayout({
                       : []
                 const missingGraphicFiles = cue ? missingFiles.filter((file) => file.kind !== 'audio') : []
                 const missingAudioFiles = cue ? missingFiles.filter((file) => file.kind === 'audio') : []
-                const driveState = driveChecklist[stage.cueNumber] ?? { graphic: false, audio: false }
-                const showSpeakerPptPlaceholder = stage.stageKind === 'main' && usesSpeakerPptPlaceholder(stage.cueType)
+                const checklistKey = toDriveChecklistKey(stage)
+                const driveState = driveChecklist[checklistKey] ?? { graphic: false, audio: false }
+                const showSpeakerPptPlaceholder = usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
 
                 return (
                   <section key={stage.id} className={`eventGraphicsAuditStage status-${statusClassName}`}>
@@ -861,7 +869,7 @@ function MasterfileAuditLayout({
 
                       <MasterfileAssetPanel
                         title="Graphics Check"
-                        cueNumber={stage.cueNumber}
+                        checklistKey={checklistKey}
                         field="graphic"
                         driveChecked={driveState.graphic}
                         expected={graphicFiles.length > 0 || missingGraphicFiles.length > 0}
@@ -871,7 +879,7 @@ function MasterfileAuditLayout({
                       />
                       <MasterfileAssetPanel
                         title="Audio Check"
-                        cueNumber={stage.cueNumber}
+                        checklistKey={checklistKey}
                         field="audio"
                         driveChecked={driveState.audio}
                         expected={audioFiles.length > 0 || missingAudioFiles.length > 0}
@@ -947,10 +955,6 @@ export function EventGraphicsTimetableView({
   )
   const exhibitionUsesSample = exhibitionRowsFromDb.length === 0
 
-  const rowStatusOptions = useMemo(
-    () => Array.from(new Set(tableRows.map((row) => row.status).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')),
-    [tableRows],
-  )
   const masterfileStatusOptions = useMemo(
     () => Array.from(new Set(bangkokMasterfileManifest.cues.map((cue) => cue.status))),
     [],
@@ -961,8 +965,8 @@ export function EventGraphicsTimetableView({
   )
 
   const filteredTimelineGroups = useMemo(
-    () => timelineGroups.filter((group) => matchesTimelineGroup(group, normalizedQuery, statusFilter)),
-    [normalizedQuery, statusFilter, timelineGroups],
+    () => timelineGroups.filter((group) => matchesTimelineGroup(group, normalizedQuery)),
+    [normalizedQuery, timelineGroups],
   )
   const filteredMasterfileGroups = useMemo(
     () => timelineGroups.filter((group) => matchesMasterfileGroup(group, normalizedQuery, statusFilter)),
@@ -977,9 +981,16 @@ export function EventGraphicsTimetableView({
     [exhibitionRows, normalizedQuery, statusFilter],
   )
 
-  const readyCount = useMemo(() => tableRows.filter((row) => ['ready', 'shared'].includes(row.status)).length, [tableRows])
-  const changedCount = useMemo(() => tableRows.filter((row) => row.status === 'changed_on_site').length, [tableRows])
-  const entranceCount = useMemo(() => tableRows.filter((row) => isEntranceRow(row)).length, [tableRows])
+  const sessionCount = useMemo(() => timelineGroups.length, [timelineGroups])
+  const stageCount = useMemo(() => timelineGroups.reduce((sum, group) => sum + group.stages.length, 0), [timelineGroups])
+  const entranceCount = useMemo(
+    () => timelineGroups.reduce((sum, group) => sum + group.stages.filter((stage) => stage.stageKind === 'appearance').length, 0),
+    [timelineGroups],
+  )
+  const lectureSessionCount = useMemo(
+    () => timelineGroups.filter((group) => group.cueType === 'introduce' || group.cueType === 'lecture').length,
+    [timelineGroups],
+  )
   const loopCount = useMemo(() => exhibitionRows.filter((row) => /loop/i.test(row.action)).length, [exhibitionRows])
   const seminarTransitionCount = useMemo(
     () => exhibitionRows.filter((row) => /seminar/i.test(row.category) || /발표|연자|seminar/i.test(row.trigger)).length,
@@ -1011,12 +1022,12 @@ export function EventGraphicsTimetableView({
     setStatusFilter('')
   }
 
-  const onToggleDriveCheck = (cueNumber: string, field: 'graphic' | 'audio', checked: boolean) => {
+  const onToggleDriveCheck = (checklistKey: string, field: 'graphic' | 'audio', checked: boolean) => {
     setDriveChecklist((current) => ({
       ...current,
-      [cueNumber]: {
-        graphic: current[cueNumber]?.graphic ?? false,
-        audio: current[cueNumber]?.audio ?? false,
+      [checklistKey]: {
+        graphic: current[checklistKey]?.graphic ?? false,
+        audio: current[checklistKey]?.audio ?? false,
         [field]: checked,
       },
     }))
@@ -1051,7 +1062,7 @@ export function EventGraphicsTimetableView({
 
   const isEventMode = timetableMode === 'event'
   const isMasterfileMode = isEventMode && layoutMode === 'masterfile'
-  const statusOptions = isEventMode ? (isMasterfileMode ? masterfileStatusOptions : rowStatusOptions) : exhibitionStatusOptions
+  const statusOptions = isEventMode ? (isMasterfileMode ? masterfileStatusOptions : []) : exhibitionStatusOptions
   const visibleCount = isEventMode
     ? layoutMode === 'masterfile'
       ? filteredMasterfileGroups.length
@@ -1120,7 +1131,7 @@ export function EventGraphicsTimetableView({
         <div className="eventGraphicsSummary" aria-label="행사 그래픽 요약">
           <article>
             <span>전체 Cue</span>
-            <strong>{tableRows.length}</strong>
+            <strong>{sessionCount}</strong>
           </article>
           <article>
             <span>입장 Cue</span>
@@ -1128,11 +1139,11 @@ export function EventGraphicsTimetableView({
           </article>
           <article>
             <span>준비완료 / 공유</span>
-            <strong>{readyCount}</strong>
+            <strong>{stageCount}</strong>
           </article>
           <article>
             <span>현장 변경</span>
-            <strong>{changedCount}</strong>
+            <strong>{lectureSessionCount}</strong>
           </article>
         </div>
       ) : (
