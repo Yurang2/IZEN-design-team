@@ -50,10 +50,6 @@ const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
 const GOOGLE_GENERATIVE_LANGUAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
-const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token'
-const VERTEX_AI_API_URL = 'https://aiplatform.googleapis.com/v1'
-const VERTEX_AI_SCOPE = 'https://www.googleapis.com/auth/cloud-platform'
-const DEFAULT_VERTEX_AI_LOCATION = 'global'
 const MAX_SUMMARY_SOURCE_CHARS = 180_000
 const SUMMARY_RETRY_SOURCE_CHARS = 120_000
 const SUMMARY_OUTPUT_TOKENS = 12_000
@@ -81,8 +77,6 @@ let lastRateLimitCleanupAt = 0
 let sessionSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
 let meetingUploadSigningKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null
 let meetingNotionSchemaCache: { databaseId: string; titlePropertyName: string; datePropertyName: string; checkedAt: number } | null = null
-let googleServiceAccountSigningKeyCache: { privateKey: string; key: Promise<CryptoKey> } | null = null
-let googleAccessTokenCache: { cacheKey: string; accessToken: string; expiresAt: number } | null = null
 
 type RateLimitBucket = {
   count: number
@@ -127,13 +121,6 @@ type GeminiPromptImageRenderInput = {
   prompt: string
   model?: string
   aspectRatio?: string
-}
-
-type GoogleServiceAccountCredentials = {
-  clientEmail: string
-  privateKey: string
-  projectId: string
-  tokenUri: string
 }
 
 function requiredAuthEnv(env: Env): string | null {
@@ -339,141 +326,6 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
     diff |= a[idx] ^ b[idx]
   }
   return diff === 0
-}
-
-function pemToArrayBuffer(value: string): ArrayBuffer {
-  const normalized = value
-    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-    .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '')
-  const binary = atob(normalized)
-  const bytes = new Uint8Array(binary.length)
-  for (let idx = 0; idx < binary.length; idx += 1) {
-    bytes[idx] = binary.charCodeAt(idx)
-  }
-  return bytes.buffer
-}
-
-function getGoogleServiceAccountCredentials(env: Env): GoogleServiceAccountCredentials | null {
-  const raw = asString(env.GOOGLE_SERVICE_ACCOUNT_JSON)
-  if (!raw) return null
-
-  let parsed: Record<string, unknown>
-  try {
-    parsed = JSON.parse(raw) as Record<string, unknown>
-  } catch {
-    throw new Error('google_service_account_json_invalid')
-  }
-
-  const clientEmail = asString(parsed.client_email)
-  const privateKey = asString(parsed.private_key)
-  const projectId = asString(env.GOOGLE_CLOUD_PROJECT_ID) ?? asString(parsed.project_id)
-  const tokenUri = asString(parsed.token_uri) ?? GOOGLE_OAUTH_TOKEN_URL
-
-  if (!clientEmail || !privateKey || !projectId) {
-    throw new Error('google_service_account_json_invalid')
-  }
-
-  return {
-    clientEmail,
-    privateKey,
-    projectId,
-    tokenUri,
-  }
-}
-
-function getVertexAiLocation(env: Env): string {
-  return asString(env.GOOGLE_CLOUD_LOCATION) ?? DEFAULT_VERTEX_AI_LOCATION
-}
-
-async function getGoogleServiceAccountSigningKey(privateKey: string): Promise<CryptoKey> {
-  if (googleServiceAccountSigningKeyCache && googleServiceAccountSigningKeyCache.privateKey === privateKey) {
-    return googleServiceAccountSigningKeyCache.key
-  }
-
-  const keyPromise = crypto.subtle.importKey(
-    'pkcs8',
-    pemToArrayBuffer(privateKey),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-
-  googleServiceAccountSigningKeyCache = {
-    privateKey,
-    key: keyPromise,
-  }
-  return keyPromise
-}
-
-async function signGoogleServiceAccountAssertion(credentials: GoogleServiceAccountCredentials): Promise<string> {
-  const nowSeconds = Math.floor(Date.now() / 1000)
-  const headerBase64 = base64UrlEncode(
-    utf8Encode(
-      JSON.stringify({
-        alg: 'RS256',
-        typ: 'JWT',
-      }),
-    ),
-  )
-  const payloadBase64 = base64UrlEncode(
-    utf8Encode(
-      JSON.stringify({
-        iss: credentials.clientEmail,
-        sub: credentials.clientEmail,
-        aud: credentials.tokenUri,
-        scope: VERTEX_AI_SCOPE,
-        iat: nowSeconds,
-        exp: nowSeconds + 3600,
-      }),
-    ),
-  )
-  const signingInput = `${headerBase64}.${payloadBase64}`
-  const key = await getGoogleServiceAccountSigningKey(credentials.privateKey)
-  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, utf8Encode(signingInput))
-  return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`
-}
-
-async function getGoogleAccessToken(env: Env): Promise<string | null> {
-  const credentials = getGoogleServiceAccountCredentials(env)
-  if (!credentials) return null
-
-  const cacheKey = `${credentials.clientEmail}:${credentials.projectId}:${credentials.tokenUri}`
-  if (googleAccessTokenCache && googleAccessTokenCache.cacheKey === cacheKey && googleAccessTokenCache.expiresAt > Date.now() + 60_000) {
-    return googleAccessTokenCache.accessToken
-  }
-
-  const assertion = await signGoogleServiceAccountAssertion(credentials)
-  const response = await fetch(credentials.tokenUri, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
-    }).toString(),
-  })
-
-  const payload = (await response.json()) as Record<string, unknown>
-  if (!response.ok) {
-    const message =
-      asString(payload.error_description) ??
-      asString(payload.error) ??
-      extractGeminiErrorMessage(payload)
-    throw new Error(message || 'google_access_token_request_failed')
-  }
-
-  const accessToken = asString(payload.access_token)
-  const expiresIn = Number(payload.expires_in)
-  if (!accessToken) throw new Error('google_access_token_missing')
-
-  googleAccessTokenCache = {
-    cacheKey,
-    accessToken,
-    expiresAt: Date.now() + (Number.isFinite(expiresIn) ? expiresIn : 3600) * 1000,
-  }
-  return accessToken
 }
 
 async function getSessionSigningKey(env: Env): Promise<CryptoKey> {
@@ -1260,14 +1112,8 @@ function resolveThumbnailOutputFormats(input: VideoThumbnailRenderInput): string
 }
 
 function getGeminiApiKey(env: Env): string {
-  const apiKey = asString(env.GEMINI_API_KEY) ?? asString(env.GOOGLE_AI_API_KEY)
-  if (!apiKey) throw new Error('gemini_api_key_missing')
-  return apiKey
-}
-
-function getVertexExpressApiKey(env: Env): string {
-  const apiKey = asString(env.VERTEX_EXPRESS_API_KEY)
-  if (!apiKey) throw new Error('vertex_express_api_key_missing')
+  const apiKey = asString(env.GOOGLE_AI_API_KEY) ?? asString(env.GEMINI_API_KEY)
+  if (!apiKey) throw new Error('google_ai_studio_api_key_missing')
   return apiKey
 }
 
@@ -1275,23 +1121,35 @@ function getGeminiImageModel(env: Env): string {
   return asString(env.GEMINI_IMAGE_MODEL) ?? DEFAULT_GEMINI_IMAGE_MODEL
 }
 
-function isVertexAiConfigured(env: Env): boolean {
-  return Boolean(asString(env.GOOGLE_SERVICE_ACCOUNT_JSON))
-}
+async function requestGoogleAiStudioGenerateContent(
+  env: Env,
+  model: string,
+  parts: Array<Record<string, unknown>>,
+  generationConfig: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const apiKey = getGeminiApiKey(env)
+  const response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts,
+        },
+      ],
+      generationConfig,
+    }),
+  })
 
-function buildVertexAiGenerateContentUrl(env: Env, model: string): string {
-  const credentials = getGoogleServiceAccountCredentials(env)
-  if (!credentials) throw new Error('google_service_account_json_missing')
-  const location = getVertexAiLocation(env)
-  return `${VERTEX_AI_API_URL}/projects/${encodeURIComponent(credentials.projectId)}/locations/${encodeURIComponent(location)}/publishers/google/models/${encodeURIComponent(model)}:generateContent`
-}
-
-function isVertexExpressConfigured(env: Env): boolean {
-  return Boolean(asString(env.VERTEX_EXPRESS_API_KEY))
-}
-
-function buildVertexExpressGenerateContentUrl(model: string, apiKey: string): string {
-  return `${VERTEX_AI_API_URL}/publishers/google/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
+  const payload = (await response.json()) as Record<string, unknown>
+  if (!response.ok) {
+    throw new Error(extractGeminiErrorMessage(payload))
+  }
+  return payload
 }
 
 function parseInlineDataUrl(dataUrl: string): { mimeType: string; data: string } {
@@ -1360,13 +1218,7 @@ function toVideoThumbnailErrorStatus(message: string): number {
     return 400
   }
 
-  if (
-    message === 'vertex_express_api_key_missing' ||
-    message === 'gemini_api_key_missing' ||
-    message === 'google_service_account_json_missing' ||
-    message === 'google_service_account_json_invalid' ||
-    message === 'google_access_token_missing'
-  ) {
+  if (message === 'google_ai_studio_api_key_missing') {
     return 503
   }
   if (message === 'thumbnail_image_missing') return 502
@@ -1381,44 +1233,27 @@ async function renderVideoThumbnailWithGemini(
 
   const model = input.model?.trim() || getGeminiImageModel(env)
   const prompt = buildVideoThumbnailPrompt(input)
-  const studioParts: Array<Record<string, unknown>> = [{ text: prompt }]
-  const vertexParts: Array<Record<string, unknown>> = [{ text: prompt }]
+  const parts: Array<Record<string, unknown>> = [{ text: prompt }]
 
   if (input.backgroundImage) {
     const background = parseInlineDataUrl(input.backgroundImage.dataUrl)
-    studioParts.push({ text: 'Primary background image to adapt:' })
-    vertexParts.push({ text: 'Primary background image to adapt:' })
-    const imagePart = {
-      mimeType: background.mimeType,
-      data: background.data,
-    }
-    studioParts.push({
+    parts.push({ text: 'Primary background image to adapt:' })
+    parts.push({
       inline_data: {
-        mime_type: imagePart.mimeType,
-        data: imagePart.data,
+        mime_type: background.mimeType,
+        data: background.data,
       },
-    })
-    vertexParts.push({
-      inlineData: imagePart,
     })
   }
 
   for (const [index, image] of input.styleReferenceImages.entries()) {
     const parsed = parseInlineDataUrl(image.dataUrl)
-    studioParts.push({ text: `Style reference image ${index + 1}:` })
-    vertexParts.push({ text: `Style reference image ${index + 1}:` })
-    const imagePart = {
-      mimeType: parsed.mimeType,
-      data: parsed.data,
-    }
-    studioParts.push({
+    parts.push({ text: `Style reference image ${index + 1}:` })
+    parts.push({
       inline_data: {
-        mime_type: imagePart.mimeType,
-        data: imagePart.data,
+        mime_type: parsed.mimeType,
+        data: parsed.data,
       },
-    })
-    vertexParts.push({
-      inlineData: imagePart,
     })
   }
 
@@ -1431,68 +1266,7 @@ async function renderVideoThumbnailWithGemini(
     }
   }
 
-  let response: Response
-  if (isVertexAiConfigured(env)) {
-    const accessToken = await getGoogleAccessToken(env)
-    if (!accessToken) throw new Error('google_service_account_json_missing')
-
-    response = await fetch(buildVertexAiGenerateContentUrl(env, model), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: vertexParts,
-          },
-        ],
-        generationConfig,
-      }),
-    })
-  } else if (isVertexExpressConfigured(env)) {
-    const apiKey = getVertexExpressApiKey(env)
-    response = await fetch(buildVertexExpressGenerateContentUrl(model, apiKey), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: vertexParts,
-          },
-        ],
-        generationConfig,
-      }),
-    })
-  } else {
-    const apiKey = getGeminiApiKey(env)
-    response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: studioParts,
-          },
-        ],
-        generationConfig,
-      }),
-    })
-  }
-
-  const payload = (await response.json()) as Record<string, unknown>
-  if (!response.ok) {
-    throw new Error(extractGeminiErrorMessage(payload))
-  }
+  const payload = await requestGoogleAiStudioGenerateContent(env, model, parts, generationConfig)
 
   const candidates = Array.isArray(payload.candidates) ? payload.candidates : []
   let imageDataUrl: string | null = null
@@ -1541,8 +1315,7 @@ async function renderGeminiPromptImage(
 ): Promise<{ model: string; imageDataUrl: string; imageMimeType: string; textResponse: string | null }> {
   const model = input.model?.trim() || DEFAULT_GEMINI_IMAGE_MODEL
   const prompt = buildGeminiPromptImagePrompt(input)
-  const studioParts: Array<Record<string, unknown>> = [{ text: prompt }]
-  const vertexParts: Array<Record<string, unknown>> = [{ text: prompt }]
+  const parts: Array<Record<string, unknown>> = [{ text: prompt }]
 
   const generationConfig: Record<string, unknown> = {
     responseModalities: ['TEXT', 'IMAGE'],
@@ -1555,68 +1328,7 @@ async function renderGeminiPromptImage(
     },
   }
 
-  let response: Response
-  if (isVertexAiConfigured(env)) {
-    const accessToken = await getGoogleAccessToken(env)
-    if (!accessToken) throw new Error('google_service_account_json_missing')
-
-    response = await fetch(buildVertexAiGenerateContentUrl(env, model), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: vertexParts,
-          },
-        ],
-        generationConfig,
-      }),
-    })
-  } else if (isVertexExpressConfigured(env)) {
-    const apiKey = getVertexExpressApiKey(env)
-    response = await fetch(buildVertexExpressGenerateContentUrl(model, apiKey), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: vertexParts,
-          },
-        ],
-        generationConfig,
-      }),
-    })
-  } else {
-    const apiKey = getGeminiApiKey(env)
-    response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: studioParts,
-          },
-        ],
-        generationConfig,
-      }),
-    })
-  }
-
-  const payload = (await response.json()) as Record<string, unknown>
-  if (!response.ok) {
-    throw new Error(extractGeminiErrorMessage(payload))
-  }
+  const payload = await requestGoogleAiStudioGenerateContent(env, model, parts, generationConfig)
 
   const candidates = Array.isArray(payload.candidates) ? payload.candidates : []
   let imageDataUrl: string | null = null

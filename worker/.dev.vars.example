@@ -16,3 +16,7 @@ ASSEMBLYAI_WEBHOOK_SECRET=replace_with_random_secret
 # Optional: override webhook URL (default: ${origin}/api/assemblyai/webhook)
 # ASSEMBLYAI_WEBHOOK_URL=https://your-domain/api/assemblyai/webhook
 MEETING_KEYWORD_LIMIT=120
+# Optional: Google AI Studio Gemini image generation
+# GOOGLE_AI_API_KEY=your_google_ai_studio_api_key
+# GEMINI_API_KEY=your_google_ai_studio_api_key
+# GEMINI_IMAGE_MODEL=gemini-2.5-flash-image

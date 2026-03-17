@@ -145,7 +145,7 @@ export function GeminiImageTestView() {
               초기화
             </Button>
           </div>
-          <p className="muted small">배경 이미지나 레퍼런스 없이 Vertex/Gemini 연결만 빠르게 확인하는 내부 도구입니다.</p>
+          <p className="muted small">배경 이미지나 레퍼런스 없이 Google AI Studio Gemini API 연결만 빠르게 확인하는 내부 도구입니다.</p>
           {error ? <p className="error">{error}</p> : null}
         </article>
 
