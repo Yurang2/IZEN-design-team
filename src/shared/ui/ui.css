@@ -2056,6 +2056,10 @@ button.dashboardNavButton {
   gap: 10px;
 }
 
+.guideCardWide {
+  grid-column: 1 / -1;
+}
+
 .guideCard h3 {
   color: var(--text-main);
   font-size: 14px;
@@ -2072,6 +2076,15 @@ button.dashboardNavButton {
 .guideCard ol {
   margin: 0;
   padding-left: 18px;
+}
+
+.guideList {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.guideCaption {
+  margin: 0;
 }
 
 .guideTabGrid {
@@ -2122,6 +2135,16 @@ button.dashboardNavButton {
 
 .guideDbLink.is-muted {
   color: #64748b;
+}
+
+.guideTableWrap table {
+  min-width: 1100px;
+}
+
+.guideTableKey {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 [data-theme='v2'] .guideHero {
