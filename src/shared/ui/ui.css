@@ -3356,6 +3356,7 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsCueType.cue-lecture,
+.eventGraphicsCueType.cue-introduce,
 .eventGraphicsCueType.cue-opening,
 .eventGraphicsCueType.cue-certificate,
 .eventGraphicsCueType.cue-closing,
@@ -3721,6 +3722,20 @@ button.dashboardNavButton {
   color: var(--text-sub);
   font-size: 12px;
   padding: 12px;
+}
+
+.eventGraphicsSpeakerPptPlaceholder {
+  align-items: center;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border: 1px solid #111827;
+  border-radius: 12px;
+  color: #ffffff;
+  display: flex;
+  font-size: 18px;
+  font-weight: 800;
+  justify-content: center;
+  letter-spacing: 0.04em;
 }
 
 .eventGraphicsSubline {

@@ -133,6 +133,23 @@ function toCueSortValue(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
 }
 
+function usesSpeakerPptPlaceholder(cueType: string): boolean {
+  return cueType === 'introduce' || cueType === 'lecture'
+}
+
+function normalizeEventCueType(cueType: string, title: string): string {
+  const normalizedType = cueType.trim().toLowerCase()
+  const normalizedTitle = title.trim().toLowerCase()
+  if (normalizedType === 'lecture') return 'lecture'
+  if (normalizedType === 'introduce') return 'introduce'
+  if (/\bintroduction\b|\bintroduce\b/.test(normalizedTitle)) return 'introduce'
+  return normalizedType || 'other'
+}
+
+function supportsAppearanceStage(cueType: string): boolean {
+  return cueType === 'introduce' || cueType === 'lecture'
+}
+
 function normalizeTimetableMode(value: string): TimetableMode | null {
   const normalized = value.trim().toLowerCase()
   if (!normalized) return null
@@ -305,7 +322,7 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
     const shouldAttachToPreviousLecture =
       row.cueType === 'certificate' &&
       previousGroup &&
-      previousGroup.cueType === 'lecture' &&
+      ['introduce', 'lecture'].includes(previousGroup.cueType) &&
       normalizeSessionTitle(row.cueTitle) === previousGroup.title
 
     if (shouldAttachToPreviousLecture) {
@@ -321,7 +338,7 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
       previousGroup &&
       previousGroup.title === title &&
       previousGroup.cueNumber === rowCueNumber &&
-      ['opening', 'lecture'].includes(row.cueType)
+      supportsAppearanceStage(row.cueType)
 
     if (shouldAttachToPreviousOpeningOrLecture) {
       previousGroup.stages.push(stage)
@@ -425,6 +442,10 @@ function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, numb
   }
 }
 
+function SpeakerPptPlaceholder() {
+  return <div className="eventGraphicsSpeakerPptPlaceholder">강연자PPT</div>
+}
+
 function TimelineLayout({
   rows,
 }: {
@@ -454,6 +475,7 @@ function TimelineLayout({
               {group.stages.map((stage) => {
                 const stageStatusClassName = toStatusClassName(stage.status)
                 const hasPreview = hasVisualPreviewUrl(stage.previewHref)
+                const showSpeakerPptPlaceholder = stage.label === '메인' && usesSpeakerPptPlaceholder(stage.cueType)
                 return (
                   <div key={stage.id} className={`eventGraphicsTimelineStage status-${stageStatusClassName}`}>
                     <div className="eventGraphicsTimelineTime">
@@ -473,8 +495,10 @@ function TimelineLayout({
                       <div className="eventGraphicsTimelineAssets">
                         <div className="eventGraphicsCueSheetPanel">
                           <span className="eventGraphicsPanelLabel">그래픽</span>
-                          <strong>{stage.graphicLabel}</strong>
-                          {hasPreview ? (
+                          <strong>{showSpeakerPptPlaceholder ? '강연자PPT' : stage.graphicLabel}</strong>
+                          {showSpeakerPptPlaceholder ? (
+                            <SpeakerPptPlaceholder />
+                          ) : hasPreview ? (
                             <EventGraphicsPreviewMedia
                               src={stage.previewHref ?? ''}
                               alt={`${stage.title} 미리보기`}
@@ -682,6 +706,7 @@ function MasterfileAuditLayout({
   return (
     <div className="eventGraphicsAuditList">
       {cues.map((cue) => {
+        const normalizedCueType = normalizeEventCueType(cue.cueType, cue.title)
         const statusClassName = toStatusClassName(cue.status)
         const registeredFiles = cue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>
         const missingFiles = cue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>
@@ -699,7 +724,7 @@ function MasterfileAuditLayout({
             <div className="eventGraphicsAuditHead">
               <div className="eventGraphicsCueHead">
                 <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                <span className={`eventGraphicsCueType cue-${toCueTypeClassName(cue.cueType)}`}>{cue.cueType}</span>
+                <span className={`eventGraphicsCueType cue-${toCueTypeClassName(normalizedCueType)}`}>{normalizedCueType}</span>
               </div>
               <span className={`eventGraphicsStatus status-${statusClassName}`}>{cue.status}</span>
             </div>
@@ -715,7 +740,9 @@ function MasterfileAuditLayout({
             <div className="eventGraphicsAuditGrid">
               <section className="eventGraphicsAuditVisual">
                 <span className="eventGraphicsPanelLabel">등록 이미지</span>
-                {cue.previewUrl ? (
+                {usesSpeakerPptPlaceholder(normalizedCueType) ? (
+                  <SpeakerPptPlaceholder />
+                ) : cue.previewUrl ? (
                   <EventGraphicsPreviewMedia
                     src={cue.previewUrl}
                     alt={`${cue.title} 등록 이미지`}
@@ -800,7 +827,21 @@ export function EventGraphicsTimetableView({
         }),
     [columnIndex, rows],
   )
-  const tableRows = useMemo(() => normalizedRows.filter((row) => row.timetableMode === 'event'), [normalizedRows])
+  const tableRows = useMemo(
+    () =>
+      normalizedRows
+        .filter((row) => row.timetableMode === 'event')
+        .map((row) => ({
+          ...row,
+          cueType: normalizeEventCueType(row.cueType, row.cueTitle),
+        }))
+        .filter((row, index, allRows) => {
+          if (!isEntranceRow(row)) return true
+          const nextRow = allRows[index + 1]
+          return Boolean(nextRow && supportsAppearanceStage(nextRow.cueType))
+        }),
+    [normalizedRows],
+  )
   const exhibitionRowsFromDb = useMemo(
     () =>
       rows

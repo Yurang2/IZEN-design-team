@@ -41,7 +41,6 @@ type ShareRow = {
   endTime: string
   runtime: string
   graphicAsset: string
-  graphicType: string
   sourceVideo: string
   sourceAudio: string
   sourceRemark: string
@@ -58,6 +57,7 @@ const CUE_TYPE_LABELS: Record<EventGraphicsShareLocale, Record<string, string>> 
   en: {
     announcement: 'Announcement',
     opening: 'Opening',
+    introduce: 'Introduce',
     lecture: 'Lecture',
     certificate: 'Certificate',
     break: 'Break',
@@ -68,6 +68,7 @@ const CUE_TYPE_LABELS: Record<EventGraphicsShareLocale, Record<string, string>> 
   ko: {
     announcement: '공지',
     opening: '오프닝',
+    introduce: '인트로듀스',
     lecture: '강연',
     certificate: '증정',
     break: '브레이크',
@@ -80,6 +81,19 @@ const CUE_TYPE_LABELS: Record<EventGraphicsShareLocale, Record<string, string>> 
 export const eventGraphicsManifestByCueNumber = new Map<string, (typeof bangkokMasterfileManifest.cues)[number]>(
   bangkokMasterfileManifest.cues.map((cue) => [cue.cueNumber, cue]),
 )
+
+export function normalizeEventCueType(rawType: string, title: string): string {
+  const normalizedType = rawType.trim().toLowerCase()
+  const normalizedTitle = title.trim().toLowerCase()
+  if (normalizedType === 'lecture') return 'lecture'
+  if (normalizedType === 'introduce') return 'introduce'
+  if (/\bintroduction\b|\bintroduce\b/.test(normalizedTitle)) return 'introduce'
+  return normalizedType || 'other'
+}
+
+export function supportsAppearanceStage(cueType: string): boolean {
+  return cueType === 'introduce' || cueType === 'lecture'
+}
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
   return columns.reduce<Record<string, number>>((accumulator, column, index) => {
@@ -157,30 +171,30 @@ function isEntranceRow(row: ShareRow): boolean {
 function canMergeEntranceWithMainRow(entranceRow: ShareRow, mainRow: ShareRow | undefined): boolean {
   if (!mainRow) return false
   if (!isEntranceRow(entranceRow)) return false
-  if (!['opening', 'lecture'].includes(mainRow.cueType)) return false
+  if (!supportsAppearanceStage(mainRow.cueType)) return false
   if (entranceRow.eventName !== mainRow.eventName) return false
   if (entranceRow.cueOrder == null || mainRow.cueOrder == null) return false
   return Math.ceil(entranceRow.cueOrder) === Math.round(mainRow.cueOrder)
 }
 
 function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ShareRow {
-  const cueOrderText = readFirstCellText(row, columnIndex, ['정렬 순서', 'Cue 순서', '상영 순서', 'No'])
+  const cueOrderText = readFirstCellText(row, columnIndex, ['정렬 순서', 'Cue 순서', '운영 순서', 'No'])
   const cueOrderNumeric = Number(cueOrderText)
   const cueNumber = Number.isFinite(cueOrderNumeric) ? `Q${String(Math.ceil(cueOrderNumeric)).padStart(2, '0')}` : null
   const manifestCue = cueNumber ? eventGraphicsManifestByCueNumber.get(cueNumber) ?? null : null
+  const cueTitle = readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '제목') || '-'
 
   return {
     id: row.id,
     rowTitle: readCellText(row, columnIndex, '제목') || '-',
     cueOrder: Number.isFinite(cueOrderNumeric) ? cueOrderNumeric : null,
-    cueType: readFirstCellText(row, columnIndex, ['카테고리', 'Cue 유형']) || 'other',
-    cueTitle: readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '제목') || '-',
+    cueType: normalizeEventCueType(readFirstCellText(row, columnIndex, ['카테고리', 'Cue 유형']) || 'other', cueTitle),
+    cueTitle,
     eventName: readCellText(row, columnIndex, '행사명'),
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '상영시간(분)'),
     graphicAsset: readFirstCellText(row, columnIndex, ['메인 화면', '그래픽 자산명', 'Main Screen']) || '-',
-    graphicType: readFirstCellText(row, columnIndex, ['운영 액션', '그래픽 형식']) || '-',
     sourceVideo: readFirstCellText(row, columnIndex, ['메인 화면', '원본 Video', '그래픽 자산명']),
     sourceAudio: readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']),
     sourceRemark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),

@@ -61,7 +61,7 @@ export const bangkokMasterfileManifest = {
     {
       "cueNumber": "Q03",
       "title": "IZEN Product & Business Introduction (CEO)",
-      "cueType": "opening",
+      "cueType": "introduce",
       "eventName": "2026 IZEN Seminar in Bangkok",
       "storageGroup": "02_Files",
       "startTime": "9:42",

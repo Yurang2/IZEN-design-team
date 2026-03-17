@@ -796,6 +796,7 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
           options: [
             { name: 'announcement', color: 'gray' },
             { name: 'opening', color: 'blue' },
+            { name: 'introduce', color: 'purple' },
             { name: 'lecture', color: 'purple' },
             { name: 'certificate', color: 'yellow' },
             { name: 'break', color: 'orange' },
