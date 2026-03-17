@@ -27,6 +27,10 @@ Target DB title:
 | `스크린/구역` | `rich_text` | screen or zone |
 | `대표 이미지` | `files` | gallery preview |
 | `변환 전 파일명` | `rich_text` | source naming |
+| `기준 상영 기록` | `relation -> NOTION_SCREENING_HISTORY_DB_ID` | previous screening row used as the base |
+| `기준 활용 방식` | `select` | `reference/reuse_with_edit/replace` |
+| `최신화 검토 상태` | `select` | `pending/reviewed_ok/needs_update/updated/replaced` |
+| `최신화 검토 메모` | `rich_text` | review note for asset freshness |
 | `목표 상영 파일명` | `rich_text` | planned final filename |
 | `실제 상영 파일명` | `rich_text` | final played filename |
 | `화면 비율` | `select` | target ratio |

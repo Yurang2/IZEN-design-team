@@ -1682,7 +1682,8 @@ function App() {
     if (route.kind !== 'list') return
     if (activeView !== 'screeningPlan') return
     void fetchScreeningPlan()
-  }, [activeView, authState, fetchScreeningPlan, route.kind])
+    void fetchScreeningHistory()
+  }, [activeView, authState, fetchScreeningHistory, fetchScreeningPlan, route.kind])
 
   useEffect(() => {
     if (route.kind === 'eventGraphicsShare') {
@@ -1699,7 +1700,7 @@ function App() {
     const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
     if (activeView === 'schedule') jobs.push(fetchSchedule())
     if (activeView === 'screeningHistory') jobs.push(fetchScreeningHistory())
-    if (activeView === 'screeningPlan') jobs.push(fetchScreeningPlan())
+    if (activeView === 'screeningPlan') jobs.push(fetchScreeningPlan(), fetchScreeningHistory())
     if (activeView === 'eventGraphics') jobs.push(fetchEventGraphicsTimetable())
     await Promise.all(jobs)
   }, [activeView, fetchEventGraphicsTimetable, fetchProjects, fetchSchedule, fetchScreeningHistory, fetchScreeningPlan, fetchTasks])
@@ -2372,6 +2373,20 @@ function App() {
     }
     return map
   }, [tasks])
+
+  const screeningHistoryLabelMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    const titleIndex = screeningHistoryColumns.findIndex((column) => column.type === 'title')
+    const effectiveTitleIndex = titleIndex >= 0 ? titleIndex : 0
+    for (const row of screeningHistoryRows) {
+      const title = row.cells[effectiveTitleIndex]?.text?.trim()
+      if (!title || title === '-') continue
+      const normalized = row.id.replace(/-/g, '').toLowerCase()
+      map[normalized] = title
+      map[row.id] = title
+    }
+    return map
+  }, [screeningHistoryColumns, screeningHistoryRows])
 
   const screeningProjectVisualMap = useMemo(() => {
     const map: Record<string, { iconEmoji?: string; iconUrl?: string; coverUrl?: string }> = {}
@@ -3509,6 +3524,7 @@ function App() {
           relationColumnLabelMaps={{
             '귀속 프로젝트': screeningProjectLabelMap,
             '관련 업무': screeningTaskLabelMap,
+            '기준 상영 기록': screeningHistoryLabelMap,
           }}
           groupVisualMap={screeningProjectVisualMap}
         />

@@ -87,6 +87,11 @@ function getDetailColumnIndex(columns: ScheduleColumn[], entry: string | { label
   return -1
 }
 
+function getTitleColumnIndex(columns: ScheduleColumn[]): number {
+  const index = columns.findIndex((column) => column.type === 'title')
+  return index >= 0 ? index : 0
+}
+
 function ScreeningSkeleton({ columnCount }: { columnCount: number }) {
   return (
     <TableWrap>
@@ -165,6 +170,7 @@ export function ScreeningDbView({
 
   const groupIndex = getColumnIndex(columns, groupByColumnName)
   const thumbnailIndex = getColumnIndex(columns, thumbnailColumnName)
+  const titleIndex = getTitleColumnIndex(columns)
 
   const galleryGroups = useMemo<GalleryGroup[]>(() => {
     if (presentation !== 'gallery') return []
@@ -189,7 +195,7 @@ export function ScreeningDbView({
         })
       }
 
-      const title = resolveCellText(row.cells[0], columns[0]?.name, relationColumnLabelMaps)
+      const title = resolveCellText(row.cells[titleIndex], columns[titleIndex]?.name, relationColumnLabelMaps)
       const thumbCell = thumbnailIndex >= 0 ? row.cells[thumbnailIndex] : undefined
       const details = detailIndexes
         .map(({ label, index }) => ({
@@ -207,7 +213,7 @@ export function ScreeningDbView({
     }
 
     return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label, 'ko'))
-  }, [columns, detailColumnNames, filteredRows, groupByColumnName, groupIndex, groupVisualMap, groupedGallery, presentation, relationColumnLabelMaps, thumbnailIndex])
+  }, [columns, detailColumnNames, filteredRows, groupByColumnName, groupIndex, groupVisualMap, groupedGallery, presentation, relationColumnLabelMaps, thumbnailIndex, titleIndex])
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value)
@@ -365,7 +371,7 @@ export function ScreeningDbView({
             <thead>
               <tr>
                 {columns.map((column, index) => (
-                  <th key={column.id} className={index === 0 ? 'schedulePrimaryColumn' : undefined}>
+                  <th key={column.id} className={index === titleIndex ? 'schedulePrimaryColumn' : undefined}>
                     <div className="scheduleColumnHeader">
                       <strong>{column.name}</strong>
                       <span>{column.type}</span>
@@ -380,9 +386,9 @@ export function ScreeningDbView({
                   {columns.map((column, index) => {
                     const cell = row.cells[index]
                     const label = resolveCellText(cell, column.name, relationColumnLabelMaps)
-                    const cellClassName = index === 0 ? 'schedulePrimaryColumn scheduleCell' : 'scheduleCell'
+                    const cellClassName = index === titleIndex ? 'schedulePrimaryColumn scheduleCell' : 'scheduleCell'
 
-                    if (index === 0 && row.url) {
+                    if (index === titleIndex && row.url) {
                       return (
                         <td key={`${row.id}-${column.id}`} className={cellClassName}>
                           <a className="schedulePrimaryLink" href={row.url} target="_blank" rel="noreferrer">

@@ -671,6 +671,10 @@ const SCREENING_PLAN_HISTORY_PAGE_ID_FIELD = '\uD788\uC2A4\uD1A0\uB9AC \uD398\uC
 const SCREENING_PLAN_ACTUAL_PLAYED_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC5EC\uBD80'
 const SCREENING_PLAN_ACTUAL_ORDER_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC21C\uC11C'
 const SCREENING_PLAN_ISSUE_REASON_FIELD = '\uC774\uC288 \uC0AC\uC720'
+const SCREENING_PLAN_BASE_HISTORY_FIELD = '\uAE30\uC900 \uC0C1\uC601 \uAE30\uB85D'
+const SCREENING_PLAN_BASE_USAGE_MODE_FIELD = '\uAE30\uC900 \uD65C\uC6A9 \uBC29\uC2DD'
+const SCREENING_PLAN_REVIEW_STATUS_FIELD = '\uCD5C\uC2E0\uD654 \uAC80\uD1A0 \uC0C1\uD0DC'
+const SCREENING_PLAN_REVIEW_NOTE_FIELD = '\uCD5C\uC2E0\uD654 \uAC80\uD1A0 \uBA54\uBAA8'
 
 const SCREENING_HISTORY_PLAYED_FILE_NAME_ALIASES = ['\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85', '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85']
 const SCREENING_PLAN_ACTUAL_OUTPUT_ALIASES = ['\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85']
@@ -682,6 +686,20 @@ const SCREENING_PLAN_STATUS_OPTIONS = [
   { name: 'locked', color: 'blue' },
   { name: 'completed', color: 'purple' },
   { name: 'cancelled', color: 'red' },
+]
+
+const SCREENING_PLAN_BASE_USAGE_MODE_OPTIONS = [
+  { name: 'reference', color: 'gray' },
+  { name: 'reuse_with_edit', color: 'blue' },
+  { name: 'replace', color: 'red' },
+]
+
+const SCREENING_PLAN_REVIEW_STATUS_OPTIONS = [
+  { name: 'pending', color: 'gray' },
+  { name: 'reviewed_ok', color: 'green' },
+  { name: 'needs_update', color: 'orange' },
+  { name: 'updated', color: 'blue' },
+  { name: 'replaced', color: 'purple' },
 ]
 
 // Backward-compatible aliases for the older screening-video naming.
@@ -892,8 +910,12 @@ function buildScreeningHistoryPropertyDefinitions(projectDatabaseId: string, tas
   ]
 }
 
-function buildScreeningPlanPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): ScreeningFieldDefinition[] {
-  return [
+function buildScreeningPlanPropertyDefinitions(
+  projectDatabaseId: string,
+  taskDatabaseId: string,
+  historyDatabaseId: string | null,
+): ScreeningFieldDefinition[] {
+  const fields: ScreeningFieldDefinition[] = [
     {
       name: SCREENING_COMMON_PROJECT_FIELD,
       definition: {
@@ -954,7 +976,39 @@ function buildScreeningPlanPropertyDefinitions(projectDatabaseId: string, taskDa
     { name: SCREENING_PLAN_ACTUAL_PLAYED_FIELD, definition: { checkbox: {} } },
     { name: SCREENING_PLAN_ACTUAL_ORDER_FIELD, definition: { number: { format: 'number' } } },
     { name: SCREENING_PLAN_ISSUE_REASON_FIELD, definition: { rich_text: {} } },
+    {
+      name: SCREENING_PLAN_BASE_USAGE_MODE_FIELD,
+      definition: {
+        select: {
+          options: SCREENING_PLAN_BASE_USAGE_MODE_OPTIONS,
+        },
+      },
+    },
+    {
+      name: SCREENING_PLAN_REVIEW_STATUS_FIELD,
+      definition: {
+        select: {
+          options: SCREENING_PLAN_REVIEW_STATUS_OPTIONS,
+        },
+      },
+    },
+    { name: SCREENING_PLAN_REVIEW_NOTE_FIELD, definition: { rich_text: {} } },
   ]
+
+  if (historyDatabaseId) {
+    fields.splice(8, 0, {
+      name: SCREENING_PLAN_BASE_HISTORY_FIELD,
+      definition: {
+        relation: {
+          database_id: historyDatabaseId,
+          type: 'single_property',
+          single_property: {},
+        },
+      },
+    })
+  }
+
+  return fields
 }
 
 function getPropertyDefinitionType(definition: AnyMap): string {
@@ -1923,7 +1977,11 @@ export class NotionWorkService {
     return this.syncScreeningDatabaseProperties(
       this.getScreeningPlanDbId(),
       SCREENING_PLAN_DATABASE_TITLE,
-      buildScreeningPlanPropertyDefinitions(this.env.NOTION_PROJECT_DB_ID, this.env.NOTION_TASK_DB_ID),
+      buildScreeningPlanPropertyDefinitions(
+        this.env.NOTION_PROJECT_DB_ID,
+        this.env.NOTION_TASK_DB_ID,
+        this.getScreeningHistoryDbId() || null,
+      ),
     )
   }
 
