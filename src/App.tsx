@@ -1941,7 +1941,7 @@ function App() {
   }, [activeView, authState, fetchScreeningHistory, fetchScreeningPlan, route.kind])
 
   useEffect(() => {
-    if (route.kind === 'eventGraphicsShare') {
+    if (route.kind === 'eventGraphicsShare' || route.kind === 'eventGraphicsPrint') {
       void fetchEventGraphicsTimetable()
       return
     }
@@ -3276,7 +3276,7 @@ function App() {
     }
   }
 
-  if (AUTH_GATE_ENABLED && route.kind !== 'eventGraphicsShare' && authState !== 'authenticated') {
+  if (AUTH_GATE_ENABLED && route.kind !== 'eventGraphicsShare' && route.kind !== 'eventGraphicsPrint' && authState !== 'authenticated') {
     const checking = authState === 'checking'
     return (
       <div className="page authGateShell">
