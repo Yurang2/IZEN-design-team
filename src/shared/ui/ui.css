@@ -3896,7 +3896,7 @@ button.dashboardNavButton {
 .eventGraphicsAuditGrid {
   display: grid;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   grid-template-columns: minmax(140px, 0.72fr) minmax(210px, 1fr) minmax(210px, 1fr);
 }
 
@@ -3906,8 +3906,8 @@ button.dashboardNavButton {
   border: 1px solid var(--border);
   border-radius: 16px;
   display: grid;
-  gap: 4px;
-  padding: 8px;
+  gap: 2px;
+  padding: 6px;
 }
 
 .eventGraphicsAuditVisual .eventGraphicsPreviewInline,
@@ -3966,8 +3966,8 @@ button.dashboardNavButton {
   border: 1px solid var(--border);
   border-radius: 16px;
   display: grid;
-  gap: 10px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px;
 }
 
 .eventGraphicsAuditStageHead,
@@ -3994,10 +3994,10 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsAuditAssetRow {
-  align-items: start;
+  align-items: center;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 6px;
+  grid-template-columns: 74px minmax(0, 1fr);
 }
 
 .eventGraphicsAuditAssetRow .eventGraphicsAuditChipList,
@@ -4036,7 +4036,7 @@ button.dashboardNavButton {
   border-radius: 12px;
   display: grid;
   gap: 2px;
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 
 .eventGraphicsAuditFileList li strong,
@@ -4100,9 +4100,9 @@ button.dashboardNavButton {
 .eventGraphicsAuditMissing {
   border-top: 1px dashed var(--border);
   display: grid;
-  gap: 6px;
-  margin-top: 2px;
-  padding-top: 8px;
+  gap: 4px;
+  margin-top: 0;
+  padding-top: 6px;
 }
 
 .eventGraphicsAuditMissing.is-inline {
