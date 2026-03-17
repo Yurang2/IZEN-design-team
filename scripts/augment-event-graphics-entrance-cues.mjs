@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
+const CAPTURE_FIELD = '캡쳐(무조건 이미지형식)'
+const AUDIO_FILES_FIELD = '오디오파일'
 const ENTRANCE_ALLOWED_TYPES = new Set(['introduce', 'lecture'])
 
 function parseArgs(argv) {
@@ -37,31 +39,6 @@ function formatTime(totalMinutes) {
   return `${hour}:${String(minute).padStart(2, '0')}`
 }
 
-function splitAudio(value) {
-  const segments = String(value ?? '')
-    .split('/')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-
-  const entrance = segments.filter((entry) => /entrance audio/i.test(entry))
-  const remaining = segments.filter((entry) => !/entrance audio/i.test(entry))
-
-  return {
-    entrance: entrance.join(' / '),
-    remaining: remaining.join(' / '),
-  }
-}
-
-function buildEntranceAudio(row, audio) {
-  if (audio.entrance) return audio.entrance
-  return 'Entrance Audio 확인 필요'
-}
-
-function buildEntranceRemark(row) {
-  const base = '본 세션 직전 1분 등장 cue'
-  return row.sourceRemark ? `${base} / ${row.sourceRemark}` : base
-}
-
 function normalizeRow(rawRow) {
   return {
     original: { ...rawRow },
@@ -70,21 +47,13 @@ function normalizeRow(rawRow) {
     eventDate: String(rawRow['행사일'] ?? '').trim(),
     operationKey: String(rawRow['운영 키'] ?? '').trim(),
     cueOrder: Number.isFinite(Number(rawRow['정렬 순서'])) ? Number(rawRow['정렬 순서']) : null,
-    cueType: String(rawRow['카테고리'] ?? rawRow['Cue 유형'] ?? '').trim(),
+    cueType: String(rawRow['카테고리'] ?? '').trim(),
     cueTitle: String(rawRow['Cue 제목'] ?? '').trim(),
     startTime: String(rawRow['시작 시각'] ?? '').trim(),
     endTime: String(rawRow['종료 시각'] ?? '').trim(),
     runtimeMinutes: Number.isFinite(Number(rawRow['러닝타임(분)'])) ? Number(rawRow['러닝타임(분)']) : null,
     personnel: String(rawRow['무대 인원'] ?? '').trim(),
-    sourceVideo: String(rawRow['메인 화면'] ?? rawRow['원본 Video'] ?? '').trim(),
-    sourceAudio: String(rawRow['오디오'] ?? rawRow['원본 Audio'] ?? '').trim(),
-    sourceRemark: String(rawRow['운영 메모'] ?? rawRow['원본 비고'] ?? '').trim(),
-    graphicAssetName: String(rawRow['메인 화면'] ?? rawRow['그래픽 자산명'] ?? '').trim(),
-    graphicType: String(rawRow['운영 액션'] ?? rawRow['그래픽 형식'] ?? '').trim(),
-    previewLink: String(rawRow['미리보기 링크'] ?? '').trim(),
-    assetLink: String(rawRow['자산 링크'] ?? '').trim(),
-    status: String(rawRow['상태'] ?? '').trim(),
-    vendorNote: String(rawRow['운영 메모'] ?? rawRow['업체 전달 메모'] ?? rawRow['원본 비고'] ?? '').trim(),
+    operationNote: String(rawRow['운영 메모'] ?? '').trim(),
     projectName: String(rawRow['귀속 프로젝트'] ?? '').trim(),
   }
 }
@@ -93,23 +62,24 @@ function denormalizeRow(headers, row) {
   const next = {
     ...(row.original ?? {}),
     '행 제목': row.rowTitle,
-    '행사명': row.eventName,
-    '행사일': row.eventDate,
+    행사명: row.eventName,
+    행사일: row.eventDate,
     '운영 키': row.operationKey,
     '정렬 순서': row.cueOrder,
-    '카테고리': row.cueType,
+    카테고리: row.cueType,
     'Cue 제목': row.cueTitle,
     '시작 시각': row.startTime,
     '종료 시각': row.endTime,
     '러닝타임(분)': row.runtimeMinutes,
     '무대 인원': row.personnel,
-    '메인 화면': row.sourceVideo,
-    '오디오': row.sourceAudio,
-    '운영 메모': row.sourceRemark,
-    '운영 액션': row.graphicType,
-    '미리보기 링크': row.previewLink,
-    '자산 링크': row.assetLink,
-    '상태': row.status,
+    '메인 화면': '',
+    오디오: '',
+    '운영 메모': row.operationNote,
+    '미리보기 링크': '',
+    '자산 링크': '',
+    '운영 액션': '',
+    [CAPTURE_FIELD]: [],
+    [AUDIO_FILES_FIELD]: [],
     '귀속 프로젝트': row.projectName,
   }
 
@@ -117,10 +87,15 @@ function denormalizeRow(headers, row) {
 }
 
 function shouldInsertEntranceCue(row) {
-  if (!row.cueType || !ENTRANCE_ALLOWED_TYPES.has(row.cueType)) return false
+  if (!ENTRANCE_ALLOWED_TYPES.has(row.cueType)) return false
   if (!row.personnel || row.personnel === '-') return false
   if (row.runtimeMinutes == null || row.runtimeMinutes <= 1) return false
   return true
+}
+
+function buildEntranceNote(row) {
+  const base = '본 세션 직전 1분 등장 cue'
+  return row.operationNote ? `${base} / ${row.operationNote}` : base
 }
 
 function expandRows(rows) {
@@ -133,45 +108,30 @@ function expandRows(rows) {
     }
 
     const startMinutes = parseTime(row.startTime)
-    const endMinutes =
-      parseTime(row.endTime) ??
-      (startMinutes != null && row.runtimeMinutes != null ? startMinutes + row.runtimeMinutes : null)
+    const endMinutes = parseTime(row.endTime)
     if (startMinutes == null || endMinutes == null) {
       expanded.push(row)
       continue
     }
 
     const entranceEnd = startMinutes + 1
-    const audio = splitAudio(row.sourceAudio)
-    const introTitle = row.cueTitle ? `등장 - ${row.cueTitle}` : '등장'
-
     expanded.push({
       ...row,
-      original: row.original,
-      rowTitle: `[${row.eventName}] ${String(Math.round(row.cueOrder ?? 0)).padStart(2, '0')} ${introTitle}`.trim(),
+      rowTitle: `[${row.eventName}] ${String(Math.round(row.cueOrder ?? 0)).padStart(2, '0')} 등장 - ${row.cueTitle}`.trim(),
       operationKey: row.operationKey ? `${row.operationKey}::entrance` : '',
-      cueOrder: row.cueOrder,
       cueType: 'entrance',
       cueTitle: '등장',
       startTime: formatTime(startMinutes),
       endTime: formatTime(entranceEnd),
       runtimeMinutes: 1,
-      sourceVideo: `${row.cueTitle} 소개 그래픽`,
-      sourceAudio: buildEntranceAudio(row, audio),
-      sourceRemark: buildEntranceRemark(row),
-      graphicAssetName: `${row.cueTitle} 소개 그래픽`,
-      graphicType: row.graphicType || 'Hold',
-      previewLink: '',
-      assetLink: '',
+      operationNote: buildEntranceNote(row),
     })
 
     expanded.push({
       ...row,
-      original: row.original,
       startTime: formatTime(entranceEnd),
       endTime: formatTime(endMinutes),
-      runtimeMinutes: row.runtimeMinutes - 1,
-      sourceAudio: audio.remaining,
+      runtimeMinutes: Math.max(1, (row.runtimeMinutes ?? 0) - 1),
     })
   }
 
@@ -195,6 +155,7 @@ async function main() {
     ...outputRows.map((row) => headers.map((header) => escapeCsv(row[header])).join(',')),
   ]
 
+  parsed.generatedAt = new Date().toISOString()
   parsed.rowCount = outputRows.length
   parsed.rows = outputRows
 

@@ -4,9 +4,6 @@ const DEFAULT_ENV_PATH = 'worker/.dev.vars'
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
-const DEFAULT_SITE_ORIGIN = 'https://izen-design-team.pages.dev'
-const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
-const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 
 function parseArgs(argv) {
   const options = {
@@ -102,12 +99,6 @@ function extractRichTextValue(prop) {
   return ''
 }
 
-function extractNumberValue(prop) {
-  if (!prop || typeof prop !== 'object') return null
-  if (prop.type === 'number' && Number.isFinite(prop.number)) return Number(prop.number)
-  return null
-}
-
 function extractRelationIds(prop) {
   if (!prop || typeof prop !== 'object' || prop.type !== 'relation') return []
   return (prop.relation ?? []).map((entry) => entry?.id).filter(Boolean)
@@ -122,13 +113,14 @@ function normalizeNumber(value) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function buildOperationKey(mode, eventName, orderValue, category, cueTitle) {
-  const slugify = (value) =>
-    normalizeText(value)
-      .toLowerCase()
-      .replace(/[^a-z0-9가-힣]+/g, '-')
-      .replace(/^-+|-+$/g, '')
+function slugify(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 
+function buildOperationKey(mode, eventName, orderValue, category, cueTitle) {
   const eventSlug = slugify(eventName) || 'event'
   const modeSlug = slugify(mode) || 'event'
   const orderSlug = normalizeNumber(orderValue) != null ? String(Math.round(Number(orderValue))).padStart(2, '0') : '00'
@@ -148,21 +140,7 @@ function normalizeRow(rawRow) {
     normalizeNumber(rawRow['No'])
   const category = normalizeText(rawRow['카테고리']) || normalizeText(rawRow['Cue 유형'])
   const cueTitle = normalizeText(rawRow['Cue 제목'])
-  const startTime = normalizeText(rawRow['시작 시각'])
-  const endTime = normalizeText(rawRow['종료 시각'])
-  const runtimeMinutes = normalizeNumber(rawRow['러닝타임(분)'])
-  const personnel = normalizeText(rawRow['무대 인원'])
-  const mainScreen =
-    normalizeText(rawRow['메인 화면']) || normalizeText(rawRow['그래픽 자산명']) || normalizeText(rawRow['원본 Video'])
-  const audio = normalizeText(rawRow['오디오']) || normalizeText(rawRow['원본 Audio'])
-  const operationNote =
-    normalizeText(rawRow['운영 메모']) || normalizeText(rawRow['업체 전달 메모']) || normalizeText(rawRow['원본 비고'])
-  const trigger = normalizeText(rawRow['트리거 상황'])
-  const timeReference = normalizeText(rawRow['시간 기준'])
-  const previewLink = normalizeText(rawRow['미리보기 링크'])
-  const assetLink = normalizeText(rawRow['자산 링크'])
-  const operationKey =
-    normalizeText(rawRow['운영 키']) || buildOperationKey(timetableMode, eventName, sortOrder, category, cueTitle || rowTitle)
+  const operationKey = normalizeText(rawRow['운영 키']) || buildOperationKey(timetableMode, eventName, sortOrder, category, cueTitle || rowTitle)
 
   return {
     rowTitle,
@@ -173,77 +151,34 @@ function normalizeRow(rawRow) {
     sortOrder,
     category,
     cueTitle,
-    startTime,
-    endTime,
-    runtimeMinutes,
-    personnel,
-    mainScreen,
-    audio,
-    operationNote,
-    trigger,
-    timeReference,
-    previewLink,
-    assetLink,
+    startTime: normalizeText(rawRow['시작 시각']),
+    endTime: normalizeText(rawRow['종료 시각']),
+    runtimeMinutes: normalizeNumber(rawRow['러닝타임(분)']),
+    personnel: normalizeText(rawRow['무대 인원']),
+    mainScreen: normalizeText(rawRow['메인 화면']),
+    audio: normalizeText(rawRow['오디오']),
+    operationNote: normalizeText(rawRow['운영 메모']),
+    trigger: normalizeText(rawRow['트리거 상황']),
+    timeReference: normalizeText(rawRow['시간 기준']),
+    previewLink: normalizeText(rawRow['미리보기 링크']),
+    assetLink: normalizeText(rawRow['자산 링크']),
   }
 }
 
 function buildRichText(value) {
-  const text = String(value ?? '').trim()
+  const text = normalizeText(value)
   return text ? [{ text: { content: text } }] : []
 }
 
-function toAbsoluteExternalUrl(value) {
-  const normalized = normalizeText(value)
-  if (!normalized) return ''
-  if (/^https?:\/\//i.test(normalized)) return normalized
-  if (normalized.startsWith('/')) return `${DEFAULT_SITE_ORIGIN}${normalized}`
-  return ''
-}
-
-function normalizeExternalFilesInput(value) {
-  const buildEntry = (name, url) => {
-    const absolute = toAbsoluteExternalUrl(url)
-    if (!absolute) return null
-    const basename = absolute.split('/').filter(Boolean).pop() ?? 'file'
-    return {
-      name: normalizeText(name) || basename,
-      url: absolute,
-    }
-  }
-
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => {
-        if (typeof entry === 'string') return buildEntry('', entry)
-        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
-        return buildEntry(entry.name, entry.url)
-      })
-      .filter(Boolean)
-  }
-
-  if (typeof value === 'string') {
-    const normalized = normalizeText(value)
-    if (!normalized) return []
-    return normalized
-      .split(/\s*,\s*/g)
-      .map((entry) => buildEntry('', entry))
-      .filter(Boolean)
-  }
-
-  return []
-}
-
 function buildProperties(row, projectId) {
-  const captureFiles = normalizeExternalFilesInput(row[EVENT_GRAPHICS_CAPTURE_FILES_FIELD])
-  const audioFiles = normalizeExternalFilesInput(row[EVENT_GRAPHICS_AUDIO_FILES_FIELD])
   return {
     '행 제목': {
       title: buildRichText(row.rowTitle || row.cueTitle || `Item ${row.sortOrder ?? ''}`.trim()),
     },
-    '행사명': {
+    행사명: {
       rich_text: buildRichText(row.eventName),
     },
-    '행사일': {
+    행사일: {
       date: row.eventDate ? { start: row.eventDate } : null,
     },
     '타임테이블 유형': {
@@ -255,7 +190,7 @@ function buildProperties(row, projectId) {
     '정렬 순서': {
       number: row.sortOrder,
     },
-    '카테고리': {
+    카테고리: {
       select: row.category ? { name: row.category } : null,
     },
     'Cue 제목': {
@@ -282,22 +217,8 @@ function buildProperties(row, projectId) {
     '메인 화면': {
       rich_text: buildRichText(row.mainScreen),
     },
-    [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: {
-      files: captureFiles.map((entry) => ({
-        name: entry.name,
-        type: 'external',
-        external: { url: entry.url },
-      })),
-    },
-    '오디오': {
+    오디오: {
       rich_text: buildRichText(row.audio),
-    },
-    [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: {
-      files: audioFiles.map((entry) => ({
-        name: entry.name,
-        type: 'external',
-        external: { url: entry.url },
-      })),
     },
     '운영 메모': {
       rich_text: buildRichText(row.operationNote),
@@ -349,17 +270,8 @@ async function main() {
   for (const page of timetablePages) {
     const properties = page?.properties ?? {}
     const operationKey = extractRichTextValue(properties['운영 키'])
-    const legacySourceDocument = extractRichTextValue(properties['원본 문서'])
-    const legacySourceSheet = extractRichTextValue(properties['원본 시트'])
-    const legacySourceRowNumber = extractNumberValue(properties['원본 행번호'])
     const title = extractTitleValue(page)
-    const key =
-      operationKey ||
-      (legacySourceDocument && legacySourceSheet && legacySourceRowNumber != null
-        ? `${legacySourceDocument}::${legacySourceSheet}::${legacySourceRowNumber}`
-        : title
-      )
-    if (key) existingByKey.set(key, page)
+    if (operationKey) existingByKey.set(operationKey, page)
     if (title && !existingByTitle.has(title)) existingByTitle.set(title, page)
   }
 
