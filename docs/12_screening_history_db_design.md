@@ -27,7 +27,7 @@ Target DB title:
 | `스크린/구역` | `rich_text` | screen or zone |
 | `대표 이미지` | `files` | gallery preview |
 | `변환 전 파일명` | `rich_text` | original naming |
-| `실제 상영 파일명` | `rich_text` | actual played file |
+| `상영 당시 파일명` | `rich_text` | actual played file |
 | `화면 비율` | `select` | playback ratio |
 | `원본 준비 Row ID` | `rich_text` | source plan row id |
 

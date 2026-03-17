@@ -11,11 +11,12 @@ const DATE_FIELD = '\uC0C1\uC601\uC77C'
 const ORDER_FIELD = '\uC0C1\uC601 \uC21C\uC11C'
 const SCREEN_FIELD = '\uC2A4\uD06C\uB9B0/\uAD6C\uC5ED'
 const SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
-const OUTPUT_NAME_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85'
+const PLAYED_FILE_NAME_FIELD = '\uC0C1\uC601 \uB2F9\uC2DC \uD30C\uC77C\uBA85'
 const ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
 const THUMBNAIL_FIELD = '\uB300\uD45C \uC774\uBBF8\uC9C0'
 const RELATED_TASK_FIELD = '\uAD00\uB828 \uC5C5\uBB34'
 const SOURCE_PLAN_ID_FIELD = '\uC6D0\uBCF8 \uC900\uBE44 Row ID'
+const PLAYED_FILE_NAME_ALIASES = ['\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85', '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85']
 
 function parseArgs(argv) {
   const options = { envPath: DEFAULT_ENV_PATH }
@@ -97,7 +98,7 @@ function buildPropertyDefinitions(projectDatabaseId, taskDatabaseId) {
     { name: SCREEN_FIELD, definition: { rich_text: {} } },
     { name: THUMBNAIL_FIELD, definition: { files: {} } },
     { name: SOURCE_NAME_FIELD, definition: { rich_text: {} } },
-    { name: OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
+    { name: PLAYED_FILE_NAME_FIELD, definition: { rich_text: {} }, aliases: PLAYED_FILE_NAME_ALIASES },
     {
       name: ASPECT_RATIO_FIELD,
       definition: {
@@ -115,6 +116,22 @@ function buildPropertyDefinitions(projectDatabaseId, taskDatabaseId) {
     },
     { name: SOURCE_PLAN_ID_FIELD, definition: { rich_text: {} } },
   ]
+}
+
+function getPropertyDefinitionType(definition) {
+  return Object.keys(definition).find((key) => key !== 'name' && key !== 'aliases') ?? ''
+}
+
+function findAliasName(properties, field, plannedNames) {
+  const aliases = field.aliases ?? []
+  const expectedType = getPropertyDefinitionType(field.definition)
+  for (const alias of aliases) {
+    if (!alias || alias === field.name || plannedNames.has(alias)) continue
+    const prop = properties[alias]
+    if (!prop) continue
+    if (!expectedType || prop?.type === expectedType) return alias
+  }
+  return null
 }
 
 async function main() {
@@ -165,6 +182,13 @@ async function main() {
   for (const field of buildPropertyDefinitions(projectDbId, taskDbId)) {
     if (hasOwn(properties, field.name) || plannedNames.has(field.name)) {
       existing.push(field.name)
+      continue
+    }
+    const aliasName = findAliasName(properties, field, plannedNames)
+    if (aliasName) {
+      updates[aliasName] = { name: field.name }
+      renamed.push(`${aliasName}->${field.name}`)
+      plannedNames.add(field.name)
       continue
     }
     updates[field.name] = field.definition

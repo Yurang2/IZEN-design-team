@@ -3499,7 +3499,7 @@ function App() {
           presentation="gallery"
           groupByColumnName="귀속 프로젝트"
           thumbnailColumnName="대표 이미지"
-          detailColumnNames={['행사명', '상영일', '변환 후 파일명', '관련 업무']}
+          detailColumnNames={['행사명', '상영일', '상영 순서', '상영 당시 파일명', '관련 업무']}
           relationColumnLabelMaps={{
             '귀속 프로젝트': screeningProjectLabelMap,
             '관련 업무': screeningTaskLabelMap,

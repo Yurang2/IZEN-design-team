@@ -658,7 +658,8 @@ const SCREENING_COMMON_DATE_FIELD = '\uC0C1\uC601\uC77C'
 const SCREENING_COMMON_ORDER_FIELD = '\uC0C1\uC601 \uC21C\uC11C'
 const SCREENING_COMMON_SCREEN_FIELD = '\uC2A4\uD06C\uB9B0/\uAD6C\uC5ED'
 const SCREENING_COMMON_SOURCE_NAME_FIELD = '\uBCC0\uD658 \uC804 \uD30C\uC77C\uBA85'
-const SCREENING_COMMON_OUTPUT_NAME_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85'
+const SCREENING_HISTORY_PLAYED_FILE_NAME_FIELD = '\uC0C1\uC601 \uB2F9\uC2DC \uD30C\uC77C\uBA85'
+const SCREENING_PLAN_ACTUAL_OUTPUT_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85'
 const SCREENING_COMMON_ASPECT_RATIO_FIELD = '\uD654\uBA74 \uBE44\uC728'
 const SCREENING_COMMON_THUMBNAIL_FIELD = '\uB300\uD45C \uC774\uBBF8\uC9C0'
 const SCREENING_COMMON_RELATED_TASK_FIELD = '\uAD00\uB828 \uC5C5\uBB34'
@@ -670,6 +671,9 @@ const SCREENING_PLAN_HISTORY_PAGE_ID_FIELD = '\uD788\uC2A4\uD1A0\uB9AC \uD398\uC
 const SCREENING_PLAN_ACTUAL_PLAYED_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC5EC\uBD80'
 const SCREENING_PLAN_ACTUAL_ORDER_FIELD = '\uC2E4\uC81C \uC0C1\uC601 \uC21C\uC11C'
 const SCREENING_PLAN_ISSUE_REASON_FIELD = '\uC774\uC288 \uC0AC\uC720'
+
+const SCREENING_HISTORY_PLAYED_FILE_NAME_ALIASES = ['\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85', '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85']
+const SCREENING_PLAN_ACTUAL_OUTPUT_ALIASES = ['\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85']
 
 const SCREENING_PLAN_STATUS_OPTIONS = [
   { name: 'planned', color: 'gray' },
@@ -686,7 +690,7 @@ const SCREENING_VIDEO_TITLE_FIELD = SCREENING_COMMON_TITLE_FIELD
 const SCREENING_VIDEO_PROJECT_FIELD = SCREENING_COMMON_PROJECT_FIELD
 const SCREENING_VIDEO_EXHIBITION_FIELD = SCREENING_COMMON_EVENT_FIELD
 const SCREENING_VIDEO_SOURCE_NAME_FIELD = SCREENING_COMMON_SOURCE_NAME_FIELD
-const SCREENING_VIDEO_OUTPUT_NAME_FIELD = SCREENING_COMMON_OUTPUT_NAME_FIELD
+const SCREENING_VIDEO_OUTPUT_NAME_FIELD = SCREENING_HISTORY_PLAYED_FILE_NAME_FIELD
 const SCREENING_VIDEO_ASPECT_RATIO_FIELD = SCREENING_COMMON_ASPECT_RATIO_FIELD
 const SCREENING_VIDEO_THUMBNAIL_FIELD = SCREENING_COMMON_THUMBNAIL_FIELD
 
@@ -830,7 +834,13 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
   ]
 }
 
-function buildScreeningHistoryPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
+type ScreeningFieldDefinition = {
+  name: string
+  definition: AnyMap
+  aliases?: string[]
+}
+
+function buildScreeningHistoryPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): ScreeningFieldDefinition[] {
   return [
     {
       name: SCREENING_COMMON_PROJECT_FIELD,
@@ -858,7 +868,11 @@ function buildScreeningHistoryPropertyDefinitions(projectDatabaseId: string, tas
     { name: SCREENING_COMMON_SCREEN_FIELD, definition: { rich_text: {} } },
     { name: SCREENING_COMMON_THUMBNAIL_FIELD, definition: { files: {} } },
     { name: SCREENING_COMMON_SOURCE_NAME_FIELD, definition: { rich_text: {} } },
-    { name: SCREENING_COMMON_OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
+    {
+      name: SCREENING_HISTORY_PLAYED_FILE_NAME_FIELD,
+      definition: { rich_text: {} },
+      aliases: SCREENING_HISTORY_PLAYED_FILE_NAME_ALIASES,
+    },
     {
       name: SCREENING_COMMON_ASPECT_RATIO_FIELD,
       definition: {
@@ -878,7 +892,7 @@ function buildScreeningHistoryPropertyDefinitions(projectDatabaseId: string, tas
   ]
 }
 
-function buildScreeningPlanPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
+function buildScreeningPlanPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): ScreeningFieldDefinition[] {
   return [
     {
       name: SCREENING_COMMON_PROJECT_FIELD,
@@ -907,7 +921,11 @@ function buildScreeningPlanPropertyDefinitions(projectDatabaseId: string, taskDa
     { name: SCREENING_COMMON_THUMBNAIL_FIELD, definition: { files: {} } },
     { name: SCREENING_COMMON_SOURCE_NAME_FIELD, definition: { rich_text: {} } },
     { name: SCREENING_PLAN_TARGET_OUTPUT_FIELD, definition: { rich_text: {} } },
-    { name: SCREENING_COMMON_OUTPUT_NAME_FIELD, definition: { rich_text: {} } },
+    {
+      name: SCREENING_PLAN_ACTUAL_OUTPUT_FIELD,
+      definition: { rich_text: {} },
+      aliases: SCREENING_PLAN_ACTUAL_OUTPUT_ALIASES,
+    },
     {
       name: SCREENING_COMMON_ASPECT_RATIO_FIELD,
       definition: {
@@ -937,6 +955,29 @@ function buildScreeningPlanPropertyDefinitions(projectDatabaseId: string, taskDa
     { name: SCREENING_PLAN_ACTUAL_ORDER_FIELD, definition: { number: { format: 'number' } } },
     { name: SCREENING_PLAN_ISSUE_REASON_FIELD, definition: { rich_text: {} } },
   ]
+}
+
+function getPropertyDefinitionType(definition: AnyMap): string {
+  return Object.keys(definition).find((key) => key !== 'name' && key !== 'aliases') ?? ''
+}
+
+function findScreeningFieldAliasName(
+  properties: Record<string, any>,
+  field: ScreeningFieldDefinition,
+  plannedNames: Set<string>,
+): string | null {
+  const aliases = field.aliases ?? []
+  if (aliases.length === 0) return null
+
+  const expectedType = getPropertyDefinitionType(field.definition)
+  for (const alias of aliases) {
+    if (!alias || alias === field.name || plannedNames.has(alias)) continue
+    const prop = properties[alias]
+    if (!prop) continue
+    if (!expectedType || prop?.type === expectedType) return alias
+  }
+
+  return null
 }
 
 function extractRelationIdsFromProperty(prop: any): string[] {
@@ -1774,7 +1815,7 @@ export class NotionWorkService {
   private async syncScreeningDatabaseProperties(
     databaseId: string,
     databaseTitle: string,
-    fieldDefinitions: Array<{ name: string; definition: AnyMap }>,
+    fieldDefinitions: ScreeningFieldDefinition[],
   ): Promise<ScreeningSchemaSyncResult> {
     if (!databaseId) {
       return {
@@ -1831,6 +1872,13 @@ export class NotionWorkService {
     for (const field of fieldDefinitions) {
       if (hasOwn(properties, field.name) || plannedNames.has(field.name)) {
         existing.push(field.name)
+        continue
+      }
+      const aliasName = findScreeningFieldAliasName(properties, field, plannedNames)
+      if (aliasName) {
+        updates[aliasName] = { name: field.name }
+        renamed.push(`${aliasName}->${field.name}`)
+        plannedNames.add(field.name)
         continue
       }
       updates[field.name] = field.definition
@@ -1936,7 +1984,7 @@ export class NotionWorkService {
       const screenLabel = extractTextFromProperty(props[SCREENING_COMMON_SCREEN_FIELD])
       const sourceFileName = extractTextFromProperty(props[SCREENING_COMMON_SOURCE_NAME_FIELD])
       const actualOutputFileName =
-        extractTextFromProperty(props[SCREENING_COMMON_OUTPUT_NAME_FIELD]) ||
+        extractTextFromProperty(props[SCREENING_PLAN_ACTUAL_OUTPUT_FIELD]) ||
         extractTextFromProperty(props[SCREENING_PLAN_TARGET_OUTPUT_FIELD])
       const aspectRatio = extractTextFromProperty(props[SCREENING_COMMON_ASPECT_RATIO_FIELD])
       const taskIds = extractRelationIdsFromProperty(props[SCREENING_COMMON_RELATED_TASK_FIELD])
@@ -1951,7 +1999,7 @@ export class NotionWorkService {
         [SCREENING_COMMON_ORDER_FIELD]: { number: actualOrder ?? plannedOrder ?? null },
         [SCREENING_COMMON_SCREEN_FIELD]: screenLabel ? { rich_text: [{ text: { content: screenLabel } }] } : { rich_text: [] },
         [SCREENING_COMMON_SOURCE_NAME_FIELD]: sourceFileName ? { rich_text: [{ text: { content: sourceFileName } }] } : { rich_text: [] },
-        [SCREENING_COMMON_OUTPUT_NAME_FIELD]: actualOutputFileName
+        [SCREENING_HISTORY_PLAYED_FILE_NAME_FIELD]: actualOutputFileName
           ? { rich_text: [{ text: { content: actualOutputFileName } }] }
           : { rich_text: [] },
         [SCREENING_COMMON_ASPECT_RATIO_FIELD]: aspectRatio ? { select: { name: aspectRatio } } : { select: null },
