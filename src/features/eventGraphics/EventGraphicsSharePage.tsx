@@ -76,14 +76,6 @@ type CopySet = {
   notConnectedMessage: string
   emptyTitle: string
   emptyMessage: string
-  description: string
-  summaryLabel: string
-  eventCount: string
-  playbackCues: string
-  missingPreview: string
-  checkGraphic: string
-  noAudio: string
-  groupCount: (count: number) => string
   image: string
   noPreview: string
   start: string
@@ -109,14 +101,6 @@ const COPY: Record<Locale, CopySet> = {
     notConnectedMessage: 'The external share page could not read timetable data yet.',
     emptyTitle: 'No playback cues to display.',
     emptyMessage: 'There are no cues ready for the external playback view.',
-    description: 'This vendor view merges entrance and main session cues into one playback order. Follow Start, then Then / Hold.',
-    summaryLabel: 'Playback cue summary',
-    eventCount: 'Events',
-    playbackCues: 'Playback cues',
-    missingPreview: 'Missing preview',
-    checkGraphic: 'Check graphic',
-    noAudio: 'No audio',
-    groupCount: (count) => `${count} playback cues`,
     image: 'Image',
     noPreview: 'No preview image available.',
     start: 'Start',
@@ -137,14 +121,6 @@ const COPY: Record<Locale, CopySet> = {
     notConnectedMessage: '외부 공유 페이지에서 타임테이블 데이터를 아직 읽어오지 못했습니다.',
     emptyTitle: '표시할 운영 큐가 없습니다.',
     emptyMessage: '업체용 운영 뷰에 표시할 큐 데이터가 없습니다.',
-    description: '입장과 본세션을 한 개 운영 큐로 합친 미디어업체용 화면입니다. 각 큐에서 Start 후 Then / Hold 순서로 진행하면 됩니다.',
-    summaryLabel: '운영 큐 요약',
-    eventCount: '행사 수',
-    playbackCues: '운영 큐',
-    missingPreview: '이미지 없음',
-    checkGraphic: '그래픽 확인 필요',
-    noAudio: '오디오 없음',
-    groupCount: (count) => `총 ${count}개 운영 큐`,
     image: '이미지',
     noPreview: '등록된 이미지가 없습니다.',
     start: '시작',
@@ -514,13 +490,6 @@ export function EventGraphicsSharePage({
     return databaseTitle.trim() || 'Event Graphics Timetable'
   }, [databaseTitle, groupedCues])
 
-  const missingPreviewCount = useMemo(() => vendorCues.filter((cue) => !hasVisualPreviewUrl(cue.previewHref)).length, [vendorCues])
-  const missingGraphicCount = useMemo(() => vendorCues.filter((cue) => !cue.startGraphic || cue.startGraphic === MISSING_FILE_LABEL).length, [vendorCues])
-  const missingAudioCount = useMemo(
-    () => vendorCues.filter((cue) => !cue.startAudio && !cue.nextAudio).length,
-    [vendorCues],
-  )
-
   if (loading) {
     return (
       <main className="eventGraphicsShareShell">
@@ -568,7 +537,6 @@ export function EventGraphicsSharePage({
             <div className="eventGraphicsShareHeroText">
               <p className="muted small">{copy.externalShare}</p>
               <h1>{pageTitle}</h1>
-              <p>{copy.description}</p>
             </div>
             <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Language selector">
               <button
@@ -589,28 +557,6 @@ export function EventGraphicsSharePage({
               </button>
             </div>
           </div>
-          <div className="eventGraphicsShareSummary" aria-label={copy.summaryLabel}>
-            <article>
-              <span>{copy.eventCount}</span>
-              <strong>{groupedCues.length}</strong>
-            </article>
-            <article>
-              <span>{copy.playbackCues}</span>
-              <strong>{vendorCues.length}</strong>
-            </article>
-            <article>
-              <span>{copy.missingPreview}</span>
-              <strong>{missingPreviewCount}</strong>
-            </article>
-            <article>
-              <span>{copy.checkGraphic}</span>
-              <strong>{missingGraphicCount}</strong>
-            </article>
-            <article>
-              <span>{copy.noAudio}</span>
-              <strong>{missingAudioCount}</strong>
-            </article>
-          </div>
         </header>
 
         <div className="eventGraphicsShareList">
@@ -618,7 +564,6 @@ export function EventGraphicsSharePage({
             <section key={group.eventName} className="eventGraphicsShareGroup">
               <header className="eventGraphicsShareGroupHead">
                 <h2>{group.eventName}</h2>
-                <p>{copy.groupCount(group.cues.length)}</p>
               </header>
 
               <div className="eventGraphicsShareGroupList">
@@ -650,10 +595,8 @@ export function EventGraphicsSharePage({
 
                       <div className="eventGraphicsShareBody">
                         <div className="eventGraphicsShareHead">
-                          <div className="eventGraphicsCueHead">
-                            <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                            <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
-                          </div>
+                          <span className="eventGraphicsOrder">{cue.cueNumber}</span>
+                          <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
                           <h3>{cue.title}</h3>
                           <p>{cue.note || copy.noSpecialNote}</p>
                         </div>

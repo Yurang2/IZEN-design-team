@@ -4251,29 +4251,23 @@ button.dashboardNavButton {
 
 .eventGraphicsSharePage {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   margin: 0 auto;
   max-width: 1180px;
 }
 
 .eventGraphicsShareHero {
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(205, 214, 227, 0.95);
-  border-radius: 24px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 24px;
-}
-
-.eventGraphicsShareHeroText {
   display: grid;
   gap: 8px;
 }
 
+.eventGraphicsShareHeroText {
+  display: grid;
+  gap: 4px;
+}
+
 .eventGraphicsShareHeroTop {
-  align-items: start;
+  align-items: end;
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -4284,10 +4278,6 @@ button.dashboardNavButton {
   margin: 0;
 }
 
-.eventGraphicsShareHeroText p:last-child {
-  margin: 0;
-}
-
 .eventGraphicsLocaleSwitch {
   align-items: center;
   display: inline-flex;
@@ -4295,47 +4285,18 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
-.eventGraphicsShareSummary {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-}
-
-.eventGraphicsShareSummary article {
-  background: color-mix(in srgb, white 70%, var(--surface-soft));
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  display: grid;
-  gap: 4px;
-  padding: 14px 16px;
-}
-
-.eventGraphicsShareSummary span {
-  color: var(--text-sub);
-  font-size: 12px;
-}
-
-.eventGraphicsShareSummary strong {
-  color: var(--text-main);
-  font-size: 24px;
-}
-
 .eventGraphicsShareList {
-  display: grid;
-  gap: 14px;
-}
-
-.eventGraphicsShareGroup {
   display: grid;
   gap: 12px;
 }
 
+.eventGraphicsShareGroup {
+  display: grid;
+  gap: 8px;
+}
+
 .eventGraphicsShareGroupHead {
-  align-items: end;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  padding: 4px 4px 0;
+  padding: 0 2px;
 }
 
 .eventGraphicsShareGroupHead h2,
@@ -4344,23 +4305,18 @@ button.dashboardNavButton {
   margin: 0;
 }
 
-.eventGraphicsShareGroupHead p {
-  color: var(--text-sub);
-  margin: 0;
-}
-
 .eventGraphicsShareGroupList {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .eventGraphicsShareRow {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(205, 214, 227, 0.95);
-  border-radius: 24px;
-  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.06);
+  border-radius: 20px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
   display: grid;
-  grid-template-columns: 136px minmax(0, 1fr);
+  grid-template-columns: 112px minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -4373,13 +4329,13 @@ button.dashboardNavButton {
   background:
     linear-gradient(180deg, rgba(226, 238, 255, 0.72), rgba(240, 246, 255, 0.8));
   display: grid;
-  gap: 6px;
-  padding: 18px 16px;
+  gap: 4px;
+  padding: 14px 12px;
 }
 
 .eventGraphicsShareTime strong {
   color: var(--text-main);
-  font-size: 28px;
+  font-size: 24px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -4392,19 +4348,29 @@ button.dashboardNavButton {
 
 .eventGraphicsShareBody {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
 }
 
 .eventGraphicsShareHead {
-  display: grid;
-  gap: 6px;
+  align-items: baseline;
+  column-gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 
 .eventGraphicsShareHead p {
   color: var(--text-sub);
+  flex: 1 1 280px;
   font-size: 11px;
   margin: 0;
+}
+
+.eventGraphicsShareHead h3 {
+  flex: 0 1 auto;
+  font-size: 18px;
+  min-width: 0;
 }
 
 .eventGraphicsShareSection {
@@ -4420,16 +4386,10 @@ button.dashboardNavButton {
   text-transform: uppercase;
 }
 
-.eventGraphicsShareTimelineGrid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-}
-
 .eventGraphicsShareAssetGrid {
   display: grid;
   gap: 6px;
-  grid-template-columns: minmax(140px, 0.72fr) minmax(210px, 1fr) minmax(210px, 1fr);
+  grid-template-columns: minmax(116px, 0.56fr) minmax(200px, 1fr) minmax(200px, 1fr);
 }
 
 .eventGraphicsShareVisual,
@@ -4543,8 +4503,6 @@ button.dashboardNavButton {
     width: 100%;
   }
 
-  .eventGraphicsShareSummary,
-  .eventGraphicsShareTimelineGrid,
   .eventGraphicsShareAssetGrid,
   .eventGraphicsShareCore,
   .eventGraphicsTimelineStage,
@@ -4606,24 +4564,16 @@ button.dashboardNavButton {
   }
 
   .eventGraphicsSharePage {
-    gap: 10px;
+    gap: 8px;
     max-width: none;
   }
 
   .eventGraphicsShareHero {
-    border: 1px solid #d4d4d4;
-    border-radius: 0;
-    box-shadow: none;
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .eventGraphicsShareSummary {
-    display: none;
+    gap: 4px;
   }
 
   .eventGraphicsShareList {
-    gap: 8px;
+    gap: 6px;
   }
 
   .eventGraphicsShareRow {
@@ -4632,30 +4582,30 @@ button.dashboardNavButton {
     border-radius: 0;
     box-shadow: none;
     break-inside: avoid;
-    grid-template-columns: 88px minmax(0, 1fr);
+    grid-template-columns: 76px minmax(0, 1fr);
   }
 
   .eventGraphicsShareTime {
     background: #f5f5f5;
     gap: 2px;
-    padding: 10px 8px;
+    padding: 8px 7px;
   }
 
   .eventGraphicsShareTime strong {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .eventGraphicsShareBody {
-    gap: 8px;
-    padding: 10px;
+    gap: 6px;
+    padding: 8px;
   }
 
   .eventGraphicsShareHead h2 {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .eventGraphicsShareHead h3 {
-    font-size: 18px;
+    font-size: 15px;
   }
 
   .eventGraphicsShareVisual,
@@ -4667,19 +4617,18 @@ button.dashboardNavButton {
     padding: 8px;
   }
 
-  .eventGraphicsShareTimelineGrid {
-    gap: 8px;
-    grid-template-columns: 124px minmax(0, 1fr);
-  }
-
   .eventGraphicsShareAssetGrid {
-    gap: 8px;
-    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    grid-template-columns: 108px minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .eventGraphicsShareCore {
     gap: 8px;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .eventGraphicsLocaleSwitch {
+    display: none;
   }
 
   .eventGraphicsPreviewPlaceholder,

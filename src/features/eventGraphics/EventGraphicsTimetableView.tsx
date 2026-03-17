@@ -80,7 +80,7 @@ type SessionGroup = {
 const EXTERNAL_SHARE_PATH = '/share/timetable'
 const ENTRANCE_LABEL = '입장'
 const APPEARANCE_LABEL = '등장'
-const DRIVE_CHECKLIST_STORAGE_KEY = 'event-graphics-drive-checklist:v1'
+const DRIVE_CHECKLIST_STORAGE_KEY = 'event-graphics-drive-checklist:v2'
 const masterfileCueByNumber = new Map<string, MasterfileCue>(bangkokMasterfileManifest.cues.map((cue) => [cue.cueNumber, cue]))
 
 function buildColumnIndex(columns: ScheduleColumn[]): Record<string, number> {
@@ -124,6 +124,13 @@ function toStatusClassName(value: string): string {
 
 function toCueTypeClassName(value: string): string {
   return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+}
+
+function toCueSortValue(value: string): number {
+  const match = value.match(/(\d+(?:\.\d+)?)/)
+  if (!match) return Number.MAX_SAFE_INTEGER
+  const parsed = Number(match[1])
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
 }
 
 function normalizeTimetableMode(value: string): TimetableMode | null {
@@ -832,10 +839,16 @@ export function EventGraphicsTimetableView({
 
   const filteredMasterfileCues = useMemo(
     () =>
-      bangkokMasterfileManifest.cues.filter((cue) => {
-        if (statusFilter && cue.status !== statusFilter) return false
-        return matchesMasterfileQuery(cue, normalizedQuery)
-      }),
+      bangkokMasterfileManifest.cues
+        .filter((cue) => {
+          if (statusFilter && cue.status !== statusFilter) return false
+          return matchesMasterfileQuery(cue, normalizedQuery)
+        })
+        .sort((left, right) => {
+          const orderDiff = toCueSortValue(left.cueNumber) - toCueSortValue(right.cueNumber)
+          if (orderDiff !== 0) return orderDiff
+          return left.startTime.localeCompare(right.startTime, 'en')
+        }),
     [normalizedQuery, statusFilter],
   )
   const filteredExhibitionRows = useMemo(
