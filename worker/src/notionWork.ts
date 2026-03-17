@@ -645,6 +645,53 @@ function serializeScheduleCell(prop: any, column: ScheduleColumn): ScheduleCell 
   }
 }
 
+function normalizeEventGraphicsExternalFilesInput(value: unknown): Array<{ name: string; url: string }> {
+  const DEFAULT_SITE_ORIGIN = 'https://izen-design-team.pages.dev'
+  const toAbsoluteUrl = (candidate: string): string => {
+    const normalized = normalizeText(candidate)
+    if (!normalized) return ''
+    if (/^https?:\/\//i.test(normalized)) return normalized
+    if (normalized.startsWith('/')) return `${DEFAULT_SITE_ORIGIN}${normalized}`
+    return ''
+  }
+  const inferName = (candidate: string): string => {
+    const absolute = toAbsoluteUrl(candidate)
+    const raw = absolute || normalizeText(candidate)
+    const basename = raw.split('/').filter(Boolean).pop() ?? ''
+    return basename || 'file'
+  }
+  const buildEntry = (name: string, url: string): { name: string; url: string } | null => {
+    const absolute = toAbsoluteUrl(url)
+    if (!absolute) return null
+    return {
+      name: normalizeText(name) || inferName(absolute),
+      url: absolute,
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (typeof entry === 'string') return buildEntry('', entry)
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
+        const typed = entry as Record<string, unknown>
+        return buildEntry(typeof typed.name === 'string' ? typed.name : '', typeof typed.url === 'string' ? typed.url : '')
+      })
+      .filter((entry): entry is { name: string; url: string } => Boolean(entry))
+  }
+
+  if (typeof value === 'string') {
+    const normalized = normalizeText(value)
+    if (!normalized) return []
+    return normalized
+      .split(/\s*,\s*/g)
+      .map((entry) => buildEntry('', entry))
+      .filter((entry): entry is { name: string; url: string } => Boolean(entry))
+  }
+
+  return []
+}
+
 function parseDbTitle(db: any): string {
   return (db?.title ?? []).map((item: any) => item?.plain_text ?? '').join('').trim()
 }
@@ -712,6 +759,24 @@ const SCREENING_VIDEO_OUTPUT_NAME_FIELD = SCREENING_HISTORY_PLAYED_FILE_NAME_FIE
 const SCREENING_VIDEO_ASPECT_RATIO_FIELD = SCREENING_COMMON_ASPECT_RATIO_FIELD
 const SCREENING_VIDEO_THUMBNAIL_FIELD = SCREENING_COMMON_THUMBNAIL_FIELD
 
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
+const EVENT_GRAPHICS_DEPRECATED_FIELDS = [
+  'Cue 순서',
+  'Cue 유형',
+  '원본 Video',
+  '원본 Audio',
+  '원본 비고',
+  '그래픽 형식',
+  '그래픽 자산명',
+  '업체 전달 메모',
+  '프로젝트명 스냅샷',
+  '원본 문서',
+  '원본 시트',
+  '원본 행번호',
+  '담당자',
+] as const
+
 const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '행 제목',
   '행사명',
@@ -726,7 +791,9 @@ const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '시간 기준',
   '러닝타임(분)',
   '메인 화면',
+  EVENT_GRAPHICS_CAPTURE_FILES_FIELD,
   '오디오',
+  EVENT_GRAPHICS_AUDIO_FILES_FIELD,
   '무대 인원',
   '운영 액션',
   '운영 메모',
@@ -819,7 +886,9 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
     { name: '러닝타임(분)', definition: { number: { format: 'number' } } },
     { name: '무대 인원', definition: { rich_text: {} } },
     { name: '메인 화면', definition: { rich_text: {} } },
+    { name: EVENT_GRAPHICS_CAPTURE_FILES_FIELD, definition: { files: {} } },
     { name: '오디오', definition: { rich_text: {} } },
+    { name: EVENT_GRAPHICS_AUDIO_FILES_FIELD, definition: { files: {} } },
     { name: '운영 메모', definition: { rich_text: {} } },
     {
       name: '운영 액션',
@@ -2315,6 +2384,12 @@ export class NotionWorkService {
       created.push(field.name)
     }
 
+    for (const fieldName of EVENT_GRAPHICS_DEPRECATED_FIELDS) {
+      if (hasOwn(updates, fieldName)) continue
+      if (!hasOwn(properties, fieldName)) continue
+      updates[fieldName] = null
+    }
+
     if (Object.keys(updates).length > 0) {
       await this.api.updateDatabase(databaseId, { properties: updates })
     }
@@ -2519,6 +2594,13 @@ export class NotionWorkService {
       const relationIds = projectRelationId ? [projectRelationId] : existingRelationIds
 
       const buildRichText = (value: string) => (value ? [{ text: { content: value } }] : [])
+      const buildExternalFiles = (value: unknown) => ({
+        files: normalizeEventGraphicsExternalFilesInput(value).map((entry) => ({
+          name: entry.name,
+          type: 'external',
+          external: { url: entry.url },
+        })),
+      })
       const properties: AnyMap = {
         '행 제목': {
           title: buildRichText(title || `[${eventName || 'Event'}] ${String(readNumber('정렬 순서') ?? '').trim()}`.trim()),
@@ -2541,7 +2623,9 @@ export class NotionWorkService {
         '러닝타임(분)': { number: readNumber('러닝타임(분)') },
         '무대 인원': { rich_text: buildRichText(readText('무대 인원')) },
         '메인 화면': { rich_text: buildRichText(readText('메인 화면') || readText('그래픽 자산명') || readText('원본 Video')) },
+        [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_CAPTURE_FILES_FIELD]),
         '오디오': { rich_text: buildRichText(readText('오디오') || readText('원본 Audio')) },
+        [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_AUDIO_FILES_FIELD]),
         '운영 액션': { select: readText('운영 액션') ? { name: readText('운영 액션') } : null },
         '운영 메모': {
           rich_text: buildRichText(readText('운영 메모') || readText('업체 전달 메모') || readText('원본 비고')),

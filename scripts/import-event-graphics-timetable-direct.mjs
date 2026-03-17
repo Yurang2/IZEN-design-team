@@ -4,6 +4,9 @@ const DEFAULT_ENV_PATH = 'worker/.dev.vars'
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
+const DEFAULT_SITE_ORIGIN = 'https://izen-design-team.pages.dev'
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 
 function parseArgs(argv) {
   const options = {
@@ -193,7 +196,50 @@ function buildRichText(value) {
   return text ? [{ text: { content: text } }] : []
 }
 
+function toAbsoluteExternalUrl(value) {
+  const normalized = normalizeText(value)
+  if (!normalized) return ''
+  if (/^https?:\/\//i.test(normalized)) return normalized
+  if (normalized.startsWith('/')) return `${DEFAULT_SITE_ORIGIN}${normalized}`
+  return ''
+}
+
+function normalizeExternalFilesInput(value) {
+  const buildEntry = (name, url) => {
+    const absolute = toAbsoluteExternalUrl(url)
+    if (!absolute) return null
+    const basename = absolute.split('/').filter(Boolean).pop() ?? 'file'
+    return {
+      name: normalizeText(name) || basename,
+      url: absolute,
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (typeof entry === 'string') return buildEntry('', entry)
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
+        return buildEntry(entry.name, entry.url)
+      })
+      .filter(Boolean)
+  }
+
+  if (typeof value === 'string') {
+    const normalized = normalizeText(value)
+    if (!normalized) return []
+    return normalized
+      .split(/\s*,\s*/g)
+      .map((entry) => buildEntry('', entry))
+      .filter(Boolean)
+  }
+
+  return []
+}
+
 function buildProperties(row, projectId) {
+  const captureFiles = normalizeExternalFilesInput(row[EVENT_GRAPHICS_CAPTURE_FILES_FIELD])
+  const audioFiles = normalizeExternalFilesInput(row[EVENT_GRAPHICS_AUDIO_FILES_FIELD])
   return {
     '행 제목': {
       title: buildRichText(row.rowTitle || row.cueTitle || `Item ${row.sortOrder ?? ''}`.trim()),
@@ -240,8 +286,22 @@ function buildProperties(row, projectId) {
     '메인 화면': {
       rich_text: buildRichText(row.mainScreen),
     },
+    [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: {
+      files: captureFiles.map((entry) => ({
+        name: entry.name,
+        type: 'external',
+        external: { url: entry.url },
+      })),
+    },
     '오디오': {
       rich_text: buildRichText(row.audio),
+    },
+    [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: {
+      files: audioFiles.map((entry) => ({
+        name: entry.name,
+        type: 'external',
+        external: { url: entry.url },
+      })),
     },
     '운영 메모': {
       rich_text: buildRichText(row.operationNote),

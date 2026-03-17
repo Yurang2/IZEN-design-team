@@ -62,6 +62,24 @@ function hasOwn(target, key) {
   return Object.prototype.hasOwnProperty.call(target, key)
 }
 
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
+const EVENT_GRAPHICS_DEPRECATED_FIELDS = [
+  'Cue 순서',
+  'Cue 유형',
+  '원본 Video',
+  '원본 Audio',
+  '원본 비고',
+  '그래픽 형식',
+  '그래픽 자산명',
+  '업체 전달 메모',
+  '프로젝트명 스냅샷',
+  '원본 문서',
+  '원본 시트',
+  '원본 행번호',
+  '담당자',
+]
+
 function buildPropertyDefinitions(projectDatabaseId) {
   return [
     {
@@ -96,6 +114,7 @@ function buildPropertyDefinitions(projectDatabaseId) {
           options: [
             { name: 'announcement', color: 'gray' },
             { name: 'opening', color: 'blue' },
+            { name: 'introduce', color: 'purple' },
             { name: 'lecture', color: 'purple' },
             { name: 'certificate', color: 'yellow' },
             { name: 'break', color: 'orange' },
@@ -117,7 +136,9 @@ function buildPropertyDefinitions(projectDatabaseId) {
     { name: '시간 기준', definition: { rich_text: {} } },
     { name: '러닝타임(분)', definition: { number: { format: 'number' } } },
     { name: '메인 화면', definition: { rich_text: {} } },
+    { name: EVENT_GRAPHICS_CAPTURE_FILES_FIELD, definition: { files: {} } },
     { name: '오디오', definition: { rich_text: {} } },
+    { name: EVENT_GRAPHICS_AUDIO_FILES_FIELD, definition: { files: {} } },
     { name: '무대 인원', definition: { rich_text: {} } },
     {
       name: '운영 액션',
@@ -204,6 +225,12 @@ async function main() {
     }
     updates[field.name] = field.definition
     created.push(field.name)
+  }
+
+  for (const fieldName of EVENT_GRAPHICS_DEPRECATED_FIELDS) {
+    if (hasOwn(updates, fieldName)) continue
+    if (!hasOwn(properties, fieldName)) continue
+    updates[fieldName] = null
   }
 
   if (Object.keys(updates).length > 0) {

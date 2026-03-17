@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
-const ENTRANCE_ALLOWED_TYPES = new Set(['opening', 'lecture'])
+const ENTRANCE_ALLOWED_TYPES = new Set(['opening', 'introduce', 'lecture'])
 
 function parseArgs(argv) {
   const options = {
@@ -63,93 +63,57 @@ function buildEntranceRemark(row) {
 }
 
 function normalizeRow(rawRow) {
-  const values = Object.values(rawRow)
-  const [
-    rowTitle,
-    _projectRelation,
-    projectSnapshot,
-    eventName,
-    eventDate,
-    cueOrder,
-    cueType,
-    cueTitle,
-    startTime,
-    endTime,
-    runtimeMinutes,
-    personnel,
-    sourceVideo,
-    sourceAudio,
-    sourceRemark,
-    graphicAssetName,
-    graphicType,
-    previewLink,
-    assetLink,
-    status,
-    owner,
-    vendorNote,
-    sourceDocument,
-    sourceSheet,
-    sourceRowNumber,
-  ] = values
-
   return {
-    rowTitle: String(rowTitle ?? '').trim(),
-    projectSnapshot: String(projectSnapshot ?? '').trim(),
-    eventName: String(eventName ?? '').trim(),
-    eventDate: String(eventDate ?? '').trim(),
-    cueOrder: Number.isFinite(Number(cueOrder)) ? Number(cueOrder) : null,
-    cueType: String(cueType ?? '').trim(),
-    cueTitle: String(cueTitle ?? '').trim(),
-    startTime: String(startTime ?? '').trim(),
-    endTime: String(endTime ?? '').trim(),
-    runtimeMinutes: Number.isFinite(Number(runtimeMinutes)) ? Number(runtimeMinutes) : null,
-    personnel: String(personnel ?? '').trim(),
-    sourceVideo: String(sourceVideo ?? '').trim(),
-    sourceAudio: String(sourceAudio ?? '').trim(),
-    sourceRemark: String(sourceRemark ?? '').trim(),
-    graphicAssetName: String(graphicAssetName ?? '').trim(),
-    graphicType: String(graphicType ?? '').trim(),
-    previewLink: String(previewLink ?? '').trim(),
-    assetLink: String(assetLink ?? '').trim(),
-    status: String(status ?? '').trim(),
-    owner: String(owner ?? '').trim(),
-    vendorNote: String(vendorNote ?? '').trim(),
-    sourceDocument: String(sourceDocument ?? '').trim(),
-    sourceSheet: String(sourceSheet ?? '').trim(),
-    sourceRowNumber: Number.isFinite(Number(sourceRowNumber)) ? Number(sourceRowNumber) : null,
+    original: { ...rawRow },
+    rowTitle: String(rawRow['행 제목'] ?? '').trim(),
+    eventName: String(rawRow['행사명'] ?? '').trim(),
+    eventDate: String(rawRow['행사일'] ?? '').trim(),
+    operationKey: String(rawRow['운영 키'] ?? '').trim(),
+    cueOrder: Number.isFinite(Number(rawRow['정렬 순서'])) ? Number(rawRow['정렬 순서']) : null,
+    cueType: String(rawRow['카테고리'] ?? rawRow['Cue 유형'] ?? '').trim(),
+    cueTitle: String(rawRow['Cue 제목'] ?? '').trim(),
+    startTime: String(rawRow['시작 시각'] ?? '').trim(),
+    endTime: String(rawRow['종료 시각'] ?? '').trim(),
+    runtimeMinutes: Number.isFinite(Number(rawRow['러닝타임(분)'])) ? Number(rawRow['러닝타임(분)']) : null,
+    personnel: String(rawRow['무대 인원'] ?? '').trim(),
+    sourceVideo: String(rawRow['메인 화면'] ?? rawRow['원본 Video'] ?? '').trim(),
+    sourceAudio: String(rawRow['오디오'] ?? rawRow['원본 Audio'] ?? '').trim(),
+    sourceRemark: String(rawRow['운영 메모'] ?? rawRow['원본 비고'] ?? '').trim(),
+    graphicAssetName: String(rawRow['메인 화면'] ?? rawRow['그래픽 자산명'] ?? '').trim(),
+    graphicType: String(rawRow['운영 액션'] ?? rawRow['그래픽 형식'] ?? '').trim(),
+    previewLink: String(rawRow['미리보기 링크'] ?? '').trim(),
+    assetLink: String(rawRow['자산 링크'] ?? '').trim(),
+    status: String(rawRow['상태'] ?? '').trim(),
+    vendorNote: String(rawRow['운영 메모'] ?? rawRow['업체 전달 메모'] ?? rawRow['원본 비고'] ?? '').trim(),
+    projectName: String(rawRow['귀속 프로젝트'] ?? '').trim(),
   }
 }
 
 function denormalizeRow(headers, row) {
-  const orderedValues = [
-    row.rowTitle,
-    '',
-    row.projectSnapshot,
-    row.eventName,
-    row.eventDate,
-    row.cueOrder,
-    row.cueType,
-    row.cueTitle,
-    row.startTime,
-    row.endTime,
-    row.runtimeMinutes,
-    row.personnel,
-    row.sourceVideo,
-    row.sourceAudio,
-    row.sourceRemark,
-    row.graphicAssetName,
-    row.graphicType,
-    row.previewLink,
-    row.assetLink,
-    row.status,
-    row.owner,
-    row.vendorNote,
-    row.sourceDocument,
-    row.sourceSheet,
-    row.sourceRowNumber,
-  ]
+  const next = {
+    ...(row.original ?? {}),
+    '행 제목': row.rowTitle,
+    '행사명': row.eventName,
+    '행사일': row.eventDate,
+    '운영 키': row.operationKey,
+    '정렬 순서': row.cueOrder,
+    '카테고리': row.cueType,
+    'Cue 제목': row.cueTitle,
+    '시작 시각': row.startTime,
+    '종료 시각': row.endTime,
+    '러닝타임(분)': row.runtimeMinutes,
+    '무대 인원': row.personnel,
+    '메인 화면': row.sourceVideo,
+    '오디오': row.sourceAudio,
+    '운영 메모': row.sourceRemark,
+    '운영 액션': row.graphicType,
+    '미리보기 링크': row.previewLink,
+    '자산 링크': row.assetLink,
+    '상태': row.status,
+    '귀속 프로젝트': row.projectName,
+  }
 
-  return Object.fromEntries(headers.map((header, index) => [header, orderedValues[index] ?? '']))
+  return Object.fromEntries(headers.map((header) => [header, next[header] ?? '']))
 }
 
 function shouldInsertEntranceCue(row) {
@@ -169,7 +133,9 @@ function expandRows(rows) {
     }
 
     const startMinutes = parseTime(row.startTime)
-    const endMinutes = parseTime(row.endTime)
+    const endMinutes =
+      parseTime(row.endTime) ??
+      (startMinutes != null && row.runtimeMinutes != null ? startMinutes + row.runtimeMinutes : null)
     if (startMinutes == null || endMinutes == null) {
       expanded.push(row)
       continue
@@ -181,7 +147,9 @@ function expandRows(rows) {
 
     expanded.push({
       ...row,
+      original: row.original,
       rowTitle: `[${row.eventName}] ${String(row.cueOrder ?? '').padStart(2, '0')} ${introTitle}`.trim(),
+      operationKey: row.operationKey ? `${row.operationKey}::appearance` : '',
       cueOrder: Number((row.cueOrder - 0.1).toFixed(1)),
       cueType: 'other',
       cueTitle: '등장',
@@ -192,14 +160,14 @@ function expandRows(rows) {
       sourceAudio: buildEntranceAudio(row, audio),
       sourceRemark: buildEntranceRemark(row),
       graphicAssetName: `${row.cueTitle} 소개 그래픽`,
-      graphicType: 'unknown',
+      graphicType: row.graphicType || 'Hold',
       previewLink: '',
       assetLink: '',
-      sourceRowNumber: row.sourceRowNumber != null ? Number((row.sourceRowNumber - 0.1).toFixed(1)) : null,
     })
 
     expanded.push({
       ...row,
+      original: row.original,
       startTime: formatTime(entranceEnd),
       endTime: formatTime(endMinutes),
       runtimeMinutes: row.runtimeMinutes - 1,

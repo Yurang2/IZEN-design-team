@@ -62,7 +62,9 @@ This replaces the older import dependency on:
 | `시간 기준` | `rich_text` | no | Exhibition time reference or cue timing note |
 | `러닝타임(분)` | `number` | no | Runtime in minutes |
 | `메인 화면` | `rich_text` | no | Primary screen asset / source |
+| `캡쳐(무조건 이미지형식)` | `files` | no | Registered image/thumbnail tracking |
 | `오디오` | `rich_text` | no | Audio source |
+| `오디오파일` | `files` | no | Registered audio file tracking |
 | `무대 인원` | `rich_text` | no | Personnel on stage |
 | `운영 액션` | `select` | no | `Play`, `Hold`, `Loop`, `Switch` |
 | `운영 메모` | `rich_text` | no | Operator/vendor note |
@@ -104,6 +106,7 @@ Recommended usage:
 - `Cue 제목` = readable session title
 - `시작 시각`, `종료 시각`, `러닝타임(분)` = timeline data
 - `메인 화면`, `오디오`, `운영 메모` = playback data
+- `캡쳐(무조건 이미지형식)`, `오디오파일` = registered file tracking
 
 ### Exhibition rows
 
@@ -114,6 +117,7 @@ Recommended usage:
 - `카테고리` = `Regular Operation`, `Seminar Starting Soon`, `In Seminar`, `Lucky Draw`
 - `트리거 상황`, `시간 기준` = switching context
 - `메인 화면`, `오디오`, `운영 액션`, `운영 메모` = playbook instructions
+- `캡쳐(무조건 이미지형식)`, `오디오파일` = registered file tracking
 
 ## 6) Bangkok draft mapping
 

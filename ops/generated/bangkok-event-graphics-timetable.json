@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-03-13T07:04:21.435Z",
+  "generatedAt": "2026-03-17T05:38:34.232Z",
   "input": "files/IZEN Seminar in Bangkok Timetable.xlsx",
   "sheet": "Cue Sheet",
-  "rowCount": 15,
+  "rowCount": 19,
   "rows": [
     {
       "행 제목": "[2026 IZEN Seminar in Bangkok] 01 Announcement",
@@ -26,87 +26,151 @@
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [],
+      "오디오파일": []
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 02 Opening",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 02 등장 - Opening / IZEN Product & Business Introduction (CEO)",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::02::opening",
-      "정렬 순서": 2,
-      "카테고리": "opening",
-      "Cue 제목": "Opening",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::02::opening-izen-product-business-introduction-ceo::appearance",
+      "정렬 순서": 1.9,
+      "카테고리": "other",
+      "Cue 제목": "등장",
       "트리거 상황": "",
       "시작 시각": "9:40",
-      "종료 시각": "9:42",
+      "종료 시각": "9:41",
       "시간 기준": "",
-      "러닝타임(분)": 2,
+      "러닝타임(분)": 1,
       "무대 인원": "Liam Im, Jusuk Kim (CEO)",
-      "메인 화면": "Opening Cinematic Video",
-      "오디오": "",
-      "운영 액션": "Play",
-      "운영 메모": "",
+      "메인 화면": "Opening / IZEN Product & Business Introduction (CEO) 소개 그래픽",
+      "오디오": "Entrance Audio",
+      "운영 액션": "Hold",
+      "운영 메모": "본 세션 직전 1분 등장 cue",
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 03 IZEN Product & Business Introduction (CEO)",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 02 Opening / IZEN Product & Business Introduction (CEO)",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::03::izen-product-business-introduction-ceo",
-      "정렬 순서": 3,
-      "카테고리": "opening",
-      "Cue 제목": "IZEN Product & Business Introduction (CEO)",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::02::opening-izen-product-business-introduction-ceo",
+      "정렬 순서": 2,
+      "카테고리": "introduce",
+      "Cue 제목": "Opening / IZEN Product & Business Introduction (CEO)",
       "트리거 상황": "",
-      "시작 시각": "9:42",
+      "시작 시각": "9:41",
       "종료 시각": "10:00",
       "시간 기준": "",
-      "러닝타임(분)": 18,
+      "러닝타임(분)": 19,
       "무대 인원": "Liam Im, Jusuk Kim (CEO)",
-      "메인 화면": "IZEN Product & Business Introduction (CEO)",
-      "오디오": "Entrance Audio",
+      "메인 화면": "Opening Video / Main Key Visual.png",
+      "오디오": "Opening Video (Audio)",
       "운영 액션": "Hold",
       "운영 메모": "",
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 04 Lecture 1",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 03 등장 - Lecture 1",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::04::lecture-1",
-      "정렬 순서": 4,
+      "운영 키": "2026-izen-seminar-in-bangkok::event::03::lecture-1::appearance",
+      "정렬 순서": 2.9,
+      "카테고리": "other",
+      "Cue 제목": "등장",
+      "트리거 상황": "",
+      "시작 시각": "10:00",
+      "종료 시각": "10:01",
+      "시간 기준": "",
+      "러닝타임(분)": 1,
+      "무대 인원": "Liam Im, Prof. Eshamsul Sulaiman",
+      "메인 화면": "Lecture 1 소개 그래픽",
+      "오디오": "Entrance Audio",
+      "운영 액션": "Hold",
+      "운영 메모": "본 세션 직전 1분 등장 cue",
+      "미리보기 링크": "",
+      "자산 링크": "",
+      "상태": "planned",
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q03_Lecture_1.png",
+          "url": "/event-graphics-registered/bangkok/I_Q03_Lecture_1.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
+    },
+    {
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 03 Lecture 1",
+      "행사명": "2026 IZEN Seminar in Bangkok",
+      "행사일": "",
+      "타임테이블 유형": "자체행사",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::03::lecture-1",
+      "정렬 순서": 3,
       "카테고리": "lecture",
       "Cue 제목": "Lecture 1",
       "트리거 상황": "",
-      "시작 시각": "10:00",
+      "시작 시각": "10:01",
       "종료 시각": "11:27",
       "시간 기준": "",
-      "러닝타임(분)": 87,
+      "러닝타임(분)": 86,
       "무대 인원": "Liam Im, Prof. Eshamsul Sulaiman",
       "메인 화면": "Lecture 1 Graphic",
-      "오디오": "Entrance Audio",
+      "오디오": "",
       "운영 액션": "Hold",
       "운영 메모": "",
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q03_Lecture_1.png",
+          "url": "/event-graphics-registered/bangkok/I_Q03_Lecture_1.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 05 Lecture 1 Certi",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 04 Lecture 1 Certi",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::05::lecture-1-certi",
-      "정렬 순서": 5,
+      "운영 키": "2026-izen-seminar-in-bangkok::event::04::lecture-1-certi",
+      "정렬 순서": 4,
       "카테고리": "certificate",
       "Cue 제목": "Lecture 1 Certi",
       "트리거 상황": "",
@@ -122,15 +186,27 @@
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Certification.jpg",
+          "url": "/event-graphics-registered/bangkok/I_Certification.jpg"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Certi_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Certi_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 06 Coffee Break",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 05 Coffee Break",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::06::coffee-break",
-      "정렬 순서": 6,
+      "운영 키": "2026-izen-seminar-in-bangkok::event::05::coffee-break",
+      "정렬 순서": 5,
       "카테고리": "break",
       "Cue 제목": "Coffee Break",
       "트리거 상황": "",
@@ -139,46 +215,96 @@
       "시간 기준": "",
       "러닝타임(분)": 20,
       "무대 인원": "Liam Im",
-      "메인 화면": "IZEN Seminar_Showroom_1008x432.mp4",
+      "메인 화면": "Show Room",
+      "오디오": "Show Room",
+      "운영 액션": "Hold",
+      "운영 메모": "",
+      "미리보기 링크": "",
+      "자산 링크": "",
+      "상태": "planned",
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [],
+      "오디오파일": []
+    },
+    {
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 06 등장 - Lecture 2",
+      "행사명": "2026 IZEN Seminar in Bangkok",
+      "행사일": "",
+      "타임테이블 유형": "자체행사",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::06::lecture-2::appearance",
+      "정렬 순서": 5.9,
+      "카테고리": "other",
+      "Cue 제목": "등장",
+      "트리거 상황": "",
+      "시작 시각": "11:50",
+      "종료 시각": "11:51",
+      "시간 기준": "",
+      "러닝타임(분)": 1,
+      "무대 인원": "Liam Im, Dr. Yerkebulan Abdakhin",
+      "메인 화면": "Lecture 2 소개 그래픽",
+      "오디오": "Entrance Audio",
+      "운영 액션": "Hold",
+      "운영 메모": "본 세션 직전 1분 등장 cue",
+      "미리보기 링크": "",
+      "자산 링크": "",
+      "상태": "planned",
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q06_Lecture_2.png",
+          "url": "/event-graphics-registered/bangkok/I_Q06_Lecture_2.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
+    },
+    {
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 06 Lecture 2",
+      "행사명": "2026 IZEN Seminar in Bangkok",
+      "행사일": "",
+      "타임테이블 유형": "자체행사",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::06::lecture-2",
+      "정렬 순서": 6,
+      "카테고리": "lecture",
+      "Cue 제목": "Lecture 2",
+      "트리거 상황": "",
+      "시작 시각": "11:51",
+      "종료 시각": "13:17",
+      "시간 기준": "",
+      "러닝타임(분)": 86,
+      "무대 인원": "Liam Im, Dr. Yerkebulan Abdakhin",
+      "메인 화면": "Lecture 2 Graphic",
       "오디오": "",
       "운영 액션": "Hold",
       "운영 메모": "",
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q06_Lecture_2.png",
+          "url": "/event-graphics-registered/bangkok/I_Q06_Lecture_2.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 07 Lecture 2",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 07 Lecture 2 Certi",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::07::lecture-2",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::07::lecture-2-certi",
       "정렬 순서": 7,
-      "카테고리": "lecture",
-      "Cue 제목": "Lecture 2",
-      "트리거 상황": "",
-      "시작 시각": "11:50",
-      "종료 시각": "13:17",
-      "시간 기준": "",
-      "러닝타임(분)": 87,
-      "무대 인원": "Liam Im, Dr. Yerkebulan Abdakhin",
-      "메인 화면": "Lecture 2 Graphic",
-      "오디오": "Entrance Audio",
-      "운영 액션": "Hold",
-      "운영 메모": "",
-      "미리보기 링크": "",
-      "자산 링크": "",
-      "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
-    },
-    {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 08 Lecture 2 Certi",
-      "행사명": "2026 IZEN Seminar in Bangkok",
-      "행사일": "",
-      "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::08::lecture-2-certi",
-      "정렬 순서": 8,
       "카테고리": "certificate",
       "Cue 제목": "Lecture 2 Certi",
       "트리거 상황": "",
@@ -194,15 +320,27 @@
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Certification.jpg",
+          "url": "/event-graphics-registered/bangkok/I_Certification.jpg"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Certi_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Certi_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 09 Lunch (Buffet)",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 08 Lunch (Buffet)",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::09::lunch-buffet",
-      "정렬 순서": 9,
+      "운영 키": "2026-izen-seminar-in-bangkok::event::08::lunch-buffet",
+      "정렬 순서": 8,
       "카테고리": "meal",
       "Cue 제목": "Lunch (Buffet)",
       "트리거 상황": "",
@@ -211,46 +349,96 @@
       "시간 기준": "",
       "러닝타임(분)": 70,
       "무대 인원": "Liam Im",
-      "메인 화면": "IZEN Seminar_LunchLoop_1008x432.mp4",
+      "메인 화면": "Show Room",
+      "오디오": "Show Room",
+      "운영 액션": "Hold",
+      "운영 메모": "",
+      "미리보기 링크": "",
+      "자산 링크": "",
+      "상태": "planned",
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [],
+      "오디오파일": []
+    },
+    {
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 09 등장 - Lecture 3",
+      "행사명": "2026 IZEN Seminar in Bangkok",
+      "행사일": "",
+      "타임테이블 유형": "자체행사",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::09::lecture-3::appearance",
+      "정렬 순서": 8.9,
+      "카테고리": "other",
+      "Cue 제목": "등장",
+      "트리거 상황": "",
+      "시작 시각": "14:30",
+      "종료 시각": "14:31",
+      "시간 기준": "",
+      "러닝타임(분)": 1,
+      "무대 인원": "Liam Im, Dr. Dias Kulbayev",
+      "메인 화면": "Lecture 3 소개 그래픽",
+      "오디오": "Entrance Audio",
+      "운영 액션": "Hold",
+      "운영 메모": "본 세션 직전 1분 등장 cue",
+      "미리보기 링크": "",
+      "자산 링크": "",
+      "상태": "planned",
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q09_Lecture_3.png",
+          "url": "/event-graphics-registered/bangkok/I_Q09_Lecture_3.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
+    },
+    {
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 09 Lecture 3",
+      "행사명": "2026 IZEN Seminar in Bangkok",
+      "행사일": "",
+      "타임테이블 유형": "자체행사",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::09::lecture-3",
+      "정렬 순서": 9,
+      "카테고리": "lecture",
+      "Cue 제목": "Lecture 3",
+      "트리거 상황": "",
+      "시작 시각": "14:31",
+      "종료 시각": "15:57",
+      "시간 기준": "",
+      "러닝타임(분)": 86,
+      "무대 인원": "Liam Im, Dr. Dias Kulbayev",
+      "메인 화면": "Lecture 3 Graphic",
       "오디오": "",
       "운영 액션": "Hold",
       "운영 메모": "",
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q09_Lecture_3.png",
+          "url": "/event-graphics-registered/bangkok/I_Q09_Lecture_3.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 10 Lecture 3",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 10 Lecture 3 Certi",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::10::lecture-3",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::10::lecture-3-certi",
       "정렬 순서": 10,
-      "카테고리": "lecture",
-      "Cue 제목": "Lecture 3",
-      "트리거 상황": "",
-      "시작 시각": "14:30",
-      "종료 시각": "15:57",
-      "시간 기준": "",
-      "러닝타임(분)": 87,
-      "무대 인원": "Liam Im, Dr. Dias Kulbayev",
-      "메인 화면": "Lecture 3 Graphic",
-      "오디오": "Entrance Audio",
-      "운영 액션": "Hold",
-      "운영 메모": "",
-      "미리보기 링크": "",
-      "자산 링크": "",
-      "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
-    },
-    {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 11 Lecture 3 Certi",
-      "행사명": "2026 IZEN Seminar in Bangkok",
-      "행사일": "",
-      "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::11::lecture-3-certi",
-      "정렬 순서": 11,
       "카테고리": "certificate",
       "Cue 제목": "Lecture 3 Certi",
       "트리거 상황": "",
@@ -266,15 +454,27 @@
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Certification.jpg",
+          "url": "/event-graphics-registered/bangkok/I_Certification.jpg"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Certi_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Certi_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 12 Coffee Break",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 11 Coffee Break",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::12::coffee-break",
-      "정렬 순서": 12,
+      "운영 키": "2026-izen-seminar-in-bangkok::event::11::coffee-break",
+      "정렬 순서": 11,
       "카테고리": "break",
       "Cue 제목": "Coffee Break",
       "트리거 상황": "",
@@ -283,46 +483,96 @@
       "시간 기준": "",
       "러닝타임(분)": 20,
       "무대 인원": "Liam Im",
-      "메인 화면": "IZEN Seminar_Showroom_1008x432.mp4",
+      "메인 화면": "Show Room",
+      "오디오": "Show Room",
+      "운영 액션": "Hold",
+      "운영 메모": "",
+      "미리보기 링크": "",
+      "자산 링크": "",
+      "상태": "planned",
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [],
+      "오디오파일": []
+    },
+    {
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 12 등장 - Lecture 4",
+      "행사명": "2026 IZEN Seminar in Bangkok",
+      "행사일": "",
+      "타임테이블 유형": "자체행사",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::12::lecture-4::appearance",
+      "정렬 순서": 11.9,
+      "카테고리": "other",
+      "Cue 제목": "등장",
+      "트리거 상황": "",
+      "시작 시각": "16:20",
+      "종료 시각": "16:21",
+      "시간 기준": "",
+      "러닝타임(분)": 1,
+      "무대 인원": "Liam Im, Dr. Gaurav Ahuja",
+      "메인 화면": "Lecture 4 소개 그래픽",
+      "오디오": "Entrance Audio",
+      "운영 액션": "Hold",
+      "운영 메모": "본 세션 직전 1분 등장 cue",
+      "미리보기 링크": "",
+      "자산 링크": "",
+      "상태": "planned",
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q12_Lecture_4.png",
+          "url": "/event-graphics-registered/bangkok/I_Q12_Lecture_4.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
+    },
+    {
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 12 Lecture 4",
+      "행사명": "2026 IZEN Seminar in Bangkok",
+      "행사일": "",
+      "타임테이블 유형": "자체행사",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::12::lecture-4",
+      "정렬 순서": 12,
+      "카테고리": "lecture",
+      "Cue 제목": "Lecture 4",
+      "트리거 상황": "",
+      "시작 시각": "16:21",
+      "종료 시각": "17:37",
+      "시간 기준": "",
+      "러닝타임(분)": 86,
+      "무대 인원": "Liam Im, Dr. Gaurav Ahuja",
+      "메인 화면": "Lecture 4 Graphic",
       "오디오": "",
       "운영 액션": "Hold",
       "운영 메모": "",
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q12_Lecture_4.png",
+          "url": "/event-graphics-registered/bangkok/I_Q12_Lecture_4.png"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Entrance_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Entrance_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 13 Lecture 4",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 13 Lecture 4 Certi",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::13::lecture-4",
+      "운영 키": "2026-izen-seminar-in-bangkok::event::13::lecture-4-certi",
       "정렬 순서": 13,
-      "카테고리": "lecture",
-      "Cue 제목": "Lecture 4",
-      "트리거 상황": "",
-      "시작 시각": "16:20",
-      "종료 시각": "17:37",
-      "시간 기준": "",
-      "러닝타임(분)": 87,
-      "무대 인원": "Liam Im, Dr. Gaurav Ahuja",
-      "메인 화면": "Lecture 4 Graphic",
-      "오디오": "Entrance Audio",
-      "운영 액션": "Hold",
-      "운영 메모": "",
-      "미리보기 링크": "",
-      "자산 링크": "",
-      "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
-    },
-    {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 14 Lecture 4 Certi",
-      "행사명": "2026 IZEN Seminar in Bangkok",
-      "행사일": "",
-      "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::14::lecture-4-certi",
-      "정렬 순서": 14,
       "카테고리": "certificate",
       "Cue 제목": "Lecture 4 Certi",
       "트리거 상황": "",
@@ -338,15 +588,27 @@
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Certification.jpg",
+          "url": "/event-graphics-registered/bangkok/I_Certification.jpg"
+        }
+      ],
+      "오디오파일": [
+        {
+          "name": "A_Certi_Audio.wav",
+          "url": "/event-graphics-registered/bangkok/A_Certi_Audio.wav"
+        }
+      ]
     },
     {
-      "행 제목": "[2026 IZEN Seminar in Bangkok] 15 Closing & Commemorative Photo",
+      "행 제목": "[2026 IZEN Seminar in Bangkok] 14 Closing & Commemorative Photo",
       "행사명": "2026 IZEN Seminar in Bangkok",
       "행사일": "",
       "타임테이블 유형": "자체행사",
-      "운영 키": "2026-izen-seminar-in-bangkok::event::15::closing-commemorative-photo",
-      "정렬 순서": 15,
+      "운영 키": "2026-izen-seminar-in-bangkok::event::14::closing-commemorative-photo",
+      "정렬 순서": 14,
       "카테고리": "closing",
       "Cue 제목": "Closing & Commemorative Photo",
       "트리거 상황": "",
@@ -362,7 +624,14 @@
       "미리보기 링크": "",
       "자산 링크": "",
       "상태": "planned",
-      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok"
+      "귀속 프로젝트": "2026 IZEN Seminar in Bangkok",
+      "캡쳐(무조건 이미지형식)": [
+        {
+          "name": "I_Q14_Closing_And_Commemorative_Photo.png",
+          "url": "/event-graphics-registered/bangkok/I_Q14_Closing_And_Commemorative_Photo.png"
+        }
+      ],
+      "오디오파일": []
     }
   ]
 }

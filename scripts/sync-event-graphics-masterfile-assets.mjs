@@ -28,6 +28,8 @@ const ASSETS_DIR = '02_Files'
 const SOURCE_DIR = '01_Source'
 const ENTRANCE_LABEL = '입장'
 const MISSING_FILE_LABEL = '파일명 확인 필요'
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.avi', '.wmv', '.mkv'])
@@ -144,7 +146,7 @@ function isEntranceRow(row) {
 function canMergeEntranceWithMainRow(entranceRow, mainRow) {
   if (!mainRow) return false
   if (!isEntranceRow(entranceRow)) return false
-  if (!['opening', 'lecture'].includes(mainRow.cueType)) return false
+  if (!['opening', 'introduce', 'lecture'].includes(mainRow.cueType)) return false
   if (entranceRow.eventName !== mainRow.eventName) return false
   if (entranceRow.cueOrder == null || mainRow.cueOrder == null) return false
   return Math.ceil(entranceRow.cueOrder) === Math.round(mainRow.cueOrder)
@@ -319,6 +321,20 @@ async function pathExists(targetPath) {
   }
 }
 
+async function ensureRegisteredFilesExist(masterfileRoot, publicRoot, syncedCues) {
+  for (const cue of syncedCues) {
+    for (const file of cue.registeredFiles ?? []) {
+      const destinationPath = path.join(process.cwd(), file.relativePath)
+      if (await pathExists(destinationPath)) continue
+      if (file.kind !== 'image' && file.kind !== 'audio') continue
+      const publicPath = path.join(publicRoot, file.name)
+      if (!(await pathExists(publicPath))) continue
+      await ensureDirectory(path.dirname(destinationPath))
+      await fs.copyFile(publicPath, destinationPath)
+    }
+  }
+}
+
 async function findFfmpegPath() {
   if (cachedFfmpegPathPromise) return cachedFfmpegPathPromise
 
@@ -484,13 +500,106 @@ function buildPublicAssetUrl(filename) {
   return `/${path.posix.join('event-graphics-registered', 'bangkok', filename)}`
 }
 
-function buildPreviewUrl(file) {
+function buildPreviewUrl(file, publicCopies) {
   if (!file) return null
-  if (file.kind === 'video') {
-    return buildPublicAssetUrl(`${path.basename(file.name, path.extname(file.name))}${VIDEO_THUMBNAIL_EXTENSION}`)
+  return publicCopies.get(file.name) ?? null
+}
+
+async function publishRegisteredFile(destinationPath, file, publicRoot, publicCopies) {
+  if (publicCopies.has(file.name)) return publicCopies.get(file.name)
+
+  if (file.kind === 'image' || file.kind === 'audio') {
+    const publicPath = path.join(publicRoot, file.name)
+    await fs.copyFile(destinationPath, publicPath)
+    const url = buildPublicAssetUrl(file.name)
+    publicCopies.set(file.name, url)
+    return url
   }
-  if (file.kind === 'image') return buildPublicAssetUrl(file.name)
+
+  if (file.kind === 'video') {
+    const thumbnailName = `${path.basename(file.name, path.extname(file.name))}${VIDEO_THUMBNAIL_EXTENSION}`
+    const thumbnailPath = path.join(publicRoot, thumbnailName)
+    const created = await generateVideoThumbnail(destinationPath, thumbnailPath)
+    if (!created) return null
+    const url = buildPublicAssetUrl(thumbnailName)
+    publicCopies.set(file.name, url)
+    return url
+  }
+
   return null
+}
+
+function selectRegisteredFilesForRow(row, cue) {
+  const registeredFiles = Array.isArray(cue?.registeredFiles) ? cue.registeredFiles : []
+  const selectStageFiles = (kind) => {
+    const files = registeredFiles.filter((file) => file.kind === kind || (kind === 'capture' && (file.kind === 'image' || file.kind === 'video')))
+    if (isEntranceRow(row)) return files.filter((file) => String(file.role ?? '').startsWith('Primary '))
+    const secondary = files.filter((file) => String(file.role ?? '').startsWith('Secondary '))
+    if (secondary.length > 0) return secondary
+    const main = files.filter((file) => String(file.role ?? '').startsWith('Main '))
+    if (main.length > 0) return main
+    const primary = files.filter((file) => String(file.role ?? '').startsWith('Primary '))
+    return primary.length > 0 && secondary.length === 0 ? primary : []
+  }
+
+  return {
+    captureFiles: selectStageFiles('capture'),
+    audioFiles: selectStageFiles('audio'),
+  }
+}
+
+function toExternalFileEntry(file, publicCopies) {
+  const url = publicCopies.get(file.name)
+  if (!url) return null
+  if (file.kind === 'video') {
+    return {
+      name: `${path.basename(file.name, path.extname(file.name))}${VIDEO_THUMBNAIL_EXTENSION}`,
+      url,
+    }
+  }
+  return {
+    name: file.name,
+    url,
+  }
+}
+
+function serializeCsvValue(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (typeof entry === 'string') return normalizeText(entry)
+        if (!entry || typeof entry !== 'object') return ''
+        return normalizeText(entry.name ?? entry.url ?? '')
+      })
+      .filter(Boolean)
+      .join(', ')
+  }
+  return String(value ?? '')
+}
+
+function escapeCsv(value) {
+  const text = String(value ?? '')
+  if (!/[",\n]/.test(text)) return text
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+async function writeUpdatedInputRows(inputPath, parsed) {
+  const rows = Array.isArray(parsed?.rows) ? parsed.rows : []
+  if (rows.length === 0) return
+
+  const headers = Array.from(
+    rows.reduce((set, row) => {
+      Object.keys(row ?? {}).forEach((key) => set.add(key))
+      return set
+    }, new Set()),
+  )
+  const csvLines = [
+    headers.join(','),
+    ...rows.map((row) => headers.map((header) => escapeCsv(serializeCsvValue(row?.[header]))).join(',')),
+  ]
+  parsed.rowCount = rows.length
+  await fs.writeFile(inputPath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
+  await fs.writeFile(inputPath.replace(/\.json$/i, '.csv'), `${csvLines.join('\n')}\n`, 'utf8')
 }
 
 async function main() {
@@ -577,22 +686,12 @@ async function main() {
           relativePath,
         }
 
-        if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
-          if (slot.kind === 'image') {
-            const publicPath = path.join(options.publicRoot, destinationName)
-            await fs.copyFile(destinationPath, publicPath)
-            publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
-          } else {
-            const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
-            await generateVideoThumbnail(destinationPath, thumbnailPath)
-            publicCopies.set(destinationName, buildPublicAssetUrl(path.basename(thumbnailPath)))
-          }
-        }
+        await publishRegisteredFile(destinationPath, registeredFile, options.publicRoot, publicCopies)
 
         sharedAssignments.set(sharedKey, {
           extension,
           registeredFile,
-          previewUrl: buildPreviewUrl(registeredFile),
+          previewUrl: buildPreviewUrl(registeredFile, publicCopies),
         })
         registeredFiles.push(registeredFile)
         continue
@@ -629,17 +728,7 @@ async function main() {
         relativePath,
       })
 
-      if ((slot.kind === 'image' || slot.kind === 'video') && !publicCopies.has(destinationName)) {
-        if (slot.kind === 'image') {
-          const publicPath = path.join(options.publicRoot, destinationName)
-          await fs.copyFile(destinationPath, publicPath)
-          publicCopies.set(destinationName, buildPublicAssetUrl(destinationName))
-        } else {
-          const thumbnailPath = path.join(options.publicRoot, `${path.basename(destinationName, path.extname(destinationName))}${VIDEO_THUMBNAIL_EXTENSION}`)
-          await generateVideoThumbnail(destinationPath, thumbnailPath)
-          publicCopies.set(destinationName, buildPublicAssetUrl(path.basename(thumbnailPath)))
-        }
-      }
+      await publishRegisteredFile(destinationPath, registeredFiles[registeredFiles.length - 1], options.publicRoot, publicCopies)
     }
 
     const previewFile = registeredFiles.find((file) => file.kind === 'image') ?? registeredFiles.find((file) => file.kind === 'video')
@@ -656,7 +745,7 @@ async function main() {
       personnel: cue.personnel,
       registeredFiles,
       missingFiles,
-      previewUrl: buildPreviewUrl(previewFile),
+      previewUrl: buildPreviewUrl(previewFile, publicCopies),
       status:
         registeredFiles.length === 0
           ? 'missing'
@@ -692,7 +781,34 @@ async function main() {
     cues: syncedCues,
   }
 
+  await ensureRegisteredFilesExist(options.masterfileRoot, options.publicRoot, syncedCues)
+
+  const syncedCueByNumber = new Map(syncedCues.map((cue) => [cue.cueNumber, cue]))
+  parsed.rows = sourceRows.map((rawRow) => {
+    const row = normalizeRow(rawRow)
+    const cue = syncedCueByNumber.get(toCueNumber(row.cueOrder))
+    if (!cue) {
+      return {
+        ...rawRow,
+        [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: [],
+        [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: [],
+      }
+    }
+
+    const { captureFiles, audioFiles } = selectRegisteredFilesForRow(row, cue)
+    return {
+      ...rawRow,
+      [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: captureFiles
+        .map((file) => toExternalFileEntry(file, publicCopies))
+        .filter(Boolean),
+      [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: audioFiles
+        .map((file) => toExternalFileEntry(file, publicCopies))
+        .filter(Boolean),
+    }
+  })
+
   await fs.writeFile(options.output, buildManifestModule(manifest), 'utf8')
+  await writeUpdatedInputRows(options.input, parsed)
   console.log(`Masterfile synced: ${options.output}`)
 }
 

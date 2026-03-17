@@ -53,6 +53,7 @@ function deriveCueType(title) {
   const normalized = normalizeCell(title).toLowerCase()
   if (!normalized) return 'other'
   if (normalized.includes('announcement')) return 'announcement'
+  if (normalized.includes('introduction') || normalized.includes('introduce')) return 'introduce'
   if (normalized.includes('opening')) return 'opening'
   if (normalized.includes('certi')) return 'certificate'
   if (normalized.includes('lecture')) return 'lecture'
