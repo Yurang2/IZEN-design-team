@@ -44,7 +44,8 @@ type ThumbnailRenderResponse = {
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MODEL_OPTIONS = [
-  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' },
+  { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
+  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image' },
   { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image Preview' },
 ]
 const OUTPUT_FORMAT_OPTIONS = [
@@ -56,7 +57,7 @@ function buildInitialFormState(suggestedTitle?: string): ThumbnailFormState {
   return {
     eventName: suggestedTitle?.trim() || '',
     versionNumber: '01',
-    model: MODEL_OPTIONS[0]?.value ?? 'gemini-2.5-flash-image',
+    model: MODEL_OPTIONS[0]?.value ?? 'gemini-3.1-flash-image',
     outputFormats: ['16:9'],
     dateText: '',
     locationText: '',

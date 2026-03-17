@@ -48,7 +48,7 @@ const MAX_TRANSCRIPT_PARAGRAPH_CHARS = 1_500
 const MAX_TRANSCRIPT_PARAGRAPH_LINES = 12
 const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
-const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
+const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image'
 const GOOGLE_GENERATIVE_LANGUAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const VERTEX_AI_API_URL = 'https://aiplatform.googleapis.com/v1'
@@ -1250,6 +1250,12 @@ function getGeminiApiKey(env: Env): string {
   return apiKey
 }
 
+function getVertexExpressApiKey(env: Env): string {
+  const apiKey = asString(env.VERTEX_EXPRESS_API_KEY)
+  if (!apiKey) throw new Error('vertex_express_api_key_missing')
+  return apiKey
+}
+
 function getGeminiImageModel(env: Env): string {
   return asString(env.GEMINI_IMAGE_MODEL) ?? DEFAULT_GEMINI_IMAGE_MODEL
 }
@@ -1263,6 +1269,14 @@ function buildVertexAiGenerateContentUrl(env: Env, model: string): string {
   if (!credentials) throw new Error('google_service_account_json_missing')
   const location = getVertexAiLocation(env)
   return `${VERTEX_AI_API_URL}/projects/${encodeURIComponent(credentials.projectId)}/locations/${encodeURIComponent(location)}/publishers/google/models/${encodeURIComponent(model)}:generateContent`
+}
+
+function isVertexExpressConfigured(env: Env): boolean {
+  return Boolean(asString(env.VERTEX_EXPRESS_API_KEY))
+}
+
+function buildVertexExpressGenerateContentUrl(model: string, apiKey: string): string {
+  return `${VERTEX_AI_API_URL}/publishers/google/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
 }
 
 function parseInlineDataUrl(dataUrl: string): { mimeType: string; data: string } {
@@ -1318,6 +1332,7 @@ function toVideoThumbnailErrorStatus(message: string): number {
   }
 
   if (
+    message === 'vertex_express_api_key_missing' ||
     message === 'gemini_api_key_missing' ||
     message === 'google_service_account_json_missing' ||
     message === 'google_service_account_json_invalid' ||
@@ -1397,6 +1412,23 @@ async function renderVideoThumbnailWithGemini(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: vertexParts,
+          },
+        ],
+        generationConfig,
+      }),
+    })
+  } else if (isVertexExpressConfigured(env)) {
+    const apiKey = getVertexExpressApiKey(env)
+    response = await fetch(buildVertexExpressGenerateContentUrl(model, apiKey), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         contents: [

@@ -62,6 +62,7 @@ export interface Env {
   ASSEMBLYAI_WEBHOOK_URL?: string
   ASSEMBLYAI_SPEECH_MODELS?: string
   MEETING_KEYWORD_LIMIT?: string
+  VERTEX_EXPRESS_API_KEY?: string
   GEMINI_API_KEY?: string
   GOOGLE_AI_API_KEY?: string
   GOOGLE_SERVICE_ACCOUNT_JSON?: string
