@@ -42,6 +42,10 @@ const MODEL_OPTIONS = [
   { value: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash Image Preview' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
 ]
+const OUTPUT_FORMAT_OPTIONS = [
+  { value: '9:16', label: '릴스형 (9:16)' },
+  { value: '16:9', label: '유튜브형 (16:9)' },
+]
 
 function buildInitialFormState(suggestedTitle?: string): ThumbnailFormState {
   return {
@@ -345,12 +349,13 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
                   />
                 </label>
                 <label>
-                  비율
+                  출력 형식
                   <select value={form.aspectRatio} onChange={(event) => onChangeField('aspectRatio', event.target.value)}>
-                    <option value="16:9">16:9</option>
-                    <option value="1:1">1:1</option>
-                    <option value="9:16">9:16</option>
-                    <option value="4:5">4:5</option>
+                    {OUTPUT_FORMAT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
