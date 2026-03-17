@@ -22,7 +22,7 @@ type GeminiImageResult = {
 
 const TEST_OUTPUT_WIDTH = 600
 const TEST_OUTPUT_HEIGHT = 400
-const TEST_MODEL = 'gemini-3.1-flash-image'
+const TEST_MODEL = 'gemini-2.5-flash-image'
 
 async function resizeImageDataUrl(dataUrl: string, width: number, height: number): Promise<string> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -107,7 +107,7 @@ export function GeminiImageTestView() {
     <section className="geminiImageTestView" aria-label="Gemini 이미지 테스트">
       <article className="geminiImageTestHero">
         <div>
-          <p className="muted small">Gemini 3.1 Flash Image</p>
+          <p className="muted small">Gemini 2.5 Flash Image</p>
           <h2>짧은 프롬프트 테스트</h2>
           <p>프롬프트 한 줄만 넣으면 테스트용 600x400 JPEG로 바로 내려받을 수 있습니다.</p>
         </div>

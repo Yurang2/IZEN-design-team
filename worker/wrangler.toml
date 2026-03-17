@@ -61,8 +61,8 @@ MEETING_AUDIO_BUCKET_NAME = "izen-meeting-audio"
 # npx wrangler secret put VERTEX_EXPRESS_API_KEY --config worker/wrangler.toml
 # Last fallback for Google AI Studio mode:
 # npx wrangler secret put GEMINI_API_KEY --config worker/wrangler.toml
-# Optional model override (default: gemini-3.1-flash-image)
-# GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
+# Optional model override (default: gemini-2.5-flash-image)
+# GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 #
 # LINE reminder secrets:
 # npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN --config worker/wrangler.toml
