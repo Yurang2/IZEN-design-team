@@ -2108,9 +2108,7 @@ export class NotionWorkService {
 
   async importScreeningPlanFromHistory(params: {
     sourceEventName: string
-    targetEventName: string
-    targetProjectId?: string | null
-    targetDate?: string | null
+    targetProjectId: string
   }): Promise<{
     configured: boolean
     planDatabaseId: string | null
@@ -2121,12 +2119,10 @@ export class NotionWorkService {
     createdPlanIds: string[]
   }> {
     const sourceEventName = normalizeText(params.sourceEventName)
-    const targetEventName = normalizeText(params.targetEventName)
-    const targetProjectId = normalizeText(params.targetProjectId) || null
-    const targetDate = normalizeText(params.targetDate) || null
+    const targetProjectId = normalizeText(params.targetProjectId)
 
     if (!sourceEventName) throw new Error('source_event_name_required')
-    if (!targetEventName) throw new Error('target_event_name_required')
+    if (!targetProjectId) throw new Error('target_project_id_required')
 
     const historySchema = await this.syncScreeningHistoryDatabaseProperties()
     const planSchema = await this.syncScreeningPlanDatabaseProperties()
@@ -2145,14 +2141,32 @@ export class NotionWorkService {
       }
     }
 
-    const [historyPages, planPages] = await Promise.all([this.queryAll(historyDatabaseId), this.queryAll(planDatabaseId)])
+    const [historyPages, planPages, projects] = await Promise.all([
+      this.queryAll(historyDatabaseId),
+      this.queryAll(planDatabaseId),
+      this.listProjects(),
+    ])
+    const targetProject = projects.find((project) => normalizeNotionId(project.id) === normalizeNotionId(targetProjectId))
+    if (!targetProject) throw new Error('target_project_not_found')
+    const targetEventName = normalizeText(targetProject.name)
+    const targetDate = normalizeText(targetProject.eventDate)
     const sourceEventKey = normalizeScreeningEventKey(sourceEventName)
     const targetEventKey = normalizeScreeningEventKey(targetEventName)
+    const projectNameMap = new Map<string, string>()
+    for (const project of projects) {
+      projectNameMap.set(normalizeNotionId(project.id), project.name)
+      projectNameMap.set(project.id, project.name)
+    }
 
     const matchingHistoryPages = historyPages
       .filter((page) => {
         const props = (page.properties ?? {}) as AnyMap
-        return normalizeScreeningEventKey(extractTextFromProperty(props[SCREENING_COMMON_EVENT_FIELD])) === sourceEventKey
+        const projectName = extractRelationIdsFromProperty(props[SCREENING_COMMON_PROJECT_FIELD])
+          .map((id) => normalizeText(projectNameMap.get(normalizeNotionId(id)) ?? projectNameMap.get(id) ?? ''))
+          .find(Boolean)
+        const eventName = extractTextFromProperty(props[SCREENING_COMMON_EVENT_FIELD])
+        const title = joinRichText(props[SCREENING_COMMON_TITLE_FIELD]?.title ?? [])
+        return [projectName, eventName, title].some((value) => normalizeScreeningEventKey(value) === sourceEventKey)
       })
       .sort((left, right) => {
         const leftProps = (left.properties ?? {}) as AnyMap
@@ -2202,7 +2216,7 @@ export class NotionWorkService {
 
       const planProperties: AnyMap = {
         [SCREENING_COMMON_TITLE_FIELD]: { title: [{ text: { content: title } }] },
-        [SCREENING_COMMON_PROJECT_FIELD]: targetProjectId ? { relation: [{ id: targetProjectId }] } : { relation: [] },
+        [SCREENING_COMMON_PROJECT_FIELD]: { relation: [{ id: targetProjectId }] },
         [SCREENING_COMMON_RELATED_TASK_FIELD]: { relation: [] },
         [SCREENING_COMMON_EVENT_FIELD]: { rich_text: [{ text: { content: targetEventName } }] },
         [SCREENING_COMMON_DATE_FIELD]: targetDate ? { date: { start: targetDate } } : { date: null },

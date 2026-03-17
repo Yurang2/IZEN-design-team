@@ -1000,21 +1000,17 @@ function parseEventGraphicsImportBody(body: unknown): {
 
 function parseScreeningPlanImportBody(body: unknown): {
   sourceEventName: string
-  targetEventName: string
-  targetProjectId?: string | null
-  targetDate?: string | null
+  targetProjectId: string
 } {
   const payload = parsePatchBody(body)
   const sourceEventName = asString(payload.sourceEventName)
-  const targetEventName = asString(payload.targetEventName)
+  const targetProjectId = asString(payload.targetProjectId)
   if (!sourceEventName) throw new Error('sourceEventName_required')
-  if (!targetEventName) throw new Error('targetEventName_required')
+  if (!targetProjectId) throw new Error('targetProjectId_required')
 
   return {
     sourceEventName,
-    targetEventName,
-    targetProjectId: asString(payload.targetProjectId) ?? null,
-    targetDate: parseDate(payload.targetDate),
+    targetProjectId,
   }
 }
 
@@ -6307,9 +6303,7 @@ export default {
       if (request.method === 'POST' && path === '/admin/notion/screening-plan-import-from-history') {
         let payload: {
           sourceEventName: string
-          targetEventName: string
-          targetProjectId?: string | null
-          targetDate?: string | null
+          targetProjectId: string
         }
         try {
           payload = parseScreeningPlanImportBody(await readJsonBody(request))

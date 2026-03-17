@@ -216,6 +216,19 @@ function readScheduleTitleText(row: ScheduleRow, columns: ScheduleColumn[]): str
   return row.cells[effectiveIndex]?.text?.trim() ?? ''
 }
 
+function normalizeScheduleKey(value: string): string {
+  return value.trim().replace(/-/g, '').toLowerCase()
+}
+
+function resolveScheduleRelationText(raw: string, labelMap: Record<string, string>): string {
+  const labels = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => labelMap[normalizeScheduleKey(value)] ?? labelMap[value] ?? value)
+  return labels.join(', ')
+}
+
 type EventGraphicsTimetableResponse = {
   ok: boolean
   configured: boolean
@@ -390,9 +403,7 @@ const DEFAULT_THEME: ThemeKey = 'v3'
 const ENABLE_SYSTEM_THEME_FALLBACK = false
 const INITIAL_SCREENING_PLAN_IMPORT_FORM: ScreeningPlanImportForm = {
   sourceEventName: '',
-  targetEventName: '',
   targetProjectId: '',
-  targetDate: '',
 }
 
 const GUIDE_SECRET_ROWS: GuideConfigRow[] = [
@@ -1769,19 +1780,9 @@ function App() {
 
   const updateScreeningPlanImportForm = useCallback(
     (key: keyof ScreeningPlanImportForm, value: string) => {
-      setScreeningPlanImportForm((current) => {
-        const next = { ...current, [key]: value }
-        if (key === 'targetProjectId') {
-          const project = projects.find((entry) => entry.id === value)
-          if (project) {
-            if (!next.targetEventName.trim()) next.targetEventName = project.name
-            if (!next.targetDate && project.eventDate) next.targetDate = project.eventDate
-          }
-        }
-        return next
-      })
+      setScreeningPlanImportForm((current) => ({ ...current, [key]: value }))
     },
-    [projects],
+    [],
   )
 
   const importScreeningPlanFromHistory = useCallback(async () => {
@@ -1791,9 +1792,7 @@ function App() {
         method: 'POST',
         body: JSON.stringify({
           sourceEventName: screeningPlanImportForm.sourceEventName.trim(),
-          targetEventName: screeningPlanImportForm.targetEventName.trim(),
           targetProjectId: screeningPlanImportForm.targetProjectId || null,
-          targetDate: screeningPlanImportForm.targetDate || null,
         }),
       })
 
@@ -2639,12 +2638,17 @@ function App() {
     return Array.from(
       new Set(
         screeningHistoryRows
-          .map((row) => readScheduleCellText(row, screeningHistoryColumns, '행사명'))
-          .map((value) => value.trim())
-          .filter((value) => value && value !== '-'),
+          .map((row) => {
+            const projectRaw = readScheduleCellText(row, screeningHistoryColumns, '귀속 프로젝트')
+            const projectName = projectRaw ? resolveScheduleRelationText(projectRaw, screeningProjectLabelMap) : ''
+            const eventName = readScheduleCellText(row, screeningHistoryColumns, '행사명')
+            const title = readScheduleTitleText(row, screeningHistoryColumns)
+            return [projectName, eventName, title].map((value) => value.trim()).find((value) => value && value !== '-') ?? ''
+          })
+          .filter(Boolean),
       ),
     ).sort((left, right) => left.localeCompare(right, 'ko'))
-  }, [screeningHistoryColumns, screeningHistoryRows])
+  }, [screeningHistoryColumns, screeningHistoryRows, screeningProjectLabelMap])
 
   const screeningPlanImportProjectOptions = useMemo(() => {
     return [...projects]
