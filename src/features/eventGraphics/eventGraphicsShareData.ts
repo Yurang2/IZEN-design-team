@@ -4,6 +4,7 @@ import {
   buildEventGraphicsSessionGroups,
   type EventGraphicsSessionGroup,
 } from './eventGraphicsHierarchy'
+import { syncEventGraphicsTitleNumbers } from './eventGraphicsTitleNumbers'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 
 export type EventGraphicsShareLocale = 'en' | 'ko'
@@ -52,7 +53,7 @@ export const eventGraphicsManifestByKey = new Map<string, (typeof bangkokMasterf
 export function buildEventGraphicsShareData(columns: ScheduleColumn[], rows: ScheduleRow[], untitledEvent: string): {
   groupedCues: EventGroup[]
 } {
-  const cues = buildEventGraphicsSessionGroups(buildEventGraphicsEventRows(columns, rows))
+  const cues = buildEventGraphicsSessionGroups(syncEventGraphicsTitleNumbers(buildEventGraphicsEventRows(columns, rows)))
   const groups = new Map<string, EventGraphicsSessionGroup[]>()
 
   for (const cue of cues) {

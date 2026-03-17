@@ -20,6 +20,7 @@ import {
   buildEventGraphicsSessionGroups,
   usesSpeakerPptPlaceholder,
 } from './eventGraphicsHierarchy'
+import { syncEventGraphicsTitleNumbers } from './eventGraphicsTitleNumbers'
 import { VideoThumbnailTool } from './VideoThumbnailTool'
 
 type EventGraphicsTimetableViewProps = {
@@ -370,6 +371,8 @@ export function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
       runtimeMinutes: toRuntimeMinutes(row.runtime),
       runtimeLabel: formatRuntimeLabel(row.runtime),
       status: row.status,
+      captureFiles: [],
+      audioFiles: [],
       graphicLabel: toStageGraphicLabel(row),
       audioLabel: row.sourceAudio || '-',
       note: joinSummary([row.vendorNote, row.remark, row.personnel && `무대 ${row.personnel}`]) || '메모 없음',
@@ -945,7 +948,7 @@ export function EventGraphicsTimetableView({
 
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
-  const tableRows = useMemo(() => buildEventGraphicsEventRows(columns, rows), [columns, rows])
+  const tableRows = useMemo(() => syncEventGraphicsTitleNumbers(buildEventGraphicsEventRows(columns, rows)), [columns, rows])
   const timelineGroups = useMemo(() => buildEventGraphicsSessionGroups(tableRows), [tableRows])
   const exhibitionRowsFromDb = useMemo(
     () =>
