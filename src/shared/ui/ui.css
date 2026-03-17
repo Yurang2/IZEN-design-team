@@ -3731,7 +3731,6 @@ button.dashboardNavButton {
 
 .eventGraphicsSpeakerPptPlaceholder {
   align-items: center;
-  aspect-ratio: var(--event-graphics-preview-ratio, 16 / 9);
   background: #000000;
   border: 1px solid #111827;
   border-radius: 12px;
@@ -3739,8 +3738,10 @@ button.dashboardNavButton {
   display: flex;
   font-size: 18px;
   font-weight: 800;
+  height: 100%;
   justify-content: center;
   letter-spacing: 0.04em;
+  width: 100%;
 }
 
 .eventGraphicsSubline {
@@ -3986,24 +3987,28 @@ button.dashboardNavButton {
   text-align: right;
 }
 
+.eventGraphicsAuditPanelHead {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+.eventGraphicsAuditPanelHead .eventGraphicsPanelLabel {
+  white-space: nowrap;
+}
+
 .eventGraphicsAuditAssetRow {
   align-items: center;
-  display: grid;
+  display: flex;
   gap: 6px;
-  grid-template-columns: 74px minmax(0, 1fr);
-}
-
-.eventGraphicsAuditAssetRow.is-head {
-  grid-template-columns: 74px max-content minmax(0, 1fr);
-}
-
-.eventGraphicsAuditAssetRow.is-head .eventGraphicsAuditMissingFlag {
-  justify-self: end;
 }
 
 .eventGraphicsAuditAssetRow .eventGraphicsAuditChipList,
 .eventGraphicsAuditAssetRow .eventGraphicsSubline {
   align-self: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .eventGraphicsAuditMissingFlag {

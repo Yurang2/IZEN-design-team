@@ -191,16 +191,12 @@ function toSessionTitle(row: EventGraphicsEventRow): string {
 
 function findLinkedMainRow(rows: EventGraphicsEventRow[], index: number): EventGraphicsEventRow | null {
   const appearanceRow = rows[index]
-  const appearanceCueNumber = appearanceRow.cueOrderNumeric
-  if (appearanceCueNumber == null) return null
 
   for (let offset = index + 1; offset < rows.length; offset += 1) {
     const candidate = rows[offset]
-    if (candidate.eventName !== appearanceRow.eventName) continue
-    if (candidate.cueOrderNumeric == null) continue
-    if (Math.ceil(candidate.cueOrderNumeric) !== Math.ceil(appearanceCueNumber)) continue
-    if (!supportsAppearanceStage(candidate.cueType)) continue
-    return candidate
+    if (candidate.eventName !== appearanceRow.eventName) return null
+    if (isAppearanceRow(candidate)) continue
+    return supportsAppearanceStage(candidate.cueType) ? candidate : null
   }
 
   return null

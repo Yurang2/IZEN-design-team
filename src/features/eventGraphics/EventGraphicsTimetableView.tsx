@@ -506,8 +506,16 @@ function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, numb
   }
 }
 
-function SpeakerPptPlaceholder() {
-  return <div className="eventGraphicsSpeakerPptPlaceholder">강연자PPT</div>
+function SpeakerPptPlaceholder({
+  frameClassName,
+}: {
+  frameClassName: string
+}) {
+  return (
+    <div className={frameClassName}>
+      <div className="eventGraphicsSpeakerPptPlaceholder">강연자PPT</div>
+    </div>
+  )
 }
 
 function TimelineLayout({
@@ -560,7 +568,7 @@ function TimelineLayout({
                           <span className="eventGraphicsPanelLabel">그래픽</span>
                           <strong>{showSpeakerPptPlaceholder ? '강연자PPT' : stage.graphicLabel}</strong>
                           {showSpeakerPptPlaceholder ? (
-                            <SpeakerPptPlaceholder />
+                            <SpeakerPptPlaceholder frameClassName="eventGraphicsPreviewThumb" />
                           ) : hasPreview ? (
                             <EventGraphicsPreviewMedia
                               src={stage.previewHref ?? ''}
@@ -709,16 +717,16 @@ function MasterfileAssetPanel({
 
   return (
     <section className={panelClassName}>
-      <div className="eventGraphicsAuditAssetRow is-head">
+      <div className="eventGraphicsAuditPanelHead">
         <span className="eventGraphicsPanelLabel">{title}</span>
-        <label className="eventGraphicsAuditCheck is-compact">
-          <input type="checkbox" checked={expected && hasLocalFiles} disabled />
-          <span>로컬</span>
-        </label>
         {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
       </div>
 
       <div className="eventGraphicsAuditAssetRow">
+        <label className="eventGraphicsAuditCheck is-compact">
+          <input type="checkbox" checked={expected && hasLocalFiles} disabled />
+          <span>로컬</span>
+        </label>
         {hasLocalFiles ? (
           <div className="eventGraphicsAuditChipList">
             {registeredFiles.map((file) => (
@@ -733,7 +741,6 @@ function MasterfileAssetPanel({
       </div>
 
       <div className="eventGraphicsAuditAssetRow">
-        <span className="eventGraphicsPanelLabel"> </span>
         <label className="eventGraphicsAuditCheck is-compact">
           <input
             type="checkbox"
@@ -839,7 +846,7 @@ function MasterfileAuditLayout({
                     <div className="eventGraphicsAuditGrid">
                       <section className="eventGraphicsAuditVisual">
                         {showSpeakerPptPlaceholder ? (
-                          <SpeakerPptPlaceholder />
+                          <SpeakerPptPlaceholder frameClassName="eventGraphicsPreviewInline" />
                         ) : stage.previewHref ? (
                           <EventGraphicsPreviewMedia
                             src={stage.previewHref}

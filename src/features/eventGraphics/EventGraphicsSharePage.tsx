@@ -319,7 +319,9 @@ export function EventGraphicsSharePage({
                                     <span className="eventGraphicsPanelLabel">{copy.image}</span>
                                     <strong>{showSpeakerPpt ? '강연자PPT' : stage.title}</strong>
                                     {showSpeakerPpt ? (
-                                      <div className="eventGraphicsSpeakerPptPlaceholder">강연자PPT</div>
+                                      <div className="eventGraphicsPreviewInline">
+                                        <div className="eventGraphicsSpeakerPptPlaceholder">강연자PPT</div>
+                                      </div>
                                     ) : hasPreview ? (
                                       <EventGraphicsPreviewMedia
                                         src={previewHref ?? ''}
