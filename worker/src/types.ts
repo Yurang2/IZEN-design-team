@@ -64,6 +64,9 @@ export interface Env {
   MEETING_KEYWORD_LIMIT?: string
   GEMINI_API_KEY?: string
   GOOGLE_AI_API_KEY?: string
+  GOOGLE_SERVICE_ACCOUNT_JSON?: string
+  GOOGLE_CLOUD_PROJECT_ID?: string
+  GOOGLE_CLOUD_LOCATION?: string
   GEMINI_IMAGE_MODEL?: string
   OPENAI_API_KEY?: string
   OPENAI_SUMMARY_MODEL?: string

@@ -53,10 +53,14 @@ MEETING_AUDIO_BUCKET_NAME = "izen-meeting-audio"
 # OPENAI_SUMMARY_MODEL = "gpt-5-mini"
 #
 # Optional: Gemini image thumbnail generation
-# Set as secret:
+# Preferred for GCP billing / Vertex AI standard mode:
+# npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON --config worker/wrangler.toml
+# GOOGLE_CLOUD_PROJECT_ID = "your-gcp-project-id" # optional when included in service account JSON
+# GOOGLE_CLOUD_LOCATION = "global"
+# Fallback for Google AI Studio mode:
 # npx wrangler secret put GEMINI_API_KEY --config worker/wrangler.toml
-# Optional model override (default: gemini-3.1-flash-image-preview)
-# GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+# Optional model override (default: gemini-2.5-flash-image)
+# GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 #
 # LINE reminder secrets:
 # npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN --config worker/wrangler.toml
