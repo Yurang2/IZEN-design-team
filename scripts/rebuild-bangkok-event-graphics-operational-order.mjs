@@ -110,7 +110,7 @@ async function main() {
 
   const ceoIntroRow = buildRow(openingCombined, {
     '정렬 순서': 3,
-    '카테고리': 'opening',
+    '카테고리': 'introduce',
     'Cue 제목': 'IZEN Product & Business Introduction (CEO)',
     '시작 시각': '9:42',
     '종료 시각': '10:00',

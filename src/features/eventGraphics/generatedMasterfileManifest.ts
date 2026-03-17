@@ -1,13 +1,13 @@
 export const bangkokMasterfileManifest = {
-  "generatedAt": "2026-03-17T05:44:14.345Z",
+  "generatedAt": "2026-03-17T05:54:40.004Z",
   "eventName": "2026 IZEN Seminar in Bangkok",
   "structure": {
     "filesDirectory": "02_Files"
   },
-  "totalCueCount": 14,
-  "completeCueCount": 4,
-  "partialCueCount": 6,
-  "missingCueCount": 4,
+  "totalCueCount": 15,
+  "completeCueCount": 9,
+  "partialCueCount": 5,
+  "missingCueCount": 1,
   "cues": [
     {
       "cueNumber": "Q01",
@@ -37,21 +37,51 @@ export const bangkokMasterfileManifest = {
     },
     {
       "cueNumber": "Q02",
-      "title": "Opening / IZEN Product & Business Introduction (CEO)",
-      "cueType": "introduce",
+      "title": "Opening",
+      "cueType": "opening",
       "eventName": "2026 IZEN Seminar in Bangkok",
       "storageGroup": "02_Files",
       "startTime": "9:40",
-      "endTime": "10:00",
-      "runtimeLabel": "20 min",
+      "endTime": "9:42",
+      "runtimeLabel": "2 min",
       "personnel": "Liam Im, Jusuk Kim (CEO)",
       "registeredFiles": [
         {
-          "name": "V_Q02_Opening_IZEN_Product_And_Business_Introduction_CEO.mp4",
+          "name": "V_Q02_Opening.mp4",
           "kind": "video",
-          "role": "Secondary Graphic",
-          "sourceName": "Opening Video / Main Key Visual.png",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_Q02_Opening_IZEN_Product_And_Business_Introduction_CEO.mp4"
+          "role": "Main Graphic",
+          "sourceName": "Opening Cinematic Video",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/V_Q02_Opening.mp4"
+        }
+      ],
+      "missingFiles": [],
+      "previewUrl": null,
+      "status": "complete"
+    },
+    {
+      "cueNumber": "Q03",
+      "title": "IZEN Product & Business Introduction (CEO)",
+      "cueType": "introduce",
+      "eventName": "2026 IZEN Seminar in Bangkok",
+      "storageGroup": "02_Files",
+      "startTime": "9:42",
+      "endTime": "10:00",
+      "runtimeLabel": "18 min",
+      "personnel": "Liam Im, Jusuk Kim (CEO)",
+      "registeredFiles": [
+        {
+          "name": "I_IZEN_Product_And_Business_Introduction_CEO.png",
+          "kind": "image",
+          "role": "Primary Graphic",
+          "sourceName": "IZEN Product & Business Introduction (CEO) 소개 그래픽",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_IZEN_Product_And_Business_Introduction_CEO.png"
+        },
+        {
+          "name": "I_IZEN_Product_And_Business_Introduction_CEO.png",
+          "kind": "image",
+          "role": "Primary Graphic",
+          "sourceName": "IZEN Product & Business Introduction (CEO) 소개 그래픽",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_IZEN_Product_And_Business_Introduction_CEO.png"
         },
         {
           "name": "A_Entrance_Audio.wav",
@@ -61,23 +91,12 @@ export const bangkokMasterfileManifest = {
           "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/A_Entrance_Audio.wav"
         }
       ],
-      "missingFiles": [
-        {
-          "kind": "image",
-          "label": "Primary Graphic",
-          "sourceName": "Opening / IZEN Product & Business Introduction (CEO) 소개 그래픽"
-        },
-        {
-          "kind": "audio",
-          "label": "Secondary Audio",
-          "sourceName": "Opening Video (Audio)"
-        }
-      ],
-      "previewUrl": null,
-      "status": "partial"
+      "missingFiles": [],
+      "previewUrl": "/event-graphics-registered/bangkok/I_IZEN_Product_And_Business_Introduction_CEO.png",
+      "status": "complete"
     },
     {
-      "cueNumber": "Q03",
+      "cueNumber": "Q04",
       "title": "Lecture 1",
       "cueType": "lecture",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -88,11 +107,18 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im, Prof. Eshamsul Sulaiman",
       "registeredFiles": [
         {
-          "name": "I_Q03_Lecture_1.png",
+          "name": "I_Q04_Lecture_1.png",
           "kind": "image",
           "role": "Primary Graphic",
           "sourceName": "Lecture 1 소개 그래픽",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q03_Lecture_1.png"
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q04_Lecture_1.png"
+        },
+        {
+          "name": "I_Q04_Lecture_1_Extra01.png",
+          "kind": "image",
+          "role": "Secondary Graphic",
+          "sourceName": "Lecture 1 Graphic",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q04_Lecture_1_Extra01.png"
         },
         {
           "name": "A_Entrance_Audio.wav",
@@ -102,18 +128,12 @@ export const bangkokMasterfileManifest = {
           "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/A_Entrance_Audio.wav"
         }
       ],
-      "missingFiles": [
-        {
-          "kind": "image",
-          "label": "Secondary Graphic",
-          "sourceName": "Lecture 1 Graphic"
-        }
-      ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Q03_Lecture_1.png",
-      "status": "partial"
+      "missingFiles": [],
+      "previewUrl": "/event-graphics-registered/bangkok/I_Q04_Lecture_1.png",
+      "status": "complete"
     },
     {
-      "cueNumber": "Q04",
+      "cueNumber": "Q05",
       "title": "Lecture 1 Certi",
       "cueType": "certificate",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -143,7 +163,7 @@ export const bangkokMasterfileManifest = {
       "status": "complete"
     },
     {
-      "cueNumber": "Q05",
+      "cueNumber": "Q06",
       "title": "Coffee Break",
       "cueType": "break",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -152,24 +172,27 @@ export const bangkokMasterfileManifest = {
       "endTime": "11:50",
       "runtimeLabel": "20 min",
       "personnel": "Liam Im",
-      "registeredFiles": [],
-      "missingFiles": [
+      "registeredFiles": [
         {
+          "name": "I_Show_Room.png",
           "kind": "image",
-          "label": "Main Graphic",
-          "sourceName": "Show Room"
-        },
+          "role": "Main Graphic",
+          "sourceName": "Show Room",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Show_Room.png"
+        }
+      ],
+      "missingFiles": [
         {
           "kind": "audio",
           "label": "Main Audio",
           "sourceName": "Show Room"
         }
       ],
-      "previewUrl": null,
-      "status": "missing"
+      "previewUrl": "/event-graphics-registered/bangkok/I_Show_Room.png",
+      "status": "partial"
     },
     {
-      "cueNumber": "Q06",
+      "cueNumber": "Q07",
       "title": "Lecture 2",
       "cueType": "lecture",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -180,11 +203,11 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im, Dr. Yerkebulan Abdakhin",
       "registeredFiles": [
         {
-          "name": "I_Q06_Lecture_2.png",
+          "name": "I_Q07_Lecture_2.png",
           "kind": "image",
           "role": "Primary Graphic",
           "sourceName": "Lecture 2 소개 그래픽",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q06_Lecture_2.png"
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q07_Lecture_2.png"
         },
         {
           "name": "A_Entrance_Audio.wav",
@@ -201,11 +224,11 @@ export const bangkokMasterfileManifest = {
           "sourceName": "Lecture 2 Graphic"
         }
       ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Q06_Lecture_2.png",
+      "previewUrl": "/event-graphics-registered/bangkok/I_Q07_Lecture_2.png",
       "status": "partial"
     },
     {
-      "cueNumber": "Q07",
+      "cueNumber": "Q08",
       "title": "Lecture 2 Certi",
       "cueType": "certificate",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -235,7 +258,7 @@ export const bangkokMasterfileManifest = {
       "status": "complete"
     },
     {
-      "cueNumber": "Q08",
+      "cueNumber": "Q09",
       "title": "Lunch (Buffet)",
       "cueType": "meal",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -244,24 +267,27 @@ export const bangkokMasterfileManifest = {
       "endTime": "14:30",
       "runtimeLabel": "70 min",
       "personnel": "Liam Im",
-      "registeredFiles": [],
-      "missingFiles": [
+      "registeredFiles": [
         {
+          "name": "I_Show_Room.png",
           "kind": "image",
-          "label": "Main Graphic",
-          "sourceName": "Show Room"
-        },
+          "role": "Main Graphic",
+          "sourceName": "Show Room",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Show_Room.png"
+        }
+      ],
+      "missingFiles": [
         {
           "kind": "audio",
           "label": "Main Audio",
           "sourceName": "Show Room"
         }
       ],
-      "previewUrl": null,
-      "status": "missing"
+      "previewUrl": "/event-graphics-registered/bangkok/I_Show_Room.png",
+      "status": "partial"
     },
     {
-      "cueNumber": "Q09",
+      "cueNumber": "Q10",
       "title": "Lecture 3",
       "cueType": "lecture",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -272,11 +298,18 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im, Dr. Dias Kulbayev",
       "registeredFiles": [
         {
-          "name": "I_Q09_Lecture_3.png",
+          "name": "I_Q10_Lecture_3.png",
           "kind": "image",
           "role": "Primary Graphic",
           "sourceName": "Lecture 3 소개 그래픽",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q09_Lecture_3.png"
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q10_Lecture_3.png"
+        },
+        {
+          "name": "I_Q10_Lecture_3_Extra01.png",
+          "kind": "image",
+          "role": "Secondary Graphic",
+          "sourceName": "Lecture 3 Graphic",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q10_Lecture_3_Extra01.png"
         },
         {
           "name": "A_Entrance_Audio.wav",
@@ -286,18 +319,12 @@ export const bangkokMasterfileManifest = {
           "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/A_Entrance_Audio.wav"
         }
       ],
-      "missingFiles": [
-        {
-          "kind": "image",
-          "label": "Secondary Graphic",
-          "sourceName": "Lecture 3 Graphic"
-        }
-      ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Q09_Lecture_3.png",
-      "status": "partial"
+      "missingFiles": [],
+      "previewUrl": "/event-graphics-registered/bangkok/I_Q10_Lecture_3.png",
+      "status": "complete"
     },
     {
-      "cueNumber": "Q10",
+      "cueNumber": "Q11",
       "title": "Lecture 3 Certi",
       "cueType": "certificate",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -327,7 +354,7 @@ export const bangkokMasterfileManifest = {
       "status": "complete"
     },
     {
-      "cueNumber": "Q11",
+      "cueNumber": "Q12",
       "title": "Coffee Break",
       "cueType": "break",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -336,24 +363,27 @@ export const bangkokMasterfileManifest = {
       "endTime": "16:20",
       "runtimeLabel": "20 min",
       "personnel": "Liam Im",
-      "registeredFiles": [],
-      "missingFiles": [
+      "registeredFiles": [
         {
+          "name": "I_Show_Room.png",
           "kind": "image",
-          "label": "Main Graphic",
-          "sourceName": "Show Room"
-        },
+          "role": "Main Graphic",
+          "sourceName": "Show Room",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Show_Room.png"
+        }
+      ],
+      "missingFiles": [
         {
           "kind": "audio",
           "label": "Main Audio",
           "sourceName": "Show Room"
         }
       ],
-      "previewUrl": null,
-      "status": "missing"
+      "previewUrl": "/event-graphics-registered/bangkok/I_Show_Room.png",
+      "status": "partial"
     },
     {
-      "cueNumber": "Q12",
+      "cueNumber": "Q13",
       "title": "Lecture 4",
       "cueType": "lecture",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -364,11 +394,18 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im, Dr. Gaurav Ahuja",
       "registeredFiles": [
         {
-          "name": "I_Q12_Lecture_4.png",
+          "name": "I_Q13_Lecture_4.png",
           "kind": "image",
           "role": "Primary Graphic",
           "sourceName": "Lecture 4 소개 그래픽",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q12_Lecture_4.png"
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q13_Lecture_4.png"
+        },
+        {
+          "name": "I_Q13_Lecture_4_Extra01.png",
+          "kind": "image",
+          "role": "Secondary Graphic",
+          "sourceName": "Lecture 4 Graphic",
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q13_Lecture_4_Extra01.png"
         },
         {
           "name": "A_Entrance_Audio.wav",
@@ -378,18 +415,12 @@ export const bangkokMasterfileManifest = {
           "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/A_Entrance_Audio.wav"
         }
       ],
-      "missingFiles": [
-        {
-          "kind": "image",
-          "label": "Secondary Graphic",
-          "sourceName": "Lecture 4 Graphic"
-        }
-      ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Q12_Lecture_4.png",
-      "status": "partial"
+      "missingFiles": [],
+      "previewUrl": "/event-graphics-registered/bangkok/I_Q13_Lecture_4.png",
+      "status": "complete"
     },
     {
-      "cueNumber": "Q13",
+      "cueNumber": "Q14",
       "title": "Lecture 4 Certi",
       "cueType": "certificate",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -419,7 +450,7 @@ export const bangkokMasterfileManifest = {
       "status": "complete"
     },
     {
-      "cueNumber": "Q14",
+      "cueNumber": "Q15",
       "title": "Closing & Commemorative Photo",
       "cueType": "closing",
       "eventName": "2026 IZEN Seminar in Bangkok",
@@ -430,11 +461,11 @@ export const bangkokMasterfileManifest = {
       "personnel": "Liam Im",
       "registeredFiles": [
         {
-          "name": "I_Q14_Closing_And_Commemorative_Photo.png",
+          "name": "I_Q15_Closing_And_Commemorative_Photo.png",
           "kind": "image",
           "role": "Main Graphic",
           "sourceName": "Main Key Visual.png",
-          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q14_Closing_And_Commemorative_Photo.png"
+          "relativePath": "files/2026 IZEN Seminar in Bangkok Masterfile/02_Files/I_Q15_Closing_And_Commemorative_Photo.png"
         }
       ],
       "missingFiles": [
@@ -444,7 +475,7 @@ export const bangkokMasterfileManifest = {
           "sourceName": "Certi Audio (Loop)"
         }
       ],
-      "previewUrl": "/event-graphics-registered/bangkok/I_Q14_Closing_And_Commemorative_Photo.png",
+      "previewUrl": "/event-graphics-registered/bangkok/I_Q15_Closing_And_Commemorative_Photo.png",
       "status": "partial"
     }
   ]

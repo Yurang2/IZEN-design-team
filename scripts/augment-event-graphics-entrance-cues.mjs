@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
-const ENTRANCE_ALLOWED_TYPES = new Set(['opening', 'introduce', 'lecture'])
+const ENTRANCE_ALLOWED_TYPES = new Set(['introduce', 'lecture'])
 
 function parseArgs(argv) {
   const options = {

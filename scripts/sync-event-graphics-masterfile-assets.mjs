@@ -146,7 +146,7 @@ function isEntranceRow(row) {
 function canMergeEntranceWithMainRow(entranceRow, mainRow) {
   if (!mainRow) return false
   if (!isEntranceRow(entranceRow)) return false
-  if (!['opening', 'introduce', 'lecture'].includes(mainRow.cueType)) return false
+  if (!['introduce', 'lecture'].includes(mainRow.cueType)) return false
   if (entranceRow.eventName !== mainRow.eventName) return false
   if (entranceRow.cueOrder == null || mainRow.cueOrder == null) return false
   return Math.ceil(entranceRow.cueOrder) === Math.round(mainRow.cueOrder)
