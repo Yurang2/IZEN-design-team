@@ -1,15 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
-import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
 import {
-  MISSING_FILE_LABEL,
+  EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY,
+  EventGraphicsPreviewRatioControl,
+  readStoredPreviewRatio,
+  toPreviewAspectRatioValue,
+  type EventGraphicsPreviewRatio,
+} from './EventGraphicsPreviewRatioControl'
+import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
+import { usesSpeakerPptPlaceholder } from './eventGraphicsHierarchy'
+import {
   buildEventGraphicsShareData,
   buildEventGraphicsSharePageTitle,
   eventGraphicsManifestByCueNumber,
   toCueTypeLabel,
   type EventGraphicsShareLocale,
-  type VendorCue,
 } from './eventGraphicsShareData'
 
 type EventGraphicsSharePageProps = {
@@ -37,8 +43,6 @@ type CopySet = {
   printView: string
   image: string
   noPreview: string
-  start: string
-  thenHold: string
   openFile: string
   noSpecialNote: string
   graphic: string
@@ -58,8 +62,6 @@ const COPY: Record<EventGraphicsShareLocale, CopySet> = {
     printView: 'Print View',
     image: 'Image',
     noPreview: 'No preview image available.',
-    start: 'Start',
-    thenHold: 'Then / Hold',
     openFile: 'Open file',
     noSpecialNote: 'No special note',
     graphic: 'Graphic',
@@ -73,39 +75,16 @@ const COPY: Record<EventGraphicsShareLocale, CopySet> = {
     notConnectedTitle: '타임테이블 DB가 연결되지 않았습니다.',
     notConnectedMessage: '외부 공유 페이지에서 타임테이블 데이터를 아직 읽어오지 못했습니다.',
     emptyTitle: '표시할 운영 큐가 없습니다.',
-    emptyMessage: '업체용 운영 뷰에 표시할 큐 데이터가 없습니다.',
+    emptyMessage: '외부 공유용으로 정리된 큐가 없습니다.',
     printView: '인쇄 전용 보기',
     image: '이미지',
     noPreview: '등록된 이미지가 없습니다.',
-    start: '시작',
-    thenHold: '이후 / 유지',
     openFile: '파일 열기',
     noSpecialNote: '특이사항 없음',
     graphic: '그래픽',
     audio: '오디오',
     untitledEvent: '행사명 미정',
   },
-}
-
-function appendAssetEntry(entries: AssetEntry[], name: string, role: string) {
-  const trimmedName = name.trim()
-  if (!trimmedName || trimmedName === '-' || trimmedName === MISSING_FILE_LABEL) return
-  if (entries.some((entry) => entry.name === trimmedName)) return
-  entries.push({ name: trimmedName, role })
-}
-
-function buildFallbackGraphicEntries(cue: VendorCue, copy: CopySet): AssetEntry[] {
-  const entries: AssetEntry[] = []
-  appendAssetEntry(entries, cue.startGraphic, cue.startGraphicAction ? `${copy.start} ${cue.startGraphicAction}` : copy.start)
-  appendAssetEntry(entries, cue.nextGraphic, cue.nextGraphicAction ? `${copy.thenHold} ${cue.nextGraphicAction}` : copy.thenHold)
-  return entries
-}
-
-function buildFallbackAudioEntries(cue: VendorCue, copy: CopySet): AssetEntry[] {
-  const entries: AssetEntry[] = []
-  appendAssetEntry(entries, cue.startAudio, cue.startAudioAction ? `${copy.start} ${cue.startAudioAction}` : copy.start)
-  appendAssetEntry(entries, cue.nextAudio, cue.nextAudioAction ? `${copy.thenHold} ${cue.nextAudioAction}` : copy.thenHold)
-  return entries
 }
 
 function ShareAssetPanel({
@@ -172,15 +151,25 @@ export function EventGraphicsSharePage({
   error,
 }: EventGraphicsSharePageProps) {
   const [locale, setLocale] = useState<EventGraphicsShareLocale>('en')
+  const [previewRatio, setPreviewRatio] = useState<EventGraphicsPreviewRatio>(() => readStoredPreviewRatio())
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY, JSON.stringify(previewRatio))
+  }, [previewRatio])
 
   const copy = COPY[locale]
   const { groupedCues } = useMemo(() => buildEventGraphicsShareData(columns, rows, copy.untitledEvent), [columns, copy.untitledEvent, rows])
   const pageTitle = useMemo(() => buildEventGraphicsSharePageTitle(groupedCues, databaseTitle), [databaseTitle, groupedCues])
   const printHref = `/share/timetable/print?locale=${encodeURIComponent(locale)}`
+  const previewRatioStyle = useMemo(
+    () => ({ ['--event-graphics-preview-ratio' as string]: toPreviewAspectRatioValue(previewRatio) }),
+    [previewRatio],
+  )
 
   if (loading) {
     return (
-      <main className="eventGraphicsShareShell">
+      <main className="eventGraphicsShareShell" style={previewRatioStyle}>
         <section className="eventGraphicsSharePage">
           <header className="eventGraphicsShareHero">
             <div className="eventGraphicsShareHeroTop">
@@ -195,7 +184,7 @@ export function EventGraphicsSharePage({
 
   if (error) {
     return (
-      <main className="eventGraphicsShareShell">
+      <main className="eventGraphicsShareShell" style={previewRatioStyle}>
         <EmptyState title={copy.loadErrorTitle} message={error} className="scheduleEmptyState" />
       </main>
     )
@@ -203,7 +192,7 @@ export function EventGraphicsSharePage({
 
   if (!configured) {
     return (
-      <main className="eventGraphicsShareShell">
+      <main className="eventGraphicsShareShell" style={previewRatioStyle}>
         <EmptyState title={copy.notConnectedTitle} message={copy.notConnectedMessage} className="scheduleEmptyState" />
       </main>
     )
@@ -211,14 +200,14 @@ export function EventGraphicsSharePage({
 
   if (groupedCues.length === 0) {
     return (
-      <main className="eventGraphicsShareShell">
+      <main className="eventGraphicsShareShell" style={previewRatioStyle}>
         <EmptyState title={copy.emptyTitle} message={copy.emptyMessage} className="scheduleEmptyState" />
       </main>
     )
   }
 
   return (
-    <main className="eventGraphicsShareShell">
+    <main className="eventGraphicsShareShell" style={previewRatioStyle}>
       <section className="eventGraphicsSharePage">
         <header className="eventGraphicsShareHero">
           <div className="eventGraphicsShareHeroTop">
@@ -250,6 +239,7 @@ export function EventGraphicsSharePage({
               </div>
             </div>
           </div>
+          <EventGraphicsPreviewRatioControl value={previewRatio} onChange={setPreviewRatio} />
         </header>
 
         <div className="eventGraphicsShareList">
@@ -261,24 +251,7 @@ export function EventGraphicsSharePage({
 
               <div className="eventGraphicsShareGroupList">
                 {group.cues.map((cue) => {
-                  const manifestCue = eventGraphicsManifestByCueNumber.get(cue.cueNumber)
-                  const registeredFiles = (manifestCue?.registeredFiles ?? []) as ReadonlyArray<{ name: string; kind: string; role: string }>
-                  const missingFiles = (manifestCue?.missingFiles ?? []) as ReadonlyArray<{ kind: string; label: string; sourceName: string }>
-                  const graphicFiles = manifestCue
-                    ? registeredFiles.filter((file) => file.kind === 'image' || file.kind === 'video').map((file) => ({ name: file.name, role: file.role }))
-                    : buildFallbackGraphicEntries(cue, copy)
-                  const audioFiles = manifestCue
-                    ? registeredFiles.filter((file) => file.kind === 'audio').map((file) => ({ name: file.name, role: file.role }))
-                    : buildFallbackAudioEntries(cue, copy)
-                  const missingGraphicFiles = manifestCue
-                    ? missingFiles.filter((file) => file.kind !== 'audio').map((file) => file.sourceName || file.label)
-                    : []
-                  const missingAudioFiles = manifestCue
-                    ? missingFiles.filter((file) => file.kind === 'audio').map((file) => file.sourceName || file.label)
-                    : []
-                  const previewHref = cue.previewHref || manifestCue?.previewUrl || null
-                  const hasPreview = hasVisualPreviewUrl(previewHref)
-
+                  const cueTypeLabel = toCueTypeLabel(cue.cueType, locale)
                   return (
                     <article key={cue.id} className="eventGraphicsShareRow">
                       <div className="eventGraphicsShareTime">
@@ -290,40 +263,93 @@ export function EventGraphicsSharePage({
                       <div className="eventGraphicsShareBody">
                         <div className="eventGraphicsShareHead">
                           <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                          <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
+                          <span className="eventGraphicsShareSection">{cueTypeLabel}</span>
                           <h3>{cue.title}</h3>
-                          <p>{cue.note || copy.noSpecialNote}</p>
                         </div>
 
-                        <div className="eventGraphicsShareAssetGrid">
-                          <section className="eventGraphicsAuditVisual">
-                            <span className="eventGraphicsPanelLabel">{copy.image}</span>
-                            {hasPreview ? (
-                              <EventGraphicsPreviewMedia
-                                src={previewHref ?? ''}
-                                alt={`${cue.title} preview`}
-                                className="eventGraphicsPreviewInline"
-                                noPreviewText={copy.noPreview}
-                              />
-                            ) : (
-                              <div className="eventGraphicsPreviewPlaceholder">{copy.noPreview}</div>
-                            )}
-                          </section>
+                        <div className="eventGraphicsShareStageList">
+                          {cue.stages.map((stage) => {
+                            const manifestCue = stage.manifestCueNumber
+                              ? eventGraphicsManifestByCueNumber.get(stage.manifestCueNumber) ?? null
+                              : null
+                            const graphicFiles =
+                              manifestCue != null
+                                ? (manifestCue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>)
+                                    .filter((file) => file.kind === 'image' || file.kind === 'video')
+                                    .map((file) => ({ name: file.name, role: file.role }))
+                                : stage.graphicLabel && stage.graphicLabel !== '-'
+                                  ? [{ name: stage.graphicLabel, role: stage.label }]
+                                  : []
+                            const audioFiles =
+                              manifestCue != null
+                                ? (manifestCue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>)
+                                    .filter((file) => file.kind === 'audio')
+                                    .map((file) => ({ name: file.name, role: file.role }))
+                                : stage.audioLabel && stage.audioLabel !== '-'
+                                  ? [{ name: stage.audioLabel, role: stage.label }]
+                                  : []
+                            const missingGraphicFiles =
+                              manifestCue != null
+                                ? ((manifestCue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
+                                    .filter((file) => file.kind !== 'audio')
+                                    .map((file) => file.sourceName || file.label)
+                                : []
+                            const missingAudioFiles =
+                              manifestCue != null
+                                ? ((manifestCue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
+                                    .filter((file) => file.kind === 'audio')
+                                    .map((file) => file.sourceName || file.label)
+                                : []
+                            const previewHref = stage.previewHref || manifestCue?.previewUrl || null
+                            const hasPreview = hasVisualPreviewUrl(previewHref)
+                            const showSpeakerPpt = usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
 
-                          <ShareAssetPanel
-                            title={copy.graphic}
-                            files={graphicFiles}
-                            missingFiles={missingGraphicFiles}
-                            href={cue.assetHref}
-                            copy={copy}
-                          />
-                          <ShareAssetPanel
-                            title={copy.audio}
-                            files={audioFiles}
-                            missingFiles={missingAudioFiles}
-                            href={cue.assetHref}
-                            copy={copy}
-                          />
+                            return (
+                              <section key={stage.id} className="eventGraphicsShareStage">
+                                <div className="eventGraphicsShareStageHead">
+                                  <div className="eventGraphicsCueHead">
+                                    <span className="eventGraphicsEntranceFlag">{stage.label}</span>
+                                    <span className="eventGraphicsOrder">{stage.cueNumber}</span>
+                                  </div>
+                                  <p>{stage.note || copy.noSpecialNote}</p>
+                                </div>
+
+                                <div className="eventGraphicsShareAssetGrid">
+                                  <section className="eventGraphicsAuditVisual">
+                                    <span className="eventGraphicsPanelLabel">{copy.image}</span>
+                                    <strong>{showSpeakerPpt ? '강연자PPT' : stage.title}</strong>
+                                    {showSpeakerPpt ? (
+                                      <div className="eventGraphicsSpeakerPptPlaceholder">강연자PPT</div>
+                                    ) : hasPreview ? (
+                                      <EventGraphicsPreviewMedia
+                                        src={previewHref ?? ''}
+                                        alt={`${stage.title} preview`}
+                                        className="eventGraphicsPreviewInline"
+                                        noPreviewText={copy.noPreview}
+                                      />
+                                    ) : (
+                                      <div className="eventGraphicsPreviewPlaceholder">{copy.noPreview}</div>
+                                    )}
+                                  </section>
+
+                                  <ShareAssetPanel
+                                    title={copy.graphic}
+                                    files={graphicFiles}
+                                    missingFiles={missingGraphicFiles}
+                                    href={stage.assetHref}
+                                    copy={copy}
+                                  />
+                                  <ShareAssetPanel
+                                    title={copy.audio}
+                                    files={audioFiles}
+                                    missingFiles={missingAudioFiles}
+                                    href={stage.assetHref}
+                                    copy={copy}
+                                  />
+                                </div>
+                              </section>
+                            )
+                          })}
                         </div>
                       </div>
                     </article>

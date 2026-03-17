@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import {
@@ -7,7 +7,18 @@ import {
   type ExhibitionPlaybookRow,
 } from './exhibitionPlaybookExample'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
+import {
+  EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY,
+  EventGraphicsPreviewRatioControl,
+  readStoredPreviewRatio,
+  toPreviewAspectRatioValue,
+  type EventGraphicsPreviewRatio,
+} from './EventGraphicsPreviewRatioControl'
 import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
+import {
+  buildEventGraphicsEventRows,
+  buildEventGraphicsSessionGroups,
+} from './eventGraphicsHierarchy'
 import { VideoThumbnailTool } from './VideoThumbnailTool'
 
 type EventGraphicsTimetableViewProps = {
@@ -52,6 +63,8 @@ type DriveChecklistState = Record<string, { graphic: boolean; audio: boolean }>
 type SessionStage = {
   id: string
   cueNumber: string
+  manifestCueNumber: string | null
+  stageKind: 'appearance' | 'main' | 'certificate'
   sortOrder: number
   label: string
   title: string
@@ -126,7 +139,7 @@ function toCueTypeClassName(value: string): string {
   return value.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
 }
 
-function toCueSortValue(value: string): number {
+export function toCueSortValue(value: string): number {
   const match = value.match(/(\d+(?:\.\d+)?)/)
   if (!match) return Number.MAX_SAFE_INTEGER
   const parsed = Number(match[1])
@@ -137,7 +150,7 @@ function usesSpeakerPptPlaceholder(cueType: string): boolean {
   return cueType === 'introduce' || cueType === 'lecture'
 }
 
-function normalizeEventCueType(cueType: string, title: string): string {
+export function normalizeEventCueType(cueType: string, title: string): string {
   const normalizedType = cueType.trim().toLowerCase()
   const normalizedTitle = title.trim().toLowerCase()
   if (normalizedType === 'lecture') return 'lecture'
@@ -200,7 +213,7 @@ function toDisplayCueOrder(row: TimetableRow): string {
   return cueNumber
 }
 
-function matchesQuery(row: TimetableRow, query: string): boolean {
+export function matchesQuery(row: TimetableRow, query: string): boolean {
   if (!query) return true
   const source = [
     row.cueTitle,
@@ -217,7 +230,7 @@ function matchesQuery(row: TimetableRow, query: string): boolean {
   return source.includes(query)
 }
 
-function matchesMasterfileQuery(cue: MasterfileCue, query: string): boolean {
+export function matchesMasterfileQuery(cue: MasterfileCue, query: string): boolean {
   if (!query) return true
   const source = [
     cue.cueNumber,
@@ -238,6 +251,55 @@ function matchesExhibitionQuery(row: ExhibitionPlaybookRow, query: string): bool
     .join(' ')
     .toLowerCase()
   return source.includes(query)
+}
+
+function getStageMasterfileCue(stage: SessionStage): MasterfileCue | null {
+  if (!stage.manifestCueNumber) return null
+  return masterfileCueByNumber.get(stage.manifestCueNumber) ?? null
+}
+
+function matchesTimelineGroup(group: SessionGroup, query: string, statusFilter: string): boolean {
+  if (statusFilter && !group.stages.some((stage) => stage.status === statusFilter)) return false
+  if (!query) return true
+  const source = [
+    group.cueNumber,
+    group.title,
+    group.cueType,
+    ...group.stages.flatMap((stage) => [stage.cueNumber, stage.label, stage.title, stage.graphicLabel, stage.audioLabel, stage.note]),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return source.includes(query)
+}
+
+function matchesMasterfileGroup(group: SessionGroup, query: string, statusFilter: string): boolean {
+  return group.stages.some((stage) => {
+    const cue = getStageMasterfileCue(stage)
+    const registeredFiles = ((cue?.registeredFiles as ReadonlyArray<{ name: string }>) ?? [])
+    const missingFiles = ((cue?.missingFiles as ReadonlyArray<{ sourceName: string; label: string }>) ?? [])
+    const stageStatus = cue?.status ?? stage.status
+    if (statusFilter && stageStatus !== statusFilter) return false
+    if (!query) return true
+    const source = [
+      group.cueNumber,
+      group.title,
+      group.cueType,
+      stage.cueNumber,
+      stage.label,
+      stage.title,
+      stage.note,
+      cue?.cueNumber,
+      cue?.title,
+      cue?.cueType,
+      cue?.status,
+      cue?.personnel,
+      ...registeredFiles.map((file) => file.name),
+      ...missingFiles.map((file) => file.sourceName || file.label),
+    ]
+      .join(' ')
+      .toLowerCase()
+    return source.includes(query)
+  })
 }
 
 function normalizeSessionTitle(value: string): string {
@@ -276,7 +338,7 @@ function toStageGraphicLabel(row: TimetableRow): string {
   return row.graphicAsset && row.graphicAsset !== '-' ? row.graphicAsset : row.sourceVideo || '-'
 }
 
-function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
+export function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
   const groups: SessionGroup[] = []
 
   for (let index = 0; index < rows.length; index += 1) {
@@ -286,6 +348,8 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
     const stage: SessionStage = {
       id: row.id,
       cueNumber: toDisplayCueOrder(row),
+      manifestCueNumber: isEntranceRow(row) ? null : toBaseCueNumber(row.cueOrderNumeric),
+      stageKind: isEntranceRow(row) ? 'appearance' : /\bcerti\b/i.test(row.cueTitle) || row.cueType === 'certificate' ? 'certificate' : 'main',
       sortOrder: row.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER,
       label: toSessionStageLabel(row),
       title: row.cueTitle,
@@ -375,7 +439,7 @@ function buildSessionGroups(rows: TimetableRow[]): SessionGroup[] {
   })
 }
 
-function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): TimetableRow {
+export function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): TimetableRow {
   const timetableMode =
     normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode'])) ?? 'event'
   const cueOrderText = readFirstCellText(row, columnIndex, ['정렬 순서', 'Cue 순서', '운영 순서', 'No'])
@@ -447,11 +511,10 @@ function SpeakerPptPlaceholder() {
 }
 
 function TimelineLayout({
-  rows,
+  groups,
 }: {
-  rows: TimetableRow[]
+  groups: SessionGroup[]
 }) {
-  const groups = buildSessionGroups(rows)
   return (
     <div className="eventGraphicsTimelineList">
       {groups.map((group) => {
@@ -475,7 +538,7 @@ function TimelineLayout({
               {group.stages.map((stage) => {
                 const stageStatusClassName = toStatusClassName(stage.status)
                 const hasPreview = hasVisualPreviewUrl(stage.previewHref)
-                const showSpeakerPptPlaceholder = stage.label === '메인' && usesSpeakerPptPlaceholder(stage.cueType)
+                const showSpeakerPptPlaceholder = stage.stageKind === 'main' && usesSpeakerPptPlaceholder(stage.cueType)
                 return (
                   <div key={stage.id} className={`eventGraphicsTimelineStage status-${stageStatusClassName}`}>
                     <div className="eventGraphicsTimelineTime">
@@ -695,85 +758,121 @@ function MasterfileAssetPanel({
 }
 
 function MasterfileAuditLayout({
-  cues,
+  groups,
   driveChecklist,
   onToggleDriveCheck,
 }: {
-  cues: MasterfileCue[]
+  groups: SessionGroup[]
   driveChecklist: DriveChecklistState
   onToggleDriveCheck: (cueNumber: string, field: 'graphic' | 'audio', checked: boolean) => void
 }) {
   return (
     <div className="eventGraphicsAuditList">
-      {cues.map((cue) => {
-        const normalizedCueType = normalizeEventCueType(cue.cueType, cue.title)
-        const statusClassName = toStatusClassName(cue.status)
-        const registeredFiles = cue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>
-        const missingFiles = cue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>
-        const graphicFiles = registeredFiles.filter((file) => file.kind === 'image' || file.kind === 'video')
-        const audioFiles = registeredFiles.filter((file) => file.kind === 'audio')
-        const missingGraphicFiles = missingFiles.filter((file) => file.kind !== 'audio')
-        const missingAudioFiles = missingFiles.filter((file) => file.kind === 'audio')
-        const expectedGraphic =
-          graphicFiles.length > 0 || missingGraphicFiles.length > 0
-        const expectedAudio = audioFiles.length > 0 || missingAudioFiles.length > 0
-        const driveState = driveChecklist[cue.cueNumber] ?? { graphic: false, audio: false }
-
+      {groups.map((group) => {
+        const groupCueTypeClassName = toCueTypeClassName(group.cueType)
         return (
-          <article key={cue.cueNumber} className={`eventGraphicsAuditCard status-${statusClassName}`}>
+          <article key={group.id} className="eventGraphicsAuditCard">
             <div className="eventGraphicsAuditHead">
               <div className="eventGraphicsCueHead">
-                <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                <span className={`eventGraphicsCueType cue-${toCueTypeClassName(normalizedCueType)}`}>{normalizedCueType}</span>
+                <span className="eventGraphicsOrder">{group.cueNumber}</span>
+                <span className={`eventGraphicsCueType cue-${groupCueTypeClassName}`}>{group.cueType}</span>
               </div>
-              <span className={`eventGraphicsStatus status-${statusClassName}`}>{cue.status}</span>
             </div>
 
             <div className="eventGraphicsAuditMeta">
-              <h3>{cue.title}</h3>
+              <h3>{group.title}</h3>
               <p>
-                {cue.startTime} - {cue.endTime} / {cue.runtimeLabel}
+                {group.startTime} - {group.endTime} / {group.runtimeLabel}
               </p>
-              {cue.personnel && cue.personnel !== '-' ? <p>무대: {cue.personnel}</p> : null}
             </div>
 
-            <div className="eventGraphicsAuditGrid">
-              <section className="eventGraphicsAuditVisual">
-                <span className="eventGraphicsPanelLabel">등록 이미지</span>
-                {usesSpeakerPptPlaceholder(normalizedCueType) ? (
-                  <SpeakerPptPlaceholder />
-                ) : cue.previewUrl ? (
-                  <EventGraphicsPreviewMedia
-                    src={cue.previewUrl}
-                    alt={`${cue.title} 등록 이미지`}
-                    className="eventGraphicsPreviewInline"
-                    noPreviewText="등록된 이미지가 없습니다."
-                  />
-                ) : (
-                  <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
-                )}
-              </section>
+            <div className="eventGraphicsAuditStageList">
+              {group.stages.map((stage) => {
+                const cue = getStageMasterfileCue(stage)
+                const stageStatus = cue?.status ?? stage.status
+                const statusClassName = toStatusClassName(stageStatus)
+                const registeredFiles = cue
+                  ? ((cue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>) ?? [])
+                  : []
+                const missingFiles = cue
+                  ? ((cue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
+                  : []
+                const graphicFiles =
+                  cue != null
+                    ? registeredFiles.filter((file) => file.kind === 'image' || file.kind === 'video')
+                    : stage.graphicLabel && stage.graphicLabel !== '-'
+                      ? [{ name: stage.graphicLabel, kind: 'image', role: stage.label }]
+                      : []
+                const audioFiles =
+                  cue != null
+                    ? registeredFiles.filter((file) => file.kind === 'audio')
+                    : stage.audioLabel && stage.audioLabel !== '-'
+                      ? [{ name: stage.audioLabel, kind: 'audio', role: stage.label }]
+                      : []
+                const missingGraphicFiles = cue ? missingFiles.filter((file) => file.kind !== 'audio') : []
+                const missingAudioFiles = cue ? missingFiles.filter((file) => file.kind === 'audio') : []
+                const driveState = driveChecklist[stage.cueNumber] ?? { graphic: false, audio: false }
+                const showSpeakerPptPlaceholder = stage.stageKind === 'main' && usesSpeakerPptPlaceholder(stage.cueType)
 
-              <MasterfileAssetPanel
-                title="Graphics Check"
-                cueNumber={cue.cueNumber}
-                field="graphic"
-                driveChecked={driveState.graphic}
-                expected={expectedGraphic}
-                registeredFiles={graphicFiles}
-                missingFiles={missingGraphicFiles}
-                onToggleDriveCheck={onToggleDriveCheck}
-              />
-              <MasterfileAssetPanel
-                title="Audio Check"
-                cueNumber={cue.cueNumber}
-                field="audio"
-                driveChecked={driveState.audio}
-                expected={expectedAudio}
-                registeredFiles={audioFiles}
-                missingFiles={missingAudioFiles}
-                onToggleDriveCheck={onToggleDriveCheck}
-              />
+                return (
+                  <section key={stage.id} className={`eventGraphicsAuditStage status-${statusClassName}`}>
+                    <div className="eventGraphicsAuditStageHead">
+                      <div className="eventGraphicsCueHead">
+                        <span className="eventGraphicsEntranceFlag">{stage.label}</span>
+                        <span className="eventGraphicsOrder">{stage.cueNumber}</span>
+                      </div>
+                      <span className={`eventGraphicsStatus status-${statusClassName}`}>{stageStatus}</span>
+                    </div>
+
+                    <div className="eventGraphicsAuditMeta">
+                      <strong>{stage.title}</strong>
+                      <p>
+                        {stage.startTime} - {stage.endTime} / {stage.runtimeLabel}
+                      </p>
+                      <p>{stage.note}</p>
+                    </div>
+
+                    <div className="eventGraphicsAuditGrid">
+                      <section className="eventGraphicsAuditVisual">
+                        <span className="eventGraphicsPanelLabel">등록 이미지</span>
+                        {showSpeakerPptPlaceholder ? (
+                          <SpeakerPptPlaceholder />
+                        ) : stage.previewHref ? (
+                          <EventGraphicsPreviewMedia
+                            src={stage.previewHref}
+                            alt={`${stage.title} 등록 이미지`}
+                            className="eventGraphicsPreviewInline"
+                            noPreviewText="등록된 이미지가 없습니다."
+                          />
+                        ) : (
+                          <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
+                        )}
+                      </section>
+
+                      <MasterfileAssetPanel
+                        title="Graphics Check"
+                        cueNumber={stage.cueNumber}
+                        field="graphic"
+                        driveChecked={driveState.graphic}
+                        expected={graphicFiles.length > 0 || missingGraphicFiles.length > 0}
+                        registeredFiles={graphicFiles}
+                        missingFiles={missingGraphicFiles}
+                        onToggleDriveCheck={onToggleDriveCheck}
+                      />
+                      <MasterfileAssetPanel
+                        title="Audio Check"
+                        cueNumber={stage.cueNumber}
+                        field="audio"
+                        driveChecked={driveState.audio}
+                        expected={audioFiles.length > 0 || missingAudioFiles.length > 0}
+                        registeredFiles={audioFiles}
+                        missingFiles={missingAudioFiles}
+                        onToggleDriveCheck={onToggleDriveCheck}
+                      />
+                    </div>
+                  </section>
+                )
+              })}
             </div>
           </article>
         )
@@ -796,6 +895,7 @@ export function EventGraphicsTimetableView({
   const [statusFilter, setStatusFilter] = useState('')
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('compact')
   const [driveChecklist, setDriveChecklist] = useState<DriveChecklistState>({})
+  const [previewRatio, setPreviewRatio] = useState<EventGraphicsPreviewRatio>(() => readStoredPreviewRatio())
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -814,34 +914,15 @@ export function EventGraphicsTimetableView({
     window.localStorage.setItem(DRIVE_CHECKLIST_STORAGE_KEY, JSON.stringify(driveChecklist))
   }, [driveChecklist])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY, JSON.stringify(previewRatio))
+  }, [previewRatio])
+
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
-  const normalizedRows = useMemo(
-    () =>
-      rows
-        .map((row) => toRowModel(row, columnIndex))
-        .sort((left, right) => {
-          const orderDiff = (left.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER) - (right.cueOrderNumeric ?? Number.MAX_SAFE_INTEGER)
-          if (orderDiff !== 0) return orderDiff
-          return left.startTime.localeCompare(right.startTime, 'en')
-        }),
-    [columnIndex, rows],
-  )
-  const tableRows = useMemo(
-    () =>
-      normalizedRows
-        .filter((row) => row.timetableMode === 'event')
-        .map((row) => ({
-          ...row,
-          cueType: normalizeEventCueType(row.cueType, row.cueTitle),
-        }))
-        .filter((row, index, allRows) => {
-          if (!isEntranceRow(row)) return true
-          const nextRow = allRows[index + 1]
-          return Boolean(nextRow && supportsAppearanceStage(nextRow.cueType))
-        }),
-    [normalizedRows],
-  )
+  const tableRows = useMemo(() => buildEventGraphicsEventRows(columns, rows), [columns, rows])
+  const timelineGroups = useMemo(() => buildEventGraphicsSessionGroups(tableRows), [tableRows])
   const exhibitionRowsFromDb = useMemo(
     () =>
       rows
@@ -869,28 +950,13 @@ export function EventGraphicsTimetableView({
     [exhibitionRows],
   )
 
-  const filteredRows = useMemo(
-    () =>
-      tableRows.filter((row) => {
-        if (statusFilter && row.status !== statusFilter) return false
-        return matchesQuery(row, normalizedQuery)
-      }),
-    [normalizedQuery, statusFilter, tableRows],
+  const filteredTimelineGroups = useMemo(
+    () => timelineGroups.filter((group) => matchesTimelineGroup(group, normalizedQuery, statusFilter)),
+    [normalizedQuery, statusFilter, timelineGroups],
   )
-
-  const filteredMasterfileCues = useMemo(
-    () =>
-      bangkokMasterfileManifest.cues
-        .filter((cue) => {
-          if (statusFilter && cue.status !== statusFilter) return false
-          return matchesMasterfileQuery(cue, normalizedQuery)
-        })
-        .sort((left, right) => {
-          const orderDiff = toCueSortValue(left.cueNumber) - toCueSortValue(right.cueNumber)
-          if (orderDiff !== 0) return orderDiff
-          return left.startTime.localeCompare(right.startTime, 'en')
-        }),
-    [normalizedQuery, statusFilter],
+  const filteredMasterfileGroups = useMemo(
+    () => timelineGroups.filter((group) => matchesMasterfileGroup(group, normalizedQuery, statusFilter)),
+    [normalizedQuery, statusFilter, timelineGroups],
   )
   const filteredExhibitionRows = useMemo(
     () =>
@@ -911,6 +977,10 @@ export function EventGraphicsTimetableView({
   )
   const liveSwitchCount = useMemo(() => exhibitionRows.filter((row) => /hold|switch/i.test(row.action)).length, [exhibitionRows])
   const effectiveTitle = databaseTitle.trim() || '행사 그래픽 타임테이블'
+  const previewRatioStyle = useMemo(
+    () => ({ ['--event-graphics-preview-ratio' as string]: toPreviewAspectRatioValue(previewRatio) }) as CSSProperties,
+    [previewRatio],
+  )
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value)
@@ -974,12 +1044,12 @@ export function EventGraphicsTimetableView({
   const statusOptions = isEventMode ? (isMasterfileMode ? masterfileStatusOptions : rowStatusOptions) : exhibitionStatusOptions
   const visibleCount = isEventMode
     ? layoutMode === 'masterfile'
-      ? filteredMasterfileCues.length
-      : filteredRows.length
+      ? filteredMasterfileGroups.length
+      : filteredTimelineGroups.length
     : filteredExhibitionRows.length
 
   return (
-    <section className="eventGraphicsView">
+    <section className="eventGraphicsView" style={previewRatioStyle}>
       <div className="eventGraphicsHero">
         <div className="eventGraphicsHeroText">
           <p className="muted small">Event Graphics Timetable</p>
@@ -1100,6 +1170,8 @@ export function EventGraphicsTimetableView({
         </select>
       </div>
 
+      {isEventMode ? <EventGraphicsPreviewRatioControl value={previewRatio} onChange={setPreviewRatio} /> : null}
+
       {isEventMode ? (
         <div className="eventGraphicsLayoutSwitch" role="group" aria-label="타임테이블 보기 형태">
           <button
@@ -1140,10 +1212,10 @@ export function EventGraphicsTimetableView({
           className="scheduleEmptyState"
         />
       ) : isEventMode && layoutMode === 'compact' ? (
-        <TimelineLayout rows={filteredRows} />
+        <TimelineLayout groups={filteredTimelineGroups} />
       ) : isEventMode ? (
         <MasterfileAuditLayout
-          cues={filteredMasterfileCues}
+          groups={filteredMasterfileGroups}
           driveChecklist={driveChecklist}
           onToggleDriveCheck={onToggleDriveCheck}
         />

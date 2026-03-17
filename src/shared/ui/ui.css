@@ -3686,7 +3686,7 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsPreviewThumb {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--event-graphics-preview-ratio, 16 / 9);
   background: color-mix(in srgb, var(--surface-soft) 78%, white);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -3701,7 +3701,7 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsPreviewInline {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--event-graphics-preview-ratio, 16 / 9);
   background: color-mix(in srgb, var(--surface-soft) 78%, white);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -3716,17 +3716,22 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsPreviewPlaceholder {
+  align-items: center;
+  aspect-ratio: var(--event-graphics-preview-ratio, 16 / 9);
   background: color-mix(in srgb, var(--surface-soft) 88%, white);
   border: 1px dashed var(--border);
   border-radius: 12px;
   color: var(--text-sub);
+  display: flex;
   font-size: 12px;
+  justify-content: center;
   padding: 12px;
+  text-align: center;
 }
 
 .eventGraphicsSpeakerPptPlaceholder {
   align-items: center;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--event-graphics-preview-ratio, 16 / 9);
   background: #000000;
   border: 1px solid #111827;
   border-radius: 12px;
@@ -3907,8 +3912,81 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditVisual .eventGraphicsPreviewInline,
 .eventGraphicsAuditVisual .eventGraphicsPreviewPlaceholder {
-  aspect-ratio: 16 / 7;
+  aspect-ratio: var(--event-graphics-preview-ratio, 16 / 9);
   min-height: 68px;
+}
+
+.eventGraphicsPreviewRatioControl {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.eventGraphicsPreviewRatioPresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.eventGraphicsPreviewRatioInputs {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.eventGraphicsPreviewRatioInputs label {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.eventGraphicsPreviewRatioInputs span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.eventGraphicsPreviewRatioInputs input {
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text1);
+  font: inherit;
+  padding: 6px 8px;
+  width: 72px;
+}
+
+.eventGraphicsAuditStageList,
+.eventGraphicsShareStageList {
+  display: grid;
+  gap: 10px;
+}
+
+.eventGraphicsAuditStage,
+.eventGraphicsShareStage {
+  background: color-mix(in srgb, var(--surface-soft) 84%, white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.eventGraphicsAuditStageHead,
+.eventGraphicsShareStageHead {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.eventGraphicsShareStageHead p {
+  color: var(--text-sub);
+  flex: 1 1 auto;
+  font-size: 12px;
+  margin: 0;
+  text-align: right;
 }
 
 .eventGraphicsAuditPanelHead {

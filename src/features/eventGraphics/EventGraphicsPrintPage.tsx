@@ -29,6 +29,7 @@ type PrintCopySet = {
   backToShare: string
   cue: string
   time: string
+  stage: string
   titleColumn: string
   graphic: string
   audio: string
@@ -51,6 +52,7 @@ const COPY: Record<EventGraphicsShareLocale, PrintCopySet> = {
     backToShare: 'External Share',
     cue: 'Cue',
     time: 'Time',
+    stage: 'Stage',
     titleColumn: 'Title / Note',
     graphic: 'Graphic',
     audio: 'Audio',
@@ -66,11 +68,12 @@ const COPY: Record<EventGraphicsShareLocale, PrintCopySet> = {
     notConnectedTitle: '타임테이블 DB가 연결되지 않았습니다.',
     notConnectedMessage: '인쇄 전용 페이지에서 타임테이블 데이터를 아직 읽어오지 못했습니다.',
     emptyTitle: '인쇄할 운영 큐가 없습니다.',
-    emptyMessage: '인쇄 레이아웃에 표시할 큐 데이터가 없습니다.',
+    emptyMessage: '인쇄용 레이아웃에 표시할 큐가 없습니다.',
     print: '인쇄',
     backToShare: 'External Share',
     cue: '큐',
     time: '시간',
+    stage: '단계',
     titleColumn: '제목 / 메모',
     graphic: '그래픽',
     audio: '오디오',
@@ -85,20 +88,6 @@ function readLocaleFromSearch(): EventGraphicsShareLocale {
   if (typeof window === 'undefined') return 'ko'
   const raw = new URLSearchParams(window.location.search).get('locale')
   return raw === 'en' ? 'en' : 'ko'
-}
-
-function joinAssets(values: string[]): string {
-  return values.map((value) => value.trim()).filter(Boolean).join(' / ')
-}
-
-function toGraphicText(startGraphic: string, nextGraphic: string, emptyLabel: string): string {
-  const value = joinAssets([startGraphic, nextGraphic])
-  return value || emptyLabel
-}
-
-function toAudioText(startAudio: string, nextAudio: string, emptyLabel: string): string {
-  const value = joinAssets([startAudio, nextAudio])
-  return value || emptyLabel
 }
 
 export function EventGraphicsPrintPage({
@@ -199,34 +188,45 @@ export function EventGraphicsPrintPage({
                     <tr>
                       <th>{copy.time}</th>
                       <th>{copy.cue}</th>
+                      <th>{copy.stage}</th>
                       <th>{copy.titleColumn}</th>
                       <th>{copy.graphic}</th>
                       <th>{copy.audio}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {group.cues.map((cue) => (
-                      <tr key={cue.id}>
-                        <td className="eventGraphicsPrintTimeCell">
-                          <strong>{cue.startTime}</strong>
-                          <span>{cue.endTime}</span>
-                          <small>{cue.runtimeLabel}</small>
-                        </td>
-                        <td className="eventGraphicsPrintCueCell">
-                          <strong>{cue.cueNumber}</strong>
-                          <span>{toCueTypeLabel(cue.cueType, locale)}</span>
-                        </td>
-                        <td className="eventGraphicsPrintTitleCell">
-                          <strong>{cue.title}</strong>
-                          <p>
-                            <span>{copy.note}</span>
-                            {cue.note || copy.noNote}
-                          </p>
-                        </td>
-                        <td>{toGraphicText(cue.startGraphic, cue.nextGraphic, copy.noAsset)}</td>
-                        <td>{toAudioText(cue.startAudio, cue.nextAudio, copy.noAsset)}</td>
-                      </tr>
-                    ))}
+                    {group.cues.flatMap((cue) =>
+                      cue.stages.map((stage, index) => (
+                        <tr key={stage.id}>
+                          {index === 0 ? (
+                            <>
+                              <td className="eventGraphicsPrintTimeCell" rowSpan={cue.stages.length}>
+                                <strong>{cue.startTime}</strong>
+                                <span>{cue.endTime}</span>
+                                <small>{cue.runtimeLabel}</small>
+                              </td>
+                              <td className="eventGraphicsPrintCueCell" rowSpan={cue.stages.length}>
+                                <strong>{cue.cueNumber}</strong>
+                                <span>{toCueTypeLabel(cue.cueType, locale)}</span>
+                              </td>
+                            </>
+                          ) : null}
+                          <td className="eventGraphicsPrintCueCell">
+                            <strong>{stage.label}</strong>
+                            <span>{stage.cueNumber}</span>
+                          </td>
+                          <td className="eventGraphicsPrintTitleCell">
+                            <strong>{stage.title}</strong>
+                            <p>
+                              <span>{copy.note}</span>
+                              {stage.note || copy.noNote}
+                            </p>
+                          </td>
+                          <td>{stage.graphicLabel || copy.noAsset}</td>
+                          <td>{stage.audioLabel || copy.noAsset}</td>
+                        </tr>
+                      )),
+                    )}
                   </tbody>
                 </table>
               </div>
