@@ -4146,6 +4146,28 @@ button.dashboardNavButton {
   padding: 10px;
 }
 
+.eventGraphicsThumbnailFormatChecks {
+  display: grid;
+  gap: 8px;
+}
+
+.eventGraphicsThumbnailFormatCheck {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-soft) 90%, white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-main);
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.eventGraphicsThumbnailFormatCheck input {
+  margin: 0;
+}
+
 .eventGraphicsThumbnailPreview {
   align-items: center;
   background: color-mix(in srgb, var(--surface-soft) 86%, white);
@@ -4211,6 +4233,12 @@ button.dashboardNavButton {
   background: #0f172a;
   border-radius: 14px;
   overflow: hidden;
+}
+
+.eventGraphicsThumbnailResultList {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .eventGraphicsThumbnailResultFrame img {
@@ -4283,6 +4311,14 @@ button.dashboardNavButton {
   display: inline-flex;
   flex-shrink: 0;
   gap: 8px;
+}
+
+.eventGraphicsShareActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .eventGraphicsShareList {
@@ -4457,6 +4493,114 @@ button.dashboardNavButton {
   width: 100%;
 }
 
+.eventGraphicsPrintShell {
+  background: #eef3f7;
+  min-height: 100vh;
+  padding: 22px;
+}
+
+.eventGraphicsPrintPage {
+  background: #ffffff;
+  border: 1px solid #d7dfeb;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 22px;
+}
+
+.eventGraphicsPrintHeader {
+  align-items: end;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.eventGraphicsPrintHeader h1,
+.eventGraphicsPrintSectionHead h2 {
+  margin: 0;
+}
+
+.eventGraphicsPrintToolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.eventGraphicsPrintList {
+  display: grid;
+  gap: 16px;
+}
+
+.eventGraphicsPrintSection {
+  display: grid;
+  gap: 8px;
+}
+
+.eventGraphicsPrintSectionHead {
+  border-bottom: 1px solid #dbe2ec;
+  padding-bottom: 6px;
+}
+
+.eventGraphicsPrintTableWrap {
+  border-radius: 12px;
+}
+
+.eventGraphicsPrintTable {
+  min-width: 0;
+}
+
+.eventGraphicsPrintTable thead {
+  display: table-header-group;
+}
+
+.eventGraphicsPrintTable tbody tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.eventGraphicsPrintTable th {
+  font-size: 10px;
+}
+
+.eventGraphicsPrintTable td {
+  font-size: 12px;
+  line-height: 1.45;
+  vertical-align: top;
+}
+
+.eventGraphicsPrintTimeCell,
+.eventGraphicsPrintCueCell {
+  white-space: nowrap;
+}
+
+.eventGraphicsPrintTimeCell strong,
+.eventGraphicsPrintCueCell strong,
+.eventGraphicsPrintTitleCell strong {
+  display: block;
+}
+
+.eventGraphicsPrintTimeCell span,
+.eventGraphicsPrintTimeCell small,
+.eventGraphicsPrintCueCell span {
+  color: var(--text-sub);
+  display: block;
+}
+
+.eventGraphicsPrintTitleCell p {
+  color: var(--text-sub);
+  margin: 4px 0 0;
+}
+
+.eventGraphicsPrintTitleCell p span {
+  color: var(--text-main);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
 @media (max-width: 960px) {
   .eventGraphicsHero,
   .eventGraphicsCueSheetRow,
@@ -4499,6 +4643,13 @@ button.dashboardNavButton {
     flex-direction: column;
   }
 
+  .eventGraphicsShareActions,
+  .eventGraphicsPrintHeader,
+  .eventGraphicsPrintToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .eventGraphicsLocaleSwitch {
     width: 100%;
   }
@@ -4522,6 +4673,14 @@ button.dashboardNavButton {
 
   .eventGraphicsShareTime {
     border-bottom: 1px solid var(--border);
+  }
+
+  .eventGraphicsPrintShell {
+    padding: 14px;
+  }
+
+  .eventGraphicsPrintPage {
+    padding: 14px;
   }
 }
 
@@ -4555,6 +4714,50 @@ button.dashboardNavButton {
 @media print {
   @page {
     margin: 10mm;
+  }
+
+  .eventGraphicsPrintShell {
+    background: white;
+    min-height: auto;
+    padding: 0;
+  }
+
+  .eventGraphicsPrintPage {
+    border: 0;
+    box-shadow: none;
+    gap: 10px;
+    max-width: none;
+    padding: 0;
+  }
+
+  .eventGraphicsPrintToolbar {
+    display: none;
+  }
+
+  .eventGraphicsPrintList {
+    gap: 10px;
+  }
+
+  .eventGraphicsPrintSection {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .eventGraphicsPrintSectionHead {
+    padding-bottom: 4px;
+  }
+
+  .eventGraphicsPrintTableWrap {
+    border: 0;
+  }
+
+  .eventGraphicsPrintTable th,
+  .eventGraphicsPrintTable td {
+    padding: 6px 5px;
+  }
+
+  .eventGraphicsPrintTable td {
+    font-size: 11px;
   }
 
   .eventGraphicsShareShell {

@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { AssignmentModal } from './features/checklist/AssignmentModal'
 import { ChecklistView } from './features/checklist/ChecklistView'
+import { EventGraphicsPrintPage } from './features/eventGraphics/EventGraphicsPrintPage'
 import { EventGraphicsSharePage } from './features/eventGraphics/EventGraphicsSharePage'
 import { DashboardView } from './features/dashboard/DashboardView'
 import { EventGraphicsTimetableView } from './features/eventGraphics/EventGraphicsTimetableView'
@@ -28,6 +29,9 @@ type Route =
     }
   | {
       kind: 'eventGraphicsShare'
+    }
+  | {
+      kind: 'eventGraphicsPrint'
     }
   | {
       kind: 'task'
@@ -900,6 +904,9 @@ function parseRoute(pathname: string): Route {
   }
   if (cleaned === '/share/timetable') {
     return { kind: 'eventGraphicsShare' }
+  }
+  if (cleaned === '/share/timetable/print') {
+    return { kind: 'eventGraphicsPrint' }
   }
   if (cleaned.startsWith('/task/')) {
     const id = cleaned.slice('/task/'.length)
@@ -3327,6 +3334,19 @@ function App() {
   if (route.kind === 'eventGraphicsShare') {
     return (
       <EventGraphicsSharePage
+        configured={eventGraphicsConfigured}
+        databaseTitle={eventGraphicsDatabaseTitle}
+        columns={eventGraphicsColumns}
+        rows={eventGraphicsRows}
+        loading={eventGraphicsLoading}
+        error={eventGraphicsError}
+      />
+    )
+  }
+
+  if (route.kind === 'eventGraphicsPrint') {
+    return (
+      <EventGraphicsPrintPage
         configured={eventGraphicsConfigured}
         databaseTitle={eventGraphicsDatabaseTitle}
         columns={eventGraphicsColumns}
