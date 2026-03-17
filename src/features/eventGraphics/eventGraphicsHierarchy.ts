@@ -189,6 +189,25 @@ function toSessionTitle(row: EventGraphicsEventRow): string {
   return normalizeSessionTitle(row.cueTitle || row.rowTitle) || row.cueTitle
 }
 
+function findLinkedMainRow(rows: EventGraphicsEventRow[], index: number): EventGraphicsEventRow | null {
+  const appearanceRow = rows[index]
+  const appearanceCueNumber = appearanceRow.cueOrderNumeric
+  if (appearanceCueNumber == null) return null
+  const appearanceTitle = toSessionTitle(appearanceRow)
+
+  for (let offset = index + 1; offset < rows.length; offset += 1) {
+    const candidate = rows[offset]
+    if (candidate.eventName !== appearanceRow.eventName) continue
+    if (candidate.cueOrderNumeric == null) continue
+    if (Math.ceil(candidate.cueOrderNumeric) !== Math.ceil(appearanceCueNumber)) continue
+    if (!supportsAppearanceStage(candidate.cueType)) continue
+    if (toSessionTitle(candidate) !== appearanceTitle) continue
+    return candidate
+  }
+
+  return null
+}
+
 function toBaseCueNumber(value: number | null): string {
   return value != null ? `Q${String(Math.ceil(value)).padStart(2, '0')}` : 'Q--'
 }
@@ -274,8 +293,7 @@ export function buildEventGraphicsEventRows(columns: ScheduleColumn[], rows: Sch
     .filter((row) => row.timetableMode === 'event')
     .filter((row, index, allRows) => {
       if (!isAppearanceRow(row)) return true
-      const nextRow = allRows[index + 1]
-      return Boolean(nextRow && nextRow.eventName === row.eventName && supportsAppearanceStage(nextRow.cueType))
+      return Boolean(findLinkedMainRow(allRows, index))
     })
 }
 
@@ -312,7 +330,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
     const rowCueNumber = toBaseCueNumber(row.cueOrderNumeric)
 
     if (stageKind === 'appearance') {
-      const nextRow = rows[index + 1]
+      const nextRow = findLinkedMainRow(rows, index)
       const nextTitle = nextRow ? toSessionTitle(nextRow) : title
       const nextCueNumber = toBaseCueNumber(nextRow?.cueOrderNumeric ?? row.cueOrderNumeric)
       groups.push({

@@ -714,7 +714,7 @@ function MasterfileAssetPanel({
         {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
       </div>
 
-      <div className="eventGraphicsAuditInlineRow">
+      <div className="eventGraphicsAuditAssetRow">
         <label className="eventGraphicsAuditCheck is-compact">
           <input type="checkbox" checked={expected && hasLocalFiles} disabled />
           <span>로컬</span>
@@ -727,10 +727,12 @@ function MasterfileAssetPanel({
               </span>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <span className="eventGraphicsSubline">-</span>
+        )}
       </div>
 
-      <div className="eventGraphicsAuditInlineRow">
+      <div className="eventGraphicsAuditAssetRow">
         <label className="eventGraphicsAuditCheck is-compact">
           <input
             type="checkbox"
@@ -739,6 +741,7 @@ function MasterfileAssetPanel({
           />
           <span>드라이브</span>
         </label>
+        <span className="eventGraphicsSubline">{driveChecked ? '확인됨' : '-'}</span>
       </div>
 
       {hasMissingFiles ? (
@@ -834,7 +837,6 @@ function MasterfileAuditLayout({
 
                     <div className="eventGraphicsAuditGrid">
                       <section className="eventGraphicsAuditVisual">
-                        <span className="eventGraphicsPanelLabel">등록 이미지</span>
                         {showSpeakerPptPlaceholder ? (
                           <SpeakerPptPlaceholder />
                         ) : stage.previewHref ? (

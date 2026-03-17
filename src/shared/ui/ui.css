@@ -3936,15 +3936,7 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsPreviewRatioInputs label {
-  align-items: center;
-  display: flex;
-  gap: 6px;
-}
-
-.eventGraphicsPreviewRatioInputs span {
-  color: var(--text-sub);
-  font-size: 11px;
-  font-weight: 700;
+  display: block;
 }
 
 .eventGraphicsPreviewRatioInputs input {
@@ -3955,6 +3947,11 @@ button.dashboardNavButton {
   font: inherit;
   padding: 6px 8px;
   width: 72px;
+}
+
+.eventGraphicsPreviewRatioInputs input::placeholder {
+  color: color-mix(in srgb, var(--text-sub) 72%, transparent);
+  opacity: 1;
 }
 
 .eventGraphicsAuditStageList,
@@ -3994,6 +3991,18 @@ button.dashboardNavButton {
   display: flex;
   gap: 6px;
   justify-content: space-between;
+}
+
+.eventGraphicsAuditAssetRow {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.eventGraphicsAuditAssetRow .eventGraphicsAuditChipList,
+.eventGraphicsAuditAssetRow .eventGraphicsSubline {
+  align-self: center;
 }
 
 .eventGraphicsAuditMissingFlag {

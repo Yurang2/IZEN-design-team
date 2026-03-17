@@ -84,12 +84,26 @@ export function EventGraphicsPreviewRatioControl({
 
       <div className="eventGraphicsPreviewRatioInputs">
         <label>
-          <span>W</span>
-          <input type="number" min="0.1" step="0.01" value={value.width} onChange={onWidthChange} />
+          <input
+            type="number"
+            min="0.1"
+            step="0.01"
+            value={value.width}
+            onChange={onWidthChange}
+            placeholder="Width"
+            aria-label="Width"
+          />
         </label>
         <label>
-          <span>H</span>
-          <input type="number" min="0.1" step="0.01" value={value.height} onChange={onHeightChange} />
+          <input
+            type="number"
+            min="0.1"
+            step="0.01"
+            value={value.height}
+            onChange={onHeightChange}
+            placeholder="Height"
+            aria-label="Height"
+          />
         </label>
       </div>
     </div>
