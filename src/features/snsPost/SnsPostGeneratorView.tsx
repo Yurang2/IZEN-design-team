@@ -40,9 +40,18 @@ const EMPTY_FORM: FormState = {
 }
 
 const HEART_OPTIONS: HeartOption[] = [
-  { key: 'white', label: '화이트 하트', emoji: '🤍' },
+  { key: 'red', label: '레드 하트', emoji: '❤️' },
+  { key: 'orange', label: '오렌지 하트', emoji: '🧡' },
+  { key: 'yellow', label: '옐로 하트', emoji: '💛' },
+  { key: 'green', label: '그린 하트', emoji: '💚' },
+  { key: 'blue', label: '블루 하트', emoji: '💙' },
+  { key: 'lightBlue', label: '라이트 블루 하트', emoji: '🩵' },
   { key: 'purple', label: '퍼플 하트', emoji: '💜' },
   { key: 'pink', label: '핑크 하트', emoji: '🩷' },
+  { key: 'brown', label: '브라운 하트', emoji: '🤎' },
+  { key: 'black', label: '블랙 하트', emoji: '🖤' },
+  { key: 'gray', label: '그레이 하트', emoji: '🩶' },
+  { key: 'white', label: '화이트 하트', emoji: '🤍' },
 ]
 
 const PLACEHOLDER_VALUES: PreviewValues = {
@@ -200,7 +209,7 @@ function buildPostText(values: PreviewValues, heart: string, hashtags: string[])
 
 export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
-  const [heartSeed, setHeartSeed] = useState(() => Math.floor(Math.random() * HEART_OPTIONS.length))
+  const [selectedHeartKey, setSelectedHeartKey] = useState<string>(HEART_OPTIONS[0]?.key ?? 'red')
 
   const normalizedForm = useMemo(
     () => ({
@@ -213,7 +222,8 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
     [form],
   )
 
-  const selectedHeart = HEART_OPTIONS[heartSeed % HEART_OPTIONS.length]
+  const selectedHeart =
+    HEART_OPTIONS.find((option) => option.key === selectedHeartKey) ?? HEART_OPTIONS[0]
   const formattedDate = useMemo(
     () => formatDateRange(normalizedForm.startDate, normalizedForm.endDate),
     [normalizedForm.endDate, normalizedForm.startDate],
@@ -261,15 +271,11 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
     onChangeField(key, formatDateInput(value))
   }
 
-  const onRandomizeHeart = () => {
-    setHeartSeed(Math.floor(Math.random() * HEART_OPTIONS.length))
-  }
-
   return (
     <section className="snsPostView" aria-label="SNS 본문 생성기">
       <article className="snsPostHero">
         <h2>SNS 본문 자동 생성</h2>
-        <p>하트는 랜덤으로 바꾸고, 국가명과 도시명만 반영해서 본문과 해시태그를 생성합니다.</p>
+        <p>하트 색상을 직접 고르고, 국가명과 도시명만 반영해서 본문과 해시태그를 생성합니다.</p>
       </article>
 
       <div className="snsPostGrid">
@@ -344,14 +350,30 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
             <div className="snsPostCardHeader">
               <div>
                 <h3>하트 / 해시태그</h3>
-                <p className="muted">브랜드 태그는 고정이고, 현재 하트는 버튼으로 랜덤 변경할 수 있습니다.</p>
+                <p className="muted">브랜드 태그는 고정이고, 하트는 원하는 색상으로 직접 지정할 수 있습니다.</p>
               </div>
-              <Button type="button" variant="secondary" size="mini" onClick={onRandomizeHeart}>
-                하트 랜덤
-              </Button>
             </div>
-            <div className="snsPostTagList" aria-label="현재 선택된 하트">
-              <span className="snsPostTag">{selectedHeart.emoji}</span>
+            <div className="snsPostHeartOptions" role="radiogroup" aria-label="하트 색상 선택">
+              {HEART_OPTIONS.map((heartOption) => {
+                const isSelected = heartOption.key === selectedHeart.key
+
+                return (
+                  <button
+                    key={heartOption.key}
+                    type="button"
+                    className={`snsPostHeartOption${isSelected ? ' is-selected' : ''}`}
+                    onClick={() => setSelectedHeartKey(heartOption.key)}
+                    aria-pressed={isSelected}
+                    aria-label={heartOption.label}
+                    title={heartOption.label}
+                  >
+                    <span className="snsPostHeartEmoji" aria-hidden="true">
+                      {heartOption.emoji}
+                    </span>
+                    <span className="snsPostHeartLabel">{heartOption.label}</span>
+                  </button>
+                )
+              })}
             </div>
             <div className="snsPostTagList" aria-label="생성된 해시태그">
               {hashtags.map((tag) => (
@@ -387,7 +409,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
               </Button>
             </div>
             <textarea className="snsPostTextarea" value={postText} readOnly rows={10} />
-            <p className="muted snsPostTemplateHint">하트 랜덤 버튼을 누를 때마다 첫 줄 하트가 바뀝니다.</p>
+            <p className="muted snsPostTemplateHint">선택한 하트 색상이 첫 줄 제목에 바로 반영됩니다.</p>
           </article>
         </div>
       </div>

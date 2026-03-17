@@ -2227,6 +2227,58 @@ button.dashboardNavButton {
   padding-top: 12px;
 }
 
+.snsPostHeartOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.snsPostHeartOption {
+  align-items: center;
+  appearance: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-main);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.snsPostHeartOption:hover {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+  transform: translateY(-1px);
+}
+
+.snsPostHeartOption:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+  outline: none;
+}
+
+.snsPostHeartOption.is-selected {
+  background: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+}
+
+.snsPostHeartEmoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.snsPostHeartLabel {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .snsPostTagList {
   display: flex;
   flex-wrap: wrap;
@@ -2261,6 +2313,14 @@ button.dashboardNavButton {
 [data-theme='v2'] .snsPostTag {
   background: var(--surface2);
   border-color: var(--border);
+}
+
+[data-theme='v2'] .snsPostHeartOption {
+  background: var(--surface2);
+}
+
+[data-theme='v2'] .snsPostHeartOption.is-selected {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface2));
 }
 
 .mailTemplateView {
