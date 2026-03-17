@@ -15,6 +15,7 @@ import { SnsPostGeneratorView } from './features/snsPost/SnsPostGeneratorView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 import { TasksView } from './features/tasks/TasksView'
+import { GeminiImageTestView } from './features/tools/GeminiImageTestView'
 import { api, USE_MOCK_DATA } from './shared/api/client'
 import { formatProjectIconLabel } from './shared/emoji'
 import { useDebouncedValue } from './shared/hooks/useDebouncedValue'
@@ -334,6 +335,7 @@ type TopView =
   | 'checklist'
   | 'meetings'
   | 'snsPost'
+  | 'geminiImageTest'
   | 'mailTemplate'
   | 'guide'
 
@@ -600,6 +602,7 @@ function parseTopView(value: string | null): TopView {
     value === 'checklist' ||
     value === 'meetings' ||
     value === 'snsPost' ||
+    value === 'geminiImageTest' ||
     value === 'mailTemplate' ||
     value === 'guide'
   )
@@ -865,6 +868,7 @@ function toTopViewPath(view: TopView): string {
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'meetings') return 'Meetings'
   if (view === 'snsPost') return 'SNS Post Generator'
+  if (view === 'geminiImageTest') return 'Gemini Image Test'
   if (view === 'mailTemplate') return 'Mail Template'
   if (view === 'guide') return 'Usage Guide'
   return 'Event Checklist'
@@ -880,6 +884,7 @@ function toTopViewTitle(view: TopView): string {
   if (view === 'eventGraphics') return '타임테이블'
   if (view === 'meetings') return '회의록'
   if (view === 'snsPost') return 'SNS 본문 생성'
+  if (view === 'geminiImageTest') return 'Gemini 이미지 테스트'
   if (view === 'mailTemplate') return '메일 템플릿'
   if (view === 'checklist') return '행사 체크리스트'
   return '사용법'
@@ -2737,6 +2742,7 @@ function App() {
         { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list' },
         { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
+        { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list' },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
         { view: 'guide', title: '사용법', label: '사용법', icon: 'list' },
       ],
@@ -3864,6 +3870,8 @@ function App() {
       {activeView === 'meetings' ? <MeetingsView /> : null}
 
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
+
+      {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}
 
       {activeView === 'mailTemplate' ? <MailTemplateView onCopy={copyText} /> : null}
 

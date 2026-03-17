@@ -255,6 +255,7 @@ export type TopView =
   | 'checklist'
   | 'meetings'
   | 'snsPost'
+  | 'geminiImageTest'
   | 'mailTemplate'
   | 'guide'
 

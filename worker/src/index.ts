@@ -123,6 +123,12 @@ type VideoThumbnailRenderInput = {
   styleReferenceImages: ThumbnailInlineImageInput[]
 }
 
+type GeminiPromptImageRenderInput = {
+  prompt: string
+  model?: string
+  aspectRatio?: string
+}
+
 type GoogleServiceAccountCredentials = {
   clientEmail: string
   privateKey: string
@@ -1236,6 +1242,15 @@ function parseVideoThumbnailRenderBody(body: unknown): VideoThumbnailRenderInput
   }
 }
 
+function parseGeminiPromptImageRenderBody(body: unknown): GeminiPromptImageRenderInput {
+  const payload = parsePatchBody(body)
+  return {
+    prompt: asString(payload.prompt) ?? '',
+    model: asString(payload.model) ?? undefined,
+    aspectRatio: asString(payload.aspectRatio) ?? undefined,
+  }
+}
+
 function resolveThumbnailOutputFormats(input: VideoThumbnailRenderInput): string[] {
   const requested = Array.isArray(input.outputFormats) ? input.outputFormats : []
   const normalized = requested.filter((value) => value === '9:16' || value === '16:9')
@@ -1311,6 +1326,20 @@ function buildVideoThumbnailPrompt(input: VideoThumbnailRenderInput): string {
 
   lines.push('Return a final thumbnail image.')
   return lines.join('\n')
+}
+
+function buildGeminiPromptImagePrompt(input: GeminiPromptImageRenderInput): string {
+  const userPrompt = input.prompt.trim()
+  if (!userPrompt) throw new Error('prompt_required')
+
+  return [
+    'Create one final raster image for quick internal testing.',
+    `Target aspect ratio: ${input.aspectRatio || '3:2'}.`,
+    'Make the image clean, commercially usable, and visually clear at small size.',
+    'Do not add watermarks, borders, UI chrome, or text unless the prompt explicitly asks for text.',
+    'Return a single finished image only.',
+    `User prompt: ${userPrompt}`,
+  ].join('\n')
 }
 
 function extractGeminiErrorMessage(payload: unknown): string {
@@ -1400,6 +1429,130 @@ async function renderVideoThumbnailWithGemini(
     generationConfig.imageConfig = {
       aspectRatio: input.aspectRatio,
     }
+  }
+
+  let response: Response
+  if (isVertexAiConfigured(env)) {
+    const accessToken = await getGoogleAccessToken(env)
+    if (!accessToken) throw new Error('google_service_account_json_missing')
+
+    response = await fetch(buildVertexAiGenerateContentUrl(env, model), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: vertexParts,
+          },
+        ],
+        generationConfig,
+      }),
+    })
+  } else if (isVertexExpressConfigured(env)) {
+    const apiKey = getVertexExpressApiKey(env)
+    response = await fetch(buildVertexExpressGenerateContentUrl(model, apiKey), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: vertexParts,
+          },
+        ],
+        generationConfig,
+      }),
+    })
+  } else {
+    const apiKey = getGeminiApiKey(env)
+    response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: studioParts,
+          },
+        ],
+        generationConfig,
+      }),
+    })
+  }
+
+  const payload = (await response.json()) as Record<string, unknown>
+  if (!response.ok) {
+    throw new Error(extractGeminiErrorMessage(payload))
+  }
+
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : []
+  let imageDataUrl: string | null = null
+  let imageMimeType: string | null = null
+  const textParts: string[] = []
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
+    const content = (candidate as { content?: { parts?: unknown[] } }).content
+    const partsList = Array.isArray(content?.parts) ? content.parts : []
+    for (const part of partsList) {
+      if (!part || typeof part !== 'object' || Array.isArray(part)) continue
+      const text = asString((part as { text?: unknown }).text)
+      if (text) textParts.push(text)
+
+      const inlineData =
+        (part as { inlineData?: { mimeType?: unknown; data?: unknown } }).inlineData ??
+        (part as { inline_data?: { mime_type?: unknown; data?: unknown } }).inline_data
+      if (!inlineData) continue
+
+      const mimeType =
+        asString((inlineData as { mimeType?: unknown }).mimeType) ??
+        asString((inlineData as { mime_type?: unknown }).mime_type)
+      const data = asString((inlineData as { data?: unknown }).data)
+      if (!mimeType || !data) continue
+      imageDataUrl = `data:${mimeType};base64,${data}`
+      imageMimeType = mimeType
+      break
+    }
+    if (imageDataUrl) break
+  }
+
+  if (!imageDataUrl || !imageMimeType) throw new Error('thumbnail_image_missing')
+
+  return {
+    model,
+    imageDataUrl,
+    imageMimeType,
+    textResponse: textParts.length > 0 ? textParts.join('\n').trim() : null,
+  }
+}
+
+async function renderGeminiPromptImage(
+  env: Env,
+  input: GeminiPromptImageRenderInput,
+): Promise<{ model: string; imageDataUrl: string; imageMimeType: string; textResponse: string | null }> {
+  const model = input.model?.trim() || DEFAULT_GEMINI_IMAGE_MODEL
+  const prompt = buildGeminiPromptImagePrompt(input)
+  const studioParts: Array<Record<string, unknown>> = [{ text: prompt }]
+  const vertexParts: Array<Record<string, unknown>> = [{ text: prompt }]
+
+  const generationConfig: Record<string, unknown> = {
+    responseModalities: ['TEXT', 'IMAGE'],
+    imageConfig: {
+      aspectRatio: input.aspectRatio || '3:2',
+      imageOutputOptions: {
+        mimeType: 'image/jpeg',
+        compressionQuality: 65,
+      },
+    },
   }
 
   let response: Response
@@ -6616,6 +6769,23 @@ export default {
         )
       } catch (error: unknown) {
         const message = error instanceof Error && error.message ? error.message : 'thumbnail_render_failed'
+        return json({ ok: false, error: message, message }, toVideoThumbnailErrorStatus(message), origin)
+      }
+    }
+
+    if (request.method === 'POST' && path === '/tools/gemini-image-test/render') {
+      try {
+        const payload = parseGeminiPromptImageRenderBody(await readJsonBody(request))
+        const rendered = await renderGeminiPromptImage(env, payload)
+        return ok(
+          {
+            ok: true,
+            ...rendered,
+          },
+          origin,
+        )
+      } catch (error: unknown) {
+        const message = error instanceof Error && error.message ? error.message : 'gemini_image_test_render_failed'
         return json({ ok: false, error: message, message }, toVideoThumbnailErrorStatus(message), origin)
       }
     }
