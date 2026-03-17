@@ -8,6 +8,7 @@ import {
 } from './exhibitionPlaybookExample'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
+import { VideoThumbnailTool } from './VideoThumbnailTool'
 
 type EventGraphicsTimetableViewProps = {
   configured: boolean
@@ -1095,6 +1096,8 @@ export function EventGraphicsTimetableView({
       ) : (
         <ExhibitionPlaybookLayout rows={filteredExhibitionRows} isSample={exhibitionUsesSample} />
       )}
+
+      <VideoThumbnailTool suggestedTitle={effectiveTitle} />
     </section>
   )
 }

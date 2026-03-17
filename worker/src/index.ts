@@ -48,6 +48,8 @@ const MAX_TRANSCRIPT_PARAGRAPH_CHARS = 1_500
 const MAX_TRANSCRIPT_PARAGRAPH_LINES = 12
 const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
+const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image-preview'
+const GOOGLE_GENERATIVE_LANGUAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const MAX_SUMMARY_SOURCE_CHARS = 180_000
 const SUMMARY_RETRY_SOURCE_CHARS = 120_000
 const SUMMARY_OUTPUT_TOKENS = 12_000
@@ -88,6 +90,29 @@ const textEncoder = new TextEncoder()
 type AuthSessionPayload = {
   exp: number
   iat: number
+}
+
+type ThumbnailInlineImageInput = {
+  name?: string
+  mimeType: string
+  dataUrl: string
+}
+
+type VideoThumbnailRenderInput = {
+  outputSlug: string
+  eventName: string
+  dateText: string
+  locationText: string
+  subtitleText: string
+  supportText: string
+  titleFont: string
+  detailFont: string
+  fontDirection: string
+  compositionNotes: string
+  customPrompt: string
+  aspectRatio: string
+  backgroundImage: ThumbnailInlineImageInput | null
+  styleReferenceImages: ThumbnailInlineImageInput[]
 }
 
 function requiredAuthEnv(env: Env): string | null {
@@ -1011,6 +1036,210 @@ function parseScreeningPlanImportBody(body: unknown): {
   return {
     sourceEventName,
     targetProjectId,
+  }
+}
+
+function parseThumbnailInlineImage(value: unknown): ThumbnailInlineImageInput | null | undefined {
+  if (value === null) return null
+  if (value === undefined) return undefined
+  const payload = parsePatchBody(value)
+  const dataUrl = asString(payload.dataUrl)
+  const mimeType = asString(payload.mimeType)
+  if (!dataUrl || !mimeType) {
+    throw new Error('thumbnail_image_invalid')
+  }
+
+  return {
+    name: asString(payload.name),
+    mimeType,
+    dataUrl,
+  }
+}
+
+function parseVideoThumbnailRenderBody(body: unknown): VideoThumbnailRenderInput {
+  const payload = parsePatchBody(body)
+  const backgroundImage = parseThumbnailInlineImage(payload.backgroundImage) ?? null
+  const styleReferenceImagesRaw = Array.isArray(payload.styleReferenceImages) ? payload.styleReferenceImages : []
+
+  return {
+    outputSlug: asString(payload.outputSlug) ?? 'video-thumbnail',
+    eventName: asString(payload.eventName) ?? '',
+    dateText: asString(payload.dateText) ?? '',
+    locationText: asString(payload.locationText) ?? '',
+    subtitleText: asString(payload.subtitleText) ?? '',
+    supportText: asString(payload.supportText) ?? '',
+    titleFont: asString(payload.titleFont) ?? '',
+    detailFont: asString(payload.detailFont) ?? '',
+    fontDirection: asString(payload.fontDirection) ?? '',
+    compositionNotes: asString(payload.compositionNotes) ?? '',
+    customPrompt: asString(payload.customPrompt) ?? '',
+    aspectRatio: asString(payload.aspectRatio) ?? '16:9',
+    backgroundImage,
+    styleReferenceImages: styleReferenceImagesRaw
+      .map((entry) => parseThumbnailInlineImage(entry))
+      .filter((entry): entry is ThumbnailInlineImageInput => Boolean(entry)),
+  }
+}
+
+function getGeminiApiKey(env: Env): string {
+  const apiKey = asString(env.GEMINI_API_KEY) ?? asString(env.GOOGLE_AI_API_KEY)
+  if (!apiKey) throw new Error('gemini_api_key_missing')
+  return apiKey
+}
+
+function getGeminiImageModel(env: Env): string {
+  return asString(env.GEMINI_IMAGE_MODEL) ?? DEFAULT_GEMINI_IMAGE_MODEL
+}
+
+function parseInlineDataUrl(dataUrl: string): { mimeType: string; data: string } {
+  const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/)
+  if (!match) throw new Error('thumbnail_image_data_url_invalid')
+  const [, mimeType, data] = match
+  if (!mimeType.startsWith('image/')) throw new Error('thumbnail_image_mime_invalid')
+  return { mimeType, data }
+}
+
+function buildVideoThumbnailPrompt(input: VideoThumbnailRenderInput): string {
+  const lines = [
+    'Create one polished event video thumbnail image.',
+    `Target aspect ratio: ${input.aspectRatio || '16:9'}.`,
+    'Use the provided background image as the main scene whenever it exists.',
+    'Use the style reference images only as style direction, not as literal content to copy.',
+    'Make the result look premium, clean, commercial, and readable on mobile.',
+    'Keep strong contrast and leave safe margins for text.',
+    'Do not invent logos, sponsor marks, or unrelated people.',
+  ]
+
+  if (input.eventName) lines.push(`Main title text: ${input.eventName}`)
+  if (input.dateText) lines.push(`Date text: ${input.dateText}`)
+  if (input.locationText) lines.push(`Location text: ${input.locationText}`)
+  if (input.subtitleText) lines.push(`Subtitle text: ${input.subtitleText}`)
+  if (input.supportText) lines.push(`Supporting text: ${input.supportText}`)
+  if (input.titleFont) lines.push(`Headline font direction: ${input.titleFont}`)
+  if (input.detailFont) lines.push(`Supporting font direction: ${input.detailFont}`)
+  if (input.fontDirection) lines.push(`Typography and layout notes: ${input.fontDirection}`)
+  if (input.compositionNotes) lines.push(`Background/composition notes: ${input.compositionNotes}`)
+  if (input.customPrompt) lines.push(`Extra direction: ${input.customPrompt}`)
+
+  lines.push('Return a final thumbnail image.')
+  return lines.join('\n')
+}
+
+function extractGeminiErrorMessage(payload: unknown): string {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return 'gemini_request_failed'
+  const error = (payload as { error?: { message?: unknown } }).error
+  const message = error && typeof error === 'object' ? asString((error as { message?: unknown }).message) : undefined
+  return message ?? 'gemini_request_failed'
+}
+
+function toVideoThumbnailErrorStatus(message: string): number {
+  if (
+    message === 'content_type_must_be_application_json' ||
+    message.endsWith('_required') ||
+    message.includes('thumbnail_image_invalid') ||
+    message.includes('thumbnail_image_data_url_invalid') ||
+    message.includes('thumbnail_image_mime_invalid')
+  ) {
+    return 400
+  }
+
+  if (message === 'gemini_api_key_missing') return 503
+  if (message === 'thumbnail_image_missing') return 502
+  return 500
+}
+
+async function renderVideoThumbnailWithGemini(
+  env: Env,
+  input: VideoThumbnailRenderInput,
+): Promise<{ model: string; imageDataUrl: string; imageMimeType: string; textResponse: string | null }> {
+  if (!input.eventName) throw new Error('eventName_required')
+
+  const apiKey = getGeminiApiKey(env)
+  const model = getGeminiImageModel(env)
+  const prompt = buildVideoThumbnailPrompt(input)
+  const parts: Array<Record<string, unknown>> = [{ text: prompt }]
+
+  if (input.backgroundImage) {
+    const background = parseInlineDataUrl(input.backgroundImage.dataUrl)
+    parts.push({ text: 'Primary background image to adapt:' })
+    parts.push({
+      inline_data: {
+        mime_type: background.mimeType,
+        data: background.data,
+      },
+    })
+  }
+
+  for (const [index, image] of input.styleReferenceImages.entries()) {
+    const parsed = parseInlineDataUrl(image.dataUrl)
+    parts.push({ text: `Style reference image ${index + 1}:` })
+    parts.push({
+      inline_data: {
+        mime_type: parsed.mimeType,
+        data: parsed.data,
+      },
+    })
+  }
+
+  const response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts,
+        },
+      ],
+    }),
+  })
+
+  const payload = (await response.json()) as Record<string, unknown>
+  if (!response.ok) {
+    throw new Error(extractGeminiErrorMessage(payload))
+  }
+
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : []
+  let imageDataUrl: string | null = null
+  let imageMimeType: string | null = null
+  const textParts: string[] = []
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue
+    const content = (candidate as { content?: { parts?: unknown[] } }).content
+    const partsList = Array.isArray(content?.parts) ? content.parts : []
+    for (const part of partsList) {
+      if (!part || typeof part !== 'object' || Array.isArray(part)) continue
+      const text = asString((part as { text?: unknown }).text)
+      if (text) textParts.push(text)
+
+      const inlineData =
+        (part as { inlineData?: { mimeType?: unknown; data?: unknown } }).inlineData ??
+        (part as { inline_data?: { mime_type?: unknown; data?: unknown } }).inline_data
+      if (!inlineData) continue
+
+      const mimeType =
+        asString((inlineData as { mimeType?: unknown }).mimeType) ??
+        asString((inlineData as { mime_type?: unknown }).mime_type)
+      const data = asString((inlineData as { data?: unknown }).data)
+      if (!mimeType || !data) continue
+      imageDataUrl = `data:${mimeType};base64,${data}`
+      imageMimeType = mimeType
+      break
+    }
+    if (imageDataUrl) break
+  }
+
+  if (!imageDataUrl || !imageMimeType) throw new Error('thumbnail_image_missing')
+
+  return {
+    model,
+    imageDataUrl,
+    imageMimeType,
+    textResponse: textParts.length > 0 ? textParts.join('\n').trim() : null,
   }
 }
 
@@ -6085,6 +6314,26 @@ export default {
         ok: (body) => ok(body, origin),
       })
       if (meetingHandled) return meetingHandled
+    }
+
+    if (request.method === 'POST' && path === '/event-graphics/video-thumbnail/render') {
+      try {
+        const payload = parseVideoThumbnailRenderBody(await readJsonBody(request))
+        const rendered = await renderVideoThumbnailWithGemini(env, payload)
+        return ok(
+          {
+            ok: true,
+            model: rendered.model,
+            imageDataUrl: rendered.imageDataUrl,
+            imageMimeType: rendered.imageMimeType,
+            textResponse: rendered.textResponse,
+          },
+          origin,
+        )
+      } catch (error: unknown) {
+        const message = error instanceof Error && error.message ? error.message : 'thumbnail_render_failed'
+        return json({ ok: false, error: message, message }, toVideoThumbnailErrorStatus(message), origin)
+      }
     }
 
     const missingNotion = requiredNotionEnv(env)

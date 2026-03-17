@@ -4047,6 +4047,200 @@ button.dashboardNavButton {
   color: #b91c1c;
 }
 
+.eventGraphicsThumbnailTool {
+  border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  margin-top: 18px;
+  opacity: 0.42;
+  padding-top: 12px;
+  transition: opacity 0.16s ease;
+}
+
+.eventGraphicsThumbnailTool:hover,
+.eventGraphicsThumbnailTool.is-open {
+  opacity: 1;
+}
+
+.eventGraphicsThumbnailHandle {
+  background: transparent;
+  border: 0;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.eventGraphicsThumbnailPanel {
+  background: color-mix(in srgb, var(--surface-soft) 92%, white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 14px;
+}
+
+.eventGraphicsThumbnailHead {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.eventGraphicsThumbnailHead h3,
+.eventGraphicsThumbnailHead p,
+.eventGraphicsThumbnailCard h4,
+.eventGraphicsThumbnailResult h4 {
+  margin: 0;
+}
+
+.eventGraphicsThumbnailGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.95fr);
+}
+
+.eventGraphicsThumbnailCard,
+.eventGraphicsThumbnailResult {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.eventGraphicsThumbnailForm {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.eventGraphicsThumbnailForm label,
+.eventGraphicsThumbnailUpload {
+  color: var(--text-sub);
+  display: grid;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.eventGraphicsThumbnailForm textarea,
+.eventGraphicsThumbnailForm label:nth-child(9),
+.eventGraphicsThumbnailForm label:nth-child(10),
+.eventGraphicsThumbnailForm label:nth-child(11) {
+  grid-column: 1 / -1;
+}
+
+.eventGraphicsThumbnailUploads {
+  display: grid;
+  gap: 10px;
+}
+
+.eventGraphicsThumbnailUpload {
+  background: color-mix(in srgb, var(--surface-soft) 92%, white);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.eventGraphicsThumbnailPreview {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-soft) 86%, white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 92px minmax(0, 1fr);
+  padding: 10px;
+}
+
+.eventGraphicsThumbnailPreview img,
+.eventGraphicsThumbnailReferenceItem img,
+.eventGraphicsThumbnailResultFrame img {
+  block-size: auto;
+  border-radius: 10px;
+  display: block;
+  inline-size: 100%;
+}
+
+.eventGraphicsThumbnailPreview img {
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.eventGraphicsThumbnailReferenceList {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+}
+
+.eventGraphicsThumbnailReferenceItem {
+  display: grid;
+  gap: 6px;
+}
+
+.eventGraphicsThumbnailReferenceItem img {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
+.eventGraphicsThumbnailReferenceItem span {
+  color: var(--text-sub);
+  font-size: 10px;
+  word-break: break-all;
+}
+
+.eventGraphicsThumbnailActions,
+.eventGraphicsThumbnailFooter,
+.eventGraphicsThumbnailResultHead {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.eventGraphicsThumbnailFooter {
+  align-items: end;
+}
+
+.eventGraphicsThumbnailResultFrame {
+  background: #0f172a;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.eventGraphicsThumbnailResultFrame img {
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+@media (max-width: 900px) {
+  .eventGraphicsThumbnailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsThumbnailForm {
+    grid-template-columns: 1fr;
+  }
+
+  .eventGraphicsThumbnailForm label:nth-child(9),
+  .eventGraphicsThumbnailForm label:nth-child(10),
+  .eventGraphicsThumbnailForm label:nth-child(11) {
+    grid-column: auto;
+  }
+
+  .eventGraphicsThumbnailFooter,
+  .eventGraphicsThumbnailResultHead,
+  .eventGraphicsThumbnailHead {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .eventGraphicsShareShell {
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 30%),
