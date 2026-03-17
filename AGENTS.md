@@ -26,6 +26,8 @@
 - Prefer improving existing screens over introducing parallel flows.
 - When changing shared contracts, sync the relevant TypeScript types and docs together.
 - Do not add unrelated sample assets or commit contents from `files/` unless the user explicitly asks.
+- Temporary handoff note: keep mid-task progress updates short, and if a partial in-progress state must be saved, record the current status in `AGENTS.md` so the next turn can resume quickly.
+- Remove any temporary handoff note from `AGENTS.md` as soon as the referenced fix/work is completed.
 
 ## 승인 후 작업 원칙
 - 사용자가 승인 전 작업 금지를 지시하면, 에이전트는 먼저 요청 내용을 바탕으로 변경 계획을 사용자에게 설명한다.

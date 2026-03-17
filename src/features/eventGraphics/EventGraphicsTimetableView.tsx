@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from 'react'
-import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
+import type { ScheduleColumn, ScheduleFile, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import {
   exhibitionPlaybookExampleRows,
@@ -77,6 +77,8 @@ type SessionStage = {
   runtimeMinutes: number
   runtimeLabel: string
   status?: string
+  captureFiles: ScheduleFile[]
+  audioFiles: ScheduleFile[]
   graphicLabel: string
   audioLabel: string
   note: string
@@ -816,19 +818,23 @@ function MasterfileAuditLayout({
                   ? ((cue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
                   : []
                 const graphicFiles =
-                  cue != null
+                  stage.captureFiles.length > 0
+                    ? stage.captureFiles.map((file) => ({ name: file.name, kind: file.kind, role: stage.label }))
+                    : cue != null
                     ? registeredFiles.filter((file) => file.kind === 'image' || file.kind === 'video')
                     : stage.graphicLabel && stage.graphicLabel !== '-'
                       ? [{ name: stage.graphicLabel, kind: 'image', role: stage.label }]
                       : []
                 const audioFiles =
-                  cue != null
+                  stage.audioFiles.length > 0
+                    ? stage.audioFiles.map((file) => ({ name: file.name, kind: file.kind, role: stage.label }))
+                    : cue != null
                     ? registeredFiles.filter((file) => file.kind === 'audio')
                     : stage.audioLabel && stage.audioLabel !== '-'
                       ? [{ name: stage.audioLabel, kind: 'audio', role: stage.label }]
                       : []
-                const missingGraphicFiles = cue ? missingFiles.filter((file) => file.kind !== 'audio') : []
-                const missingAudioFiles = cue ? missingFiles.filter((file) => file.kind === 'audio') : []
+                const missingGraphicFiles = cue && stage.captureFiles.length === 0 ? missingFiles.filter((file) => file.kind !== 'audio') : []
+                const missingAudioFiles = cue && stage.audioFiles.length === 0 ? missingFiles.filter((file) => file.kind === 'audio') : []
                 const checklistKey = toDriveChecklistKey(stage)
                 const driveState = driveChecklist[checklistKey] ?? { graphic: false, audio: false }
                 const showSpeakerPptPlaceholder = usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)

@@ -180,11 +180,18 @@ type ScheduleColumn = {
   type: string
 }
 
+type ScheduleFile = {
+  name: string
+  url: string
+  kind: 'image' | 'video' | 'audio' | 'file'
+}
+
 type ScheduleCell = {
   columnId: string
   type: string
   text: string
   href?: string | null
+  files?: ScheduleFile[]
 }
 
 type ScheduleRow = {

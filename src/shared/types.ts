@@ -174,11 +174,18 @@ export type ScheduleColumn = {
   type: string
 }
 
+export type ScheduleFile = {
+  name: string
+  url: string
+  kind: 'image' | 'video' | 'audio' | 'file'
+}
+
 export type ScheduleCell = {
   columnId: string
   type: string
   text: string
   href?: string | null
+  files?: ScheduleFile[]
 }
 
 export type ScheduleRow = {

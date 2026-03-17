@@ -101,6 +101,30 @@ function extractFileUrl(file: any): string | undefined {
   return undefined
 }
 
+function inferScheduleFileKind(name: string, url: string): 'image' | 'video' | 'audio' | 'file' {
+  const source = `${name} ${url}`.toLowerCase()
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(source)) return 'image'
+  if (/\.(mp4|mov|m4v|webm|ogg)(\?|#|$)/i.test(source)) return 'video'
+  if (/\.(mp3|wav|m4a|aac|flac|aiff?|oga)(\?|#|$)/i.test(source)) return 'audio'
+  return 'file'
+}
+
+function serializeScheduleFiles(prop: any): NonNullable<ScheduleCell['files']> {
+  if (!prop || typeof prop !== 'object' || prop.type !== 'files' || !Array.isArray(prop.files)) return []
+  return prop.files
+    .map((entry: any) => {
+      const url = extractFileUrl(entry)
+      if (!url) return null
+      const name = firstNonEmptyText(entry?.name, url)
+      return {
+        name,
+        url,
+        kind: inferScheduleFileKind(name, url),
+      }
+    })
+    .filter((entry): entry is NonNullable<ScheduleCell['files']>[number] => Boolean(entry))
+}
+
 function extractImageFromFilesProperty(prop: any): string | undefined {
   if (!prop || typeof prop !== 'object' || prop.type !== 'files') return undefined
   const files = Array.isArray(prop.files) ? prop.files : []
@@ -610,6 +634,7 @@ function serializeScheduleInlineValue(value: any): string {
 }
 
 function serializeScheduleCell(prop: any, column: ScheduleColumn): ScheduleCell {
+  const files = prop?.type === 'files' ? serializeScheduleFiles(prop) : undefined
   const href =
     prop?.type === 'url'
       ? normalizeText(prop.url) || null
@@ -642,6 +667,7 @@ function serializeScheduleCell(prop: any, column: ScheduleColumn): ScheduleCell 
     type: column.type,
     text: serializeScheduleInlineValue(prop),
     href,
+    files,
   }
 }
 

@@ -273,29 +273,33 @@ export function EventGraphicsSharePage({
                               ? eventGraphicsManifestByKey.get(stage.manifestKey) ?? null
                               : null
                             const graphicFiles =
-                              manifestCue != null
-                                ? (manifestCue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>)
-                                    .filter((file) => file.kind === 'image' || file.kind === 'video')
-                                    .map((file) => ({ name: file.name, role: file.role }))
-                                : stage.graphicLabel && stage.graphicLabel !== '-'
-                                  ? [{ name: stage.graphicLabel, role: stage.label }]
-                                  : []
+                              stage.captureFiles.length > 0
+                                ? stage.captureFiles.map((file) => ({ name: file.name, role: stage.label }))
+                                : manifestCue != null
+                                  ? (manifestCue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>)
+                                      .filter((file) => file.kind === 'image' || file.kind === 'video')
+                                      .map((file) => ({ name: file.name, role: file.role }))
+                                  : stage.graphicLabel && stage.graphicLabel !== '-'
+                                    ? [{ name: stage.graphicLabel, role: stage.label }]
+                                    : []
                             const audioFiles =
-                              manifestCue != null
-                                ? (manifestCue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>)
-                                    .filter((file) => file.kind === 'audio')
-                                    .map((file) => ({ name: file.name, role: file.role }))
-                                : stage.audioLabel && stage.audioLabel !== '-'
-                                  ? [{ name: stage.audioLabel, role: stage.label }]
-                                  : []
+                              stage.audioFiles.length > 0
+                                ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label }))
+                                : manifestCue != null
+                                  ? (manifestCue.registeredFiles as ReadonlyArray<{ name: string; kind: string; role: string }>)
+                                      .filter((file) => file.kind === 'audio')
+                                      .map((file) => ({ name: file.name, role: file.role }))
+                                  : stage.audioLabel && stage.audioLabel !== '-'
+                                    ? [{ name: stage.audioLabel, role: stage.label }]
+                                    : []
                             const missingGraphicFiles =
-                              manifestCue != null
+                              manifestCue != null && stage.captureFiles.length === 0
                                 ? ((manifestCue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
                                     .filter((file) => file.kind !== 'audio')
                                     .map((file) => file.sourceName || file.label)
                                 : []
                             const missingAudioFiles =
-                              manifestCue != null
+                              manifestCue != null && stage.audioFiles.length === 0
                                 ? ((manifestCue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
                                     .filter((file) => file.kind === 'audio')
                                     .map((file) => file.sourceName || file.label)

@@ -1,4 +1,4 @@
-import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
+import type { ScheduleColumn, ScheduleFile, ScheduleRow } from '../../shared/types'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 
 export type EventGraphicsTimetableMode = 'event' | 'exhibition'
@@ -25,6 +25,8 @@ export type EventGraphicsEventRow = {
   personnel: string
   remark: string
   vendorNote: string
+  captureFiles: ScheduleFile[]
+  audioFiles: ScheduleFile[]
   graphicLabel: string
   audioLabel: string
   note: string
@@ -46,6 +48,8 @@ export type EventGraphicsSessionStage = {
   endTime: string
   runtimeMinutes: number
   runtimeLabel: string
+  captureFiles: ScheduleFile[]
+  audioFiles: ScheduleFile[]
   graphicLabel: string
   audioLabel: string
   note: string
@@ -92,12 +96,26 @@ function readCellHref(row: ScheduleRow, columnIndex: Record<string, number>, col
   return row.cells[index]?.href ?? null
 }
 
+function readCellFiles(row: ScheduleRow, columnIndex: Record<string, number>, columnName: string): ScheduleFile[] {
+  const index = columnIndex[columnName]
+  if (index == null) return []
+  return row.cells[index]?.files ?? []
+}
+
 function readFirstCellText(row: ScheduleRow, columnIndex: Record<string, number>, columnNames: string[]): string {
   for (const columnName of columnNames) {
     const value = readCellText(row, columnIndex, columnName)
     if (value) return value
   }
   return ''
+}
+
+function readFirstCellFiles(row: ScheduleRow, columnIndex: Record<string, number>, columnNames: string[]): ScheduleFile[] {
+  for (const columnName of columnNames) {
+    const files = readCellFiles(row, columnIndex, columnName)
+    if (files.length > 0) return files
+  }
+  return []
 }
 
 function normalizeTimetableMode(value: string): EventGraphicsTimetableMode | null {
@@ -123,6 +141,16 @@ function joinSummary(parts: string[]): string {
 
 function joinManifestFileNames(files: ReadonlyArray<{ name: string }>): string {
   return files.map((file) => file.name).join(' / ')
+}
+
+function joinScheduleFileNames(files: ReadonlyArray<ScheduleFile>): string {
+  return files.map((file) => file.name).join(' / ')
+}
+
+function getPreviewFileUrl(files: ReadonlyArray<ScheduleFile>): string | null {
+  const visualFile = files.find((file) => file.kind === 'image' || file.kind === 'video')
+  if (visualFile) return visualFile.url
+  return files[0]?.url ?? null
 }
 
 function getMasterfileCue(operationKey: string, cueNumber: string | null): MasterfileCue | null {
@@ -252,12 +280,16 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
   const cueTitle = readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '행 제목') || '-'
   const normalizedCueType = normalizeEventCueType(readFirstCellText(row, columnIndex, ['카테고리', 'Cue 유형']) || 'other', cueTitle)
   const operationKey = readCellText(row, columnIndex, '운영 키')
+  const captureFiles = readFirstCellFiles(row, columnIndex, ['캡쳐(무조건 이미지형식)'])
+  const audioFiles = readFirstCellFiles(row, columnIndex, ['오디오파일'])
   const previewHrefFromNotion =
     readCellHref(row, columnIndex, '미리보기 링크') || readCellText(row, columnIndex, '미리보기 링크') || null
   const notionGraphicAsset = readFirstCellText(row, columnIndex, ['메인 화면', '그래픽 자산명', 'Main Screen']) || '-'
   const notionSourceAudio = readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']) || ''
   const eventName = readFirstCellText(row, columnIndex, ['행사명', '귀속 프로젝트']) || ''
   const manifestCue = getMasterfileCue(operationKey, cueNumber)
+  const captureLabel = joinScheduleFileNames(captureFiles)
+  const audioFileLabel = joinScheduleFileNames(audioFiles)
   const note = joinSummary([
     readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     readCellText(row, columnIndex, '무대 인원') ? `무대 ${readCellText(row, columnIndex, '무대 인원')}` : '',
@@ -277,16 +309,18 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '러닝타임(분)') || readCellText(row, columnIndex, '예상시간(분)'),
-    graphicAsset: getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
-    sourceAudio: getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '',
+    graphicAsset: captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
+    sourceAudio: audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '',
     personnel: readCellText(row, columnIndex, '무대 인원'),
     remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
-    graphicLabel: getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
-    audioLabel: getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '-',
+    captureFiles,
+    audioFiles,
+    graphicLabel: captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
+    audioLabel: audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '-',
     note: note || '메모 없음',
-    previewHref: manifestCue?.previewUrl || previewHrefFromNotion || null,
-    assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || null,
+    previewHref: getPreviewFileUrl(captureFiles) || manifestCue?.previewUrl || previewHrefFromNotion || null,
+    assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || captureFiles[0]?.url || null,
   }
 }
 
@@ -331,6 +365,8 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
       endTime: row.endTime,
       runtimeMinutes: toRuntimeMinutes(row.runtime),
       runtimeLabel: formatRuntimeLabel(row.runtime),
+      captureFiles: row.captureFiles,
+      audioFiles: row.audioFiles,
       graphicLabel: row.graphicLabel,
       audioLabel: row.audioLabel,
       note: row.note,
