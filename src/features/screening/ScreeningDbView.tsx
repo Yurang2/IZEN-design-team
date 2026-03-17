@@ -18,7 +18,7 @@ type ScreeningDbViewProps = {
   presentation?: 'table' | 'gallery'
   groupByColumnName?: string
   thumbnailColumnName?: string
-  detailColumnNames?: string[]
+  detailColumnNames?: Array<string | { label: string; names: string[] }>
   relationColumnLabelMaps?: Record<string, Record<string, string>>
   groupVisualMap?: Record<string, { iconEmoji?: string; iconUrl?: string; coverUrl?: string }>
   syncActionLabel?: string
@@ -72,6 +72,19 @@ function resolveCellText(
 function getColumnIndex(columns: ScheduleColumn[], targetName: string | undefined): number {
   if (!targetName) return -1
   return columns.findIndex((column) => column.name === targetName)
+}
+
+function getDetailColumnLabel(entry: string | { label: string; names: string[] }): string {
+  return typeof entry === 'string' ? entry : entry.label
+}
+
+function getDetailColumnIndex(columns: ScheduleColumn[], entry: string | { label: string; names: string[] }): number {
+  if (typeof entry === 'string') return getColumnIndex(columns, entry)
+  for (const name of entry.names) {
+    const index = getColumnIndex(columns, name)
+    if (index >= 0) return index
+  }
+  return -1
 }
 
 function ScreeningSkeleton({ columnCount }: { columnCount: number }) {
@@ -157,7 +170,7 @@ export function ScreeningDbView({
     if (presentation !== 'gallery') return []
 
     const detailIndexes = detailColumnNames
-      .map((name) => ({ name, index: getColumnIndex(columns, name) }))
+      .map((entry) => ({ label: getDetailColumnLabel(entry), index: getDetailColumnIndex(columns, entry) }))
       .filter((entry) => entry.index >= 0)
 
     const groups = new Map<string, GalleryGroup>()
@@ -179,9 +192,9 @@ export function ScreeningDbView({
       const title = resolveCellText(row.cells[0], columns[0]?.name, relationColumnLabelMaps)
       const thumbCell = thumbnailIndex >= 0 ? row.cells[thumbnailIndex] : undefined
       const details = detailIndexes
-        .map(({ name, index }) => ({
-          label: name,
-          value: resolveCellText(row.cells[index], name, relationColumnLabelMaps),
+        .map(({ label, index }) => ({
+          label,
+          value: resolveCellText(row.cells[index], columns[index]?.name, relationColumnLabelMaps),
         }))
         .filter((entry) => entry.value !== '-')
 
