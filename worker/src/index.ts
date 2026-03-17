@@ -101,6 +101,7 @@ type ThumbnailInlineImageInput = {
 type VideoThumbnailRenderInput = {
   outputSlug: string
   eventName: string
+  model?: string
   dateText: string
   locationText: string
   subtitleText: string
@@ -1064,6 +1065,7 @@ function parseVideoThumbnailRenderBody(body: unknown): VideoThumbnailRenderInput
   return {
     outputSlug: asString(payload.outputSlug) ?? 'video-thumbnail',
     eventName: asString(payload.eventName) ?? '',
+    model: asString(payload.model),
     dateText: asString(payload.dateText) ?? '',
     locationText: asString(payload.locationText) ?? '',
     subtitleText: asString(payload.subtitleText) ?? '',
@@ -1155,7 +1157,7 @@ async function renderVideoThumbnailWithGemini(
   if (!input.eventName) throw new Error('eventName_required')
 
   const apiKey = getGeminiApiKey(env)
-  const model = getGeminiImageModel(env)
+  const model = input.model?.trim() || getGeminiImageModel(env)
   const prompt = buildVideoThumbnailPrompt(input)
   const parts: Array<Record<string, unknown>> = [{ text: prompt }]
 

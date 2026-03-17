@@ -7,8 +7,9 @@ type VideoThumbnailToolProps = {
 }
 
 type ThumbnailFormState = {
-  outputSlug: string
   eventName: string
+  versionNumber: string
+  model: string
   dateText: string
   locationText: string
   subtitleText: string
@@ -36,11 +37,17 @@ type ThumbnailRenderResponse = {
 }
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const MODEL_OPTIONS = [
+  { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview' },
+  { value: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash Image Preview' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+]
 
 function buildInitialFormState(suggestedTitle?: string): ThumbnailFormState {
   return {
-    outputSlug: 'video-thumbnail',
     eventName: suggestedTitle?.trim() || '',
+    versionNumber: '01',
+    model: MODEL_OPTIONS[0]?.value ?? 'gemini-3.1-flash-image-preview',
     dateText: '',
     locationText: '',
     subtitleText: '',
@@ -98,6 +105,12 @@ function toFileExtension(mimeType: string): string {
   return 'png'
 }
 
+function toVersionLabel(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 2)
+  if (!digits) return '01'
+  return digits.padStart(2, '0')
+}
+
 export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [form, setForm] = useState<ThumbnailFormState>(() => buildInitialFormState(suggestedTitle))
@@ -110,8 +123,8 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
 
   const downloadName = useMemo(() => {
     const extension = result ? toFileExtension(result.imageMimeType) : 'png'
-    return `${toDownloadName(form.outputSlug)}.${extension}`
-  }, [form.outputSlug, result])
+    return `${toDownloadName(form.eventName)}_thumbnail_v${toVersionLabel(form.versionNumber)}.${extension}`
+  }, [form.eventName, form.versionNumber, result])
 
   const onChangeField = (key: keyof ThumbnailFormState, value: string) => {
     setForm((current) => ({
@@ -221,12 +234,14 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
               <h4>입력</h4>
               <div className="eventGraphicsThumbnailForm">
                 <label>
-                  URL / 출력 이름
+                  버전
                   <input
                     type="text"
-                    value={form.outputSlug}
-                    onChange={(event) => onChangeField('outputSlug', event.target.value)}
-                    placeholder="video-thumbnail"
+                    inputMode="numeric"
+                    maxLength={2}
+                    value={form.versionNumber}
+                    onChange={(event) => onChangeField('versionNumber', event.target.value)}
+                    placeholder="01"
                   />
                 </label>
                 <label>
@@ -237,6 +252,16 @@ export function VideoThumbnailTool({ suggestedTitle }: VideoThumbnailToolProps) 
                     onChange={(event) => onChangeField('eventName', event.target.value)}
                     placeholder="IZEN Seminar in Bangkok"
                   />
+                </label>
+                <label>
+                  Gemini 모델
+                  <select value={form.model} onChange={(event) => onChangeField('model', event.target.value)}>
+                    {MODEL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   날짜
