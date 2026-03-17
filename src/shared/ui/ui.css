@@ -3986,18 +3986,19 @@ button.dashboardNavButton {
   text-align: right;
 }
 
-.eventGraphicsAuditPanelHead {
-  align-items: center;
-  display: flex;
-  gap: 6px;
-  justify-content: space-between;
-}
-
 .eventGraphicsAuditAssetRow {
   align-items: center;
   display: grid;
   gap: 6px;
   grid-template-columns: 74px minmax(0, 1fr);
+}
+
+.eventGraphicsAuditAssetRow.is-head {
+  grid-template-columns: 74px max-content minmax(0, 1fr);
+}
+
+.eventGraphicsAuditAssetRow.is-head .eventGraphicsAuditMissingFlag {
+  justify-self: end;
 }
 
 .eventGraphicsAuditAssetRow .eventGraphicsAuditChipList,
@@ -4135,14 +4136,16 @@ button.dashboardNavButton {
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text-main);
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: 10px;
-  line-height: 1.2;
+  line-height: 1.35;
   max-width: 100%;
   padding: 3px 7px;
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
+  vertical-align: top;
 }
 
 .eventGraphicsAuditChip.is-missing {

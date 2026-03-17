@@ -709,16 +709,16 @@ function MasterfileAssetPanel({
 
   return (
     <section className={panelClassName}>
-      <div className="eventGraphicsAuditPanelHead">
+      <div className="eventGraphicsAuditAssetRow is-head">
         <span className="eventGraphicsPanelLabel">{title}</span>
-        {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
-      </div>
-
-      <div className="eventGraphicsAuditAssetRow">
         <label className="eventGraphicsAuditCheck is-compact">
           <input type="checkbox" checked={expected && hasLocalFiles} disabled />
           <span>로컬</span>
         </label>
+        {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
+      </div>
+
+      <div className="eventGraphicsAuditAssetRow">
         {hasLocalFiles ? (
           <div className="eventGraphicsAuditChipList">
             {registeredFiles.map((file) => (
@@ -733,6 +733,7 @@ function MasterfileAssetPanel({
       </div>
 
       <div className="eventGraphicsAuditAssetRow">
+        <span className="eventGraphicsPanelLabel"> </span>
         <label className="eventGraphicsAuditCheck is-compact">
           <input
             type="checkbox"
