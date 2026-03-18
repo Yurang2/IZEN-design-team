@@ -4086,12 +4086,13 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsShareStageHead strong {
+  font-size: 18px;
   margin: 0;
 }
 
 .eventGraphicsShareStageMeta {
   color: var(--text-sub);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.35;
   margin-left: auto;
   text-align: right;
@@ -4117,6 +4118,10 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditPanelHead .eventGraphicsPanelLabel {
   white-space: nowrap;
+}
+
+.eventGraphicsSharePage .eventGraphicsPanelLabel {
+  font-size: 13px;
 }
 
 .eventGraphicsAuditAssetRow {
@@ -4147,6 +4152,50 @@ button.dashboardNavButton {
 .eventGraphicsAuditPanel.is-missing {
   background: color-mix(in srgb, #fef2f2 84%, white);
   border-color: #fecaca;
+}
+
+.eventGraphicsAuditPanel {
+  overflow: hidden;
+  position: relative;
+}
+
+.eventGraphicsAuditPanel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.eventGraphicsAuditPanel::after {
+  color: rgba(255, 255, 255, 0.62);
+  content: attr(data-overlay-label);
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  position: absolute;
+  right: -4px;
+  top: 10px;
+  transform: rotate(-90deg);
+  transform-origin: top right;
+  white-space: nowrap;
+  z-index: 0;
+}
+
+.eventGraphicsAuditPanel.is-graphic {
+  background: linear-gradient(180deg, rgba(232, 244, 255, 0.98), rgba(245, 250, 255, 0.98));
+  border-color: #bfdbfe;
+}
+
+.eventGraphicsAuditPanel.is-graphic::after {
+  color: rgba(147, 197, 253, 0.34);
+}
+
+.eventGraphicsAuditPanel.is-audio {
+  background: linear-gradient(180deg, rgba(238, 252, 245, 0.98), rgba(246, 255, 250, 0.98));
+  border-color: #bbf7d0;
+}
+
+.eventGraphicsAuditPanel.is-audio::after {
+  color: rgba(134, 239, 172, 0.34);
 }
 
 .eventGraphicsAuditFileList {
@@ -4265,7 +4314,7 @@ button.dashboardNavButton {
   color: var(--text-main);
   display: inline-flex;
   align-items: center;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.15;
   max-width: 100%;
   padding: 2px 7px;
@@ -4595,6 +4644,7 @@ button.dashboardNavButton {
 
 .eventGraphicsSharePage {
   display: grid;
+  font-size: 1.08rem;
   gap: 14px;
   margin: 0 auto;
   max-width: 1180px;
@@ -4627,6 +4677,11 @@ button.dashboardNavButton {
   margin: 0;
 }
 
+.eventGraphicsShareHeroText h1 {
+  font-size: 2.15rem;
+  line-height: 1.06;
+}
+
 .eventGraphicsLocaleSwitch {
   align-items: center;
   display: inline-flex;
@@ -4647,7 +4702,7 @@ button.dashboardNavButton {
 
 .eventGraphicsToolbarGroupLabel {
   color: var(--text-sub);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   line-height: 1;
@@ -4668,7 +4723,7 @@ button.dashboardNavButton {
   border-radius: 999px;
   color: var(--control-accent-text);
   display: inline-flex;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   min-height: 30px;
   padding: 0 10px;
@@ -4713,6 +4768,10 @@ button.dashboardNavButton {
   margin: 0;
 }
 
+.eventGraphicsShareGroupHead h2 {
+  font-size: 1.55rem;
+}
+
 .eventGraphicsShareGroupList {
   display: grid;
   gap: 10px;
@@ -4753,7 +4812,7 @@ button.dashboardNavButton {
 
 .eventGraphicsShareTime strong {
   color: var(--text-main);
-  font-size: 24px;
+  font-size: 29px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -4761,6 +4820,7 @@ button.dashboardNavButton {
 .eventGraphicsShareTime span,
 .eventGraphicsShareTime small {
   color: var(--text-sub);
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4781,13 +4841,13 @@ button.dashboardNavButton {
 .eventGraphicsShareHead p {
   color: var(--text-sub);
   flex: 1 1 280px;
-  font-size: 11px;
+  font-size: 13px;
   margin: 0;
 }
 
 .eventGraphicsShareHead h3 {
   flex: 0 1 auto;
-  font-size: 18px;
+  font-size: 22px;
   min-width: 0;
 }
 
@@ -4797,7 +4857,7 @@ button.dashboardNavButton {
   border-radius: 999px;
   color: #274472;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 4px 10px;
@@ -5253,7 +5313,7 @@ button.dashboardNavButton {
   }
 
   .eventGraphicsShareTime strong {
-    font-size: 18px;
+    font-size: 22px;
   }
 
   .eventGraphicsShareBody {
@@ -5262,7 +5322,7 @@ button.dashboardNavButton {
   }
 
   .eventGraphicsShareHead h3 {
-    font-size: 15px;
+    font-size: 18px;
   }
 
   .eventGraphicsShareGroup {
@@ -5282,6 +5342,12 @@ button.dashboardNavButton {
     gap: 2px;
     min-width: 0;
     padding: 6px;
+  }
+
+  .eventGraphicsAuditPanel::after {
+    font-size: 28px;
+    right: -2px;
+    top: 8px;
   }
 
   .eventGraphicsShareActions,
