@@ -4042,6 +4042,11 @@ button.dashboardNavButton {
   justify-content: space-between;
 }
 
+.eventGraphicsShareStage.is-missing {
+  background: color-mix(in srgb, #fff5f5 86%, white);
+  border-color: #fca5a5;
+}
+
 .eventGraphicsShareStageNote {
   color: var(--text-sub);
   font-size: 12px;
@@ -4537,6 +4542,16 @@ button.dashboardNavButton {
 
 .eventGraphicsShareRow.is-entrance {
   border-color: color-mix(in srgb, #0f766e 48%, var(--border));
+}
+
+.eventGraphicsShareRow.is-missing {
+  border-color: color-mix(in srgb, #dc2626 45%, rgba(205, 214, 227, 0.95));
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.08);
+}
+
+.eventGraphicsShareRow.is-missing .eventGraphicsShareTime {
+  background:
+    linear-gradient(180deg, rgba(254, 226, 226, 0.92), rgba(254, 242, 242, 0.96));
 }
 
 .eventGraphicsShareTime {

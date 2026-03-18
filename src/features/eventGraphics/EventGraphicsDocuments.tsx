@@ -6,7 +6,7 @@ import {
   type EventGraphicsPreviewRatio,
 } from './EventGraphicsPreviewRatioControl'
 import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
-import { usesSpeakerPptPlaceholder } from './eventGraphicsHierarchy'
+import { usesSpeakerPptPlaceholder, type EventGraphicsStageKind } from './eventGraphicsHierarchy'
 import { eventGraphicsManifestByKey, toCueTypeLabel, type EventGraphicsShareLocale, type EventGroup } from './eventGraphicsShareData'
 import { AssetUploadControl, toUploadStateKey, type AssetUploadField, type UploadState } from './EventGraphicsUploadControl'
 
@@ -34,11 +34,38 @@ type EventGraphicsShareStrings = {
   noSpecialNote: string
   graphic: string
   audio: string
+  uploadRequired: string
 }
 
 type AssetEntry = {
   name: string
   role: string
+}
+
+function getStageAssetState(stage: {
+  manifestKey: string | null
+  cueType: string
+  stageKind: EventGraphicsStageKind
+  captureFiles: ReadonlyArray<unknown>
+  audioFiles: ReadonlyArray<unknown>
+  graphicPreset: 'speaker_ppt' | null
+  audioPreset: 'dj_ambient' | null
+}) {
+  const manifestCue = stage.manifestKey ? eventGraphicsManifestByKey.get(stage.manifestKey) ?? null : null
+  const hasSpeakerPptPreset = stage.graphicPreset === 'speaker_ppt'
+  const hasDjAmbientPreset = stage.audioPreset === 'dj_ambient'
+  const showSpeakerPpt = hasSpeakerPptPreset || usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
+  const graphicMissing = !showSpeakerPpt && stage.captureFiles.length === 0
+  const audioMissing = !hasDjAmbientPreset && stage.audioFiles.length === 0
+
+  return {
+    manifestCue,
+    hasSpeakerPptPreset,
+    hasDjAmbientPreset,
+    showSpeakerPpt,
+    graphicMissing,
+    audioMissing,
+  }
 }
 
 function PresetToggleButton({
@@ -309,27 +336,31 @@ export function EventGraphicsShareDocument({
             </header>
 
             <div className="eventGraphicsShareGroupList">
-              {group.cues.map((cue) => (
-                <article key={cue.id} className="eventGraphicsShareRow">
-                  <div className="eventGraphicsShareTime">
-                    <strong>{cue.startTime}</strong>
-                    <span>{cue.endTime}</span>
-                    <small>{cue.runtimeLabel}</small>
-                  </div>
+              {group.cues.map((cue) => {
+                const cueHasMissing = cue.stages.some((stage) => {
+                  const { graphicMissing, audioMissing } = getStageAssetState(stage)
+                  return graphicMissing || audioMissing
+                })
 
-                  <div className="eventGraphicsShareBody">
-                    <div className="eventGraphicsShareHead">
-                      <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                      <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
-                      <h3>{cue.title}</h3>
+                return (
+                  <article key={cue.id} className={`eventGraphicsShareRow${cueHasMissing ? ' is-missing' : ''}`}>
+                    <div className="eventGraphicsShareTime">
+                      <strong>{cue.startTime}</strong>
+                      <span>{cue.endTime}</span>
+                      <small>{cue.runtimeLabel}</small>
                     </div>
 
-                    <div className="eventGraphicsShareStageList">
-                      {cue.stages.map((stage) => {
-                        const manifestCue = stage.manifestKey ? eventGraphicsManifestByKey.get(stage.manifestKey) ?? null : null
-                        const hasSpeakerPptPreset = stage.graphicPreset === 'speaker_ppt'
-                        const hasDjAmbientPreset = stage.audioPreset === 'dj_ambient'
-                        const showSpeakerPpt = hasSpeakerPptPreset || usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
+                    <div className="eventGraphicsShareBody">
+                      <div className="eventGraphicsShareHead">
+                        <span className="eventGraphicsOrder">{cue.cueNumber}</span>
+                        <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
+                        <h3>{cue.title}</h3>
+                      </div>
+
+                      <div className="eventGraphicsShareStageList">
+                        {cue.stages.map((stage) => {
+                          const { manifestCue, hasSpeakerPptPreset, hasDjAmbientPreset, showSpeakerPpt, graphicMissing, audioMissing } =
+                            getStageAssetState(stage)
                         const hasStageNote = Boolean(stage.note && stage.note !== copy.noSpecialNote && stage.note !== '메모 없음')
                         const graphicFiles =
                           showSpeakerPpt
@@ -344,17 +375,23 @@ export function EventGraphicsShareDocument({
                             ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label }))
                             : []
                         const missingGraphicFiles =
-                          !showSpeakerPpt && manifestCue != null && stage.captureFiles.length === 0
-                            ? ((manifestCue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
+                          graphicMissing
+                            ? (
+                                ((manifestCue?.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
                                 .filter((file) => file.kind !== 'audio')
                                 .map((file) => file.sourceName || file.label)
+                              )
                             : []
                         const missingAudioFiles =
-                          !hasDjAmbientPreset && manifestCue != null && stage.audioFiles.length === 0
-                            ? ((manifestCue.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
+                          audioMissing
+                            ? (
+                                ((manifestCue?.missingFiles as ReadonlyArray<{ kind: string; label: string; sourceName: string }>) ?? [])
                                 .filter((file) => file.kind === 'audio')
                                 .map((file) => file.sourceName || file.label)
+                              )
                             : []
+                        const graphicAlerts = graphicMissing ? (missingGraphicFiles.length > 0 ? missingGraphicFiles : [copy.uploadRequired]) : []
+                        const audioAlerts = audioMissing ? (missingAudioFiles.length > 0 ? missingAudioFiles : [copy.uploadRequired]) : []
                         const previewHref = stage.previewHref || manifestCue?.previewUrl || null
                         const hasPreview = hasVisualPreviewUrl(previewHref)
                         const canUpload = Boolean(onUploadFile && uploadStateByKey)
@@ -363,7 +400,7 @@ export function EventGraphicsShareDocument({
                         const audioPresetState = presetStateByKey?.[toUploadStateKey(stage.id, 'audio')]
 
                         return (
-                          <section key={stage.id} className="eventGraphicsShareStage">
+                          <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
                             <div className="eventGraphicsShareAssetGrid">
                               <section className="eventGraphicsAuditVisual">
                                 <strong>{showSpeakerPpt ? '강연자 PPT' : stage.title}</strong>
@@ -386,14 +423,14 @@ export function EventGraphicsShareDocument({
                               <ShareAssetPanel
                                 title={copy.graphic}
                                 files={graphicFiles}
-                                missingFiles={missingGraphicFiles}
+                                missingFiles={graphicAlerts}
                                 href={stage.assetHref}
                                 openFileLabel={copy.openFile}
                               />
                               <ShareAssetPanel
                                 title={copy.audio}
                                 files={audioFiles}
-                                missingFiles={missingAudioFiles}
+                                missingFiles={audioAlerts}
                                 href={stage.assetHref}
                                 openFileLabel={copy.openFile}
                               />
@@ -445,10 +482,11 @@ export function EventGraphicsShareDocument({
                           </section>
                         )
                       })}
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                )
+              })}
             </div>
           </section>
         ))}

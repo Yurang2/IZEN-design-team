@@ -37,6 +37,7 @@ type CopySet = {
   noSpecialNote: string
   graphic: string
   audio: string
+  uploadRequired?: string
   untitledEvent: string
 }
 
@@ -56,6 +57,7 @@ export const SHARE_COPY: Record<EventGraphicsShareLocale, CopySet> = {
     noSpecialNote: 'No special note',
     graphic: 'Graphic',
     audio: 'Audio',
+    uploadRequired: 'Upload required',
     untitledEvent: 'Untitled event',
   },
   ko: {
@@ -150,6 +152,7 @@ export function EventGraphicsSharePage({
         noSpecialNote: copy.noSpecialNote,
         graphic: copy.graphic,
         audio: copy.audio,
+        uploadRequired: copy.uploadRequired ?? 'Upload required',
       }}
       pageTitle={pageTitle}
       groupedCues={groupedCues}

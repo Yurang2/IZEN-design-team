@@ -647,6 +647,7 @@ export function EventGraphicsTimetableView({
             noSpecialNote: shareCopy.noSpecialNote,
             graphic: shareCopy.graphic,
             audio: shareCopy.audio,
+            uploadRequired: shareCopy.uploadRequired ?? '업로드 필요',
           }}
           pageTitle={effectiveTitle}
           groupedCues={groupedEventCues}
