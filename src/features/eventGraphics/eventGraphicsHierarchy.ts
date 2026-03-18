@@ -145,10 +145,6 @@ function joinSummary(parts: string[]): string {
   return parts.map((part) => part.trim()).filter(Boolean).join(' / ')
 }
 
-function joinManifestFileNames(files: ReadonlyArray<{ name: string }>): string {
-  return files.map((file) => file.name).join(' / ')
-}
-
 function joinScheduleFileNames(files: ReadonlyArray<ScheduleFile>): string {
   return files.map((file) => file.name).join(' / ')
 }
@@ -169,22 +165,6 @@ function getMasterfileCue(operationKey: string, cueNumber: string | null): Maste
     if (cue) return cue
   }
   return null
-}
-
-function getMasterfileGraphicLabel(cue: MasterfileCue | null, fallback: string): string {
-  if (!cue) return fallback
-  const graphicFiles = (cue.registeredFiles as ReadonlyArray<{ name: string; kind: string }>).filter(
-    (file) => file.kind === 'image' || file.kind === 'video',
-  )
-  if (graphicFiles.length > 0) return joinManifestFileNames(graphicFiles)
-  return fallback
-}
-
-function getMasterfileAudioLabel(cue: MasterfileCue | null, fallback: string): string {
-  if (!cue) return fallback
-  const audioFiles = (cue.registeredFiles as ReadonlyArray<{ name: string; kind: string }>).filter((file) => file.kind === 'audio')
-  if (audioFiles.length > 0) return joinManifestFileNames(audioFiles)
-  return fallback
 }
 
 function normalizeGraphicPreset(value: string): 'speaker_ppt' | null {
@@ -325,8 +305,8 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '러닝타임(분)') || readCellText(row, columnIndex, '예상시간(분)'),
-    graphicAsset: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
-    sourceAudio: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '',
+    graphicAsset: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || '-',
+    sourceAudio: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || '-',
     personnel: readCellText(row, columnIndex, '무대 인원'),
     remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
@@ -334,8 +314,8 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
     audioFiles,
     graphicPreset,
     audioPreset,
-    graphicLabel: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
-    audioLabel: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '-',
+    graphicLabel: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || '-',
+    audioLabel: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || '-',
     note: note || '메모 없음',
     previewHref: getPreviewFileUrl(captureFiles) || manifestCue?.previewUrl || previewHrefFromNotion || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || captureFiles[0]?.url || null,

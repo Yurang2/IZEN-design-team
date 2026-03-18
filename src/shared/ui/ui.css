@@ -3549,14 +3549,23 @@ button.dashboardNavButton {
   margin: 0;
 }
 
+.eventGraphicsAssetUploadRow {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
 .eventGraphicsUploadControl {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .eventGraphicsUploadDropzone {
   justify-content: center;
   min-height: 34px;
+  width: 100%;
   transition:
     border-color 0.16s ease,
     background-color 0.16s ease,
@@ -3594,6 +3603,7 @@ button.dashboardNavButton {
 
 .eventGraphicsPresetToggle {
   justify-content: center;
+  white-space: nowrap;
 }
 
 .eventGraphicsPresetToggle.is-active {
@@ -4025,20 +4035,17 @@ button.dashboardNavButton {
   padding: 8px;
 }
 
-.eventGraphicsAuditStageHead,
-.eventGraphicsShareStageHead {
+.eventGraphicsAuditStageHead {
   align-items: center;
   display: flex;
   gap: 10px;
   justify-content: space-between;
 }
 
-.eventGraphicsShareStageHead p {
+.eventGraphicsShareStageNote {
   color: var(--text-sub);
-  flex: 1 1 auto;
   font-size: 12px;
   margin: 0;
-  text-align: right;
 }
 
 .eventGraphicsAuditPanelHead {
