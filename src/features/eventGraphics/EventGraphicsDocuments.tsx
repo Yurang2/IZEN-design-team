@@ -433,6 +433,10 @@ export function EventGraphicsShareDocument({
 
                         return (
                           <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
+                            <div className="eventGraphicsShareStageHead">
+                              <strong>{stage.title}</strong>
+                              <span className="eventGraphicsShareStageMeta">{hasStageNote ? stage.note : ''}</span>
+                            </div>
                             <div className="eventGraphicsShareAssetGrid">
                               <section className="eventGraphicsAuditVisual">
                                 {showSpeakerPpt ? (
@@ -466,7 +470,6 @@ export function EventGraphicsShareDocument({
                                 openFileLabel={copy.openFile}
                               />
                             </div>
-                            {hasStageNote ? <p className="eventGraphicsShareStageNote">{stage.note}</p> : null}
 
                             {canUpload ? (
                               <div className="eventGraphicsTimelineAssets">

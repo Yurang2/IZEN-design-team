@@ -4060,6 +4060,25 @@ button.dashboardNavButton {
   justify-content: space-between;
 }
 
+.eventGraphicsShareStageHead {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.eventGraphicsShareStageHead strong {
+  margin: 0;
+}
+
+.eventGraphicsShareStageMeta {
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-left: auto;
+  text-align: right;
+}
+
 .eventGraphicsShareStage.is-missing {
   background: color-mix(in srgb, #fff5f5 86%, white);
   border-color: #fca5a5;
