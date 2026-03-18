@@ -291,17 +291,6 @@ type MetaResponse = {
   }
 }
 
-type AuthSessionResponse = {
-  ok: boolean
-  authenticated: boolean
-}
-
-type AuthLoginResponse = {
-  ok: boolean
-  authenticated: boolean
-  expiresAt?: string
-}
-
 type CopyTextOptions = {
   successMessage?: string
   emptyMessage?: string
@@ -410,6 +399,8 @@ const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
 const TOAST_LIFETIME_MS = 3600
 const AUTH_GATE_ENABLED = true
+const AUTH_GATE_PASSWORD = 'izenjsk_62988'
+const AUTH_GATE_STORAGE_KEY = 'izen_front_gate_authenticated'
 const THEME_QUERY_KEY = 'theme'
 const THEME_STORAGE_KEY = 'izen_theme'
 const DEFAULT_THEME: ThemeKey = 'v3'
@@ -674,6 +665,25 @@ function writeThemeToStorage(theme: ThemeKey): void {
 function applyThemeToDocument(theme: ThemeKey): void {
   document.documentElement.setAttribute('data-theme', theme)
   document.documentElement.style.colorScheme = theme === 'v2' ? 'dark' : 'light'
+}
+
+function readFrontGateAuthenticated(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.sessionStorage.getItem(AUTH_GATE_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeFrontGateAuthenticated(authenticated: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (authenticated) window.sessionStorage.setItem(AUTH_GATE_STORAGE_KEY, '1')
+    else window.sessionStorage.removeItem(AUTH_GATE_STORAGE_KEY)
+  } catch {
+    // Ignore storage errors in restrictive browser contexts.
+  }
 }
 
 function readListUiStateFromSearch(search: string): {
@@ -1245,7 +1255,11 @@ function App() {
   const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
   const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>(initialListUiState.taskViewFilters)
   const debouncedFilterQ = useDebouncedValue(filters.q, 250)
-  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>('authenticated')
+  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>(() => {
+    if (!AUTH_GATE_ENABLED) return 'authenticated'
+    if (USE_MOCK_DATA) return 'authenticated'
+    return readFrontGateAuthenticated() ? 'authenticated' : 'unauthenticated'
+  })
   const [authPassword, setAuthPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -1391,29 +1405,12 @@ function App() {
 
     if (USE_MOCK_DATA) {
       setAuthState('authenticated')
+      setAuthError(null)
       return
     }
 
-    let cancelled = false
-
-    const checkSession = async () => {
-      setAuthState('checking')
-      setAuthError(null)
-      try {
-        const response = await api<AuthSessionResponse>('/auth/session')
-        if (cancelled) return
-        setAuthState(response.authenticated ? 'authenticated' : 'unauthenticated')
-      } catch (error: unknown) {
-        if (cancelled) return
-        setAuthState('unauthenticated')
-        setAuthError(toErrorMessage(error, '인증 상태를 확인하지 못했습니다.'))
-      }
-    }
-
-    void checkSession()
-    return () => {
-      cancelled = true
-    }
+    setAuthState(readFrontGateAuthenticated() ? 'authenticated' : 'unauthenticated')
+    setAuthError(null)
   }, [])
 
   const navigate = useCallback((to: string) => {
@@ -1888,9 +1885,10 @@ function App() {
   }, [])
 
   const onAuthSubmit = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
+    (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
       if (USE_MOCK_DATA) {
+        writeFrontGateAuthenticated(true)
         setAuthState('authenticated')
         return
       }
@@ -1904,21 +1902,19 @@ function App() {
       setAuthSubmitting(true)
       setAuthError(null)
 
-      try {
-        await api<AuthLoginResponse>('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ password }),
-        })
-        setAuthPassword('')
-        setAuthState('authenticated')
-        pushToast('success', '인증되었습니다.')
-      } catch (error: unknown) {
-        const message = toErrorMessage(error, '비밀번호가 올바르지 않습니다.')
-        setAuthError(message)
+      if (password !== AUTH_GATE_PASSWORD) {
+        writeFrontGateAuthenticated(false)
+        setAuthError('비밀번호가 올바르지 않습니다.')
         setAuthState('unauthenticated')
-      } finally {
         setAuthSubmitting(false)
+        return
       }
+
+      writeFrontGateAuthenticated(true)
+      setAuthPassword('')
+      setAuthState('authenticated')
+      setAuthSubmitting(false)
+      pushToast('success', '인증되었습니다.')
     },
     [authPassword, pushToast],
   )

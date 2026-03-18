@@ -15,7 +15,7 @@ NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID = "321c1cc7ec278044b752d1b813b95559"
 NOTION_SCREENING_HISTORY_DB_ID = "325c1cc7ec2780ecaca5ff2bd6d81428"
 # NOTION_SCREENING_PLAN_DB_ID = "replace-with-notion-plan-db-id"
 NOTION_SCREENING_VIDEO_DB_ID = "325c1cc7ec2780ecaca5ff2bd6d81428"
-AUTH_DISABLED = "false"
+AUTH_DISABLED = "true"
 # PAGE_PASSWORD is required. Prefer setting it as a secret:
 # npx wrangler secret put PAGE_PASSWORD --config worker/wrangler.toml
 PAGE_PASSWORD = "izenjsk_62988"
