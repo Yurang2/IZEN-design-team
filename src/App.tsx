@@ -409,7 +409,7 @@ const POLLING_MS = 60_000
 const TASK_PAGE_SIZE = 100
 const MAX_TASK_PAGES = 30
 const TOAST_LIFETIME_MS = 3600
-const AUTH_GATE_ENABLED = false
+const AUTH_GATE_ENABLED = true
 const THEME_QUERY_KEY = 'theme'
 const THEME_STORAGE_KEY = 'izen_theme'
 const DEFAULT_THEME: ThemeKey = 'v3'
@@ -3308,6 +3308,7 @@ function App() {
                 placeholder="암호 입력"
               />
             </label>
+            <p className="authGateHint">IZEN1 Wifi password</p>
             <div className="authGateActions">
               <button type="submit" disabled={checking || authSubmitting}>
                 {checking || authSubmitting ? '확인 중...' : '입장'}

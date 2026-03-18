@@ -7299,7 +7299,7 @@ tr:hover td {
 }
 
 .authGateHint {
-  color: var(--text-sub);
+  color: var(--text-muted);
   font-size: 12px;
   margin: 0;
 }
