@@ -54,6 +54,7 @@ const EVENT_GRAPHICS_MAIN_SCREEN_FIELD = '메인 화면'
 const EVENT_GRAPHICS_AUDIO_TEXT_FIELD = '오디오'
 const EVENT_GRAPHICS_SPEAKER_PPT_LABEL = '강연자 PPT'
 const EVENT_GRAPHICS_DJ_AMBIENT_LABEL = 'DJ Ambient Music'
+const EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL = '비디오에 포함'
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
 const GOOGLE_GENERATIVE_LANGUAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
@@ -4694,42 +4695,29 @@ async function buildMeetingAudioFileAttachment(
   }
 }
 
-function toNotionFilesPropertyEntry(file: unknown): Record<string, unknown> | null {
-  if (!file || typeof file !== 'object') return null
-
-  const fileRecord = file as Record<string, unknown>
-  const name = asString(fileRecord.name)
-  const type = asString(fileRecord.type)
-
-  if (type === 'external') {
-    const url = asString((fileRecord.external as Record<string, unknown> | undefined)?.url)
-    if (!url) return null
-    return {
-      name: name ?? url,
-      type: 'external',
-      external: { url },
-    }
-  }
-
-  if (type === 'file') {
-    const url = asString((fileRecord.file as Record<string, unknown> | undefined)?.url)
-    if (!url) return null
-    return {
-      name: name ?? url,
-      type: 'file',
-      file: { url },
-    }
-  }
-
-  return null
+function serializeRichTextPlainText(prop: unknown): string {
+  if (!prop || typeof prop !== 'object') return ''
+  const propRecord = prop as Record<string, unknown>
+  if (asString(propRecord.type) !== 'rich_text') return ''
+  const richText = Array.isArray(propRecord.rich_text) ? (propRecord.rich_text as unknown[]) : []
+  return richText
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return ''
+      return asString((entry as Record<string, unknown>).plain_text) ?? ''
+    })
+    .join('')
+    .trim()
 }
 
-function serializeExistingNotionFiles(prop: unknown): Array<Record<string, unknown>> {
-  if (!prop || typeof prop !== 'object') return []
-  const propRecord = prop as Record<string, unknown>
-  if (asString(propRecord.type) !== 'files') return []
-  const files = Array.isArray(propRecord.files) ? propRecord.files : []
-  return files.map((entry) => toNotionFilesPropertyEntry(entry)).filter((entry): entry is Record<string, unknown> => Boolean(entry))
+function resolveEventGraphicsPresetTextPropertyName(field: 'capture' | 'audio'): string {
+  return field === 'capture' ? EVENT_GRAPHICS_MAIN_SCREEN_FIELD : EVENT_GRAPHICS_AUDIO_TEXT_FIELD
+}
+
+function isKnownEventGraphicsPresetLabel(field: 'capture' | 'audio', value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return false
+  if (field === 'capture') return normalized === EVENT_GRAPHICS_SPEAKER_PPT_LABEL.toLowerCase()
+  return normalized === EVENT_GRAPHICS_DJ_AMBIENT_LABEL.toLowerCase() || normalized === EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL.toLowerCase()
 }
 
 function resolveEventGraphicsFilesPropertyName(properties: Record<string, unknown>, field: 'capture' | 'audio'): string {
@@ -4778,7 +4766,8 @@ async function uploadEventGraphicsFileToNotion(
   const page = (await api.retrievePage(pageId)) as Record<string, unknown>
   const properties = ((page.properties as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
   const propertyName = resolveEventGraphicsFilesPropertyName(properties, field)
-  const existingFiles = serializeExistingNotionFiles(properties[propertyName])
+  const presetPropertyName = resolveEventGraphicsPresetTextPropertyName(field)
+  const presetText = serializeRichTextPlainText(properties[presetPropertyName])
   const contentType = file.type || (field === 'capture' ? 'image/png' : 'application/octet-stream')
   const bytes = await file.arrayBuffer()
 
@@ -4795,19 +4784,23 @@ async function uploadEventGraphicsFileToNotion(
     throw new Error('notion_file_upload_send_failed')
   }
 
-  await api.updatePage(pageId, {
-    properties: {
-      [propertyName]: {
-        files: [
-          ...existingFiles,
-          {
-            name: file.name,
-            type: 'file_upload',
-            file_upload: { id: fileUploadId },
-          },
-        ],
-      },
+  const updateProperties: Record<string, unknown> = {
+    [propertyName]: {
+      files: [
+        {
+          name: file.name,
+          type: 'file_upload',
+          file_upload: { id: fileUploadId },
+        },
+      ],
     },
+  }
+  if (isKnownEventGraphicsPresetLabel(field, presetText)) {
+    updateProperties[presetPropertyName] = { rich_text: [] }
+  }
+
+  await api.updatePage(pageId, {
+    properties: updateProperties,
   })
 
   return {
@@ -4819,6 +4812,7 @@ async function uploadEventGraphicsFileToNotion(
 function toEventGraphicsUploadErrorStatus(message: string): number {
   if (
     message === 'event_graphics_upload_field_invalid' ||
+    message === 'event_graphics_preset_invalid' ||
     message === 'event_graphics_upload_filename_missing' ||
     message === 'event_graphics_capture_file_invalid' ||
     message === 'event_graphics_audio_file_invalid' ||
@@ -4846,19 +4840,41 @@ function normalizeEventGraphicsPresetEnabled(value: unknown): boolean {
   return false
 }
 
+function normalizeEventGraphicsPresetValue(
+  field: 'capture' | 'audio',
+  preset: string | null | undefined,
+  enabled: boolean,
+): 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | null {
+  const normalized = (preset ?? '').trim().toLowerCase()
+  if (!normalized) {
+    if (!enabled) return null
+    return field === 'capture' ? 'speaker_ppt' : 'dj_ambient'
+  }
+  if (field === 'capture') {
+    if (normalized === 'speaker_ppt') return 'speaker_ppt'
+    throw new Error('event_graphics_preset_invalid')
+  }
+  if (normalized === 'dj_ambient') return 'dj_ambient'
+  if (normalized === 'video_embedded') return 'video_embedded'
+  throw new Error('event_graphics_preset_invalid')
+}
+
 async function updateEventGraphicsPresetOnNotion(
   env: Env,
   pageId: string,
   field: 'capture' | 'audio',
-  enabled: boolean,
+  preset: 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | null,
 ): Promise<{ value: string }> {
   const api = new NotionApi(env)
   const propertyName = field === 'capture' ? EVENT_GRAPHICS_MAIN_SCREEN_FIELD : EVENT_GRAPHICS_AUDIO_TEXT_FIELD
-  const value = enabled
-    ? field === 'capture'
+  const value =
+    preset === 'speaker_ppt'
       ? EVENT_GRAPHICS_SPEAKER_PPT_LABEL
-      : EVENT_GRAPHICS_DJ_AMBIENT_LABEL
-    : ''
+      : preset === 'dj_ambient'
+        ? EVENT_GRAPHICS_DJ_AMBIENT_LABEL
+        : preset === 'video_embedded'
+          ? EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL
+          : ''
 
   await api.updatePage(pageId, {
     properties: {
@@ -6875,7 +6891,8 @@ export default {
           const payload = parsePatchBody(await readJsonBody(request))
           const field = normalizeEventGraphicsPresetField(asString(payload.field))
           const enabled = normalizeEventGraphicsPresetEnabled(payload.enabled)
-          const updated = await updateEventGraphicsPresetOnNotion(env, pageId, field, enabled)
+          const preset = normalizeEventGraphicsPresetValue(field, asString(payload.preset), enabled)
+          const updated = await updateEventGraphicsPresetOnNotion(env, pageId, field, preset)
           return ok(
             {
               ok: true,

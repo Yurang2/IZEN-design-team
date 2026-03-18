@@ -3,6 +3,8 @@ import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 
 export type EventGraphicsTimetableMode = 'event' | 'exhibition'
 export type EventGraphicsStageKind = 'appearance' | 'main' | 'certificate'
+export type EventGraphicsGraphicPreset = 'speaker_ppt'
+export type EventGraphicsAudioPreset = 'dj_ambient' | 'video_embedded'
 
 type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
 
@@ -27,8 +29,8 @@ export type EventGraphicsEventRow = {
   vendorNote: string
   captureFiles: ScheduleFile[]
   audioFiles: ScheduleFile[]
-  graphicPreset: 'speaker_ppt' | null
-  audioPreset: 'dj_ambient' | null
+  graphicPreset: EventGraphicsGraphicPreset | null
+  audioPreset: EventGraphicsAudioPreset | null
   graphicLabel: string
   audioLabel: string
   note: string
@@ -52,8 +54,8 @@ export type EventGraphicsSessionStage = {
   runtimeLabel: string
   captureFiles: ScheduleFile[]
   audioFiles: ScheduleFile[]
-  graphicPreset: 'speaker_ppt' | null
-  audioPreset: 'dj_ambient' | null
+  graphicPreset: EventGraphicsGraphicPreset | null
+  audioPreset: EventGraphicsAudioPreset | null
   graphicLabel: string
   audioLabel: string
   note: string
@@ -75,6 +77,7 @@ export type EventGraphicsSessionGroup = {
 
 const SPEAKER_PPT_LABEL = '강연자 PPT'
 const DJ_AMBIENT_MUSIC_LABEL = 'DJ Ambient Music'
+const VIDEO_INCLUDED_LABEL = '비디오에 포함'
 const ENTRANCE_LABELS = new Set(['등장', '입장'])
 const masterfileCueByKey = new Map<string, MasterfileCue>(
   bangkokMasterfileManifest.cues.flatMap((cue) => {
@@ -167,12 +170,15 @@ function getMasterfileCue(operationKey: string, cueNumber: string | null): Maste
   return null
 }
 
-function normalizeGraphicPreset(value: string): 'speaker_ppt' | null {
+function normalizeGraphicPreset(value: string): EventGraphicsGraphicPreset | null {
   return value.trim().toLowerCase() === SPEAKER_PPT_LABEL.toLowerCase() ? 'speaker_ppt' : null
 }
 
-function normalizeAudioPreset(value: string): 'dj_ambient' | null {
-  return value.trim().toLowerCase() === DJ_AMBIENT_MUSIC_LABEL.toLowerCase() ? 'dj_ambient' : null
+function normalizeAudioPreset(value: string): EventGraphicsAudioPreset | null {
+  const normalized = value.trim().toLowerCase()
+  if (normalized === DJ_AMBIENT_MUSIC_LABEL.toLowerCase()) return 'dj_ambient'
+  if (normalized === VIDEO_INCLUDED_LABEL.toLowerCase()) return 'video_embedded'
+  return null
 }
 
 export function normalizeEventCueType(rawType: string, title: string): string {
@@ -306,7 +312,7 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '러닝타임(분)') || readCellText(row, columnIndex, '예상시간(분)'),
     graphicAsset: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || '-',
-    sourceAudio: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || '-',
+    sourceAudio: audioPreset ? (audioPreset === 'dj_ambient' ? DJ_AMBIENT_MUSIC_LABEL : VIDEO_INCLUDED_LABEL) : audioFileLabel || '-',
     personnel: readCellText(row, columnIndex, '무대 인원'),
     remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
@@ -315,7 +321,7 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
     graphicPreset,
     audioPreset,
     graphicLabel: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || '-',
-    audioLabel: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || '-',
+    audioLabel: audioPreset ? (audioPreset === 'dj_ambient' ? DJ_AMBIENT_MUSIC_LABEL : VIDEO_INCLUDED_LABEL) : audioFileLabel || '-',
     note: note || '메모 없음',
     previewHref: getPreviewFileUrl(captureFiles) || manifestCue?.previewUrl || previewHrefFromNotion || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || captureFiles[0]?.url || null,

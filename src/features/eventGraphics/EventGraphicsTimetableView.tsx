@@ -54,6 +54,8 @@ type EventGraphicsPresetResponse = {
   value: string
 }
 
+type EventGraphicsPresetValue = 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | null
+
 type ExhibitionDisplayRow = ExhibitionPlaybookRow & {
   captureFiles?: ScheduleFile[]
   audioFiles?: ScheduleFile[]
@@ -108,6 +110,96 @@ function readFirstCellFiles(row: ScheduleRow, columnIndex: Record<string, number
     if (value.length > 0) return value
   }
   return []
+}
+
+function resolveColumnIndex(columnIndex: Record<string, number>, columnNames: string[]): number | null {
+  for (const columnName of columnNames) {
+    const index = columnIndex[columnName]
+    if (index != null) return index
+  }
+  return null
+}
+
+function replaceRowCell(
+  row: ScheduleRow,
+  columns: ScheduleColumn[],
+  columnIndex: Record<string, number>,
+  columnNames: string[],
+  updater: (current: ScheduleRow['cells'][number] | undefined, columnId: string) => ScheduleRow['cells'][number],
+): ScheduleRow {
+  const targetIndex = resolveColumnIndex(columnIndex, columnNames)
+  if (targetIndex == null) return row
+
+  const cells = [...row.cells]
+  const columnId = columns[targetIndex]?.id ?? row.cells[targetIndex]?.columnId ?? ''
+  cells[targetIndex] = updater(cells[targetIndex], columnId)
+  return { ...row, cells }
+}
+
+function buildLocalScheduleFile(file: File, field: AssetUploadField): ScheduleFile {
+  const kind = field === 'capture' ? 'image' : 'audio'
+  return {
+    name: file.name,
+    url: URL.createObjectURL(file),
+    kind,
+  }
+}
+
+function updateRowFilesLocally(
+  row: ScheduleRow,
+  columns: ScheduleColumn[],
+  columnIndex: Record<string, number>,
+  field: AssetUploadField,
+  file: File,
+): ScheduleRow {
+  const fileEntry = buildLocalScheduleFile(file, field)
+  const fileColumnNames = field === 'capture' ? ['캡쳐', '캡쳐(무조건 이미지형식)'] : ['오디오파일']
+  const presetColumnNames = field === 'capture' ? ['메인 화면', '그래픽 자산명', 'Main Screen'] : ['오디오', '원본 Audio']
+
+  let nextRow = replaceRowCell(row, columns, columnIndex, fileColumnNames, (current, columnId) => ({
+    columnId,
+    type: current?.type ?? 'files',
+    text: file.name,
+    href: current?.href ?? null,
+    files: [fileEntry],
+  }))
+
+  nextRow = replaceRowCell(nextRow, columns, columnIndex, presetColumnNames, (current, columnId) => {
+    const currentText = current?.text?.trim() ?? ''
+    const shouldClearPreset =
+      currentText === '강연자 PPT' || currentText === 'DJ Ambient Music' || currentText === '비디오에 포함'
+
+    if (!shouldClearPreset) return current ?? { columnId, type: 'text', text: '', href: null }
+    return {
+      columnId,
+      type: current?.type ?? 'text',
+      text: '',
+      href: current?.href ?? null,
+      files: current?.files,
+    }
+  })
+
+  return nextRow
+}
+
+function updateRowPresetLocally(
+  row: ScheduleRow,
+  columns: ScheduleColumn[],
+  columnIndex: Record<string, number>,
+  field: AssetUploadField,
+  preset: EventGraphicsPresetValue,
+): ScheduleRow {
+  const presetText =
+    preset === 'speaker_ppt' ? '강연자 PPT' : preset === 'dj_ambient' ? 'DJ Ambient Music' : preset === 'video_embedded' ? '비디오에 포함' : ''
+  const presetColumnNames = field === 'capture' ? ['메인 화면', '그래픽 자산명', 'Main Screen'] : ['오디오', '원본 Audio']
+
+  return replaceRowCell(row, columns, columnIndex, presetColumnNames, (current, columnId) => ({
+    columnId,
+    type: current?.type ?? 'text',
+    text: presetText,
+    href: current?.href ?? null,
+    files: current?.files,
+  }))
 }
 
 function joinScheduleFileNames(files: ReadonlyArray<ScheduleFile>): string {
@@ -291,7 +383,6 @@ export function EventGraphicsTimetableView({
   rows,
   loading,
   error,
-  onRefresh,
 }: EventGraphicsTimetableViewProps) {
   const [timetableMode, setTimetableMode] = useState<TimetableMode>('event')
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('compact')
@@ -299,6 +390,7 @@ export function EventGraphicsTimetableView({
   const [statusFilter, setStatusFilter] = useState('')
   const [shareLocale, setShareLocale] = useState<EventGraphicsShareLocale>('ko')
   const [previewRatio, setPreviewRatio] = useState<EventGraphicsPreviewRatio>(() => readStoredPreviewRatio())
+  const [localRows, setLocalRows] = useState<ScheduleRow[]>(rows)
   const [uploadStateByKey, setUploadStateByKey] = useState<Record<string, UploadState>>({})
   const [presetStateByKey, setPresetStateByKey] = useState<Record<string, UploadState>>({})
 
@@ -307,9 +399,13 @@ export function EventGraphicsTimetableView({
     window.localStorage.setItem(EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY, JSON.stringify(previewRatio))
   }, [previewRatio])
 
+  useEffect(() => {
+    setLocalRows(rows)
+  }, [rows])
+
   const normalizedQuery = query.trim().toLowerCase()
   const columnIndex = useMemo(() => buildColumnIndex(columns), [columns])
-  const eventRows = useMemo(() => syncEventGraphicsTitleNumbers(buildEventGraphicsEventRows(columns, rows)), [columns, rows])
+  const eventRows = useMemo(() => syncEventGraphicsTitleNumbers(buildEventGraphicsEventRows(columns, localRows)), [columns, localRows])
   const eventGroups = useMemo(() => buildEventGraphicsSessionGroups(eventRows), [eventRows])
   const eventStatusOptions = useMemo(() => [] as string[], [])
   const filteredEventGroups = useMemo(
@@ -321,11 +417,11 @@ export function EventGraphicsTimetableView({
 
   const exhibitionRowsFromDb = useMemo(
     () =>
-      rows
+      localRows
         .map((row) => toExhibitionRowModel(row, columnIndex))
         .filter((row): row is ExhibitionDisplayRow => row != null)
         .sort((left, right) => left.order - right.order),
-    [columnIndex, rows],
+    [columnIndex, localRows],
   )
   const exhibitionRows = useMemo(
     () => (exhibitionRowsFromDb.length > 0 ? exhibitionRowsFromDb : exhibitionPlaybookExampleRows),
@@ -390,7 +486,9 @@ export function EventGraphicsTimetableView({
         method: 'POST',
         body: formData,
       })
-      if (onRefresh) await onRefresh()
+      setLocalRows((current) =>
+        current.map((row) => (row.id === rowId ? updateRowFilesLocally(row, columns, columnIndex, field, file) : row)),
+      )
       setUploadStateByKey((current) => ({
         ...current,
         [stateKey]: {
@@ -410,27 +508,29 @@ export function EventGraphicsTimetableView({
     }
   }
 
-  const onSetPreset = async (rowId: string, field: AssetUploadField, enabled: boolean) => {
+  const onSetPreset = async (rowId: string, field: AssetUploadField, preset: EventGraphicsPresetValue) => {
     const stateKey = toUploadStateKey(rowId, field)
     setPresetStateByKey((current) => ({
       ...current,
       [stateKey]: {
         status: 'uploading',
-        message: enabled ? '설정 저장 중...' : '설정 해제 중...',
+        message: preset ? '설정 저장 중...' : '설정 해제 중...',
       },
     }))
 
     try {
       await api<EventGraphicsPresetResponse>(`/event-graphics-timetable/${encodeURIComponent(rowId)}/preset`, {
         method: 'POST',
-        body: JSON.stringify({ field, enabled }),
+        body: JSON.stringify({ field, preset }),
       })
-      if (onRefresh) await onRefresh()
+      setLocalRows((current) =>
+        current.map((row) => (row.id === rowId ? updateRowPresetLocally(row, columns, columnIndex, field, preset) : row)),
+      )
       setPresetStateByKey((current) => ({
         ...current,
         [stateKey]: {
           status: 'success',
-          message: enabled ? '설정 저장 완료' : '설정 해제 완료',
+          message: preset ? '설정 저장 완료' : '설정 해제 완료',
         },
       }))
     } catch (presetError: unknown) {
@@ -478,7 +578,7 @@ export function EventGraphicsTimetableView({
         <div className="eventGraphicsHeroText">
           <p className="muted small">Event Graphics Timetable</p>
           <h2>{effectiveTitle}</h2>
-          <p>{isEventMode ? '내부 시간표와 외부 공유 화면이 같은 DB 파일명을 기준으로 움직이도록 정리합니다.' : '전시 운영 row는 그래픽과 오디오 업로드를 바로 DB에 누적합니다.'}</p>
+          <p>{isEventMode ? '내부 시간표와 외부 공유 화면이 같은 DB 파일명을 기준으로 움직이도록 정리합니다.' : '전시 운영 row는 그래픽과 오디오 업로드를 바로 DB에 반영합니다.'}</p>
         </div>
         <div className="eventGraphicsHeroActions">
           <a className="linkButton" href={isVisualMode ? shareHref : printHref} target="_blank" rel="noreferrer">

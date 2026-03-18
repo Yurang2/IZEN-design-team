@@ -3556,6 +3556,12 @@ button.dashboardNavButton {
   grid-template-columns: max-content minmax(0, 1fr);
 }
 
+.eventGraphicsPresetToggleGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .eventGraphicsUploadControl {
   display: grid;
   gap: 6px;

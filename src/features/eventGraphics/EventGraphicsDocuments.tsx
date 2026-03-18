@@ -6,7 +6,12 @@ import {
   type EventGraphicsPreviewRatio,
 } from './EventGraphicsPreviewRatioControl'
 import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsPreviewMedia'
-import { usesSpeakerPptPlaceholder, type EventGraphicsStageKind } from './eventGraphicsHierarchy'
+import {
+  usesSpeakerPptPlaceholder,
+  type EventGraphicsAudioPreset,
+  type EventGraphicsGraphicPreset,
+  type EventGraphicsStageKind,
+} from './eventGraphicsHierarchy'
 import { eventGraphicsManifestByKey, toCueTypeLabel, type EventGraphicsShareLocale, type EventGroup } from './eventGraphicsShareData'
 import { AssetUploadControl, toUploadStateKey, type AssetUploadField, type UploadState } from './EventGraphicsUploadControl'
 
@@ -42,26 +47,30 @@ type AssetEntry = {
   role: string
 }
 
+type EventGraphicsPresetValue = EventGraphicsGraphicPreset | EventGraphicsAudioPreset | null
+
 function getStageAssetState(stage: {
   manifestKey: string | null
   cueType: string
   stageKind: EventGraphicsStageKind
   captureFiles: ReadonlyArray<unknown>
   audioFiles: ReadonlyArray<unknown>
-  graphicPreset: 'speaker_ppt' | null
-  audioPreset: 'dj_ambient' | null
+  graphicPreset: EventGraphicsGraphicPreset | null
+  audioPreset: EventGraphicsAudioPreset | null
 }) {
   const manifestCue = stage.manifestKey ? eventGraphicsManifestByKey.get(stage.manifestKey) ?? null : null
   const hasSpeakerPptPreset = stage.graphicPreset === 'speaker_ppt'
   const hasDjAmbientPreset = stage.audioPreset === 'dj_ambient'
+  const hasVideoIncludedPreset = stage.audioPreset === 'video_embedded'
   const showSpeakerPpt = hasSpeakerPptPreset || usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
   const graphicMissing = !showSpeakerPpt && stage.captureFiles.length === 0
-  const audioMissing = !hasDjAmbientPreset && stage.audioFiles.length === 0
+  const audioMissing = !hasDjAmbientPreset && !hasVideoIncludedPreset && stage.audioFiles.length === 0
 
   return {
     manifestCue,
     hasSpeakerPptPreset,
     hasDjAmbientPreset,
+    hasVideoIncludedPreset,
     showSpeakerPpt,
     graphicMissing,
     audioMissing,
@@ -294,7 +303,7 @@ export function EventGraphicsShareDocument({
   uploadStateByKey?: Record<string, UploadState>
   onUploadFile?: (rowId: string, field: AssetUploadField, file: File) => Promise<void>
   presetStateByKey?: Record<string, UploadState>
-  onSetPreset?: (rowId: string, field: AssetUploadField, enabled: boolean) => Promise<void>
+  onSetPreset?: (rowId: string, field: AssetUploadField, preset: EventGraphicsPresetValue) => Promise<void>
 }) {
   const previewRatioStyle = { ['--event-graphics-preview-ratio' as string]: toPreviewAspectRatioValue(previewRatio) }
   const pageClassName = embedded ? 'eventGraphicsSharePage is-embedded' : 'eventGraphicsSharePage'
@@ -359,7 +368,7 @@ export function EventGraphicsShareDocument({
 
                       <div className="eventGraphicsShareStageList">
                         {cue.stages.map((stage) => {
-                          const { manifestCue, hasSpeakerPptPreset, hasDjAmbientPreset, showSpeakerPpt, graphicMissing, audioMissing } =
+                          const { manifestCue, hasSpeakerPptPreset, hasDjAmbientPreset, hasVideoIncludedPreset, showSpeakerPpt, graphicMissing, audioMissing } =
                             getStageAssetState(stage)
                         const hasStageNote = Boolean(stage.note && stage.note !== copy.noSpecialNote && stage.note !== '메모 없음')
                         const graphicFiles =
@@ -369,7 +378,7 @@ export function EventGraphicsShareDocument({
                             ? stage.captureFiles.map((file) => ({ name: file.name, role: stage.label }))
                             : []
                         const audioFiles =
-                          hasDjAmbientPreset
+                          stage.audioPreset != null
                             ? [{ name: stage.audioLabel, role: stage.label }]
                             : stage.audioFiles.length > 0
                             ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label }))
@@ -446,7 +455,7 @@ export function EventGraphicsShareDocument({
                                         label="강연자 PPT"
                                         active={hasSpeakerPptPreset}
                                         pending={capturePresetState?.status === 'uploading'}
-                                        onClick={() => void onSetPreset?.(stage.id, 'capture', !hasSpeakerPptPreset)}
+                                        onClick={() => void onSetPreset?.(stage.id, 'capture', hasSpeakerPptPreset ? null : 'speaker_ppt')}
                                       />
                                     ) : null}
                                     <AssetUploadControl
@@ -461,12 +470,20 @@ export function EventGraphicsShareDocument({
                                 <div className="eventGraphicsCueSheetPanel">
                                   <div className="eventGraphicsAssetUploadRow">
                                     {canSetPreset ? (
-                                      <PresetToggleButton
-                                        label="DJ Ambient Music"
-                                        active={hasDjAmbientPreset}
-                                        pending={audioPresetState?.status === 'uploading'}
-                                        onClick={() => void onSetPreset?.(stage.id, 'audio', !hasDjAmbientPreset)}
-                                      />
+                                      <div className="eventGraphicsPresetToggleGroup">
+                                        <PresetToggleButton
+                                          label="DJ Ambient Music"
+                                          active={hasDjAmbientPreset}
+                                          pending={audioPresetState?.status === 'uploading'}
+                                          onClick={() => void onSetPreset?.(stage.id, 'audio', hasDjAmbientPreset ? null : 'dj_ambient')}
+                                        />
+                                        <PresetToggleButton
+                                          label="비디오에 포함"
+                                          active={hasVideoIncludedPreset}
+                                          pending={audioPresetState?.status === 'uploading'}
+                                          onClick={() => void onSetPreset?.(stage.id, 'audio', hasVideoIncludedPreset ? null : 'video_embedded')}
+                                        />
+                                      </div>
                                     ) : null}
                                     <AssetUploadControl
                                       rowId={stage.id}

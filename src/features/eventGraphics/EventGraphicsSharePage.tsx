@@ -152,7 +152,7 @@ export function EventGraphicsSharePage({
         noSpecialNote: copy.noSpecialNote,
         graphic: copy.graphic,
         audio: copy.audio,
-        uploadRequired: copy.uploadRequired ?? 'Upload required',
+        uploadRequired: copy.uploadRequired ?? (locale === 'ko' ? '업로드 필요' : 'Upload required'),
       }}
       pageTitle={pageTitle}
       groupedCues={groupedCues}
