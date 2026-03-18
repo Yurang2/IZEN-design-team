@@ -109,6 +109,22 @@ export class NotionApi {
     )
   }
 
+  async createMultipartFileUpload(filename: string, contentType: string, numberOfParts: number): Promise<any> {
+    return this.request(
+      '/file_uploads',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          mode: 'multi_part',
+          filename,
+          content_type: contentType,
+          number_of_parts: numberOfParts,
+        }),
+      },
+      NOTION_FILE_UPLOAD_VERSION,
+    )
+  }
+
   async createExternalUrlFileUpload(filename: string, externalUrl: string): Promise<any> {
     return this.request(
       '/file_uploads',
@@ -124,15 +140,34 @@ export class NotionApi {
     )
   }
 
-  async sendFileUpload(fileUploadId: string, bytes: ArrayBuffer, filename: string, contentType: string): Promise<any> {
+  async sendFileUpload(
+    fileUploadId: string,
+    bytes: ArrayBuffer,
+    filename: string,
+    contentType: string,
+    partNumber?: number,
+  ): Promise<any> {
     const form = new FormData()
     const blob = new Blob([bytes], { type: contentType })
     form.append('file', blob, filename)
+    if (typeof partNumber === 'number') {
+      form.append('part_number', String(partNumber))
+    }
     return this.request(
       `/file_uploads/${encodeURIComponent(fileUploadId)}/send`,
       {
         method: 'POST',
         body: form,
+      },
+      NOTION_FILE_UPLOAD_VERSION,
+    )
+  }
+
+  async completeFileUpload(fileUploadId: string): Promise<any> {
+    return this.request(
+      `/file_uploads/${encodeURIComponent(fileUploadId)}/complete`,
+      {
+        method: 'POST',
       },
       NOTION_FILE_UPLOAD_VERSION,
     )

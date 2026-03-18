@@ -35,6 +35,8 @@ const MIN_MEETING_KEYWORD_LIMIT = 50
 const MAX_MEETING_KEYWORD_LIMIT = 150
 const LARGE_NOTION_IMPORT_POLL_ATTEMPTS = 8
 const LARGE_NOTION_IMPORT_POLL_MS = 1_500
+const NOTION_MULTIPART_COMPLETE_POLL_ATTEMPTS = 20
+const NOTION_MULTIPART_COMPLETE_POLL_MS = 1_500
 const DEFAULT_MIN_SPEAKERS = 2
 const DEFAULT_MAX_SPEAKERS = 10
 const MIN_ALLOWED_SPEAKERS = 1
@@ -44,6 +46,9 @@ const UPLOAD_SESSION_LIST_LIMIT = 100
 const MEETING_NOTION_SCHEMA_CACHE_MS = 5 * 60 * 1000
 const NOTION_RICH_TEXT_CHUNK = 1800
 const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
+const NOTION_MULTIPART_MIN_BYTES = 5 * 1024 * 1024
+const NOTION_MULTIPART_CHUNK_BYTES = 10 * 1024 * 1024
+const NOTION_MULTIPART_MAX_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_PARAGRAPH_CHARS = 1_500
 const MAX_TRANSCRIPT_PARAGRAPH_LINES = 12
 const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
@@ -2705,6 +2710,32 @@ async function readR2ObjectAsArrayBuffer(object: unknown): Promise<{ bytes: Arra
   return null
 }
 
+async function readR2ObjectRangeAsArrayBuffer(
+  bucket: NonNullable<Env['MEETING_AUDIO_BUCKET']>,
+  key: string,
+  offset: number,
+  length: number,
+): Promise<ArrayBuffer> {
+  const ranged = await bucket.get(key, {
+    range: {
+      offset,
+      length,
+    },
+  })
+  if (!ranged) throw new Error('audio_not_found')
+  const resolved = await readR2ObjectAsArrayBuffer(ranged)
+  if (!resolved) throw new Error('audio_chunk_read_failed')
+  return resolved.bytes
+}
+
+function getNotionMultipartChunkBytes(totalBytes: number): number {
+  const requested = Math.min(NOTION_MULTIPART_MAX_BYTES, Math.max(NOTION_MULTIPART_MIN_BYTES, NOTION_MULTIPART_CHUNK_BYTES))
+  if (totalBytes <= requested) return totalBytes
+  const minimumParts = Math.ceil(totalBytes / NOTION_MULTIPART_MAX_BYTES)
+  const target = Math.ceil(totalBytes / minimumParts)
+  return Math.min(NOTION_MULTIPART_MAX_BYTES, Math.max(NOTION_MULTIPART_MIN_BYTES, target))
+}
+
 async function createR2PresignedUrl(
   env: Env,
   key: string,
@@ -4647,9 +4678,18 @@ async function buildMeetingAudioFileAttachment(
   const resolved = objectSize !== null && objectSize > MAX_NOTION_FILE_UPLOAD_BYTES ? null : await readR2ObjectAsArrayBuffer(object)
   const contentType = normalizeAudioContentType(resolved?.contentType, filename)
 
-  const created =
-    objectSize !== null && objectSize > MAX_NOTION_FILE_UPLOAD_BYTES
-      ? await api.createExternalUrlFileUpload(filename, await resolveMeetingFetchUrl(env, audioKey))
+  const useMultipart = objectSize !== null && objectSize > MAX_NOTION_FILE_UPLOAD_BYTES
+  const useExternalImportFallback = objectSize === null
+  const multipartChunkBytes = useMultipart && objectSize !== null ? getNotionMultipartChunkBytes(objectSize) : null
+  const multipartParts =
+    useMultipart && objectSize !== null && multipartChunkBytes
+      ? Math.ceil(objectSize / multipartChunkBytes)
+      : 0
+
+  const created = useExternalImportFallback
+    ? await api.createExternalUrlFileUpload(filename, await resolveMeetingFetchUrl(env, audioKey))
+    : useMultipart
+      ? await api.createMultipartFileUpload(filename, contentType, multipartParts)
       : await api.createFileUpload(filename, contentType)
   const fileUploadId = asString((created as Record<string, unknown>)?.id)
   if (!fileUploadId) {
@@ -4658,6 +4698,13 @@ async function buildMeetingAudioFileAttachment(
 
   if (resolved) {
     await api.sendFileUpload(fileUploadId, resolved.bytes, filename, contentType)
+  } else if (useMultipart && objectSize !== null && multipartChunkBytes) {
+    for (let partNumber = 1, offset = 0; offset < objectSize; partNumber += 1, offset += multipartChunkBytes) {
+      const nextLength = Math.min(multipartChunkBytes, objectSize - offset)
+      const bytes = await readR2ObjectRangeAsArrayBuffer(bucket, audioKey, offset, nextLength)
+      await api.sendFileUpload(fileUploadId, bytes, filename, contentType, partNumber)
+    }
+    await api.completeFileUpload(fileUploadId)
   }
 
   let uploaded = await api.retrieveFileUpload(fileUploadId)
@@ -4665,6 +4712,19 @@ async function buildMeetingAudioFileAttachment(
   if (resolved) {
     if (status && status !== 'uploaded') {
       throw new Error('notion_file_upload_send_failed')
+    }
+  } else if (useMultipart) {
+    for (let attempt = 0; attempt < NOTION_MULTIPART_COMPLETE_POLL_ATTEMPTS; attempt += 1) {
+      if (!status || status === 'uploaded') break
+      if (status === 'failed' || status === 'expired') {
+        throw new Error('notion_multipart_file_upload_failed')
+      }
+      await delay(NOTION_MULTIPART_COMPLETE_POLL_MS)
+      uploaded = await api.retrieveFileUpload(fileUploadId)
+      status = asString((uploaded as Record<string, unknown>)?.status)
+    }
+    if (status && status !== 'uploaded') {
+      throw new Error('notion_multipart_file_upload_incomplete')
     }
   } else {
     for (let attempt = 0; attempt < LARGE_NOTION_IMPORT_POLL_ATTEMPTS; attempt += 1) {
