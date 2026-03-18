@@ -3,6 +3,7 @@ import type { ScheduleFile } from '../../shared/types'
 export type EventGraphicsDisplayFile = {
   displayName: string
   showImagePreviewBadge: boolean
+  emphasisKind: ScheduleFile['kind']
 }
 
 const IMAGE_PREVIEW_EXTENSIONS = /\.(png|jpe?g)$/i
@@ -15,12 +16,14 @@ export function toEventGraphicsDisplayFile(file: Pick<ScheduleFile, 'kind' | 'na
     return {
       displayName: trimmedName,
       showImagePreviewBadge: false,
+      emphasisKind: file.kind,
     }
   }
 
   return {
     displayName: trimmedName.replace(IMAGE_PREVIEW_EXTENSIONS, '.mp4'),
     showImagePreviewBadge: true,
+    emphasisKind: 'video',
   }
 }
 

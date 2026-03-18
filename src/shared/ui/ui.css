@@ -3813,6 +3813,30 @@ button.dashboardNavButton {
   width: 100%;
 }
 
+.eventGraphicsSpeakerPptPlaceholder.is-clickable {
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.eventGraphicsSpeakerPptPlaceholder.is-clickable:hover:not(:disabled) {
+  border-color: #facc15;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.eventGraphicsSpeakerPptPlaceholder.is-clickable:disabled {
+  cursor: progress;
+  opacity: 0.78;
+}
+
+.eventGraphicsSpeakerPptPlaceholder.is-active {
+  border-color: #facc15;
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.36);
+}
+
 .eventGraphicsSubline {
   color: var(--text-sub);
   font-size: 12px;
@@ -4251,6 +4275,21 @@ button.dashboardNavButton {
   vertical-align: top;
 }
 
+.eventGraphicsAuditChipButton {
+  cursor: pointer;
+  font: inherit;
+}
+
+.eventGraphicsAuditChipButton.is-active {
+  background: linear-gradient(180deg, rgba(254, 249, 195, 0.92), rgba(255, 251, 235, 0.96));
+  border-color: #facc15;
+}
+
+.eventGraphicsAuditChipButton:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
 .eventGraphicsInlineFileList {
   display: inline-flex;
   flex-wrap: wrap;
@@ -4264,6 +4303,43 @@ button.dashboardNavButton {
   flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
+}
+
+.eventGraphicsAssetKindBadge {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 2px 6px;
+  text-transform: lowercase;
+}
+
+.eventGraphicsAssetKindBadge.is-image {
+  background: #ecfeff;
+  border-color: #a5f3fc;
+  color: #155e75;
+}
+
+.eventGraphicsAssetKindBadge.is-video {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.eventGraphicsAssetKindBadge.is-audio {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.eventGraphicsAssetKindBadge.is-file {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #4b5563;
 }
 
 .eventGraphicsAssetBadge {

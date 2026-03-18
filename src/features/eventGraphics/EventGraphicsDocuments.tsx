@@ -47,6 +47,7 @@ type EventGraphicsShareStrings = {
 type AssetEntry = {
   name: string
   role: string
+  mediaKind?: ScheduleFile['kind']
   showImagePreviewBadge?: boolean
 }
 
@@ -131,6 +132,34 @@ function PresetToggleButton({
   )
 }
 
+function AssetKindBadge({ kind }: { kind: ScheduleFile['kind'] }) {
+  return <span className={`eventGraphicsAssetKindBadge is-${kind}`}>{kind}</span>
+}
+
+function SpeakerPptSurface({
+  interactive = false,
+  active = false,
+  pending = false,
+  onClick,
+}: {
+  interactive?: boolean
+  active?: boolean
+  pending?: boolean
+  onClick?: () => void
+}) {
+  const className = `eventGraphicsSpeakerPptPlaceholder${interactive ? ' is-clickable' : ''}${active ? ' is-active' : ''}`
+
+  if (interactive) {
+    return (
+      <button type="button" className={className} disabled={pending} onClick={onClick}>
+        {pending ? 'Saving...' : SPEAKER_PPT_DISPLAY}
+      </button>
+    )
+  }
+
+  return <div className={className}>{SPEAKER_PPT_DISPLAY}</div>
+}
+
 function confirmPresetChange(label: string, active: boolean): boolean {
   if (typeof window === 'undefined') return true
   const message = active ? `${label} 설정을 해제하시겠습니까?` : `${label}로 변경하시겠습니까?`
@@ -159,6 +188,7 @@ function ShareAssetPanel({
   href,
   openFileLabel,
   tone = 'default',
+  presetAction,
 }: {
   title: string
   files: AssetEntry[]
@@ -166,8 +196,15 @@ function ShareAssetPanel({
   href: string | null
   openFileLabel: string
   tone?: 'default' | 'ambient'
+  presetAction?: {
+    label: string
+    active: boolean
+    pending?: boolean
+    onClick: () => void
+  }
 }) {
   const hasMissingFiles = missingFiles.length > 0
+  const hasContent = files.length > 0 || presetAction
 
   return (
     <section className={`eventGraphicsAuditPanel${hasMissingFiles ? ' is-missing' : ''}${tone === 'ambient' ? ' is-ambient' : ''}`}>
@@ -176,11 +213,23 @@ function ShareAssetPanel({
         {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
       </div>
 
-      {files.length > 0 ? (
+      {hasContent ? (
         <div className="eventGraphicsAuditChipList">
+          {presetAction ? (
+            <button
+              type="button"
+              className={`eventGraphicsAuditChip eventGraphicsAuditChipButton${presetAction.active ? ' is-active' : ''}`}
+              title={presetAction.label}
+              disabled={presetAction.pending}
+              onClick={presetAction.onClick}
+            >
+              {presetAction.label}
+            </button>
+          ) : null}
           {files.map((file) => (
             <span key={`${title}-${file.name}-${file.role}`} className="eventGraphicsAuditChip" title={file.role}>
               {file.name}
+              {file.mediaKind ? <AssetKindBadge kind={file.mediaKind} /> : null}
               {file.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
             </span>
           ))}
@@ -227,6 +276,7 @@ function FileNameInlineList({
         return (
           <span key={`${file.name}-${file.url}`} className="eventGraphicsInlineFileItem">
             <span>{display.displayName}</span>
+            <AssetKindBadge kind={display.emphasisKind} />
             {display.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
           </span>
         )
@@ -521,16 +571,27 @@ export function EventGraphicsShareDocument({
                             : stage.captureFiles.length > 0
                             ? stage.captureFiles.map((file) => {
                                 const display = toEventGraphicsDisplayFile(file)
-                                return { name: display.displayName, role: stage.label, showImagePreviewBadge: display.showImagePreviewBadge }
+                                return {
+                                  name: display.displayName,
+                                  role: stage.label,
+                                  mediaKind: display.emphasisKind,
+                                  showImagePreviewBadge: display.showImagePreviewBadge,
+                                }
                               })
                             : []
                         const audioFiles =
                           stage.audioPreset != null
                             ? stage.audioPreset === 'not_applicable'
                               ? []
-                              : [{ name: stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioLabel, role: stage.label }]
+                              : [
+                                  {
+                                    name: stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioLabel,
+                                    role: stage.label,
+                                    mediaKind: stage.audioPreset === 'video_embedded' ? ('video' as const) : ('audio' as const),
+                                  },
+                                ]
                             : stage.audioFiles.length > 0
-                              ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label }))
+                              ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label, mediaKind: file.kind }))
                               : []
                         const missingGraphicFiles =
                           graphicMissing
@@ -556,6 +617,10 @@ export function EventGraphicsShareDocument({
                         const canSetPreset = Boolean(onSetPreset && presetStateByKey)
                         const capturePresetState = presetStateByKey?.[toUploadStateKey(stage.id, 'capture')]
                         const audioPresetState = presetStateByKey?.[toUploadStateKey(stage.id, 'audio')]
+                        const handleSpeakerPptClick = () => {
+                          if (!confirmPresetChange(SPEAKER_PPT_DISPLAY, hasSpeakerPptPreset)) return
+                          void onSetPreset?.(stage.id, 'capture', hasSpeakerPptPreset ? null : 'speaker_ppt')
+                        }
 
                         return (
                           <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
@@ -567,7 +632,12 @@ export function EventGraphicsShareDocument({
                               <section className="eventGraphicsAuditVisual">
                                 {showSpeakerPpt ? (
                                   <div className="eventGraphicsPreviewInline">
-                                    <div className="eventGraphicsSpeakerPptPlaceholder">{SPEAKER_PPT_DISPLAY}</div>
+                                    <SpeakerPptSurface
+                                      interactive={canSetPreset}
+                                      active={hasSpeakerPptPreset}
+                                      pending={capturePresetState?.status === 'uploading'}
+                                      onClick={canSetPreset ? handleSpeakerPptClick : undefined}
+                                    />
                                   </div>
                                 ) : hasPreview ? (
                                   <EventGraphicsPreviewMedia
@@ -587,6 +657,16 @@ export function EventGraphicsShareDocument({
                                 missingFiles={graphicAlerts}
                                 href={stage.assetHref}
                                 openFileLabel={copy.openFile}
+                                presetAction={
+                                  showSpeakerPpt && canSetPreset
+                                    ? {
+                                        label: SPEAKER_PPT_DISPLAY,
+                                        active: hasSpeakerPptPreset,
+                                        pending: capturePresetState?.status === 'uploading',
+                                        onClick: handleSpeakerPptClick,
+                                      }
+                                    : undefined
+                                }
                               />
                               <ShareAssetPanel
                                 title={copy.audio}
@@ -608,8 +688,7 @@ export function EventGraphicsShareDocument({
                                         active={hasSpeakerPptPreset}
                                         pending={capturePresetState?.status === 'uploading'}
                                         onClick={() => {
-                                          if (!confirmPresetChange(SPEAKER_PPT_DISPLAY, hasSpeakerPptPreset)) return
-                                          void onSetPreset?.(stage.id, 'capture', hasSpeakerPptPreset ? null : 'speaker_ppt')
+                                          handleSpeakerPptClick()
                                         }}
                                       />
                                     ) : null}

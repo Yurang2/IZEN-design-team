@@ -234,6 +234,7 @@ function FileNameInlineList({ files, fallback }: { files: ReadonlyArray<Schedule
         return (
           <span key={`${file.name}-${file.url}`} className="eventGraphicsInlineFileItem">
             <span>{display.displayName}</span>
+            <span className={`eventGraphicsAssetKindBadge is-${display.emphasisKind}`}>{display.emphasisKind}</span>
             {display.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
           </span>
         )
