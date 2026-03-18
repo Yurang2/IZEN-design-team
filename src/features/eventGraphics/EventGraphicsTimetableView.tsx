@@ -47,6 +47,13 @@ type EventGraphicsFileUploadResponse = {
   fileName: string
 }
 
+type EventGraphicsPresetResponse = {
+  ok: boolean
+  pageId: string
+  field: AssetUploadField
+  value: string
+}
+
 type ExhibitionDisplayRow = ExhibitionPlaybookRow & {
   captureFiles?: ScheduleFile[]
   audioFiles?: ScheduleFile[]
@@ -293,6 +300,7 @@ export function EventGraphicsTimetableView({
   const [shareLocale, setShareLocale] = useState<EventGraphicsShareLocale>('ko')
   const [previewRatio, setPreviewRatio] = useState<EventGraphicsPreviewRatio>(() => readStoredPreviewRatio())
   const [uploadStateByKey, setUploadStateByKey] = useState<Record<string, UploadState>>({})
+  const [presetStateByKey, setPresetStateByKey] = useState<Record<string, UploadState>>({})
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -393,6 +401,41 @@ export function EventGraphicsTimetableView({
     } catch (uploadError: unknown) {
       const message = uploadError instanceof Error ? uploadError.message : '업로드에 실패했습니다.'
       setUploadStateByKey((current) => ({
+        ...current,
+        [stateKey]: {
+          status: 'error',
+          message,
+        },
+      }))
+    }
+  }
+
+  const onSetPreset = async (rowId: string, field: AssetUploadField, enabled: boolean) => {
+    const stateKey = toUploadStateKey(rowId, field)
+    setPresetStateByKey((current) => ({
+      ...current,
+      [stateKey]: {
+        status: 'uploading',
+        message: enabled ? '설정 저장 중...' : '설정 해제 중...',
+      },
+    }))
+
+    try {
+      await api<EventGraphicsPresetResponse>(`/event-graphics-timetable/${encodeURIComponent(rowId)}/preset`, {
+        method: 'POST',
+        body: JSON.stringify({ field, enabled }),
+      })
+      if (onRefresh) await onRefresh()
+      setPresetStateByKey((current) => ({
+        ...current,
+        [stateKey]: {
+          status: 'success',
+          message: enabled ? '설정 저장 완료' : '설정 해제 완료',
+        },
+      }))
+    } catch (presetError: unknown) {
+      const message = presetError instanceof Error ? presetError.message : '설정 저장에 실패했습니다.'
+      setPresetStateByKey((current) => ({
         ...current,
         [stateKey]: {
           status: 'error',
@@ -612,6 +655,8 @@ export function EventGraphicsTimetableView({
           printHref={printHref}
           uploadStateByKey={uploadStateByKey}
           onUploadFile={onUploadFile}
+          presetStateByKey={presetStateByKey}
+          onSetPreset={onSetPreset}
         />
       ) : (
         <ExhibitionPlaybookLayout

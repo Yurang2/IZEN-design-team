@@ -27,6 +27,8 @@ export type EventGraphicsEventRow = {
   vendorNote: string
   captureFiles: ScheduleFile[]
   audioFiles: ScheduleFile[]
+  graphicPreset: 'speaker_ppt' | null
+  audioPreset: 'dj_ambient' | null
   graphicLabel: string
   audioLabel: string
   note: string
@@ -50,6 +52,8 @@ export type EventGraphicsSessionStage = {
   runtimeLabel: string
   captureFiles: ScheduleFile[]
   audioFiles: ScheduleFile[]
+  graphicPreset: 'speaker_ppt' | null
+  audioPreset: 'dj_ambient' | null
   graphicLabel: string
   audioLabel: string
   note: string
@@ -69,6 +73,8 @@ export type EventGraphicsSessionGroup = {
   stages: EventGraphicsSessionStage[]
 }
 
+const SPEAKER_PPT_LABEL = '강연자 PPT'
+const DJ_AMBIENT_MUSIC_LABEL = 'DJ Ambient Music'
 const ENTRANCE_LABELS = new Set(['등장', '입장'])
 const masterfileCueByKey = new Map<string, MasterfileCue>(
   bangkokMasterfileManifest.cues.flatMap((cue) => {
@@ -181,6 +187,14 @@ function getMasterfileAudioLabel(cue: MasterfileCue | null, fallback: string): s
   return fallback
 }
 
+function normalizeGraphicPreset(value: string): 'speaker_ppt' | null {
+  return value.trim().toLowerCase() === SPEAKER_PPT_LABEL.toLowerCase() ? 'speaker_ppt' : null
+}
+
+function normalizeAudioPreset(value: string): 'dj_ambient' | null {
+  return value.trim().toLowerCase() === DJ_AMBIENT_MUSIC_LABEL.toLowerCase() ? 'dj_ambient' : null
+}
+
 export function normalizeEventCueType(rawType: string, title: string): string {
   const normalizedType = rawType.trim().toLowerCase()
   const normalizedTitle = title.trim().toLowerCase()
@@ -290,6 +304,8 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
   const manifestCue = getMasterfileCue(operationKey, cueNumber)
   const captureLabel = joinScheduleFileNames(captureFiles)
   const audioFileLabel = joinScheduleFileNames(audioFiles)
+  const graphicPreset = normalizeGraphicPreset(notionGraphicAsset)
+  const audioPreset = normalizeAudioPreset(notionSourceAudio)
   const note = joinSummary([
     readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     readCellText(row, columnIndex, '무대 인원') ? `무대 ${readCellText(row, columnIndex, '무대 인원')}` : '',
@@ -309,15 +325,17 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
     startTime: readCellText(row, columnIndex, '시작 시각') || '-',
     endTime: readCellText(row, columnIndex, '종료 시각') || '-',
     runtime: readCellText(row, columnIndex, '러닝타임(분)') || readCellText(row, columnIndex, '예상시간(분)'),
-    graphicAsset: captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
-    sourceAudio: audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '',
+    graphicAsset: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
+    sourceAudio: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '',
     personnel: readCellText(row, columnIndex, '무대 인원'),
     remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
     captureFiles,
     audioFiles,
-    graphicLabel: captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
-    audioLabel: audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '-',
+    graphicPreset,
+    audioPreset,
+    graphicLabel: graphicPreset ? SPEAKER_PPT_LABEL : captureLabel || getMasterfileGraphicLabel(manifestCue, notionGraphicAsset),
+    audioLabel: audioPreset ? DJ_AMBIENT_MUSIC_LABEL : audioFileLabel || getMasterfileAudioLabel(manifestCue, notionSourceAudio) || '-',
     note: note || '메모 없음',
     previewHref: getPreviewFileUrl(captureFiles) || manifestCue?.previewUrl || previewHrefFromNotion || null,
     assetHref: readCellHref(row, columnIndex, '자산 링크') || readCellText(row, columnIndex, '자산 링크') || captureFiles[0]?.url || null,
@@ -367,6 +385,8 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
       runtimeLabel: formatRuntimeLabel(row.runtime),
       captureFiles: row.captureFiles,
       audioFiles: row.audioFiles,
+      graphicPreset: row.graphicPreset,
+      audioPreset: row.audioPreset,
       graphicLabel: row.graphicLabel,
       audioLabel: row.audioLabel,
       note: row.note,

@@ -3592,6 +3592,16 @@ button.dashboardNavButton {
   color: #0f766e;
 }
 
+.eventGraphicsPresetToggle {
+  justify-content: center;
+}
+
+.eventGraphicsPresetToggle.is-active {
+  background: color-mix(in srgb, #111827 88%, white);
+  border-color: #111827;
+  color: #ffffff;
+}
+
 .eventGraphicsSessionList {
   display: grid;
   gap: 14px;

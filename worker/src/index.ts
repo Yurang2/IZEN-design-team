@@ -50,6 +50,10 @@ const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
 const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐'
 const EVENT_GRAPHICS_CAPTURE_FILES_FIELD_LEGACY = '캡쳐(무조건 이미지형식)'
 const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
+const EVENT_GRAPHICS_MAIN_SCREEN_FIELD = '메인 화면'
+const EVENT_GRAPHICS_AUDIO_TEXT_FIELD = '오디오'
+const EVENT_GRAPHICS_SPEAKER_PPT_LABEL = '강연자 PPT'
+const EVENT_GRAPHICS_DJ_AMBIENT_LABEL = 'DJ Ambient Music'
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
 const GOOGLE_GENERATIVE_LANGUAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
@@ -4832,6 +4836,41 @@ function toEventGraphicsUploadErrorStatus(message: string): number {
   return 500
 }
 
+function normalizeEventGraphicsPresetField(value: string | null | undefined): 'capture' | 'audio' {
+  return normalizeEventGraphicsUploadField(value)
+}
+
+function normalizeEventGraphicsPresetEnabled(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase())
+  return false
+}
+
+async function updateEventGraphicsPresetOnNotion(
+  env: Env,
+  pageId: string,
+  field: 'capture' | 'audio',
+  enabled: boolean,
+): Promise<{ value: string }> {
+  const api = new NotionApi(env)
+  const propertyName = field === 'capture' ? EVENT_GRAPHICS_MAIN_SCREEN_FIELD : EVENT_GRAPHICS_AUDIO_TEXT_FIELD
+  const value = enabled
+    ? field === 'capture'
+      ? EVENT_GRAPHICS_SPEAKER_PPT_LABEL
+      : EVENT_GRAPHICS_DJ_AMBIENT_LABEL
+    : ''
+
+  await api.updatePage(pageId, {
+    properties: {
+      [propertyName]: {
+        rich_text: value ? [{ type: 'text', text: { content: value } }] : [],
+      },
+    },
+  })
+
+  return { value }
+}
+
 function normalizeUploadStage(value: string | undefined | null): string | null {
   const normalized = (value ?? '').trim().toLowerCase()
   if (!normalized) return null
@@ -6828,6 +6867,30 @@ export default {
         }
       }
 
+      const eventGraphicsPresetMatch = path.match(/^\/event-graphics-timetable\/([^/]+)\/preset$/)
+      if (request.method === 'POST' && eventGraphicsPresetMatch) {
+        try {
+          await service.syncEventGraphicsTimetableProperties()
+          const pageId = decodeURIComponent(eventGraphicsPresetMatch[1])
+          const payload = parsePatchBody(await readJsonBody(request))
+          const field = normalizeEventGraphicsPresetField(asString(payload.field))
+          const enabled = normalizeEventGraphicsPresetEnabled(payload.enabled)
+          const updated = await updateEventGraphicsPresetOnNotion(env, pageId, field, enabled)
+          return ok(
+            {
+              ok: true,
+              pageId,
+              field,
+              value: updated.value,
+            },
+            origin,
+          )
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'event_graphics_preset_failed'
+          return json({ ok: false, error: message, message }, toEventGraphicsUploadErrorStatus(message), origin)
+        }
+      }
+
       if (request.method === 'POST' && path === '/admin/notion/project-schema/sync') {
         const sync = await service.syncProjectDatabaseProperties(true)
         invalidateSnapshotCache(ctx)
@@ -7413,6 +7476,7 @@ export default {
               'GET /api/projects',
               'GET /api/meta',
               'POST /api/event-graphics-timetable/:id/files',
+              'POST /api/event-graphics-timetable/:id/preset',
               'POST /api/admin/notion/screening-history-schema/sync',
               'POST /api/admin/notion/screening-plan-schema/sync',
               'POST /api/admin/notion/screening-plan-history-sync',
