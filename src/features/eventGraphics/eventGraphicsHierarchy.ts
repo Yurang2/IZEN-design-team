@@ -4,7 +4,7 @@ import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
 export type EventGraphicsTimetableMode = 'event' | 'exhibition'
 export type EventGraphicsStageKind = 'appearance' | 'main' | 'certificate'
 export type EventGraphicsGraphicPreset = 'speaker_ppt'
-export type EventGraphicsAudioPreset = 'dj_ambient' | 'video_embedded' | 'not_applicable'
+export type EventGraphicsAudioPreset = 'dj_ambient' | 'video_embedded' | 'mic_only' | 'not_applicable'
 
 type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
 
@@ -135,13 +135,24 @@ function normalizeTimetableMode(value: string): EventGraphicsTimetableMode | nul
   return null
 }
 
-function formatRuntimeLabel(runtime: string): string {
+export function formatRuntimeLabel(runtime: string): string {
   return runtime ? `${runtime}분` : '-'
 }
 
 function toRuntimeMinutes(value: string): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function formatRuntimeLabelEnglish(runtime: string): string {
+  const trimmed = runtime.trim()
+  if (!trimmed) return '-'
+  const parsed = Number(trimmed)
+  if (Number.isFinite(parsed)) {
+    const normalized = Number.isInteger(parsed) ? String(parsed) : parsed.toString()
+    return `${normalized} min`
+  }
+  return `${trimmed} min`
 }
 
 function joinSummary(parts: string[]): string {
@@ -172,6 +183,7 @@ function getMasterfileCue(operationKey: string, cueNumber: string | null): Maste
 
 const SPEAKER_PPT_LABEL_DISPLAY = 'Speaker PPT'
 const VIDEO_INCLUDED_LABEL_DISPLAY = 'Included in Video'
+const MIC_ONLY_LABEL_DISPLAY = 'Mic Only'
 const NOT_APPLICABLE_LABEL = '해당없음'
 const NOT_APPLICABLE_LABEL_DISPLAY = 'N/A'
 
@@ -184,6 +196,7 @@ function normalizeAudioPreset(value: string): EventGraphicsAudioPreset | null {
   const normalized = value.trim().toLowerCase()
   if (normalized === DJ_AMBIENT_MUSIC_LABEL.toLowerCase()) return 'dj_ambient'
   if (normalized === VIDEO_INCLUDED_LABEL.toLowerCase() || normalized === VIDEO_INCLUDED_LABEL_DISPLAY.toLowerCase()) return 'video_embedded'
+  if (normalized === MIC_ONLY_LABEL_DISPLAY.toLowerCase()) return 'mic_only'
   if (normalized === NOT_APPLICABLE_LABEL.toLowerCase() || normalized === NOT_APPLICABLE_LABEL_DISPLAY.toLowerCase()) return 'not_applicable'
   return null
 }
@@ -325,6 +338,8 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
           ? DJ_AMBIENT_MUSIC_LABEL
           : audioPreset === 'video_embedded'
             ? VIDEO_INCLUDED_LABEL_DISPLAY
+            : audioPreset === 'mic_only'
+              ? MIC_ONLY_LABEL_DISPLAY
             : '-'
         : audioFileLabel || '-',
     personnel: readCellText(row, columnIndex, '무대 인원'),
@@ -341,6 +356,8 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
           ? DJ_AMBIENT_MUSIC_LABEL
           : audioPreset === 'video_embedded'
             ? VIDEO_INCLUDED_LABEL_DISPLAY
+            : audioPreset === 'mic_only'
+              ? MIC_ONLY_LABEL_DISPLAY
             : '-'
         : audioFileLabel || '-',
     note: note || '메모 없음',
@@ -389,7 +406,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
       startTime: row.startTime,
       endTime: row.endTime,
       runtimeMinutes: toRuntimeMinutes(row.runtime),
-      runtimeLabel: formatRuntimeLabel(row.runtime),
+      runtimeLabel: formatRuntimeLabelEnglish(row.runtime),
       captureFiles: row.captureFiles,
       audioFiles: row.audioFiles,
       graphicPreset: row.graphicPreset,
@@ -413,7 +430,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
         cueType: nextRow?.cueType ?? row.cueType,
         startTime: row.startTime,
         endTime: nextRow?.endTime ?? row.endTime,
-        runtimeLabel: nextRow ? formatRuntimeLabel(String(stage.runtimeMinutes + toRuntimeMinutes(nextRow.runtime))) : stage.runtimeLabel,
+        runtimeLabel: nextRow ? formatRuntimeLabelEnglish(String(stage.runtimeMinutes + toRuntimeMinutes(nextRow.runtime))) : stage.runtimeLabel,
         stages: [stage],
       })
       continue
@@ -430,7 +447,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
     if (shouldAttachCertificate) {
       previousGroup.stages.push(stage)
       previousGroup.endTime = row.endTime
-      previousGroup.runtimeLabel = formatRuntimeLabel(
+      previousGroup.runtimeLabel = formatRuntimeLabelEnglish(
         String(previousGroup.stages.reduce((sum, currentStage) => sum + currentStage.runtimeMinutes, 0)),
       )
       continue
@@ -447,7 +464,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
       previousGroup.stages.push(stage)
       previousGroup.endTime = row.endTime
       previousGroup.cueType = row.cueType
-      previousGroup.runtimeLabel = formatRuntimeLabel(
+      previousGroup.runtimeLabel = formatRuntimeLabelEnglish(
         String(previousGroup.stages.reduce((sum, currentStage) => sum + currentStage.runtimeMinutes, 0)),
       )
       continue
@@ -461,7 +478,7 @@ export function buildEventGraphicsSessionGroups(rows: EventGraphicsEventRow[]): 
       cueType: row.cueType,
       startTime: row.startTime,
       endTime: row.endTime,
-      runtimeLabel: formatRuntimeLabel(row.runtime),
+      runtimeLabel: formatRuntimeLabelEnglish(row.runtime),
       stages: [stage],
     })
   }

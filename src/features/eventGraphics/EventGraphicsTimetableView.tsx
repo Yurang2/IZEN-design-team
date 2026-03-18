@@ -54,7 +54,7 @@ type EventGraphicsPresetResponse = {
   value: string
 }
 
-type EventGraphicsPresetValue = 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | 'not_applicable' | null
+type EventGraphicsPresetValue = 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | 'mic_only' | 'not_applicable' | null
 
 type ExhibitionDisplayRow = ExhibitionPlaybookRow & {
   captureFiles?: ScheduleFile[]
@@ -172,6 +172,7 @@ function updateRowFilesLocally(
       currentText === 'DJ Ambient Music' ||
       currentText === '비디오에 포함' ||
       currentText === 'Included in Video' ||
+      currentText === 'Mic Only' ||
       currentText === '해당없음' ||
       currentText === 'N/A'
 
@@ -202,6 +203,8 @@ function updateRowPresetLocally(
         ? 'DJ Ambient Music'
         : preset === 'video_embedded'
           ? 'Included in Video'
+          : preset === 'mic_only'
+            ? 'Mic Only'
           : preset === 'not_applicable'
             ? 'N/A'
             : ''

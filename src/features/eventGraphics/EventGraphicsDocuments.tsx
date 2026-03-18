@@ -50,7 +50,14 @@ type AssetEntry = {
 type EventGraphicsPresetValue = EventGraphicsGraphicPreset | EventGraphicsAudioPreset | null
 const SPEAKER_PPT_DISPLAY = 'Speaker PPT'
 const VIDEO_INCLUDED_DISPLAY = 'Included in Video'
+const MIC_ONLY_DISPLAY = 'Mic Only'
 const NOT_APPLICABLE_DISPLAY = 'N/A'
+
+function formatEndTimeLabel(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed === '-') return '-'
+  return trimmed.startsWith('~') ? trimmed : `~${trimmed}`
+}
 
 function getStageAssetState(stage: {
   manifestKey: string | null
@@ -65,16 +72,18 @@ function getStageAssetState(stage: {
   const hasSpeakerPptPreset = stage.graphicPreset === 'speaker_ppt'
   const hasDjAmbientPreset = stage.audioPreset === 'dj_ambient'
   const hasVideoIncludedPreset = stage.audioPreset === 'video_embedded'
+  const hasMicOnlyPreset = stage.audioPreset === 'mic_only'
   const hasNotApplicablePreset = stage.audioPreset === 'not_applicable'
   const showSpeakerPpt = hasSpeakerPptPreset || usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
   const graphicMissing = !showSpeakerPpt && stage.captureFiles.length === 0
-  const audioMissing = !hasDjAmbientPreset && !hasVideoIncludedPreset && !hasNotApplicablePreset && stage.audioFiles.length === 0
+  const audioMissing = !hasDjAmbientPreset && !hasVideoIncludedPreset && !hasMicOnlyPreset && !hasNotApplicablePreset && stage.audioFiles.length === 0
 
   return {
     manifestCue,
     hasSpeakerPptPreset,
     hasDjAmbientPreset,
     hasVideoIncludedPreset,
+    hasMicOnlyPreset,
     hasNotApplicablePreset,
     showSpeakerPpt,
     graphicMissing,
@@ -86,19 +95,17 @@ function PresetToggleButton({
   label,
   active,
   pending,
-  tone = 'default',
   onClick,
 }: {
   label: string
   active: boolean
   pending?: boolean
-  tone?: 'default' | 'ambient'
   onClick: () => void
 }) {
   return (
     <button
       type="button"
-      className={`secondary mini eventGraphicsPresetToggle${active ? ' is-active' : ''}${tone === 'ambient' ? ' is-ambient' : ''}`}
+      className={`secondary mini eventGraphicsPresetToggle${active ? ' is-active' : ''}`}
       aria-pressed={active}
       disabled={pending}
       onClick={onClick}
@@ -120,17 +127,19 @@ function ShareAssetPanel({
   missingFiles,
   href,
   openFileLabel,
+  tone = 'default',
 }: {
   title: string
   files: AssetEntry[]
   missingFiles: string[]
   href: string | null
   openFileLabel: string
+  tone?: 'default' | 'ambient'
 }) {
   const hasMissingFiles = missingFiles.length > 0
 
   return (
-    <section className={hasMissingFiles ? 'eventGraphicsAuditPanel is-missing' : 'eventGraphicsAuditPanel'}>
+    <section className={`eventGraphicsAuditPanel${hasMissingFiles ? ' is-missing' : ''}${tone === 'ambient' ? ' is-ambient' : ''}`}>
       <div className="eventGraphicsAuditPanelHead">
         <span className="eventGraphicsPanelLabel">{title}</span>
         {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
@@ -250,7 +259,7 @@ export function EventGraphicsPrintDocument({
                           <>
                             <td className="eventGraphicsPrintTimeCell" rowSpan={cue.stages.length}>
                               <strong>{cue.startTime}</strong>
-                              <span>{cue.endTime}</span>
+                              <span>{formatEndTimeLabel(cue.endTime)}</span>
                               <small>{cue.runtimeLabel}</small>
                             </td>
                             <td className="eventGraphicsPrintCueCell" rowSpan={cue.stages.length}>
@@ -368,7 +377,7 @@ export function EventGraphicsShareDocument({
                   <article key={cue.id} className={`eventGraphicsShareRow${cueHasMissing ? ' is-missing' : ''}`}>
                     <div className="eventGraphicsShareTime">
                       <strong>{cue.startTime}</strong>
-                      <span>{cue.endTime}</span>
+                      <span>{formatEndTimeLabel(cue.endTime)}</span>
                       <small>{cue.runtimeLabel}</small>
                     </div>
 
@@ -386,6 +395,7 @@ export function EventGraphicsShareDocument({
                             hasSpeakerPptPreset,
                             hasDjAmbientPreset,
                             hasVideoIncludedPreset,
+                            hasMicOnlyPreset,
                             hasNotApplicablePreset,
                             showSpeakerPpt,
                             graphicMissing,
@@ -468,6 +478,7 @@ export function EventGraphicsShareDocument({
                                 missingFiles={audioAlerts}
                                 href={stage.assetHref}
                                 openFileLabel={copy.openFile}
+                                tone={hasDjAmbientPreset ? 'ambient' : 'default'}
                               />
                             </div>
 
@@ -501,7 +512,6 @@ export function EventGraphicsShareDocument({
                                       <div className="eventGraphicsPresetToggleGroup">
                                         <PresetToggleButton
                                           label="DJ Ambient Music"
-                                          tone="ambient"
                                           active={hasDjAmbientPreset}
                                           pending={audioPresetState?.status === 'uploading'}
                                           onClick={() => {
@@ -516,6 +526,15 @@ export function EventGraphicsShareDocument({
                                           onClick={() => {
                                             if (!confirmPresetChange(VIDEO_INCLUDED_DISPLAY, hasVideoIncludedPreset)) return
                                             void onSetPreset?.(stage.id, 'audio', hasVideoIncludedPreset ? null : 'video_embedded')
+                                          }}
+                                        />
+                                        <PresetToggleButton
+                                          label={MIC_ONLY_DISPLAY}
+                                          active={hasMicOnlyPreset}
+                                          pending={audioPresetState?.status === 'uploading'}
+                                          onClick={() => {
+                                            if (!confirmPresetChange(MIC_ONLY_DISPLAY, hasMicOnlyPreset)) return
+                                            void onSetPreset?.(stage.id, 'audio', hasMicOnlyPreset ? null : 'mic_only')
                                           }}
                                         />
                                         <PresetToggleButton

@@ -3612,22 +3612,10 @@ button.dashboardNavButton {
   white-space: nowrap;
 }
 
-.eventGraphicsPresetToggle.is-ambient {
-  background: #eef8ee;
-  border-color: #b9ddbf;
-  color: #2f6f38;
-}
-
 .eventGraphicsPresetToggle.is-active {
   background: color-mix(in srgb, #111827 88%, white);
   border-color: #111827;
   color: #ffffff;
-}
-
-.eventGraphicsPresetToggle.is-ambient.is-active {
-  background: #cdeecf;
-  border-color: #64b46b;
-  color: #154f1b;
 }
 
 .eventGraphicsSessionList {
@@ -3990,7 +3978,13 @@ button.dashboardNavButton {
   border-radius: 16px;
   display: grid;
   gap: 2px;
+  min-width: 0;
   padding: 6px;
+}
+
+.eventGraphicsAuditPanel.is-ambient {
+  background: #eef8ee;
+  border-color: #b9ddbf;
 }
 
 .eventGraphicsAuditVisual .eventGraphicsPreviewInline,
@@ -5065,7 +5059,7 @@ button.dashboardNavButton {
 
   .eventGraphicsShareAssetGrid {
     gap: 8px;
-    grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(86px, 0.72fr) minmax(0, 0.84fr) minmax(0, 0.84fr);
   }
 
   .eventGraphicsAuditVisual,
@@ -5074,6 +5068,7 @@ button.dashboardNavButton {
     border: 1px solid var(--border);
     border-radius: 16px;
     gap: 2px;
+    min-width: 0;
     padding: 6px;
   }
 
