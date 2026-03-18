@@ -4525,14 +4525,65 @@ button.dashboardNavButton {
   align-items: center;
   display: inline-flex;
   flex-shrink: 0;
-  gap: 8px;
+  gap: 6px;
+}
+
+.eventGraphicsToolbarGroup {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(205, 214, 227, 0.95);
+  border-radius: 14px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 8px;
+}
+
+.eventGraphicsToolbarGroupLabel {
+  color: var(--text-sub);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.eventGraphicsToolbarGroupControls {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.eventGraphicsToolbarStatic {
+  align-items: center;
+  background: var(--control-accent-bg);
+  border: 1px solid var(--control-accent-border);
+  border-radius: 999px;
+  color: var(--control-accent-text);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 30px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.eventGraphicsToolbarOption {
+  margin-right: 0;
+}
+
+.eventGraphicsToolbarOption.is-active {
+  background: var(--control-accent-bg);
+  border-color: var(--control-accent-border);
+  color: var(--control-accent-text);
 }
 
 .eventGraphicsShareActions {
-  align-items: center;
+  align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -4759,10 +4810,10 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsPrintToolbar {
-  align-items: center;
+  align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -4910,6 +4961,13 @@ button.dashboardNavButton {
   }
 
   .eventGraphicsLocaleSwitch {
+    width: 100%;
+  }
+
+  .eventGraphicsToolbarGroup,
+  .eventGraphicsToolbarGroupControls,
+  .eventGraphicsToolbarStatic,
+  .eventGraphicsToolbarOption {
     width: 100%;
   }
 

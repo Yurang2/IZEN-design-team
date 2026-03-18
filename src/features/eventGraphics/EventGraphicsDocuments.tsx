@@ -52,6 +52,11 @@ const SPEAKER_PPT_DISPLAY = 'Speaker PPT'
 const VIDEO_INCLUDED_DISPLAY = 'Included in Video'
 const MIC_ONLY_DISPLAY = 'Mic Only'
 const NOT_APPLICABLE_DISPLAY = 'N/A'
+const TOOLBAR_COPY = {
+  action: 'Action',
+  format: 'Format',
+  view: 'View',
+} as const
 
 function formatEndTimeLabel(value: string): string {
   const trimmed = value.trim()
@@ -127,6 +132,21 @@ function confirmPresetChange(label: string, active: boolean): boolean {
   if (typeof window === 'undefined') return true
   const message = active ? `${label} 설정을 해제하시겠습니까?` : `${label}로 변경하시겠습니까?`
   return window.confirm(message)
+}
+
+function ToolbarGroup({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="eventGraphicsToolbarGroup">
+      <span className="eventGraphicsToolbarGroupLabel">{label}</span>
+      <div className="eventGraphicsToolbarGroupControls">{children}</div>
+    </div>
+  )
 }
 
 function ShareAssetPanel({
@@ -221,26 +241,45 @@ export function EventGraphicsPrintDocument({
           <h1>{pageTitle}</h1>
         </div>
         <div className="eventGraphicsPrintToolbar">
-          {onLocaleChange ? (
-            <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Language selector">
-              <button type="button" className={locale === 'ko' ? 'viewTab active' : 'viewTab'} aria-pressed={locale === 'ko'} onClick={() => onLocaleChange('ko')}>
-                KO
-              </button>
-              <button type="button" className={locale === 'en' ? 'viewTab active' : 'viewTab'} aria-pressed={locale === 'en'} onClick={() => onLocaleChange('en')}>
-                EN
-              </button>
-            </div>
+          <ToolbarGroup label={TOOLBAR_COPY.view}>
+            <span className="eventGraphicsToolbarStatic">{copy.title}</span>
+            {shareHref && copy.backLabel ? (
+              <a className="linkButton secondary mini eventGraphicsToolbarOption" href={shareHref}>
+                {copy.backLabel}
+              </a>
+            ) : null}
+          </ToolbarGroup>
+          {onLocaleChange || toolbarExtra ? (
+            <ToolbarGroup label={TOOLBAR_COPY.format}>
+              {onLocaleChange ? (
+                <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Language selector">
+                  <button
+                    type="button"
+                    className={locale === 'ko' ? 'secondary mini eventGraphicsToolbarOption is-active' : 'secondary mini eventGraphicsToolbarOption'}
+                    aria-pressed={locale === 'ko'}
+                    onClick={() => onLocaleChange('ko')}
+                  >
+                    KO
+                  </button>
+                  <button
+                    type="button"
+                    className={locale === 'en' ? 'secondary mini eventGraphicsToolbarOption is-active' : 'secondary mini eventGraphicsToolbarOption'}
+                    aria-pressed={locale === 'en'}
+                    onClick={() => onLocaleChange('en')}
+                  >
+                    EN
+                  </button>
+                </div>
+              ) : null}
+              {toolbarExtra}
+            </ToolbarGroup>
           ) : null}
-          {toolbarExtra}
           {onPrint ? (
-            <button type="button" className="linkButton secondary" onClick={onPrint}>
-              {copy.print}
-            </button>
-          ) : null}
-          {shareHref && copy.backLabel ? (
-            <a className="linkButton secondary" href={shareHref}>
-              {copy.backLabel}
-            </a>
+            <ToolbarGroup label={TOOLBAR_COPY.action}>
+              <button type="button" className="secondary mini eventGraphicsToolbarOption" onClick={onPrint}>
+                {copy.print}
+              </button>
+            </ToolbarGroup>
           ) : null}
         </div>
       </header>
@@ -361,22 +400,37 @@ export function EventGraphicsShareDocument({
             <h1>{pageTitle}</h1>
           </div>
           <div className="eventGraphicsShareActions">
-            {printHref && copy.printView ? (
-              <a className="linkButton secondary" href={printHref} target="_blank" rel="noreferrer">
-                {copy.printView}
-              </a>
+            <ToolbarGroup label={TOOLBAR_COPY.view}>
+              <span className="eventGraphicsToolbarStatic">{copy.externalShare}</span>
+              {printHref && copy.printView ? (
+                <a className="linkButton secondary mini eventGraphicsToolbarOption" href={printHref} target="_blank" rel="noreferrer">
+                  {copy.printView}
+                </a>
+              ) : null}
+            </ToolbarGroup>
+            {onLocaleChange ? (
+              <ToolbarGroup label={TOOLBAR_COPY.format}>
+                <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Language selector">
+                  <button
+                    type="button"
+                    className={locale === 'en' ? 'secondary mini eventGraphicsToolbarOption is-active' : 'secondary mini eventGraphicsToolbarOption'}
+                    aria-pressed={locale === 'en'}
+                    onClick={() => onLocaleChange('en')}
+                  >
+                    EN
+                  </button>
+                  <button
+                    type="button"
+                    className={locale === 'ko' ? 'secondary mini eventGraphicsToolbarOption is-active' : 'secondary mini eventGraphicsToolbarOption'}
+                    aria-pressed={locale === 'ko'}
+                    onClick={() => onLocaleChange('ko')}
+                  >
+                    KO
+                  </button>
+                </div>
+              </ToolbarGroup>
             ) : null}
             {actionSlot}
-            {onLocaleChange ? (
-              <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Language selector">
-                <button type="button" className={locale === 'en' ? 'viewTab active' : 'viewTab'} aria-pressed={locale === 'en'} onClick={() => onLocaleChange('en')}>
-                  EN
-                </button>
-                <button type="button" className={locale === 'ko' ? 'viewTab active' : 'viewTab'} aria-pressed={locale === 'ko'} onClick={() => onLocaleChange('ko')}>
-                  KO
-                </button>
-              </div>
-            ) : null}
           </div>
         </div>
         <EventGraphicsPreviewRatioControl value={previewRatio} onChange={onPreviewRatioChange} />

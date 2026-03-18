@@ -172,10 +172,20 @@ export function EventGraphicsPrintPage({
       shareHref={shareHref}
       toolbarExtra={
         <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Print orientation">
-          <button type="button" className={orientation === 'portrait' ? 'viewTab active' : 'viewTab'} aria-pressed={orientation === 'portrait'} onClick={() => setOrientation('portrait')}>
+          <button
+            type="button"
+            className={orientation === 'portrait' ? 'secondary mini eventGraphicsToolbarOption is-active' : 'secondary mini eventGraphicsToolbarOption'}
+            aria-pressed={orientation === 'portrait'}
+            onClick={() => setOrientation('portrait')}
+          >
             Portrait
           </button>
-          <button type="button" className={orientation === 'landscape' ? 'viewTab active' : 'viewTab'} aria-pressed={orientation === 'landscape'} onClick={() => setOrientation('landscape')}>
+          <button
+            type="button"
+            className={orientation === 'landscape' ? 'secondary mini eventGraphicsToolbarOption is-active' : 'secondary mini eventGraphicsToolbarOption'}
+            aria-pressed={orientation === 'landscape'}
+            onClick={() => setOrientation('landscape')}
+          >
             Landscape
           </button>
         </div>
