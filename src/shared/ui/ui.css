@@ -3308,10 +3308,6 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
-.eventGraphicsLayoutSwitch {
-  display: none;
-}
-
 .eventGraphicsModeSwitch {
   display: flex;
   flex-wrap: wrap;

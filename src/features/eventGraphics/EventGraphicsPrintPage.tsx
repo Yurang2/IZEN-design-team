@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
+import { EventGraphicsPrintDocument } from './EventGraphicsDocuments'
 import {
   buildEventGraphicsShareData,
   buildEventGraphicsSharePageTitle,
-  toCueTypeLabel,
   type EventGraphicsShareLocale,
 } from './eventGraphicsShareData'
 
@@ -39,7 +39,7 @@ type PrintCopySet = {
   untitledEvent: string
 }
 
-const COPY: Record<EventGraphicsShareLocale, PrintCopySet> = {
+export const PRINT_COPY: Record<EventGraphicsShareLocale, PrintCopySet> = {
   en: {
     title: 'Print View',
     loading: 'Loading print document...',
@@ -99,7 +99,7 @@ export function EventGraphicsPrintPage({
   error,
 }: EventGraphicsPrintPageProps) {
   const [locale, setLocale] = useState<EventGraphicsShareLocale>(() => readLocaleFromSearch())
-  const copy = COPY[locale]
+  const copy = PRINT_COPY[locale]
   const { groupedCues } = useMemo(() => buildEventGraphicsShareData(columns, rows, copy.untitledEvent), [columns, copy.untitledEvent, rows])
   const pageTitle = useMemo(() => buildEventGraphicsSharePageTitle(groupedCues, databaseTitle), [databaseTitle, groupedCues])
   const shareHref = `/share/timetable?locale=${encodeURIComponent(locale)}`
@@ -141,99 +141,27 @@ export function EventGraphicsPrintPage({
   }
 
   return (
-    <main className="eventGraphicsPrintShell">
-      <section className="eventGraphicsPrintPage">
-        <header className="eventGraphicsPrintHeader">
-          <div>
-            <p className="muted small">{copy.title}</p>
-            <h1>{pageTitle}</h1>
-          </div>
-          <div className="eventGraphicsPrintToolbar">
-            <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Language selector">
-              <button
-                type="button"
-                className={locale === 'ko' ? 'viewTab active' : 'viewTab'}
-                aria-pressed={locale === 'ko'}
-                onClick={() => setLocale('ko')}
-              >
-                KO
-              </button>
-              <button
-                type="button"
-                className={locale === 'en' ? 'viewTab active' : 'viewTab'}
-                aria-pressed={locale === 'en'}
-                onClick={() => setLocale('en')}
-              >
-                EN
-              </button>
-            </div>
-            <button type="button" className="linkButton secondary" onClick={() => window.print()}>
-              {copy.print}
-            </button>
-            <a className="linkButton secondary" href={shareHref}>
-              {copy.backToShare}
-            </a>
-          </div>
-        </header>
-
-        <div className="eventGraphicsPrintList">
-          {groupedCues.map((group) => (
-            <section key={group.eventName} className="eventGraphicsPrintSection">
-              <header className="eventGraphicsPrintSectionHead">
-                <h2>{group.eventName}</h2>
-              </header>
-              <div className="tableWrap eventGraphicsPrintTableWrap">
-                <table className="eventGraphicsPrintTable">
-                  <thead>
-                    <tr>
-                      <th>{copy.time}</th>
-                      <th>{copy.cue}</th>
-                      <th>{copy.stage}</th>
-                      <th>{copy.titleColumn}</th>
-                      <th>{copy.graphic}</th>
-                      <th>{copy.audio}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.cues.flatMap((cue) =>
-                      cue.stages.map((stage, index) => (
-                        <tr key={stage.id}>
-                          {index === 0 ? (
-                            <>
-                              <td className="eventGraphicsPrintTimeCell" rowSpan={cue.stages.length}>
-                                <strong>{cue.startTime}</strong>
-                                <span>{cue.endTime}</span>
-                                <small>{cue.runtimeLabel}</small>
-                              </td>
-                              <td className="eventGraphicsPrintCueCell" rowSpan={cue.stages.length}>
-                                <strong>{cue.cueNumber}</strong>
-                                <span>{toCueTypeLabel(cue.cueType, locale)}</span>
-                              </td>
-                            </>
-                          ) : null}
-                          <td className="eventGraphicsPrintCueCell">
-                            <strong>{stage.label}</strong>
-                            <span>{stage.cueNumber}</span>
-                          </td>
-                          <td className="eventGraphicsPrintTitleCell">
-                            <strong>{stage.title}</strong>
-                            <p>
-                              <span>{copy.note}</span>
-                              {stage.note || copy.noNote}
-                            </p>
-                          </td>
-                          <td>{stage.graphicLabel || copy.noAsset}</td>
-                          <td>{stage.audioLabel || copy.noAsset}</td>
-                        </tr>
-                      )),
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ))}
-        </div>
-      </section>
-    </main>
+    <EventGraphicsPrintDocument
+      locale={locale}
+      onLocaleChange={setLocale}
+      copy={{
+        title: copy.title,
+        print: copy.print,
+        backLabel: copy.backToShare,
+        cue: copy.cue,
+        time: copy.time,
+        stage: copy.stage,
+        titleColumn: copy.titleColumn,
+        graphic: copy.graphic,
+        audio: copy.audio,
+        note: copy.note,
+        noNote: copy.noNote,
+        noAsset: copy.noAsset,
+      }}
+      pageTitle={pageTitle}
+      groupedCues={groupedCues}
+      shareHref={shareHref}
+      onPrint={() => window.print()}
+    />
   )
 }
