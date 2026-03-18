@@ -4899,7 +4899,15 @@ button.dashboardNavButton {
 
 @media print {
   @page {
+    size: A4 portrait;
     margin: 10mm;
+  }
+
+  html,
+  body,
+  body * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .eventGraphicsPrintShell {
@@ -4947,82 +4955,92 @@ button.dashboardNavButton {
   }
 
   .eventGraphicsShareShell {
-    background: white;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(49, 98, 189, 0.12), transparent 32%),
+      linear-gradient(180deg, #f6f9fe 0%, #eef3fb 100%);
     min-height: auto;
     padding: 0;
   }
 
   .eventGraphicsSharePage {
-    gap: 8px;
-    max-width: none;
+    gap: 10px;
+    margin: 0 auto;
+    max-width: 190mm;
+    width: 100%;
   }
 
   .eventGraphicsShareHero {
-    gap: 4px;
+    gap: 6px;
   }
 
   .eventGraphicsShareList {
-    gap: 6px;
+    gap: 8px;
   }
 
   .eventGraphicsShareRow {
-    background: white;
-    border: 1px solid #d4d4d4;
-    border-radius: 0;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(205, 214, 227, 0.95);
+    border-radius: 20px;
     box-shadow: none;
     break-inside: avoid;
-    grid-template-columns: 76px minmax(0, 1fr);
+    page-break-inside: avoid;
+    grid-template-columns: 88px minmax(0, 1fr);
   }
 
   .eventGraphicsShareTime {
-    background: #f5f5f5;
-    gap: 2px;
-    padding: 8px 7px;
+    background:
+      linear-gradient(180deg, rgba(226, 238, 255, 0.72), rgba(240, 246, 255, 0.8));
+    gap: 4px;
+    padding: 10px 9px;
   }
 
   .eventGraphicsShareTime strong {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .eventGraphicsShareBody {
-    gap: 6px;
-    padding: 8px;
-  }
-
-  .eventGraphicsShareHead h2 {
-    font-size: 16px;
+    gap: 8px;
+    padding: 10px;
   }
 
   .eventGraphicsShareHead h3 {
     font-size: 15px;
   }
 
-  .eventGraphicsShareVisual,
-  .eventGraphicsShareCoreCard {
-    background: white;
-    border: 1px solid #dcdcdc;
-    border-radius: 0;
-    gap: 4px;
-    padding: 8px;
+  .eventGraphicsShareGroup {
+    gap: 6px;
   }
 
   .eventGraphicsShareAssetGrid {
-    gap: 6px;
-    grid-template-columns: 108px minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .eventGraphicsShareCore {
     gap: 8px;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr);
   }
 
+  .eventGraphicsAuditVisual,
+  .eventGraphicsAuditPanel {
+    background: color-mix(in srgb, var(--surface-soft) 84%, white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    gap: 2px;
+    padding: 6px;
+  }
+
+  .eventGraphicsShareActions,
+  .eventGraphicsPreviewRatioControl,
   .eventGraphicsLocaleSwitch {
     display: none;
   }
 
-  .eventGraphicsPreviewPlaceholder,
+  .eventGraphicsPreviewPlaceholder {
+    display: flex;
+  }
+
   .eventGraphicsInlineLink {
     display: none;
+  }
+
+  .eventGraphicsAuditChip {
+    background: rgba(255, 255, 255, 0.92);
   }
 }
 
