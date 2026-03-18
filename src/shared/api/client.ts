@@ -28,11 +28,24 @@ function isPagesHostname(hostname: string): boolean {
   return hostname.toLowerCase().endsWith('.pages.dev')
 }
 
-function applyPagesApiFallback(normalizedBase: string): string {
+function normalizeSameOriginPagesApi(normalizedBase: string): string {
   if (typeof window === 'undefined') return normalizedBase
   if (!isPagesHostname(window.location.hostname)) return normalizedBase
-  if (normalizedBase !== '/api') return normalizedBase
-  return normalizeApiBase(PAGES_FALLBACK_WORKER_API_BASE)
+  if (normalizedBase === '/api') return '/api'
+
+  const workerFallbackBase = normalizeApiBase(PAGES_FALLBACK_WORKER_API_BASE)
+  if (normalizedBase === workerFallbackBase) return '/api'
+
+  try {
+    const parsed = new URL(normalizedBase)
+    if (parsed.hostname.toLowerCase().endsWith('.workers.dev')) {
+      return '/api'
+    }
+  } catch {
+    // Keep relative or invalid custom values as-is.
+  }
+
+  return normalizedBase
 }
 
 function getApiBaseFromRuntime(): string {
@@ -48,7 +61,7 @@ function getApiBaseFromRuntime(): string {
   const queryValue = toNonEmpty(new URLSearchParams(window.location.search).get('apiBase'))
   if (queryValue) {
     const normalized = normalizeApiBase(queryValue)
-    const resolved = applyPagesApiFallback(normalized)
+    const resolved = normalizeSameOriginPagesApi(normalized)
     window.localStorage.setItem('API_BASE_URL', resolved)
     window.localStorage.setItem('FUNCTIONS_BASE_URL', resolved)
     return resolved
@@ -56,14 +69,14 @@ function getApiBaseFromRuntime(): string {
 
   const runtimeBaseUrl =
     toNonEmpty(window.__APP_CONFIG__?.API_BASE_URL) ?? toNonEmpty(window.__APP_CONFIG__?.FUNCTIONS_BASE_URL)
-  if (runtimeBaseUrl) return applyPagesApiFallback(normalizeApiBase(runtimeBaseUrl))
+  if (runtimeBaseUrl) return normalizeSameOriginPagesApi(normalizeApiBase(runtimeBaseUrl))
 
   const stored =
     toNonEmpty(window.localStorage.getItem('API_BASE_URL')) ??
     toNonEmpty(window.localStorage.getItem('FUNCTIONS_BASE_URL'))
   if (stored) {
     const normalizedStored = normalizeApiBase(stored)
-    const resolvedStored = applyPagesApiFallback(normalizedStored)
+    const resolvedStored = normalizeSameOriginPagesApi(normalizedStored)
     if (resolvedStored !== normalizedStored) {
       window.localStorage.setItem('API_BASE_URL', resolvedStored)
       window.localStorage.setItem('FUNCTIONS_BASE_URL', resolvedStored)
@@ -71,7 +84,7 @@ function getApiBaseFromRuntime(): string {
     return resolvedStored
   }
 
-  return applyPagesApiFallback(normalizeApiBase(buildTimeBaseUrl))
+  return normalizeSameOriginPagesApi(normalizeApiBase(buildTimeBaseUrl))
 }
 
 function getMockDataModeFromRuntime(): boolean {
