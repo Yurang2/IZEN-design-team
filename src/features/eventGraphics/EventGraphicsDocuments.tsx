@@ -118,8 +118,9 @@ export function EventGraphicsPrintDocument({
   onPrint?: () => void
   toolbarExtra?: ReactNode
 }) {
+  const pageClassName = embedded ? 'eventGraphicsPrintPage is-embedded' : 'eventGraphicsPrintPage'
   const content = (
-    <section className="eventGraphicsPrintPage">
+    <section className={pageClassName}>
       <header className="eventGraphicsPrintHeader">
         <div>
           <p className="muted small">{copy.title}</p>
@@ -241,8 +242,9 @@ export function EventGraphicsShareDocument({
   onUploadFile?: (rowId: string, field: AssetUploadField, file: File) => Promise<void>
 }) {
   const previewRatioStyle = { ['--event-graphics-preview-ratio' as string]: toPreviewAspectRatioValue(previewRatio) }
+  const pageClassName = embedded ? 'eventGraphicsSharePage is-embedded' : 'eventGraphicsSharePage'
   const content = (
-    <section className="eventGraphicsSharePage">
+    <section className={pageClassName}>
       <header className="eventGraphicsShareHero">
         <div className="eventGraphicsShareHeroTop">
           <div className="eventGraphicsShareHeroText">
@@ -416,13 +418,12 @@ export function EventGraphicsShareDocument({
     </section>
   )
 
-  const shellStyle = embedded ? previewRatioStyle : { ...previewRatioStyle }
   return embedded ? (
-    <div className="eventGraphicsShareShell" style={shellStyle}>
+    <div style={previewRatioStyle}>
       {content}
     </div>
   ) : (
-    <main className="eventGraphicsShareShell" style={shellStyle}>
+    <main className="eventGraphicsShareShell" style={previewRatioStyle}>
       {content}
     </main>
   )

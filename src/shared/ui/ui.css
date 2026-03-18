@@ -3554,6 +3554,21 @@ button.dashboardNavButton {
   gap: 6px;
 }
 
+.eventGraphicsUploadDropzone {
+  justify-content: center;
+  min-height: 34px;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.eventGraphicsUploadDropzone.is-dragging {
+  background: color-mix(in srgb, #dbeafe 78%, white);
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.18);
+}
+
 .eventGraphicsUploadControl input[type='file'] {
   display: none;
 }
@@ -3931,6 +3946,7 @@ button.dashboardNavButton {
 
 .eventGraphicsAuditVisual,
 .eventGraphicsAuditPanel {
+  align-content: start;
   background: color-mix(in srgb, var(--surface-soft) 84%, white);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -4158,6 +4174,7 @@ button.dashboardNavButton {
 }
 
 .eventGraphicsAuditChipList {
+  align-content: start;
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
@@ -4172,9 +4189,9 @@ button.dashboardNavButton {
   display: inline-flex;
   align-items: center;
   font-size: 10px;
-  line-height: 1.35;
+  line-height: 1.15;
   max-width: 100%;
-  padding: 3px 7px;
+  padding: 2px 7px;
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
@@ -4424,6 +4441,11 @@ button.dashboardNavButton {
   max-width: 1180px;
 }
 
+.eventGraphicsSharePage.is-embedded {
+  margin: 0;
+  max-width: none;
+}
+
 .eventGraphicsShareHero {
   display: grid;
   gap: 8px;
@@ -4648,6 +4670,13 @@ button.dashboardNavButton {
   margin: 0 auto;
   max-width: 1180px;
   padding: 22px;
+}
+
+.eventGraphicsPrintPage.is-embedded {
+  border-radius: 22px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+  margin: 0;
+  max-width: none;
 }
 
 .eventGraphicsPrintHeader {
