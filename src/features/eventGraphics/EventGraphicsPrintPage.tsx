@@ -150,6 +150,7 @@ export function EventGraphicsPrintPage({
   return (
     <EventGraphicsPrintDocument
       orientation={orientation}
+      showNotes={false}
       locale={locale}
       onLocaleChange={setLocale}
       copy={{

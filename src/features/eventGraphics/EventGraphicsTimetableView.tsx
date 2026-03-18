@@ -730,6 +730,7 @@ export function EventGraphicsTimetableView({
       ) : isEventMode && layoutMode === 'compact' ? (
         <EventGraphicsPrintDocument
           embedded
+          showNotes={false}
           locale={shareLocale}
           onLocaleChange={setShareLocale}
           copy={{

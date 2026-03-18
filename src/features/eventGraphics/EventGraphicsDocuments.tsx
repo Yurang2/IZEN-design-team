@@ -182,6 +182,7 @@ function ShareAssetPanel({
 export function EventGraphicsPrintDocument({
   embedded = false,
   orientation = 'portrait',
+  showNotes = true,
   locale,
   onLocaleChange,
   copy,
@@ -193,6 +194,7 @@ export function EventGraphicsPrintDocument({
 }: {
   embedded?: boolean
   orientation?: 'portrait' | 'landscape'
+  showNotes?: boolean
   locale: EventGraphicsShareLocale
   onLocaleChange?: (locale: EventGraphicsShareLocale) => void
   copy: EventGraphicsPrintStrings
@@ -248,7 +250,7 @@ export function EventGraphicsPrintDocument({
                     <th>{copy.time}</th>
                     <th>{copy.cue}</th>
                     <th>{copy.stage}</th>
-                    <th>{copy.titleColumn}</th>
+                    <th>{showNotes ? copy.titleColumn : copy.titleColumn.split('/')[0]?.trim() || copy.titleColumn}</th>
                     <th>{copy.graphic}</th>
                     <th>{copy.audio}</th>
                   </tr>
@@ -290,10 +292,12 @@ export function EventGraphicsPrintDocument({
                             ) : null}
                             <strong>{stage.title}</strong>
                           </div>
-                          <p>
-                            <span>{copy.note}</span>
-                            {stage.note || copy.noNote}
-                          </p>
+                          {showNotes ? (
+                            <p>
+                              <span>{copy.note}</span>
+                              {stage.note || copy.noNote}
+                            </p>
+                          ) : null}
                         </td>
                         <td>{stage.graphicPreset === 'speaker_ppt' ? SPEAKER_PPT_DISPLAY : stage.graphicLabel || copy.noAsset}</td>
                         <td>{stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioPreset === 'not_applicable' ? copy.noAsset : stage.audioLabel || copy.noAsset}</td>
