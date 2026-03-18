@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { ScheduleFile } from '../../shared/types'
 import {
   EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY,
   EventGraphicsPreviewRatioControl,
@@ -12,6 +13,7 @@ import {
   type EventGraphicsGraphicPreset,
   type EventGraphicsStageKind,
 } from './eventGraphicsHierarchy'
+import { toEventGraphicsDisplayFile } from './eventGraphicsFileDisplay'
 import { eventGraphicsManifestByKey, toCueTypeLabel, type EventGraphicsShareLocale, type EventGroup } from './eventGraphicsShareData'
 import { AssetUploadControl, toUploadStateKey, type AssetUploadField, type UploadState } from './EventGraphicsUploadControl'
 
@@ -45,6 +47,7 @@ type EventGraphicsShareStrings = {
 type AssetEntry = {
   name: string
   role: string
+  showImagePreviewBadge?: boolean
 }
 
 type EventGraphicsPresetValue = EventGraphicsGraphicPreset | EventGraphicsAudioPreset | null
@@ -178,6 +181,7 @@ function ShareAssetPanel({
           {files.map((file) => (
             <span key={`${title}-${file.name}-${file.role}`} className="eventGraphicsAuditChip" title={file.role}>
               {file.name}
+              {file.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
             </span>
           ))}
         </div>
@@ -204,6 +208,30 @@ function ShareAssetPanel({
         </a>
       ) : null}
     </section>
+  )
+}
+
+function FileNameInlineList({
+  files,
+  fallback,
+}: {
+  files: ReadonlyArray<ScheduleFile>
+  fallback: string
+}) {
+  if (files.length === 0) return <>{fallback}</>
+
+  return (
+    <span className="eventGraphicsInlineFileList">
+      {files.map((file) => {
+        const display = toEventGraphicsDisplayFile(file)
+        return (
+          <span key={`${file.name}-${file.url}`} className="eventGraphicsInlineFileItem">
+            <span>{display.displayName}</span>
+            {display.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
+          </span>
+        )
+      })}
+    </span>
   )
 }
 
@@ -341,8 +369,16 @@ export function EventGraphicsPrintDocument({
                             </p>
                           ) : null}
                         </td>
-                        <td>{stage.graphicPreset === 'speaker_ppt' ? SPEAKER_PPT_DISPLAY : stage.graphicLabel || copy.noAsset}</td>
-                        <td>{stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioPreset === 'not_applicable' ? copy.noAsset : stage.audioLabel || copy.noAsset}</td>
+                        <td className={stage.graphicPreset === 'speaker_ppt' ? 'eventGraphicsPrintAssetCell is-speaker-ppt' : 'eventGraphicsPrintAssetCell'}>
+                          {stage.graphicPreset === 'speaker_ppt' ? (
+                            SPEAKER_PPT_DISPLAY
+                          ) : (
+                            <FileNameInlineList files={stage.captureFiles} fallback={stage.graphicLabel || copy.noAsset} />
+                          )}
+                        </td>
+                        <td className={stage.audioPreset === 'dj_ambient' ? 'eventGraphicsPrintAssetCell is-ambient-audio' : 'eventGraphicsPrintAssetCell'}>
+                          {stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioPreset === 'not_applicable' ? copy.noAsset : stage.audioLabel || copy.noAsset}
+                        </td>
                       </tr>
                     )),
                   )}
@@ -483,7 +519,10 @@ export function EventGraphicsShareDocument({
                           showSpeakerPpt
                             ? []
                             : stage.captureFiles.length > 0
-                            ? stage.captureFiles.map((file) => ({ name: file.name, role: stage.label }))
+                            ? stage.captureFiles.map((file) => {
+                                const display = toEventGraphicsDisplayFile(file)
+                                return { name: display.displayName, role: stage.label, showImagePreviewBadge: display.showImagePreviewBadge }
+                              })
                             : []
                         const audioFiles =
                           stage.audioPreset != null

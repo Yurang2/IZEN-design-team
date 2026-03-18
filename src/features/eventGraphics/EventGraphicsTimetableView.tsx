@@ -16,6 +16,7 @@ import { EventGraphicsPreviewMedia, hasVisualPreviewUrl } from './EventGraphicsP
 import { PRINT_COPY } from './EventGraphicsPrintPage'
 import { SHARE_COPY } from './EventGraphicsSharePage'
 import { AssetUploadControl, toUploadStateKey, type AssetUploadField, type UploadState } from './EventGraphicsUploadControl'
+import { joinEventGraphicsDisplayNames, toEventGraphicsDisplayFile } from './eventGraphicsFileDisplay'
 import {
   buildEventGraphicsEventRows,
   buildEventGraphicsSessionGroups,
@@ -220,7 +221,25 @@ function updateRowPresetLocally(
 }
 
 function joinScheduleFileNames(files: ReadonlyArray<ScheduleFile>): string {
-  return files.map((file) => file.name).join(' / ')
+  return joinEventGraphicsDisplayNames(files)
+}
+
+function FileNameInlineList({ files, fallback }: { files: ReadonlyArray<ScheduleFile>; fallback: string }) {
+  if (files.length === 0) return <>{fallback}</>
+
+  return (
+    <span className="eventGraphicsInlineFileList">
+      {files.map((file) => {
+        const display = toEventGraphicsDisplayFile(file)
+        return (
+          <span key={`${file.name}-${file.url}`} className="eventGraphicsInlineFileItem">
+            <span>{display.displayName}</span>
+            {display.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
+          </span>
+        )
+      })}
+    </span>
+  )
 }
 
 function normalizeTimetableMode(value: string): TimetableMode | null {
@@ -336,7 +355,9 @@ function ExhibitionPlaybookLayout({
               <div className="eventGraphicsExhibitionGrid">
                 <section className="eventGraphicsCueSheetPanel">
                   <span className="eventGraphicsPanelLabel">Main Screen</span>
-                  <strong>{row.mainScreen}</strong>
+                  <strong>
+                    <FileNameInlineList files={row.captureFiles ?? []} fallback={row.mainScreen} />
+                  </strong>
                   {hasPreview ? (
                     <EventGraphicsPreviewMedia
                       src={row.previewHref ?? ''}

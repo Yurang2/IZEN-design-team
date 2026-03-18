@@ -1,5 +1,6 @@
 import type { ScheduleColumn, ScheduleFile, ScheduleRow } from '../../shared/types'
 import { bangkokMasterfileManifest } from './generatedMasterfileManifest'
+import { joinEventGraphicsDisplayNames } from './eventGraphicsFileDisplay'
 
 export type EventGraphicsTimetableMode = 'event' | 'exhibition'
 export type EventGraphicsStageKind = 'appearance' | 'main' | 'certificate'
@@ -162,7 +163,7 @@ function joinSummary(parts: string[]): string {
 }
 
 function joinScheduleFileNames(files: ReadonlyArray<ScheduleFile>): string {
-  return files.map((file) => file.name).join(' / ')
+  return joinEventGraphicsDisplayNames(files)
 }
 
 function getPreviewFileUrl(files: ReadonlyArray<ScheduleFile>): string | null {

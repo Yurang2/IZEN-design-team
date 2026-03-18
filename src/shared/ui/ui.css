@@ -4251,6 +4251,36 @@ button.dashboardNavButton {
   vertical-align: top;
 }
 
+.eventGraphicsInlineFileList {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+.eventGraphicsInlineFileItem {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eventGraphicsAssetBadge {
+  align-items: center;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  color: #92400e;
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 2px 5px;
+  text-transform: lowercase;
+}
+
 .eventGraphicsAuditChip.is-missing {
   background: #fef2f2;
   border-color: #fca5a5;
@@ -4857,6 +4887,14 @@ button.dashboardNavButton {
   font-size: 12px;
   line-height: 1.45;
   vertical-align: top;
+}
+
+.eventGraphicsPrintAssetCell.is-ambient-audio {
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.9), rgba(240, 253, 250, 0.9));
+}
+
+.eventGraphicsPrintAssetCell.is-speaker-ppt {
+  background: linear-gradient(180deg, rgba(254, 249, 195, 0.82), rgba(255, 251, 235, 0.9));
 }
 
 .eventGraphicsPrintTimeCell,
