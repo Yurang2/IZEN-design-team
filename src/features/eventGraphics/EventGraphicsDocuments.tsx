@@ -59,6 +59,14 @@ function formatEndTimeLabel(value: string): string {
   return trimmed.startsWith('~') ? trimmed : `~${trimmed}`
 }
 
+function formatRuntimeDisplay(value: string, locale: EventGraphicsShareLocale): string {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed === '-') return '-'
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(?:분|min)$/i)
+  if (!match) return trimmed
+  return locale === 'en' ? `${match[1]} min` : `${match[1]}분`
+}
+
 function getStageAssetState(stage: {
   manifestKey: string | null
   cueType: string
@@ -264,7 +272,7 @@ export function EventGraphicsPrintDocument({
                             <td className="eventGraphicsPrintTimeCell" rowSpan={cue.stages.length}>
                               <strong>{cue.startTime}</strong>
                               <span>{formatEndTimeLabel(cue.endTime)}</span>
-                              <small>{cue.runtimeLabel}</small>
+                              <small>{formatRuntimeDisplay(cue.runtimeLabel, locale)}</small>
                             </td>
                             <td className="eventGraphicsPrintCueCell" rowSpan={cue.stages.length}>
                               <strong>{cue.cueNumber}</strong>
@@ -273,7 +281,7 @@ export function EventGraphicsPrintDocument({
                           </>
                         ) : null}
                         <td className="eventGraphicsPrintCueCell">
-                          <strong>{stage.label}</strong>
+                          <strong>{stage.category}</strong>
                           <span>{stage.cueNumber}</span>
                         </td>
                         <td className="eventGraphicsPrintTitleCell">
@@ -398,7 +406,7 @@ export function EventGraphicsShareDocument({
                     <div className="eventGraphicsShareTime">
                       <strong>{cue.startTime}</strong>
                       <span>{formatEndTimeLabel(cue.endTime)}</span>
-                      <small>{cue.runtimeLabel}</small>
+                      <small>{formatRuntimeDisplay(cue.runtimeLabel, locale)}</small>
                     </div>
 
                     <div className="eventGraphicsShareBody">
@@ -464,7 +472,7 @@ export function EventGraphicsShareDocument({
                         return (
                           <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
                             <div className="eventGraphicsShareStageHead">
-                              <strong>{stage.title}</strong>
+                              <strong>{stage.category && stage.category !== '-' ? `${stage.category} · ${stage.title}` : stage.title}</strong>
                               <span className="eventGraphicsShareStageMeta">{hasStageNote ? stage.note : ''}</span>
                             </div>
                             <div className="eventGraphicsShareAssetGrid">
