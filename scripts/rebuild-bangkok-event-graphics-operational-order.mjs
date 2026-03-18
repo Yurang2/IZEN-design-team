@@ -3,7 +3,7 @@ import fs from 'node:fs/promises'
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
 const DEFAULT_OUTPUT_PREFIX = 'ops/generated/bangkok-event-graphics-timetable'
 const EVENT_NAME = '2026 IZEN Seminar in Bangkok'
-const CAPTURE_FIELD = '캡쳐(무조건 이미지형식)'
+const CAPTURE_FIELD = '캡쳐'
 const AUDIO_FILES_FIELD = '오디오파일'
 
 function parseArgs(argv) {

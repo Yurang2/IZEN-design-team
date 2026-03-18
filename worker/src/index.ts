@@ -47,6 +47,9 @@ const MAX_NOTION_FILE_UPLOAD_BYTES = 20 * 1024 * 1024
 const MAX_TRANSCRIPT_PARAGRAPH_CHARS = 1_500
 const MAX_TRANSCRIPT_PARAGRAPH_LINES = 12
 const MAX_TRANSCRIPT_REPLACEMENT_ARCHIVE_BLOCKS = 20
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐'
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD_LEGACY = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
 const GOOGLE_GENERATIVE_LANGUAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
@@ -4687,6 +4690,148 @@ async function buildMeetingAudioFileAttachment(
   }
 }
 
+function toNotionFilesPropertyEntry(file: unknown): Record<string, unknown> | null {
+  if (!file || typeof file !== 'object') return null
+
+  const fileRecord = file as Record<string, unknown>
+  const name = asString(fileRecord.name)
+  const type = asString(fileRecord.type)
+
+  if (type === 'external') {
+    const url = asString((fileRecord.external as Record<string, unknown> | undefined)?.url)
+    if (!url) return null
+    return {
+      name: name ?? url,
+      type: 'external',
+      external: { url },
+    }
+  }
+
+  if (type === 'file') {
+    const url = asString((fileRecord.file as Record<string, unknown> | undefined)?.url)
+    if (!url) return null
+    return {
+      name: name ?? url,
+      type: 'file',
+      file: { url },
+    }
+  }
+
+  return null
+}
+
+function serializeExistingNotionFiles(prop: unknown): Array<Record<string, unknown>> {
+  if (!prop || typeof prop !== 'object') return []
+  const propRecord = prop as Record<string, unknown>
+  if (asString(propRecord.type) !== 'files') return []
+  const files = Array.isArray(propRecord.files) ? propRecord.files : []
+  return files.map((entry) => toNotionFilesPropertyEntry(entry)).filter((entry): entry is Record<string, unknown> => Boolean(entry))
+}
+
+function resolveEventGraphicsFilesPropertyName(properties: Record<string, unknown>, field: 'capture' | 'audio'): string {
+  if (field === 'capture') {
+    if (hasOwn(properties, EVENT_GRAPHICS_CAPTURE_FILES_FIELD)) return EVENT_GRAPHICS_CAPTURE_FILES_FIELD
+    if (hasOwn(properties, EVENT_GRAPHICS_CAPTURE_FILES_FIELD_LEGACY)) return EVENT_GRAPHICS_CAPTURE_FILES_FIELD_LEGACY
+    return EVENT_GRAPHICS_CAPTURE_FILES_FIELD
+  }
+
+  return EVENT_GRAPHICS_AUDIO_FILES_FIELD
+}
+
+function isAcceptedEventGraphicsFile(file: File, field: 'capture' | 'audio'): boolean {
+  const mimeType = (file.type || '').toLowerCase()
+  const filename = file.name.toLowerCase()
+
+  if (field === 'capture') {
+    return mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(filename)
+  }
+
+  return mimeType.startsWith('audio/') || /\.(mp3|wav|m4a|aac|flac|aiff?|ogg)$/i.test(filename)
+}
+
+function normalizeEventGraphicsUploadField(value: string | null | undefined): 'capture' | 'audio' {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (normalized === 'capture' || normalized === 'graphic' || normalized === 'graphics') return 'capture'
+  if (normalized === 'audio') return 'audio'
+  throw new Error('event_graphics_upload_field_invalid')
+}
+
+async function uploadEventGraphicsFileToNotion(
+  env: Env,
+  pageId: string,
+  field: 'capture' | 'audio',
+  file: File,
+): Promise<{ propertyName: string; fileName: string }> {
+  if (!file.name.trim()) throw new Error('event_graphics_upload_filename_missing')
+  if (!isAcceptedEventGraphicsFile(file, field)) {
+    throw new Error(field === 'capture' ? 'event_graphics_capture_file_invalid' : 'event_graphics_audio_file_invalid')
+  }
+  if (file.size > MAX_NOTION_FILE_UPLOAD_BYTES) {
+    throw new Error('event_graphics_upload_file_too_large')
+  }
+
+  const api = new NotionApi(env)
+  const page = (await api.retrievePage(pageId)) as Record<string, unknown>
+  const properties = ((page.properties as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
+  const propertyName = resolveEventGraphicsFilesPropertyName(properties, field)
+  const existingFiles = serializeExistingNotionFiles(properties[propertyName])
+  const contentType = file.type || (field === 'capture' ? 'image/png' : 'application/octet-stream')
+  const bytes = await file.arrayBuffer()
+
+  const created = await api.createFileUpload(file.name, contentType)
+  const fileUploadId = asString((created as Record<string, unknown>)?.id)
+  if (!fileUploadId) {
+    throw new Error('notion_file_upload_create_failed')
+  }
+
+  await api.sendFileUpload(fileUploadId, bytes, file.name, contentType)
+  const uploaded = await api.retrieveFileUpload(fileUploadId)
+  const status = asString((uploaded as Record<string, unknown>)?.status)
+  if (status && status !== 'uploaded') {
+    throw new Error('notion_file_upload_send_failed')
+  }
+
+  await api.updatePage(pageId, {
+    properties: {
+      [propertyName]: {
+        files: [
+          ...existingFiles,
+          {
+            name: file.name,
+            type: 'file_upload',
+            file_upload: { id: fileUploadId },
+          },
+        ],
+      },
+    },
+  })
+
+  return {
+    propertyName,
+    fileName: file.name,
+  }
+}
+
+function toEventGraphicsUploadErrorStatus(message: string): number {
+  if (
+    message === 'event_graphics_upload_field_invalid' ||
+    message === 'event_graphics_upload_filename_missing' ||
+    message === 'event_graphics_capture_file_invalid' ||
+    message === 'event_graphics_audio_file_invalid' ||
+    message === 'event_graphics_upload_file_too_large'
+  ) {
+    return 400
+  }
+
+  if (message === 'notion_file_upload_create_failed' || message === 'notion_file_upload_send_failed') {
+    return 502
+  }
+
+  if (message === 'object_not_found') return 404
+
+  return 500
+}
+
 function normalizeUploadStage(value: string | undefined | null): string | null {
   const normalized = (value ?? '').trim().toLowerCase()
   if (!normalized) return null
@@ -6654,6 +6799,35 @@ export default {
         )
       }
 
+      const eventGraphicsUploadMatch = path.match(/^\/event-graphics-timetable\/([^/]+)\/files$/)
+      if (request.method === 'POST' && eventGraphicsUploadMatch) {
+        try {
+          await service.syncEventGraphicsTimetableProperties()
+          const pageId = decodeURIComponent(eventGraphicsUploadMatch[1])
+          const form = await request.formData()
+          const field = normalizeEventGraphicsUploadField(asString(form.get('field')))
+          const file = form.get('file')
+          if (!(file instanceof File)) {
+            return json({ ok: false, error: 'event_graphics_upload_file_missing' }, 400, origin)
+          }
+
+          const uploaded = await uploadEventGraphicsFileToNotion(env, pageId, field, file)
+          return ok(
+            {
+              ok: true,
+              pageId,
+              field,
+              propertyName: uploaded.propertyName,
+              fileName: uploaded.fileName,
+            },
+            origin,
+          )
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'event_graphics_upload_failed'
+          return json({ ok: false, error: message, message }, toEventGraphicsUploadErrorStatus(message), origin)
+        }
+      }
+
       if (request.method === 'POST' && path === '/admin/notion/project-schema/sync') {
         const sync = await service.syncProjectDatabaseProperties(true)
         invalidateSnapshotCache(ctx)
@@ -7238,6 +7412,7 @@ export default {
               'POST /api/admin/line/reminders/send?kind=morning|evening',
               'GET /api/projects',
               'GET /api/meta',
+              'POST /api/event-graphics-timetable/:id/files',
               'POST /api/admin/notion/screening-history-schema/sync',
               'POST /api/admin/notion/screening-plan-schema/sync',
               'POST /api/admin/notion/screening-plan-history-sync',

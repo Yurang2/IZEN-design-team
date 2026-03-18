@@ -37,7 +37,7 @@ Worker env:
 | `시간 기준` | `rich_text` | no | exhibition timing note |
 | `러닝타임(분)` | `number` | no | runtime minutes |
 | `메인 화면` | `rich_text` | no | operator-facing graphic source |
-| `캡쳐(무조건 이미지형식)` | `files` | no | registered image/video tracking |
+| `캡쳐` | `files` | no | registered image tracking |
 | `오디오` | `rich_text` | no | operator-facing audio source |
 | `오디오파일` | `files` | no | registered audio tracking |
 | `무대 인원` | `rich_text` | no | stage personnel |

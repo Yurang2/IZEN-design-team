@@ -785,7 +785,7 @@ const SCREENING_VIDEO_OUTPUT_NAME_FIELD = SCREENING_HISTORY_PLAYED_FILE_NAME_FIE
 const SCREENING_VIDEO_ASPECT_RATIO_FIELD = SCREENING_COMMON_ASPECT_RATIO_FIELD
 const SCREENING_VIDEO_THUMBNAIL_FIELD = SCREENING_COMMON_THUMBNAIL_FIELD
 
-const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐'
 const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 const EVENT_GRAPHICS_DEPRECATED_FIELDS = [
   'Cue 순서',
@@ -2373,6 +2373,7 @@ export class NotionWorkService {
     renameIfPresent('원본 Video', '메인 화면')
     renameIfPresent('원본 Audio', '오디오')
     renameIfPresent('원본 비고', '운영 메모')
+    renameIfPresent('캡쳐(무조건 이미지형식)', EVENT_GRAPHICS_CAPTURE_FILES_FIELD)
 
     for (const field of buildEventGraphicsTimetablePropertyDefinitions(this.env.NOTION_PROJECT_DB_ID)) {
       if (hasOwn(properties, field.name) || plannedNames.has(field.name)) {

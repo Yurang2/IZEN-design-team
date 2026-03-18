@@ -62,7 +62,7 @@ function hasOwn(target, key) {
   return Object.prototype.hasOwnProperty.call(target, key)
 }
 
-const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐'
 const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 const EVENT_GRAPHICS_DEPRECATED_FIELDS = [
   'Cue 순서',
@@ -192,6 +192,7 @@ async function main() {
   renameIfPresent('원본 Video', '메인 화면')
   renameIfPresent('원본 Audio', '오디오')
   renameIfPresent('원본 비고', '운영 메모')
+  renameIfPresent('캡쳐(무조건 이미지형식)', EVENT_GRAPHICS_CAPTURE_FILES_FIELD)
 
   for (const field of buildPropertyDefinitions(projectDbId)) {
     if (hasOwn(properties, field.name) || plannedNames.has(field.name)) {

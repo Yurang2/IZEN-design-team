@@ -3308,6 +3308,10 @@ button.dashboardNavButton {
   gap: 8px;
 }
 
+.eventGraphicsLayoutSwitch {
+  display: none;
+}
+
 .eventGraphicsModeSwitch {
   display: flex;
   flex-wrap: wrap;
@@ -3547,6 +3551,34 @@ button.dashboardNavButton {
 .eventGraphicsCueSheetPanel p,
 .eventGraphicsCueSheetPanel strong {
   margin: 0;
+}
+
+.eventGraphicsUploadControl {
+  display: grid;
+  gap: 6px;
+}
+
+.eventGraphicsUploadControl input[type='file'] {
+  display: none;
+}
+
+.eventGraphicsUploadControl .linkButton.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.eventGraphicsUploadStatus {
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.eventGraphicsUploadStatus.is-error {
+  color: #b91c1c;
+}
+
+.eventGraphicsUploadStatus.is-success {
+  color: #0f766e;
 }
 
 .eventGraphicsSessionList {

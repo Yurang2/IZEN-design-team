@@ -280,7 +280,7 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
   const cueTitle = readCellText(row, columnIndex, 'Cue 제목') || readCellText(row, columnIndex, '행 제목') || '-'
   const normalizedCueType = normalizeEventCueType(readFirstCellText(row, columnIndex, ['카테고리', 'Cue 유형']) || 'other', cueTitle)
   const operationKey = readCellText(row, columnIndex, '운영 키')
-  const captureFiles = readFirstCellFiles(row, columnIndex, ['캡쳐(무조건 이미지형식)'])
+  const captureFiles = readFirstCellFiles(row, columnIndex, ['캡쳐', '캡쳐(무조건 이미지형식)'])
   const audioFiles = readFirstCellFiles(row, columnIndex, ['오디오파일'])
   const previewHrefFromNotion =
     readCellHref(row, columnIndex, '미리보기 링크') || readCellText(row, columnIndex, '미리보기 링크') || null

@@ -28,7 +28,7 @@ const ASSETS_DIR = '02_Files'
 const SOURCE_DIR = '01_Source'
 const ENTRANCE_LABEL = '입장'
 const MISSING_FILE_LABEL = '파일명 확인 필요'
-const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐(무조건 이미지형식)'
+const EVENT_GRAPHICS_CAPTURE_FILES_FIELD = '캡쳐'
 const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])

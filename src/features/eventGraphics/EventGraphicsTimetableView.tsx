@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from 'react'
+import { api } from '../../shared/api/client'
 import type { ScheduleColumn, ScheduleFile, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import {
@@ -31,10 +32,12 @@ type EventGraphicsTimetableViewProps = {
   rows: ScheduleRow[]
   loading: boolean
   error: string | null
+  onRefresh?: () => Promise<void>
 }
 
 type TimetableMode = 'event' | 'exhibition'
 type LayoutMode = 'compact' | 'masterfile'
+type AssetUploadField = 'capture' | 'audio'
 
 type TimetableRow = {
   id: string
@@ -63,6 +66,17 @@ type TimetableRow = {
 
 type MasterfileCue = (typeof bangkokMasterfileManifest.cues)[number]
 type DriveChecklistState = Record<string, { graphic: boolean; audio: boolean }>
+type UploadState = {
+  status: 'idle' | 'uploading' | 'success' | 'error'
+  message: string | null
+}
+type EventGraphicsFileUploadResponse = {
+  ok: boolean
+  pageId: string
+  field: AssetUploadField
+  propertyName: string
+  fileName: string
+}
 type SessionStage = {
   id: string
   cueNumber: string
@@ -96,6 +110,10 @@ type SessionGroup = {
   endTime: string
   runtimeLabel: string
   stages: SessionStage[]
+}
+type ExhibitionDisplayRow = ExhibitionPlaybookRow & {
+  captureFiles?: ScheduleFile[]
+  audioFiles?: ScheduleFile[]
 }
 
 const EXTERNAL_SHARE_PATH = '/share/timetable'
@@ -196,6 +214,10 @@ function joinSummary(parts: string[]): string {
 
 function joinManifestFileNames(files: ReadonlyArray<{ name: string }>): string {
   return files.map((file) => file.name).join(' / ')
+}
+
+function toUploadStateKey(rowId: string, field: AssetUploadField): string {
+  return `${rowId}:${field}`
 }
 
 function getMasterfileGraphicLabel(cue: MasterfileCue | null, fallback: string): string {
@@ -493,7 +515,7 @@ export function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>
   }
 }
 
-function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ExhibitionPlaybookRow | null {
+function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, number>): ExhibitionDisplayRow | null {
   const timetableMode = normalizeTimetableMode(readFirstCellText(row, columnIndex, ['타임테이블 유형', '운영 형식', 'Mode']))
   if (timetableMode !== 'exhibition') return null
 
@@ -532,10 +554,53 @@ function SpeakerPptPlaceholder({
   )
 }
 
+function AssetUploadControl({
+  rowId,
+  field,
+  accept,
+  uploadState,
+  disabled,
+  onUploadFile,
+}: {
+  rowId: string
+  field: AssetUploadField
+  accept: string
+  uploadState?: UploadState
+  disabled?: boolean
+  onUploadFile: (rowId: string, field: AssetUploadField, file: File) => Promise<void>
+}) {
+  const isUploading = uploadState?.status === 'uploading'
+  const statusClassName = uploadState?.status === 'error' ? 'is-error' : uploadState?.status === 'success' ? 'is-success' : ''
+
+  const onChangeFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || disabled || isUploading) return
+    try {
+      await onUploadFile(rowId, field, file)
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  return (
+    <div className="eventGraphicsUploadControl">
+      <label className={`linkButton secondary mini${disabled || isUploading ? ' is-disabled' : ''}`}>
+        <input type="file" accept={accept} disabled={disabled || isUploading} onChange={(event) => void onChangeFile(event)} />
+        {isUploading ? '업로드 중...' : field === 'capture' ? '캡쳐 업로드' : '오디오 업로드'}
+      </label>
+      {uploadState?.message ? <span className={`eventGraphicsUploadStatus ${statusClassName}`}>{uploadState.message}</span> : null}
+    </div>
+  )
+}
+
 function TimelineLayout({
   groups,
+  uploadStateByKey,
+  onUploadFile,
 }: {
   groups: SessionGroup[]
+  uploadStateByKey: Record<string, UploadState>
+  onUploadFile: (rowId: string, field: AssetUploadField, file: File) => Promise<void>
 }) {
   return (
     <div className="eventGraphicsTimelineList">
@@ -591,10 +656,24 @@ function TimelineLayout({
                           ) : (
                             <div className="eventGraphicsPreviewPlaceholder">등록된 이미지가 없습니다.</div>
                           )}
+                          <AssetUploadControl
+                            rowId={stage.id}
+                            field="capture"
+                            accept="image/*"
+                            uploadState={uploadStateByKey[toUploadStateKey(stage.id, 'capture')]}
+                            onUploadFile={onUploadFile}
+                          />
                         </div>
                         <div className="eventGraphicsCueSheetPanel">
                           <span className="eventGraphicsPanelLabel">오디오</span>
                           <strong>{stage.audioLabel}</strong>
+                          <AssetUploadControl
+                            rowId={stage.id}
+                            field="audio"
+                            accept="audio/*"
+                            uploadState={uploadStateByKey[toUploadStateKey(stage.id, 'audio')]}
+                            onUploadFile={onUploadFile}
+                          />
                         </div>
                       </div>
                     </div>
@@ -612,9 +691,13 @@ function TimelineLayout({
 function ExhibitionPlaybookLayout({
   rows,
   isSample,
+  uploadStateByKey,
+  onUploadFile,
 }: {
-  rows: ExhibitionPlaybookRow[]
+  rows: ExhibitionDisplayRow[]
   isSample: boolean
+  uploadStateByKey: Record<string, UploadState>
+  onUploadFile: (rowId: string, field: AssetUploadField, file: File) => Promise<void>
 }) {
   return (
     <div className="eventGraphicsExhibitionShell">
@@ -657,11 +740,29 @@ function ExhibitionPlaybookLayout({
                   ) : (
                     <div className="eventGraphicsPreviewPlaceholder">등록된 미리보기가 없습니다.</div>
                   )}
+                  {row.source === 'db' ? (
+                    <AssetUploadControl
+                      rowId={row.id}
+                      field="capture"
+                      accept="image/*"
+                      uploadState={uploadStateByKey[toUploadStateKey(row.id, 'capture')]}
+                      onUploadFile={onUploadFile}
+                    />
+                  ) : null}
                 </section>
 
                 <section className="eventGraphicsCueSheetPanel">
                   <span className="eventGraphicsPanelLabel">Audio</span>
                   <strong>{row.audio}</strong>
+                  {row.source === 'db' ? (
+                    <AssetUploadControl
+                      rowId={row.id}
+                      field="audio"
+                      accept="audio/*"
+                      uploadState={uploadStateByKey[toUploadStateKey(row.id, 'audio')]}
+                      onUploadFile={onUploadFile}
+                    />
+                  ) : null}
                   <span className="eventGraphicsPanelLabel">Action</span>
                   <strong>{row.action}</strong>
                 </section>
@@ -916,6 +1017,7 @@ export function EventGraphicsTimetableView({
   rows,
   loading,
   error,
+  onRefresh,
 }: EventGraphicsTimetableViewProps) {
   const [timetableMode, setTimetableMode] = useState<TimetableMode>('event')
   const [query, setQuery] = useState('')
@@ -923,6 +1025,7 @@ export function EventGraphicsTimetableView({
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('compact')
   const [driveChecklist, setDriveChecklist] = useState<DriveChecklistState>({})
   const [previewRatio, setPreviewRatio] = useState<EventGraphicsPreviewRatio>(() => readStoredPreviewRatio())
+  const [uploadStateByKey, setUploadStateByKey] = useState<Record<string, UploadState>>({})
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -954,7 +1057,7 @@ export function EventGraphicsTimetableView({
     () =>
       rows
         .map((row) => toExhibitionRowModel(row, columnIndex))
-        .filter((row): row is ExhibitionPlaybookRow => row != null)
+        .filter((row): row is ExhibitionDisplayRow => row != null)
         .sort((left, right) => left.order - right.order),
     [columnIndex, rows],
   )
@@ -1040,6 +1143,44 @@ export function EventGraphicsTimetableView({
         [field]: checked,
       },
     }))
+  }
+
+  const onUploadFile = async (rowId: string, field: AssetUploadField, file: File) => {
+    const stateKey = toUploadStateKey(rowId, field)
+    setUploadStateByKey((current) => ({
+      ...current,
+      [stateKey]: {
+        status: 'uploading',
+        message: field === 'capture' ? '캡쳐 업로드 중...' : '오디오 업로드 중...',
+      },
+    }))
+
+    try {
+      const formData = new FormData()
+      formData.append('field', field)
+      formData.append('file', file)
+      await api<EventGraphicsFileUploadResponse>(`/event-graphics-timetable/${encodeURIComponent(rowId)}/files`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (onRefresh) await onRefresh()
+      setUploadStateByKey((current) => ({
+        ...current,
+        [stateKey]: {
+          status: 'success',
+          message: `${file.name} 업로드 완료`,
+        },
+      }))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '업로드에 실패했습니다.'
+      setUploadStateByKey((current) => ({
+        ...current,
+        [stateKey]: {
+          status: 'error',
+          message,
+        },
+      }))
+    }
   }
 
   if (loading) {
@@ -1242,7 +1383,7 @@ export function EventGraphicsTimetableView({
           className="scheduleEmptyState"
         />
       ) : isEventMode && layoutMode === 'compact' ? (
-        <TimelineLayout groups={filteredTimelineGroups} />
+        <TimelineLayout groups={filteredTimelineGroups} uploadStateByKey={uploadStateByKey} onUploadFile={onUploadFile} />
       ) : isEventMode ? (
         <MasterfileAuditLayout
           groups={filteredMasterfileGroups}
@@ -1250,7 +1391,12 @@ export function EventGraphicsTimetableView({
           onToggleDriveCheck={onToggleDriveCheck}
         />
       ) : (
-        <ExhibitionPlaybookLayout rows={filteredExhibitionRows} isSample={exhibitionUsesSample} />
+        <ExhibitionPlaybookLayout
+          rows={filteredExhibitionRows}
+          isSample={exhibitionUsesSample}
+          uploadStateByKey={uploadStateByKey}
+          onUploadFile={onUploadFile}
+        />
       )}
 
       <VideoThumbnailTool suggestedTitle={effectiveTitle} />

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 
 const DEFAULT_INPUT = 'ops/generated/bangkok-event-graphics-timetable.json'
-const CAPTURE_FIELD = '캡쳐(무조건 이미지형식)'
+const CAPTURE_FIELD = '캡쳐'
 const AUDIO_FILES_FIELD = '오디오파일'
 const ENTRANCE_ALLOWED_TYPES = new Set(['introduce', 'lecture'])
 

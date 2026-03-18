@@ -3871,6 +3871,7 @@ function App() {
           rows={eventGraphicsRows}
           loading={eventGraphicsLoading}
           error={eventGraphicsError}
+          onRefresh={fetchEventGraphicsTimetable}
         />
       ) : null}
 
