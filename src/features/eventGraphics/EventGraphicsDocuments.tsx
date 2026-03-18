@@ -276,13 +276,17 @@ export function EventGraphicsPrintDocument({
                         </td>
                         <td className="eventGraphicsPrintTitleCell">
                           <div className="eventGraphicsPrintTitleMain">
-                            {hasVisualPreviewUrl(stage.previewHref) ? (
+                            {stage.captureFiles.length > 0 && hasVisualPreviewUrl(stage.previewHref) ? (
                               <EventGraphicsPreviewMedia
                                 src={stage.previewHref ?? ''}
                                 alt={`${stage.title} thumbnail`}
                                 className="eventGraphicsPrintThumb"
                                 noPreviewText=""
                               />
+                            ) : stage.graphicPreset === 'speaker_ppt' || usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind) ? (
+                              <div className="eventGraphicsPrintThumb">
+                                <div className="eventGraphicsSpeakerPptPlaceholder">{SPEAKER_PPT_DISPLAY}</div>
+                              </div>
                             ) : null}
                             <strong>{stage.title}</strong>
                           </div>
