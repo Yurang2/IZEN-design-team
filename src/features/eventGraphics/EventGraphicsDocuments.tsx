@@ -257,7 +257,6 @@ export function EventGraphicsPrintDocument({
                   <tr>
                     <th>{copy.time}</th>
                     <th>{copy.cue}</th>
-                    <th>{copy.stage}</th>
                     <th>{showNotes ? copy.titleColumn : copy.titleColumn.split('/')[0]?.trim() || copy.titleColumn}</th>
                     <th>{copy.graphic}</th>
                     <th>{copy.audio}</th>
@@ -280,10 +279,6 @@ export function EventGraphicsPrintDocument({
                             </td>
                           </>
                         ) : null}
-                        <td className="eventGraphicsPrintCueCell">
-                          <strong>{stage.category}</strong>
-                          <span>{stage.cueNumber}</span>
-                        </td>
                         <td className="eventGraphicsPrintTitleCell">
                           <div className="eventGraphicsPrintTitleMain">
                             {stage.captureFiles.length > 0 && hasVisualPreviewUrl(stage.previewHref) ? (
@@ -412,7 +407,7 @@ export function EventGraphicsShareDocument({
                     <div className="eventGraphicsShareBody">
                       <div className="eventGraphicsShareHead">
                         <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                        <span className="eventGraphicsShareSection">{toCueTypeLabel(cue.cueType, locale)}</span>
+                        <span className="eventGraphicsShareSection">{cue.stages[0]?.category || toCueTypeLabel(cue.cueType, locale)}</span>
                         <h3>{cue.title}</h3>
                       </div>
 
@@ -472,7 +467,7 @@ export function EventGraphicsShareDocument({
                         return (
                           <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
                             <div className="eventGraphicsShareStageHead">
-                              <strong>{stage.category && stage.category !== '-' ? `${stage.category} · ${stage.title}` : stage.title}</strong>
+                              <strong>{stage.title}</strong>
                               <span className="eventGraphicsShareStageMeta">{hasStageNote ? stage.note : ''}</span>
                             </div>
                             <div className="eventGraphicsShareAssetGrid">
