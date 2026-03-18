@@ -482,7 +482,7 @@ export function EventGraphicsTimetableView({
   const effectiveTitle = databaseTitle.trim() || '행사 그래픽 타임테이블'
   const printCopy = PRINT_COPY[shareLocale]
   const shareCopy = SHARE_COPY[shareLocale]
-  const printHref = `${EXTERNAL_SHARE_PATH}/print?locale=${encodeURIComponent(shareLocale)}`
+  const printHref = `${EXTERNAL_SHARE_PATH}/print?locale=${encodeURIComponent(shareLocale)}&orientation=portrait`
   const shareHref = `${EXTERNAL_SHARE_PATH}?locale=${encodeURIComponent(shareLocale)}`
 
   const onUploadFile = async (rowId: string, field: AssetUploadField, file: File) => {

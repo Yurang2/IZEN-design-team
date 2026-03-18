@@ -181,6 +181,7 @@ function ShareAssetPanel({
 
 export function EventGraphicsPrintDocument({
   embedded = false,
+  orientation = 'portrait',
   locale,
   onLocaleChange,
   copy,
@@ -191,6 +192,7 @@ export function EventGraphicsPrintDocument({
   toolbarExtra,
 }: {
   embedded?: boolean
+  orientation?: 'portrait' | 'landscape'
   locale: EventGraphicsShareLocale
   onLocaleChange?: (locale: EventGraphicsShareLocale) => void
   copy: EventGraphicsPrintStrings
@@ -200,7 +202,7 @@ export function EventGraphicsPrintDocument({
   onPrint?: () => void
   toolbarExtra?: ReactNode
 }) {
-  const pageClassName = embedded ? 'eventGraphicsPrintPage is-embedded' : 'eventGraphicsPrintPage'
+  const pageClassName = `eventGraphicsPrintPage${embedded ? ' is-embedded' : ''}${orientation === 'landscape' ? ' is-landscape' : ' is-portrait'}`
   const content = (
     <section className={pageClassName}>
       <header className="eventGraphicsPrintHeader">
@@ -273,7 +275,17 @@ export function EventGraphicsPrintDocument({
                           <span>{stage.cueNumber}</span>
                         </td>
                         <td className="eventGraphicsPrintTitleCell">
-                          <strong>{stage.title}</strong>
+                          <div className="eventGraphicsPrintTitleMain">
+                            {hasVisualPreviewUrl(stage.previewHref) ? (
+                              <EventGraphicsPreviewMedia
+                                src={stage.previewHref ?? ''}
+                                alt={`${stage.title} thumbnail`}
+                                className="eventGraphicsPrintThumb"
+                                noPreviewText=""
+                              />
+                            ) : null}
+                            <strong>{stage.title}</strong>
+                          </div>
                           <p>
                             <span>{copy.note}</span>
                             {stage.note || copy.noNote}

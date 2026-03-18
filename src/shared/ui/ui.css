@@ -4735,6 +4735,10 @@ button.dashboardNavButton {
   padding: 22px;
 }
 
+.eventGraphicsPrintPage.is-landscape {
+  max-width: 1440px;
+}
+
 .eventGraphicsPrintPage.is-embedded {
   border-radius: 22px;
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
@@ -4825,6 +4829,22 @@ button.dashboardNavButton {
 .eventGraphicsPrintTitleCell p {
   color: var(--text-sub);
   margin: 4px 0 0;
+}
+
+.eventGraphicsPrintTitleMain {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.eventGraphicsPrintThumb {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex: 0 0 46px;
+  overflow: hidden;
+  width: 46px;
 }
 
 .eventGraphicsPrintTitleCell p span {
@@ -4944,8 +4964,13 @@ button.dashboardNavButton {
 }
 
 @media print {
-  @page {
+  @page eventGraphicsPortrait {
     size: A4 portrait;
+    margin: 10mm;
+  }
+
+  @page eventGraphicsLandscape {
+    size: A4 landscape;
     margin: 10mm;
   }
 
@@ -4968,6 +4993,14 @@ button.dashboardNavButton {
     gap: 10px;
     max-width: none;
     padding: 0;
+  }
+
+  .eventGraphicsPrintPage.is-portrait {
+    page: eventGraphicsPortrait;
+  }
+
+  .eventGraphicsPrintPage.is-landscape {
+    page: eventGraphicsLandscape;
   }
 
   .eventGraphicsPrintToolbar {

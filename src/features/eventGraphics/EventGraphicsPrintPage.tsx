@@ -90,6 +90,12 @@ function readLocaleFromSearch(): EventGraphicsShareLocale {
   return raw === 'en' ? 'en' : 'ko'
 }
 
+function readOrientationFromSearch(): 'portrait' | 'landscape' {
+  if (typeof window === 'undefined') return 'portrait'
+  const raw = new URLSearchParams(window.location.search).get('orientation')
+  return raw === 'landscape' ? 'landscape' : 'portrait'
+}
+
 export function EventGraphicsPrintPage({
   configured,
   databaseTitle,
@@ -99,6 +105,7 @@ export function EventGraphicsPrintPage({
   error,
 }: EventGraphicsPrintPageProps) {
   const [locale, setLocale] = useState<EventGraphicsShareLocale>(() => readLocaleFromSearch())
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(() => readOrientationFromSearch())
   const copy = PRINT_COPY[locale]
   const { groupedCues } = useMemo(() => buildEventGraphicsShareData(columns, rows, copy.untitledEvent), [columns, copy.untitledEvent, rows])
   const pageTitle = useMemo(() => buildEventGraphicsSharePageTitle(groupedCues, databaseTitle), [databaseTitle, groupedCues])
@@ -142,6 +149,7 @@ export function EventGraphicsPrintPage({
 
   return (
     <EventGraphicsPrintDocument
+      orientation={orientation}
       locale={locale}
       onLocaleChange={setLocale}
       copy={{
@@ -161,6 +169,16 @@ export function EventGraphicsPrintPage({
       pageTitle={pageTitle}
       groupedCues={groupedCues}
       shareHref={shareHref}
+      toolbarExtra={
+        <div className="eventGraphicsLocaleSwitch" role="group" aria-label="Print orientation">
+          <button type="button" className={orientation === 'portrait' ? 'viewTab active' : 'viewTab'} aria-pressed={orientation === 'portrait'} onClick={() => setOrientation('portrait')}>
+            Portrait
+          </button>
+          <button type="button" className={orientation === 'landscape' ? 'viewTab active' : 'viewTab'} aria-pressed={orientation === 'landscape'} onClick={() => setOrientation('landscape')}>
+            Landscape
+          </button>
+        </div>
+      }
       onPrint={() => window.print()}
     />
   )

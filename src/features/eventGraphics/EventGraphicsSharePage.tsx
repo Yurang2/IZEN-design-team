@@ -98,7 +98,7 @@ export function EventGraphicsSharePage({
   const copy = SHARE_COPY[locale]
   const { groupedCues } = useMemo(() => buildEventGraphicsShareData(columns, rows, copy.untitledEvent), [columns, copy.untitledEvent, rows])
   const pageTitle = useMemo(() => buildEventGraphicsSharePageTitle(groupedCues, databaseTitle), [databaseTitle, groupedCues])
-  const printHref = `/share/timetable/print?locale=${encodeURIComponent(locale)}`
+  const printHref = `/share/timetable/print?locale=${encodeURIComponent(locale)}&orientation=portrait`
 
   if (loading) {
     return (
