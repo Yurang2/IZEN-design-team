@@ -48,6 +48,8 @@ type AssetEntry = {
 }
 
 type EventGraphicsPresetValue = EventGraphicsGraphicPreset | EventGraphicsAudioPreset | null
+const SPEAKER_PPT_DISPLAY = 'Speaker PPT'
+const VIDEO_INCLUDED_DISPLAY = 'Included in Video'
 
 function getStageAssetState(stage: {
   manifestKey: string | null
@@ -257,8 +259,8 @@ export function EventGraphicsPrintDocument({
                             {stage.note || copy.noNote}
                           </p>
                         </td>
-                        <td>{stage.graphicLabel || copy.noAsset}</td>
-                        <td>{stage.audioLabel || copy.noAsset}</td>
+                        <td>{stage.graphicPreset === 'speaker_ppt' ? SPEAKER_PPT_DISPLAY : stage.graphicLabel || copy.noAsset}</td>
+                        <td>{stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioLabel || copy.noAsset}</td>
                       </tr>
                     )),
                   )}
@@ -379,7 +381,7 @@ export function EventGraphicsShareDocument({
                             : []
                         const audioFiles =
                           stage.audioPreset != null
-                            ? [{ name: stage.audioLabel, role: stage.label }]
+                            ? [{ name: stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioLabel, role: stage.label }]
                             : stage.audioFiles.length > 0
                             ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label }))
                             : []
@@ -412,10 +414,10 @@ export function EventGraphicsShareDocument({
                           <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
                             <div className="eventGraphicsShareAssetGrid">
                               <section className="eventGraphicsAuditVisual">
-                                <strong>{showSpeakerPpt ? '강연자 PPT' : stage.title}</strong>
+                                <strong>{showSpeakerPpt ? SPEAKER_PPT_DISPLAY : stage.title}</strong>
                                 {showSpeakerPpt ? (
                                   <div className="eventGraphicsPreviewInline">
-                                    <div className="eventGraphicsSpeakerPptPlaceholder">강연자 PPT</div>
+                                    <div className="eventGraphicsSpeakerPptPlaceholder">{SPEAKER_PPT_DISPLAY}</div>
                                   </div>
                                 ) : hasPreview ? (
                                   <EventGraphicsPreviewMedia
@@ -452,7 +454,7 @@ export function EventGraphicsShareDocument({
                                   <div className="eventGraphicsAssetUploadRow">
                                     {canSetPreset ? (
                                       <PresetToggleButton
-                                        label="강연자 PPT"
+                                        label={SPEAKER_PPT_DISPLAY}
                                         active={hasSpeakerPptPreset}
                                         pending={capturePresetState?.status === 'uploading'}
                                         onClick={() => void onSetPreset?.(stage.id, 'capture', hasSpeakerPptPreset ? null : 'speaker_ppt')}
@@ -478,7 +480,7 @@ export function EventGraphicsShareDocument({
                                           onClick={() => void onSetPreset?.(stage.id, 'audio', hasDjAmbientPreset ? null : 'dj_ambient')}
                                         />
                                         <PresetToggleButton
-                                          label="비디오에 포함"
+                                          label={VIDEO_INCLUDED_DISPLAY}
                                           active={hasVideoIncludedPreset}
                                           pending={audioPresetState?.status === 'uploading'}
                                           onClick={() => void onSetPreset?.(stage.id, 'audio', hasVideoIncludedPreset ? null : 'video_embedded')}

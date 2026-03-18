@@ -72,7 +72,7 @@ export const SHARE_COPY: Record<EventGraphicsShareLocale, CopySet> = {
     image: '이미지',
     noPreview: '등록된 미리보기가 없습니다.',
     openFile: '파일 열기',
-    noSpecialNote: '특이사항 없음',
+    noSpecialNote: 'N/A',
     graphic: '그래픽',
     audio: '오디오',
     untitledEvent: '행사명 미정',
