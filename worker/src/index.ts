@@ -53,8 +53,12 @@ const EVENT_GRAPHICS_AUDIO_FILES_FIELD = '오디오파일'
 const EVENT_GRAPHICS_MAIN_SCREEN_FIELD = '메인 화면'
 const EVENT_GRAPHICS_AUDIO_TEXT_FIELD = '오디오'
 const EVENT_GRAPHICS_SPEAKER_PPT_LABEL = '강연자 PPT'
+const EVENT_GRAPHICS_SPEAKER_PPT_LABEL_DISPLAY = 'Speaker PPT'
 const EVENT_GRAPHICS_DJ_AMBIENT_LABEL = 'DJ Ambient Music'
 const EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL = '비디오에 포함'
+const EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL_DISPLAY = 'Included in Video'
+const EVENT_GRAPHICS_NOT_APPLICABLE_LABEL = '해당없음'
+const EVENT_GRAPHICS_NOT_APPLICABLE_LABEL_DISPLAY = 'N/A'
 const DEFAULT_OPENAI_SUMMARY_MODEL = 'gpt-5-mini'
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
 const GOOGLE_GENERATIVE_LANGUAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
@@ -4716,8 +4720,16 @@ function resolveEventGraphicsPresetTextPropertyName(field: 'capture' | 'audio'):
 function isKnownEventGraphicsPresetLabel(field: 'capture' | 'audio', value: string): boolean {
   const normalized = value.trim().toLowerCase()
   if (!normalized) return false
-  if (field === 'capture') return normalized === EVENT_GRAPHICS_SPEAKER_PPT_LABEL.toLowerCase()
-  return normalized === EVENT_GRAPHICS_DJ_AMBIENT_LABEL.toLowerCase() || normalized === EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL.toLowerCase()
+  if (field === 'capture') {
+    return normalized === EVENT_GRAPHICS_SPEAKER_PPT_LABEL.toLowerCase() || normalized === EVENT_GRAPHICS_SPEAKER_PPT_LABEL_DISPLAY.toLowerCase()
+  }
+  return (
+    normalized === EVENT_GRAPHICS_DJ_AMBIENT_LABEL.toLowerCase() ||
+    normalized === EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL.toLowerCase() ||
+    normalized === EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL_DISPLAY.toLowerCase() ||
+    normalized === EVENT_GRAPHICS_NOT_APPLICABLE_LABEL.toLowerCase() ||
+    normalized === EVENT_GRAPHICS_NOT_APPLICABLE_LABEL_DISPLAY.toLowerCase()
+  )
 }
 
 function resolveEventGraphicsFilesPropertyName(properties: Record<string, unknown>, field: 'capture' | 'audio'): string {
@@ -4844,7 +4856,7 @@ function normalizeEventGraphicsPresetValue(
   field: 'capture' | 'audio',
   preset: string | null | undefined,
   enabled: boolean,
-): 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | null {
+): 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | 'not_applicable' | null {
   const normalized = (preset ?? '').trim().toLowerCase()
   if (!normalized) {
     if (!enabled) return null
@@ -4856,6 +4868,7 @@ function normalizeEventGraphicsPresetValue(
   }
   if (normalized === 'dj_ambient') return 'dj_ambient'
   if (normalized === 'video_embedded') return 'video_embedded'
+  if (normalized === 'not_applicable') return 'not_applicable' as const
   throw new Error('event_graphics_preset_invalid')
 }
 
@@ -4863,17 +4876,19 @@ async function updateEventGraphicsPresetOnNotion(
   env: Env,
   pageId: string,
   field: 'capture' | 'audio',
-  preset: 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | null,
+  preset: 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | 'not_applicable' | null,
 ): Promise<{ value: string }> {
   const api = new NotionApi(env)
   const propertyName = field === 'capture' ? EVENT_GRAPHICS_MAIN_SCREEN_FIELD : EVENT_GRAPHICS_AUDIO_TEXT_FIELD
   const value =
     preset === 'speaker_ppt'
-      ? EVENT_GRAPHICS_SPEAKER_PPT_LABEL
+      ? EVENT_GRAPHICS_SPEAKER_PPT_LABEL_DISPLAY
       : preset === 'dj_ambient'
         ? EVENT_GRAPHICS_DJ_AMBIENT_LABEL
         : preset === 'video_embedded'
-          ? EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL
+          ? EVENT_GRAPHICS_VIDEO_INCLUDED_LABEL_DISPLAY
+          : preset === 'not_applicable'
+            ? EVENT_GRAPHICS_NOT_APPLICABLE_LABEL_DISPLAY
           : ''
 
   await api.updatePage(pageId, {

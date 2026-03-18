@@ -3612,10 +3612,22 @@ button.dashboardNavButton {
   white-space: nowrap;
 }
 
+.eventGraphicsPresetToggle.is-ambient {
+  background: #eef8ee;
+  border-color: #b9ddbf;
+  color: #2f6f38;
+}
+
 .eventGraphicsPresetToggle.is-active {
   background: color-mix(in srgb, #111827 88%, white);
   border-color: #111827;
   color: #ffffff;
+}
+
+.eventGraphicsPresetToggle.is-ambient.is-active {
+  background: #cdeecf;
+  border-color: #64b46b;
+  color: #154f1b;
 }
 
 .eventGraphicsSessionList {

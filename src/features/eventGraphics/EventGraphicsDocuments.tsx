@@ -50,6 +50,7 @@ type AssetEntry = {
 type EventGraphicsPresetValue = EventGraphicsGraphicPreset | EventGraphicsAudioPreset | null
 const SPEAKER_PPT_DISPLAY = 'Speaker PPT'
 const VIDEO_INCLUDED_DISPLAY = 'Included in Video'
+const NOT_APPLICABLE_DISPLAY = 'N/A'
 
 function getStageAssetState(stage: {
   manifestKey: string | null
@@ -64,15 +65,17 @@ function getStageAssetState(stage: {
   const hasSpeakerPptPreset = stage.graphicPreset === 'speaker_ppt'
   const hasDjAmbientPreset = stage.audioPreset === 'dj_ambient'
   const hasVideoIncludedPreset = stage.audioPreset === 'video_embedded'
+  const hasNotApplicablePreset = stage.audioPreset === 'not_applicable'
   const showSpeakerPpt = hasSpeakerPptPreset || usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind)
   const graphicMissing = !showSpeakerPpt && stage.captureFiles.length === 0
-  const audioMissing = !hasDjAmbientPreset && !hasVideoIncludedPreset && stage.audioFiles.length === 0
+  const audioMissing = !hasDjAmbientPreset && !hasVideoIncludedPreset && !hasNotApplicablePreset && stage.audioFiles.length === 0
 
   return {
     manifestCue,
     hasSpeakerPptPreset,
     hasDjAmbientPreset,
     hasVideoIncludedPreset,
+    hasNotApplicablePreset,
     showSpeakerPpt,
     graphicMissing,
     audioMissing,
@@ -83,17 +86,19 @@ function PresetToggleButton({
   label,
   active,
   pending,
+  tone = 'default',
   onClick,
 }: {
   label: string
   active: boolean
   pending?: boolean
+  tone?: 'default' | 'ambient'
   onClick: () => void
 }) {
   return (
     <button
       type="button"
-      className={`secondary mini eventGraphicsPresetToggle${active ? ' is-active' : ''}`}
+      className={`secondary mini eventGraphicsPresetToggle${active ? ' is-active' : ''}${tone === 'ambient' ? ' is-ambient' : ''}`}
       aria-pressed={active}
       disabled={pending}
       onClick={onClick}
@@ -101,6 +106,12 @@ function PresetToggleButton({
       {pending ? '저장 중...' : label}
     </button>
   )
+}
+
+function confirmPresetChange(label: string, active: boolean): boolean {
+  if (typeof window === 'undefined') return true
+  const message = active ? `${label} 설정을 해제하시겠습니까?` : `${label}로 변경하시겠습니까?`
+  return window.confirm(message)
 }
 
 function ShareAssetPanel({
@@ -260,7 +271,7 @@ export function EventGraphicsPrintDocument({
                           </p>
                         </td>
                         <td>{stage.graphicPreset === 'speaker_ppt' ? SPEAKER_PPT_DISPLAY : stage.graphicLabel || copy.noAsset}</td>
-                        <td>{stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioLabel || copy.noAsset}</td>
+                        <td>{stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioPreset === 'not_applicable' ? copy.noAsset : stage.audioLabel || copy.noAsset}</td>
                       </tr>
                     )),
                   )}
@@ -370,8 +381,16 @@ export function EventGraphicsShareDocument({
 
                       <div className="eventGraphicsShareStageList">
                         {cue.stages.map((stage) => {
-                          const { manifestCue, hasSpeakerPptPreset, hasDjAmbientPreset, hasVideoIncludedPreset, showSpeakerPpt, graphicMissing, audioMissing } =
-                            getStageAssetState(stage)
+                          const {
+                            manifestCue,
+                            hasSpeakerPptPreset,
+                            hasDjAmbientPreset,
+                            hasVideoIncludedPreset,
+                            hasNotApplicablePreset,
+                            showSpeakerPpt,
+                            graphicMissing,
+                            audioMissing,
+                          } = getStageAssetState(stage)
                         const hasStageNote = Boolean(stage.note && stage.note !== copy.noSpecialNote && stage.note !== '메모 없음')
                         const graphicFiles =
                           showSpeakerPpt
@@ -381,10 +400,12 @@ export function EventGraphicsShareDocument({
                             : []
                         const audioFiles =
                           stage.audioPreset != null
-                            ? [{ name: stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioLabel, role: stage.label }]
+                            ? stage.audioPreset === 'not_applicable'
+                              ? []
+                              : [{ name: stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioLabel, role: stage.label }]
                             : stage.audioFiles.length > 0
-                            ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label }))
-                            : []
+                              ? stage.audioFiles.map((file) => ({ name: file.name, role: stage.label }))
+                              : []
                         const missingGraphicFiles =
                           graphicMissing
                             ? (
@@ -414,7 +435,6 @@ export function EventGraphicsShareDocument({
                           <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
                             <div className="eventGraphicsShareAssetGrid">
                               <section className="eventGraphicsAuditVisual">
-                                <strong>{showSpeakerPpt ? SPEAKER_PPT_DISPLAY : stage.title}</strong>
                                 {showSpeakerPpt ? (
                                   <div className="eventGraphicsPreviewInline">
                                     <div className="eventGraphicsSpeakerPptPlaceholder">{SPEAKER_PPT_DISPLAY}</div>
@@ -457,7 +477,10 @@ export function EventGraphicsShareDocument({
                                         label={SPEAKER_PPT_DISPLAY}
                                         active={hasSpeakerPptPreset}
                                         pending={capturePresetState?.status === 'uploading'}
-                                        onClick={() => void onSetPreset?.(stage.id, 'capture', hasSpeakerPptPreset ? null : 'speaker_ppt')}
+                                        onClick={() => {
+                                          if (!confirmPresetChange(SPEAKER_PPT_DISPLAY, hasSpeakerPptPreset)) return
+                                          void onSetPreset?.(stage.id, 'capture', hasSpeakerPptPreset ? null : 'speaker_ppt')
+                                        }}
                                       />
                                     ) : null}
                                     <AssetUploadControl
@@ -475,15 +498,31 @@ export function EventGraphicsShareDocument({
                                       <div className="eventGraphicsPresetToggleGroup">
                                         <PresetToggleButton
                                           label="DJ Ambient Music"
+                                          tone="ambient"
                                           active={hasDjAmbientPreset}
                                           pending={audioPresetState?.status === 'uploading'}
-                                          onClick={() => void onSetPreset?.(stage.id, 'audio', hasDjAmbientPreset ? null : 'dj_ambient')}
+                                          onClick={() => {
+                                            if (!confirmPresetChange('DJ Ambient Music', hasDjAmbientPreset)) return
+                                            void onSetPreset?.(stage.id, 'audio', hasDjAmbientPreset ? null : 'dj_ambient')
+                                          }}
                                         />
                                         <PresetToggleButton
                                           label={VIDEO_INCLUDED_DISPLAY}
                                           active={hasVideoIncludedPreset}
                                           pending={audioPresetState?.status === 'uploading'}
-                                          onClick={() => void onSetPreset?.(stage.id, 'audio', hasVideoIncludedPreset ? null : 'video_embedded')}
+                                          onClick={() => {
+                                            if (!confirmPresetChange(VIDEO_INCLUDED_DISPLAY, hasVideoIncludedPreset)) return
+                                            void onSetPreset?.(stage.id, 'audio', hasVideoIncludedPreset ? null : 'video_embedded')
+                                          }}
+                                        />
+                                        <PresetToggleButton
+                                          label={NOT_APPLICABLE_DISPLAY}
+                                          active={hasNotApplicablePreset}
+                                          pending={audioPresetState?.status === 'uploading'}
+                                          onClick={() => {
+                                            if (!confirmPresetChange(NOT_APPLICABLE_DISPLAY, hasNotApplicablePreset)) return
+                                            void onSetPreset?.(stage.id, 'audio', hasNotApplicablePreset ? null : 'not_applicable')
+                                          }}
                                         />
                                       </div>
                                     ) : null}

@@ -54,7 +54,7 @@ type EventGraphicsPresetResponse = {
   value: string
 }
 
-type EventGraphicsPresetValue = 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | null
+type EventGraphicsPresetValue = 'speaker_ppt' | 'dj_ambient' | 'video_embedded' | 'not_applicable' | null
 
 type ExhibitionDisplayRow = ExhibitionPlaybookRow & {
   captureFiles?: ScheduleFile[]
@@ -167,7 +167,13 @@ function updateRowFilesLocally(
   nextRow = replaceRowCell(nextRow, columns, columnIndex, presetColumnNames, (current, columnId) => {
     const currentText = current?.text?.trim() ?? ''
     const shouldClearPreset =
-      currentText === '강연자 PPT' || currentText === 'DJ Ambient Music' || currentText === '비디오에 포함'
+      currentText === '강연자 PPT' ||
+      currentText === 'Speaker PPT' ||
+      currentText === 'DJ Ambient Music' ||
+      currentText === '비디오에 포함' ||
+      currentText === 'Included in Video' ||
+      currentText === '해당없음' ||
+      currentText === 'N/A'
 
     if (!shouldClearPreset) return current ?? { columnId, type: 'text', text: '', href: null }
     return {
@@ -190,7 +196,15 @@ function updateRowPresetLocally(
   preset: EventGraphicsPresetValue,
 ): ScheduleRow {
   const presetText =
-    preset === 'speaker_ppt' ? '강연자 PPT' : preset === 'dj_ambient' ? 'DJ Ambient Music' : preset === 'video_embedded' ? '비디오에 포함' : ''
+    preset === 'speaker_ppt'
+      ? 'Speaker PPT'
+      : preset === 'dj_ambient'
+        ? 'DJ Ambient Music'
+        : preset === 'video_embedded'
+          ? 'Included in Video'
+          : preset === 'not_applicable'
+            ? 'N/A'
+            : ''
   const presetColumnNames = field === 'capture' ? ['메인 화면', '그래픽 자산명', 'Main Screen'] : ['오디오', '원본 Audio']
 
   return replaceRowCell(row, columns, columnIndex, presetColumnNames, (current, columnId) => ({
