@@ -147,6 +147,12 @@ function readCellHref(row: ScheduleRow, columnIndex: Record<string, number>, col
   return row.cells[index]?.href ?? null
 }
 
+function readCellFiles(row: ScheduleRow, columnIndex: Record<string, number>, columnName: string): ScheduleFile[] {
+  const index = columnIndex[columnName]
+  if (index == null) return []
+  return row.cells[index]?.files ?? []
+}
+
 function readFirstCellText(row: ScheduleRow, columnIndex: Record<string, number>, columnNames: string[]): string {
   for (const columnName of columnNames) {
     const value = readCellText(row, columnIndex, columnName)
@@ -161,6 +167,14 @@ function readFirstCellHref(row: ScheduleRow, columnIndex: Record<string, number>
     if (value) return value
   }
   return null
+}
+
+function readFirstCellFiles(row: ScheduleRow, columnIndex: Record<string, number>, columnNames: string[]): ScheduleFile[] {
+  for (const columnName of columnNames) {
+    const value = readCellFiles(row, columnIndex, columnName)
+    if (value.length > 0) return value
+  }
+  return []
 }
 
 function toStatusClassName(value: string): string {
@@ -213,6 +227,10 @@ function joinSummary(parts: string[]): string {
 }
 
 function joinManifestFileNames(files: ReadonlyArray<{ name: string }>): string {
+  return files.map((file) => file.name).join(' / ')
+}
+
+function joinScheduleFileNames(files: ReadonlyArray<ScheduleFile>): string {
   return files.map((file) => file.name).join(' / ')
 }
 
@@ -521,8 +539,12 @@ function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, numb
 
   const orderText = readFirstCellText(row, columnIndex, ['정렬 순서', '운영 순서', 'Cue 순서', 'No'])
   const order = Number(orderText)
-  const mainScreen = readFirstCellText(row, columnIndex, ['메인 화면', 'Main Screen', '그래픽 자산명'])
-  const previewHref = readFirstCellHref(row, columnIndex, ['미리보기 링크'])
+  const captureFiles = readFirstCellFiles(row, columnIndex, ['캡쳐', '캡쳐(무조건 이미지형식)'])
+  const audioFiles = readFirstCellFiles(row, columnIndex, ['오디오파일'])
+  const captureLabel = joinScheduleFileNames(captureFiles)
+  const audioLabel = joinScheduleFileNames(audioFiles)
+  const mainScreen = captureLabel || readFirstCellText(row, columnIndex, ['메인 화면', 'Main Screen', '그래픽 자산명'])
+  const previewHref = captureFiles[0]?.url || readFirstCellHref(row, columnIndex, ['미리보기 링크'])
 
   return {
     id: row.id,
@@ -532,12 +554,14 @@ function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, numb
     trigger: readFirstCellText(row, columnIndex, ['트리거 상황', 'Trigger', '행 제목']) || '-',
     timeReference: readFirstCellText(row, columnIndex, ['시간 기준', 'Time']) || '-',
     mainScreen: mainScreen || '-',
-    audio: readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']) || '-',
+    audio: audioLabel || readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']) || '-',
     action: readFirstCellText(row, columnIndex, ['운영 액션', 'Action']) || 'Play',
     note: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']) || '메모 없음',
     status: readFirstCellText(row, columnIndex, ['상태']) || 'planned',
     previewHref,
-    assetHref: readFirstCellHref(row, columnIndex, ['자산 링크']),
+    assetHref: readFirstCellHref(row, columnIndex, ['자산 링크']) || captureFiles[0]?.url || null,
+    captureFiles,
+    audioFiles,
     source: 'db',
   }
 }
