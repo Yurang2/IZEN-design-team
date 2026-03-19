@@ -15,6 +15,7 @@ export type UiGlyphName =
   | 'plus'
   | 'search'
   | 'board'
+  | 'kanban'
 
 export function UiGlyph({ name }: { name: UiGlyphName }): JSX.Element {
   const common = {
@@ -53,6 +54,16 @@ export function UiGlyph({ name }: { name: UiGlyphName }): JSX.Element {
         <rect x="2" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
         <rect x="6.4" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
         <rect x="10.8" y="2.5" width="3.2" height="11" rx="0.8" {...common} />
+      </svg>
+    )
+  }
+  if (name === 'kanban') {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2.5" width="12" height="11" rx="1.1" {...common} />
+        <path d="M6 2.5v11" {...common} />
+        <path d="M10 2.5v11" {...common} />
+        <path d="M2 6.5h12" {...common} />
       </svg>
     )
   }

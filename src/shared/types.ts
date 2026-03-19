@@ -6,6 +6,9 @@ export type Route =
       kind: 'eventGraphicsShare'
     }
   | {
+      kind: 'eventGraphicsPrint'
+    }
+  | {
       kind: 'photoGuideShare'
     }
   | {
@@ -362,3 +365,49 @@ export type ChecklistTableRow = {
   totalLeadDays?: number
   computedDueDate?: string
 }
+
+export type AppVersionManifest = {
+  id: string
+  builtAt: string
+}
+
+export type PhotoGuideResponse = ScheduleResponse
+
+export type ScreeningPlanHistorySyncResponse = {
+  ok: boolean
+  configured: boolean
+  planDatabaseId: string | null
+  historyDatabaseId: string | null
+  created: number
+  updated: number
+  skipped: number
+  syncedPlanIds: string[]
+}
+
+export type ScreeningPlanImportResponse = {
+  ok: boolean
+  configured: boolean
+  planDatabaseId: string | null
+  historyDatabaseId: string | null
+  matched: number
+  created: number
+  skipped: number
+  createdPlanIds: string[]
+}
+
+export type CopyTextOptions = {
+  successMessage?: string
+  emptyMessage?: string
+}
+
+export type GuideConfigRow = {
+  name: string
+  location: string
+  secret: string
+  billing: string
+  impact: string
+}
+
+export type ViewMenuGroupKey = 'operations' | 'events' | 'tools'
+
+export type ThemeKey = 'v1' | 'v2' | 'v3'
