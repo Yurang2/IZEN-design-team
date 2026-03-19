@@ -187,7 +187,7 @@ function ShareAssetPanel({
   missingFiles,
   href,
   openFileLabel,
-  surface,
+  tone = 'default',
   presetAction,
 }: {
   title: string
@@ -195,7 +195,7 @@ function ShareAssetPanel({
   missingFiles: string[]
   href: string | null
   openFileLabel: string
-  surface: 'graphic' | 'audio'
+  tone?: 'default' | 'ambient'
   presetAction?: {
     label: string
     active: boolean
@@ -205,13 +205,9 @@ function ShareAssetPanel({
 }) {
   const hasMissingFiles = missingFiles.length > 0
   const hasContent = files.length > 0 || presetAction
-  const overlayLabel = surface === 'graphic' ? 'GRAPHIC' : 'AUDIO'
 
   return (
-    <section
-      className={`eventGraphicsAuditPanel is-${surface}${hasMissingFiles ? ' is-missing' : ''}`}
-      data-overlay-label={overlayLabel}
-    >
+    <section className={`eventGraphicsAuditPanel${hasMissingFiles ? ' is-missing' : ''}${tone === 'ambient' ? ' is-ambient' : ''}`}>
       <div className="eventGraphicsAuditPanelHead">
         <span className="eventGraphicsPanelLabel">{title}</span>
         {hasMissingFiles ? <span className="eventGraphicsAuditMissingFlag">missing</span> : null}
@@ -233,6 +229,8 @@ function ShareAssetPanel({
           {files.map((file) => (
             <span key={`${title}-${file.name}-${file.role}`} className="eventGraphicsAuditChip" title={file.role}>
               {file.name}
+              {file.mediaKind ? <AssetKindBadge kind={file.mediaKind} /> : null}
+              {file.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
             </span>
           ))}
         </div>
@@ -659,7 +657,6 @@ export function EventGraphicsShareDocument({
                                 missingFiles={graphicAlerts}
                                 href={stage.assetHref}
                                 openFileLabel={copy.openFile}
-                                surface="graphic"
                                 presetAction={
                                   showSpeakerPpt && canSetPreset
                                     ? {
@@ -677,7 +674,7 @@ export function EventGraphicsShareDocument({
                                 missingFiles={audioAlerts}
                                 href={stage.assetHref}
                                 openFileLabel={copy.openFile}
-                                surface="audio"
+                                tone={hasDjAmbientPreset ? 'ambient' : 'default'}
                               />
                             </div>
 
