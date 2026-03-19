@@ -273,7 +273,7 @@ function toExhibitionRowModel(row: ScheduleRow, columnIndex: Record<string, numb
     mainScreen: captureLabel || readFirstCellText(row, columnIndex, ['메인 화면', 'Main Screen', '그래픽 자산명']) || '-',
     audio: audioLabel || readFirstCellText(row, columnIndex, ['오디오', '원본 Audio']) || '-',
     action: readFirstCellText(row, columnIndex, ['운영 액션', 'Action']) || 'Play',
-    note: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']) || '메모 없음',
+    note: readFirstCellText(row, columnIndex, ['업체 전달 메모', '원본 비고']) || '메모 없음',
     status: readFirstCellText(row, columnIndex, ['상태']) || 'planned',
     previewHref,
     assetHref: readFirstCellHref(row, columnIndex, ['자산 링크']) || captureFiles[0]?.url || null,

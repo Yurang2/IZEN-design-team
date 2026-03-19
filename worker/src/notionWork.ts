@@ -792,6 +792,7 @@ const EVENT_GRAPHICS_DEPRECATED_FIELDS = [
   'Cue 유형',
   '원본 Video',
   '원본 Audio',
+  '운영 메모',
   '원본 비고',
   '그래픽 자산명',
   '업체 전달 메모',
@@ -822,7 +823,6 @@ const EVENT_GRAPHICS_TIMETABLE_FIELD_ORDER = [
   '오디오',
   EVENT_GRAPHICS_AUDIO_FILES_FIELD,
   '무대 인원',
-  '운영 메모',
   '미리보기 링크',
   '자산 링크',
   '행사일',
@@ -915,7 +915,6 @@ function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: strin
     { name: EVENT_GRAPHICS_CAPTURE_FILES_FIELD, definition: { files: {} } },
     { name: '오디오', definition: { rich_text: {} } },
     { name: EVENT_GRAPHICS_AUDIO_FILES_FIELD, definition: { files: {} } },
-    { name: '운영 메모', definition: { rich_text: {} } },
     { name: '미리보기 링크', definition: { url: {} } },
     { name: '자산 링크', definition: { url: {} } },
   ]
@@ -2372,7 +2371,6 @@ export class NotionWorkService {
     renameIfPresent('Cue 유형', '카테고리')
     renameIfPresent('원본 Video', '메인 화면')
     renameIfPresent('원본 Audio', '오디오')
-    renameIfPresent('원본 비고', '운영 메모')
     renameIfPresent('캡쳐(무조건 이미지형식)', EVENT_GRAPHICS_CAPTURE_FILES_FIELD)
 
     for (const field of buildEventGraphicsTimetablePropertyDefinitions(this.env.NOTION_PROJECT_DB_ID)) {
@@ -2626,9 +2624,6 @@ export class NotionWorkService {
         [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_CAPTURE_FILES_FIELD]),
         '오디오': { rich_text: buildRichText(readText('오디오') || readText('원본 Audio')) },
         [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_AUDIO_FILES_FIELD]),
-        '운영 메모': {
-          rich_text: buildRichText(readText('운영 메모') || readText('업체 전달 메모') || readText('원본 비고')),
-        },
         '미리보기 링크': { url: readText('미리보기 링크') || null },
         '자산 링크': { url: readText('자산 링크') || null },
         '귀속 프로젝트': { relation: relationIds.map((id) => ({ id })) },

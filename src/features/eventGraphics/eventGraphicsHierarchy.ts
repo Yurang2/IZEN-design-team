@@ -317,7 +317,7 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
   const graphicPreset = normalizeGraphicPreset(notionGraphicAsset)
   const audioPreset = normalizeAudioPreset(notionSourceAudio)
   const note = joinSummary([
-    readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
+    readFirstCellText(row, columnIndex, ['업체 전달 메모', '원본 비고']),
     readCellText(row, columnIndex, '무대 인원') ? `무대 ${readCellText(row, columnIndex, '무대 인원')}` : '',
   ])
 
@@ -348,8 +348,8 @@ function toRowModel(row: ScheduleRow, columnIndex: Record<string, number>): Even
             : '-'
         : audioFileLabel || '-',
     personnel: readCellText(row, columnIndex, '무대 인원'),
-    remark: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
-    vendorNote: readFirstCellText(row, columnIndex, ['운영 메모', '업체 전달 메모', '원본 비고']),
+    remark: readFirstCellText(row, columnIndex, ['업체 전달 메모', '원본 비고']),
+    vendorNote: readFirstCellText(row, columnIndex, ['업체 전달 메모', '원본 비고']),
     captureFiles,
     audioFiles,
     graphicPreset,

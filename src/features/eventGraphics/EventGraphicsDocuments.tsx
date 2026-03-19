@@ -185,6 +185,13 @@ function resolveVisualCueHeadingTitle(cue: EventGroup['cues'][number]): string {
   return cue.stages.find((stage) => stage.stageKind !== 'appearance')?.title || cue.title
 }
 
+function toAssetKindLabel(kind: ScheduleFile['kind']): string {
+  if (kind === 'image') return 'Image'
+  if (kind === 'video') return 'Video'
+  if (kind === 'audio') return 'Audio'
+  return 'File'
+}
+
 function ShareAssetPanel({
   title,
   files,
@@ -192,6 +199,7 @@ function ShareAssetPanel({
   href,
   openFileLabel,
   tone = 'default',
+  showOpenFileLink = true,
   presetAction,
 }: {
   title: string
@@ -200,6 +208,7 @@ function ShareAssetPanel({
   href: string | null
   openFileLabel: string
   tone?: 'default' | 'ambient'
+  showOpenFileLink?: boolean
   presetAction?: {
     label: string
     active: boolean
@@ -209,6 +218,7 @@ function ShareAssetPanel({
 }) {
   const hasMissingFiles = missingFiles.length > 0
   const hasContent = files.length > 0 || presetAction
+  const mediaKinds = Array.from(new Set(files.flatMap((file) => (file.mediaKind ? [file.mediaKind] : []))))
 
   return (
     <section className={`eventGraphicsAuditPanel${hasMissingFiles ? ' is-missing' : ''}${tone === 'ambient' ? ' is-ambient' : ''}`}>
@@ -233,8 +243,6 @@ function ShareAssetPanel({
           {files.map((file) => (
             <span key={`${title}-${file.name}-${file.role}`} className="eventGraphicsAuditChip" title={file.role}>
               {file.name}
-              {file.mediaKind ? <AssetKindBadge kind={file.mediaKind} /> : null}
-              {file.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
             </span>
           ))}
         </div>
@@ -255,10 +263,20 @@ function ShareAssetPanel({
         </div>
       ) : null}
 
-      {href ? (
+      {showOpenFileLink && href ? (
         <a className="eventGraphicsInlineLink" href={href} target="_blank" rel="noreferrer">
           {openFileLabel}
         </a>
+      ) : null}
+
+      {!showOpenFileLink && mediaKinds.length > 0 ? (
+        <div className="eventGraphicsAssetModeRow" aria-label={`${title} asset kinds`}>
+          {mediaKinds.map((kind) => (
+            <span key={`${title}-${kind}`} className={`eventGraphicsAssetModePill is-${kind}`}>
+              {toAssetKindLabel(kind)}
+            </span>
+          ))}
+        </div>
       ) : null}
     </section>
   )
@@ -666,6 +684,7 @@ export function EventGraphicsShareDocument({
                                 missingFiles={graphicAlerts}
                                 href={embedded ? stage.assetHref : null}
                                 openFileLabel={copy.openFile}
+                                showOpenFileLink={embedded}
                                 presetAction={
                                   showSpeakerPpt && canSetPreset
                                     ? {
@@ -683,6 +702,7 @@ export function EventGraphicsShareDocument({
                                 missingFiles={audioAlerts}
                                 href={embedded ? stage.assetHref : null}
                                 openFileLabel={copy.openFile}
+                                showOpenFileLink={embedded}
                                 tone={hasDjAmbientPreset ? 'ambient' : 'default'}
                               />
                             </div>
