@@ -12,6 +12,8 @@ import { ScheduleView } from './features/schedule/ScheduleView'
 import { ScreeningDbView } from './features/screening/ScreeningDbView'
 import { ScreeningPlanImportModal, type ScreeningPlanImportForm } from './features/screening/ScreeningPlanImportModal'
 import { SnsPostGeneratorView } from './features/snsPost/SnsPostGeneratorView'
+import { PhotoGuideSharePage } from './features/photoGuide/PhotoGuideSharePage'
+import { PhotoGuideView } from './features/photoGuide/PhotoGuideView'
 import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 import { TasksView } from './features/tasks/TasksView'
@@ -33,6 +35,9 @@ type Route =
     }
   | {
       kind: 'eventGraphicsPrint'
+    }
+  | {
+      kind: 'photoGuideShare'
     }
   | {
       kind: 'task'
@@ -254,6 +259,8 @@ type EventGraphicsTimetableResponse = {
   cacheTtlMs: number
 }
 
+type PhotoGuideResponse = ScheduleResponse
+
 type ScreeningPlanHistorySyncResponse = {
   ok: boolean
   configured: boolean
@@ -287,6 +294,7 @@ type MetaResponse = {
     screeningPlan?: { id: string | null; url: string | null }
     screeningVideo?: { id: string | null; url: string | null }
     eventGraphicsTimetable?: { id: string | null; url: string | null }
+    photoGuide?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
   }
 }
@@ -328,6 +336,7 @@ type TopView =
   | 'screeningHistory'
   | 'screeningPlan'
   | 'eventGraphics'
+  | 'photoGuide'
   | 'checklist'
   | 'meetings'
   | 'snsPost'
@@ -548,6 +557,13 @@ const GUIDE_DB_ROWS: GuideConfigRow[] = [
     impact: '바꾸면 cue별 그래픽 상태 화면이 다른 타임테이블 DB를 읽습니다.',
   },
   {
+    name: 'NOTION_PHOTO_GUIDE_DB_ID',
+    location: '촬영가이드 탭',
+    secret: '아니오',
+    billing: '없음',
+    impact: '바꾸면 촬영가이드 내부 화면과 외부 공유 페이지가 다른 Notion DB를 읽습니다.',
+  },
+  {
     name: 'NOTION_MEETING_DB_ID',
     location: '회의록 Notion 저장 대상',
     secret: '아니오',
@@ -597,6 +613,7 @@ function parseTopView(value: string | null): TopView {
     value === 'screeningHistory' ||
     value === 'screeningPlan' ||
     value === 'eventGraphics' ||
+    value === 'photoGuide' ||
     value === 'checklist' ||
     value === 'meetings' ||
     value === 'snsPost' ||
@@ -883,6 +900,7 @@ function toTopViewPath(view: TopView): string {
   if (view === 'screeningHistory') return 'Screening History'
   if (view === 'screeningPlan') return 'Screening Plan'
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
+  if (view === 'photoGuide') return 'Photo Guide'
   if (view === 'meetings') return 'Meetings'
   if (view === 'snsPost') return 'SNS Post Generator'
   if (view === 'geminiImageTest') return 'Gemini Image Test'
@@ -899,6 +917,7 @@ function toTopViewTitle(view: TopView): string {
   if (view === 'screeningHistory') return '상영 기록'
   if (view === 'screeningPlan') return '상영 준비'
   if (view === 'eventGraphics') return '타임테이블'
+  if (view === 'photoGuide') return '촬영가이드'
   if (view === 'meetings') return '회의록'
   if (view === 'snsPost') return 'SNS 본문 생성'
   if (view === 'geminiImageTest') return 'Gemini 이미지 테스트'
@@ -929,6 +948,9 @@ function parseRoute(pathname: string): Route {
   }
   if (cleaned === '/share/timetable/print') {
     return { kind: 'eventGraphicsPrint' }
+  }
+  if (cleaned === '/share/photo-guide') {
+    return { kind: 'photoGuideShare' }
   }
   if (cleaned.startsWith('/task/')) {
     const id = cleaned.slice('/task/'.length)
@@ -1241,6 +1263,7 @@ function App() {
     screeningPlan: string | null
     screeningVideo: string | null
     eventGraphics: string | null
+    photoGuide: string | null
   }>({
     project: null,
     task: null,
@@ -1250,6 +1273,7 @@ function App() {
     screeningPlan: null,
     screeningVideo: null,
     eventGraphics: null,
+    photoGuide: null,
   })
 
   const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
@@ -1307,6 +1331,12 @@ function App() {
   const [eventGraphicsRows, setEventGraphicsRows] = useState<ScheduleRow[]>([])
   const [eventGraphicsLoading, setEventGraphicsLoading] = useState(false)
   const [eventGraphicsError, setEventGraphicsError] = useState<string | null>(null)
+  const [photoGuideConfigured, setPhotoGuideConfigured] = useState(false)
+  const [photoGuideDatabaseTitle, setPhotoGuideDatabaseTitle] = useState('')
+  const [photoGuideColumns, setPhotoGuideColumns] = useState<ScheduleColumn[]>([])
+  const [photoGuideRows, setPhotoGuideRows] = useState<ScheduleRow[]>([])
+  const [photoGuideLoading, setPhotoGuideLoading] = useState(false)
+  const [photoGuideError, setPhotoGuideError] = useState<string | null>(null)
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
   const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
@@ -1586,6 +1616,7 @@ function App() {
         screeningPlan: response.databases.screeningPlan?.url ?? toNotionUrlById(response.databases.screeningPlan?.id ?? undefined),
         screeningVideo: response.databases.screeningVideo?.url ?? toNotionUrlById(response.databases.screeningVideo?.id ?? undefined),
         eventGraphics: response.databases.eventGraphicsTimetable?.url ?? toNotionUrlById(response.databases.eventGraphicsTimetable?.id ?? undefined),
+        photoGuide: response.databases.photoGuide?.url ?? toNotionUrlById(response.databases.photoGuide?.id ?? undefined),
       })
     } catch {
       // Ignore meta failures; app can run without DB deep-links.
@@ -1856,6 +1887,31 @@ function App() {
     }
   }, [])
 
+  const fetchPhotoGuide = useCallback(async () => {
+    setPhotoGuideLoading(true)
+    setPhotoGuideError(null)
+
+    try {
+      const response = await api<PhotoGuideResponse>('/photo-guide')
+      setPhotoGuideConfigured(response.configured)
+      setPhotoGuideDatabaseTitle(response.database.title)
+      setPhotoGuideColumns(response.columns)
+      setPhotoGuideRows(response.rows)
+      setDbLinks((prev) => ({
+        ...prev,
+        photoGuide: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
+      }))
+      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+    } catch (error: unknown) {
+      setPhotoGuideConfigured(false)
+      setPhotoGuideColumns([])
+      setPhotoGuideRows([])
+      setPhotoGuideError(toErrorMessage(error, '촬영 가이드를 불러오지 못했습니다.'))
+    } finally {
+      setPhotoGuideLoading(false)
+    }
+  }, [])
+
   const fetchChecklistAssignments = useCallback(async (projectPageId?: string, options?: { ensure?: 'background' | 'sync' | 'none' }) => {
     if (!projectPageId) {
       setAssignmentRows([])
@@ -1959,14 +2015,26 @@ function App() {
     void fetchEventGraphicsTimetable()
   }, [activeView, authState, fetchEventGraphicsTimetable, route.kind])
 
+  useEffect(() => {
+    if (route.kind === 'photoGuideShare') {
+      void fetchPhotoGuide()
+      return
+    }
+    if (authState !== 'authenticated') return
+    if (route.kind !== 'list') return
+    if (activeView !== 'photoGuide') return
+    void fetchPhotoGuide()
+  }, [activeView, authState, fetchPhotoGuide, route.kind])
+
   const refreshListAndProjects = useCallback(async () => {
     const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
     if (activeView === 'schedule') jobs.push(fetchSchedule())
     if (activeView === 'screeningHistory') jobs.push(fetchScreeningHistory())
     if (activeView === 'screeningPlan') jobs.push(fetchScreeningPlan(), fetchScreeningHistory())
     if (activeView === 'eventGraphics') jobs.push(fetchEventGraphicsTimetable())
+    if (activeView === 'photoGuide') jobs.push(fetchPhotoGuide())
     await Promise.all(jobs)
-  }, [activeView, fetchEventGraphicsTimetable, fetchProjects, fetchSchedule, fetchScreeningHistory, fetchScreeningPlan, fetchTasks])
+  }, [activeView, fetchEventGraphicsTimetable, fetchPhotoGuide, fetchProjects, fetchSchedule, fetchScreeningHistory, fetchScreeningPlan, fetchTasks])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -2697,9 +2765,10 @@ function App() {
     if (activeView === 'screeningHistory') return dbLinks.screeningHistory
     if (activeView === 'screeningPlan') return dbLinks.screeningPlan
     if (activeView === 'eventGraphics') return dbLinks.eventGraphics
+    if (activeView === 'photoGuide') return dbLinks.photoGuide
     if (activeView === 'checklist') return dbLinks.checklist
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.eventGraphics, dbLinks.project, dbLinks.schedule, dbLinks.screeningHistory, dbLinks.screeningPlan, dbLinks.task])
+  }, [activeView, dbLinks.checklist, dbLinks.eventGraphics, dbLinks.photoGuide, dbLinks.project, dbLinks.schedule, dbLinks.screeningHistory, dbLinks.screeningPlan, dbLinks.task])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -2735,6 +2804,7 @@ function App() {
       label: '행사',
       items: [
         { view: 'eventGraphics', title: '타임테이블', label: '타임테이블', icon: 'calendar' },
+        { view: 'photoGuide', title: '촬영가이드', label: '촬영가이드', icon: 'list' },
         { view: 'checklist', title: '행사 체크리스트', label: '행사 체크리스트', icon: 'checksquare' },
       ],
     },
@@ -3285,7 +3355,13 @@ function App() {
     }
   }
 
-  if (AUTH_GATE_ENABLED && route.kind !== 'eventGraphicsShare' && route.kind !== 'eventGraphicsPrint' && authState !== 'authenticated') {
+  if (
+    AUTH_GATE_ENABLED &&
+    route.kind !== 'eventGraphicsShare' &&
+    route.kind !== 'eventGraphicsPrint' &&
+    route.kind !== 'photoGuideShare' &&
+    authState !== 'authenticated'
+  ) {
     const checking = authState === 'checking'
     return (
       <div className="page authGateShell">
@@ -3363,6 +3439,19 @@ function App() {
         rows={eventGraphicsRows}
         loading={eventGraphicsLoading}
         error={eventGraphicsError}
+      />
+    )
+  }
+
+  if (route.kind === 'photoGuideShare') {
+    return (
+      <PhotoGuideSharePage
+        configured={photoGuideConfigured}
+        databaseTitle={photoGuideDatabaseTitle}
+        columns={photoGuideColumns}
+        rows={photoGuideRows}
+        loading={photoGuideLoading}
+        error={photoGuideError}
       />
     )
   }
@@ -3872,6 +3961,19 @@ function App() {
         />
       ) : null}
 
+      {activeView === 'photoGuide' ? (
+        <PhotoGuideView
+          configured={photoGuideConfigured}
+          databaseTitle={photoGuideDatabaseTitle}
+          databaseUrl={dbLinks.photoGuide}
+          columns={photoGuideColumns}
+          rows={photoGuideRows}
+          loading={photoGuideLoading}
+          error={photoGuideError}
+          shareHref="/share/photo-guide"
+        />
+      ) : null}
+
       {activeView === 'meetings' ? <MeetingsView /> : null}
 
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
@@ -3926,6 +4028,13 @@ function App() {
                 <p>행사 cue별 그래픽 상태, 미리보기, 자산 링크를 한 화면에서 공유하는 운영 탭입니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('eventGraphics')}>
                   타임테이블 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>촬영가이드</h4>
+                <p>촬영 기사에게 공유할 브리프를 내부 화면과 외부 공유 페이지로 함께 정리하는 탭입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('photoGuide')}>
+                  촬영가이드 열기
                 </button>
               </section>
               <section className="guideTabItem">
@@ -4040,6 +4149,13 @@ function App() {
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">타임테이블 DB: 연결 안 됨</span>
+                )}
+                {dbLinks.photoGuide ? (
+                  <a className="guideDbLink" href={dbLinks.photoGuide} target="_blank" rel="noreferrer">
+                    촬영가이드 DB: {dbLinks.photoGuide}
+                  </a>
+                ) : (
+                  <span className="guideDbLink is-muted">촬영가이드 DB: 연결 안 됨</span>
                 )}
               </div>
             </article>

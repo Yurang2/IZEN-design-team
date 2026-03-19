@@ -6,6 +6,9 @@ export type Route =
       kind: 'eventGraphicsShare'
     }
   | {
+      kind: 'photoGuideShare'
+    }
+  | {
       kind: 'task'
       id: string
     }
@@ -231,6 +234,7 @@ export type MetaResponse = {
     screeningPlan?: { id: string | null; url: string | null }
     screeningVideo?: { id: string | null; url: string | null }
     eventGraphicsTimetable?: { id: string | null; url: string | null }
+    photoGuide?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
   }
 }
@@ -259,6 +263,7 @@ export type TopView =
   | 'screeningHistory'
   | 'screeningPlan'
   | 'eventGraphics'
+  | 'photoGuide'
   | 'checklist'
   | 'meetings'
   | 'snsPost'

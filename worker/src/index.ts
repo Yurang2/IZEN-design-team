@@ -6848,6 +6848,10 @@ export default {
                 id: env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID),
               },
+              photoGuide: {
+                id: env.NOTION_PHOTO_GUIDE_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_PHOTO_GUIDE_DB_ID),
+              },
               meeting: {
                 id: getMeetingNotionDbId(env),
                 url: notionDatabaseUrl(getMeetingNotionDbId(env)),
@@ -6928,6 +6932,25 @@ export default {
             },
             columns: timetable.columns,
             rows: timetable.rows,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && path === '/photo-guide') {
+        const photoGuide = await service.listPhotoGuideView()
+        return ok(
+          {
+            ok: true,
+            configured: photoGuide.configured,
+            database: {
+              id: photoGuide.database.id,
+              url: notionDatabaseUrl(photoGuide.database.id ?? undefined),
+              title: photoGuide.database.title,
+            },
+            columns: photoGuide.columns,
+            rows: photoGuide.rows,
             cacheTtlMs,
           },
           origin,
@@ -7572,6 +7595,7 @@ export default {
               'POST /api/admin/line/reminders/send?kind=morning|evening',
               'GET /api/projects',
               'GET /api/meta',
+              'GET /api/photo-guide',
               'POST /api/event-graphics-timetable/:id/files',
               'POST /api/event-graphics-timetable/:id/preset',
               'POST /api/admin/notion/screening-history-schema/sync',

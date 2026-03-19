@@ -1838,6 +1838,18 @@ export class NotionWorkService {
     }
   }
 
+  async listPhotoGuideView(): Promise<{
+    configured: boolean
+    database: {
+      id: string | null
+      title: string
+    }
+    columns: ScheduleColumn[]
+    rows: ScheduleRow[]
+  }> {
+    return this.listDatabaseGridView(normalizeText(this.env.NOTION_PHOTO_GUIDE_DB_ID))
+  }
+
   private async listDatabaseGridView(databaseId: string | null): Promise<{
     configured: boolean
     database: {

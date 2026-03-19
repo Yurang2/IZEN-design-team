@@ -10,6 +10,7 @@ type DashboardTopView =
   | 'screeningHistory'
   | 'screeningPlan'
   | 'eventGraphics'
+  | 'photoGuide'
   | 'checklist'
   | 'meetings'
   | 'snsPost'
