@@ -1,53 +1,53 @@
-# Photo Guide DB Design
+# 촬영 가이드 DB 설계
 
 Date: 2026-03-19
 
-## Goal
+## 목표
 
-Use one Notion DB to prepare a photographer-facing guide page and an external share page.
+- 촬영 기사에게 공유할 읽기 전용 외부 페이지를 만든다.
+- 내부에서는 행사 탭 안의 `촬영가이드` 화면에서 같은 데이터를 본다.
+- DB는 타임테이블과 분리하고, `NOTION_PHOTO_GUIDE_DB_ID` 하나로 연결한다.
 
-Worker env:
+## 경로
 
-- `NOTION_PHOTO_GUIDE_DB_ID`
+- 내부 탭: `행사 > 촬영가이드`
+- 외부 공유: `/share/photo-guide`
 
-Share path:
+## 동작 원칙
 
-- `/share/photo-guide`
+- 촬영가이드 화면을 열면 Worker가 DB 스키마를 먼저 자동 동기화한다.
+- 따라서 빈 DB여도 기본 컬럼은 자동 생성된다.
+- row가 하나도 없으면 화면은 비어 보일 수 있다.
 
-## Recommended row model
+## 권장 컬럼
 
-- One row can be one guide section or one full event guide.
-- The web view groups rows by `행사명` and sorts by `정렬 순서` when available.
-
-## Recommended fields
-
-| Property | Type | Purpose |
+| 속성 | 타입 | 용도 |
 | --- | --- | --- |
-| `제목` | `title` | section title or guide title |
-| `행사명` | `rich_text` | event label for grouping |
-| `정렬 순서` | `number` | section order |
-| `섹션` | `select` or `rich_text` | section label such as 기본 정보, 필수 컷 |
-| `행사일` | `date` or `rich_text` | event date |
-| `장소` | `rich_text` | venue |
-| `콜타임` | `rich_text` | arrival time for photographer |
-| `담당자` | `rich_text`, `phone_number`, or `email` | on-site contact |
-| `핵심 목적` | `rich_text` | shoot objective |
-| `필수 컷` | `rich_text` | must-have shots |
-| `시간대별 포인트` | `rich_text` | time-based guidance |
-| `주의 사항` | `rich_text` | restrictions or cautions |
-| `납품 규격` | `rich_text` | delivery expectations |
-| `참고 자료` | `rich_text` | extra note for references |
-| `참고 링크` | `url` or `rich_text` | reference URL |
-| `첨부 자료` | `files` | optional attachment list |
+| `제목` | `title` | 섹션 제목 또는 가이드 제목 |
+| `귀속 프로젝트` | `relation -> NOTION_PROJECT_DB_ID` | 행사 연결 |
+| `행사명` | `rich_text` | 외부 페이지 그룹 제목 |
+| `정렬 순서` | `number` | 섹션 정렬 |
+| `섹션` | `select` | 예: 기본 정보, 필수 컷, 주의 사항 |
+| `행사일` | `date` | 행사 날짜 |
+| `장소` | `rich_text` | 촬영 장소 |
+| `콜타임` | `rich_text` | 기사 집합 시간 |
+| `현장 담당자` | `rich_text` | 연락 담당자 |
+| `촬영 목적` | `rich_text` | 촬영 목적/브리프 |
+| `필수 컷` | `rich_text` | 반드시 찍어야 할 컷 |
+| `시간대별 포인트` | `rich_text` | 시간대별 촬영 포인트 |
+| `주의 사항` | `rich_text` | 금지/주의 사항 |
+| `납품 규격` | `rich_text` | 납품 방식/규격 |
+| `참고 자료` | `rich_text` | 추가 메모 |
+| `참고 링크` | `url` | 레퍼런스 링크 |
+| `첨부 자료` | `files` | 참고 이미지/파일 |
 
-## Alias rule in web view
+## 별칭 허용
 
-- The page reads several aliases for the same meaning.
-- Example: `콜타임`, `집합 시간`, `call time` are treated as the same field.
-- This is intentional so the team can settle exact column names later without breaking the page.
+- 웹 화면은 일부 영문/대체 컬럼명도 함께 읽는다.
+- 예: `call time`, `contact`, `section`, `reference link`
+- 팀 내 합의 전까지는 완전 고정 스키마가 아니어도 동작하게 둔다.
 
-## Current behavior
+## 수동 동기화
 
-- Internal tab: `촬영가이드`
-- External share: read-only public-friendly layout
-- Auth gate is skipped for `/share/photo-guide`
+- 명령: `npm run sync:photo-guide-schema`
+- 목적: 배포 전/후 Notion DB 컬럼을 강제로 한 번 맞출 때 사용

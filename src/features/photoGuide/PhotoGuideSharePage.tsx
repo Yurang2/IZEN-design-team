@@ -66,7 +66,7 @@ export function PhotoGuideSharePage({
       <main className="photoGuideShell">
         <EmptyState
           title="표시할 촬영 가이드가 없습니다."
-          message="Notion 촬영 가이드 DB에 공유할 row를 추가해 주세요."
+          message="촬영가이드 DB 컬럼은 자동 생성됩니다. 아직 외부에 공유할 row가 없습니다."
           className="scheduleEmptyState"
         />
       </main>

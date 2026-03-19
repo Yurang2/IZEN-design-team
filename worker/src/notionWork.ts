@@ -775,6 +775,25 @@ const SCREENING_PLAN_REVIEW_STATUS_OPTIONS = [
   { name: 'replaced', color: 'purple' },
 ]
 
+const PHOTO_GUIDE_DATABASE_TITLE = '\uCD2C\uC601 \uAC00\uC774\uB4DC DB'
+const PHOTO_GUIDE_TITLE_FIELD = '\uC81C\uBAA9'
+const PHOTO_GUIDE_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const PHOTO_GUIDE_EVENT_FIELD = '\uD589\uC0AC\uBA85'
+const PHOTO_GUIDE_ORDER_FIELD = '\uC815\uB82C \uC21C\uC11C'
+const PHOTO_GUIDE_SECTION_FIELD = '\uC139\uC158'
+const PHOTO_GUIDE_DATE_FIELD = '\uD589\uC0AC\uC77C'
+const PHOTO_GUIDE_LOCATION_FIELD = '\uC7A5\uC18C'
+const PHOTO_GUIDE_CALL_TIME_FIELD = '\uCF5C\uD0C0\uC784'
+const PHOTO_GUIDE_CONTACT_FIELD = '\uD604\uC7A5 \uB2F4\uB2F9\uC790'
+const PHOTO_GUIDE_PURPOSE_FIELD = '\uCD2C\uC601 \uBAA9\uC801'
+const PHOTO_GUIDE_MUST_SHOOT_FIELD = '\uD544\uC218 \uCEF7'
+const PHOTO_GUIDE_TIMELINE_FIELD = '\uC2DC\uAC04\uB300\uBCC4 \uD3EC\uC778\uD2B8'
+const PHOTO_GUIDE_CAUTION_FIELD = '\uC8FC\uC758 \uC0AC\uD56D'
+const PHOTO_GUIDE_DELIVERY_FIELD = '\uB0A9\uD488 \uADDC\uACA9'
+const PHOTO_GUIDE_REFERENCE_NOTE_FIELD = '\uCC38\uACE0 \uC790\uB8CC'
+const PHOTO_GUIDE_REFERENCE_LINK_FIELD = '\uCC38\uACE0 \uB9C1\uD06C'
+const PHOTO_GUIDE_ATTACHMENT_FIELD = '\uCCA8\uBD80 \uC790\uB8CC'
+
 // Backward-compatible aliases for the older screening-video naming.
 const SCREENING_VIDEO_DATABASE_TITLE = SCREENING_HISTORY_DATABASE_TITLE
 const SCREENING_VIDEO_TITLE_FIELD = SCREENING_COMMON_TITLE_FIELD
@@ -1077,6 +1096,97 @@ function buildScreeningPlanPropertyDefinitions(
   }
 
   return fields
+}
+
+function buildPhotoGuidePropertyDefinitions(projectDatabaseId: string): ScreeningFieldDefinition[] {
+  return [
+    {
+      name: PHOTO_GUIDE_PROJECT_FIELD,
+      definition: {
+        relation: {
+          database_id: projectDatabaseId,
+          type: 'single_property',
+          single_property: {},
+        },
+      },
+      aliases: ['\uD504\uB85C\uC81D\uD2B8', 'project'],
+    },
+    {
+      name: PHOTO_GUIDE_EVENT_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['event name', '\uD504\uB85C\uC81D\uD2B8\uBA85', 'project name'],
+    },
+    {
+      name: PHOTO_GUIDE_ORDER_FIELD,
+      definition: { number: { format: 'number' } },
+      aliases: ['order', 'no'],
+    },
+    {
+      name: PHOTO_GUIDE_SECTION_FIELD,
+      definition: { select: {} },
+      aliases: ['\uCE74\uD14C\uACE0\uB9AC', '\uAD6C\uBD84', 'section'],
+    },
+    {
+      name: PHOTO_GUIDE_DATE_FIELD,
+      definition: { date: {} },
+      aliases: ['\uCD2C\uC601\uC77C', 'date'],
+    },
+    {
+      name: PHOTO_GUIDE_LOCATION_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['venue', 'location'],
+    },
+    {
+      name: PHOTO_GUIDE_CALL_TIME_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uC9D1\uD569 \uC2DC\uAC04', 'call time'],
+    },
+    {
+      name: PHOTO_GUIDE_CONTACT_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uB2F4\uB2F9\uC790', '\uC5F0\uB77D\uCC98', 'contact'],
+    },
+    {
+      name: PHOTO_GUIDE_PURPOSE_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uBAA9\uC801', 'brief'],
+    },
+    {
+      name: PHOTO_GUIDE_MUST_SHOOT_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uD544\uC218 \uCD2C\uC601 \uCEF7', 'must shots'],
+    },
+    {
+      name: PHOTO_GUIDE_TIMELINE_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uD0C0\uC784\uB77C\uC778', '\uC77C\uC815 \uD3EC\uC778\uD2B8', 'timeline'],
+    },
+    {
+      name: PHOTO_GUIDE_CAUTION_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uAE08\uC9C0/\uC8FC\uC758', '\uC8FC\uC758', 'caution'],
+    },
+    {
+      name: PHOTO_GUIDE_DELIVERY_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uB0A9\uD488 \uBC29\uC2DD', 'deliverables', 'delivery'],
+    },
+    {
+      name: PHOTO_GUIDE_REFERENCE_NOTE_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['\uB808\uD37C\uB7F0\uC2A4', 'reference note'],
+    },
+    {
+      name: PHOTO_GUIDE_REFERENCE_LINK_FIELD,
+      definition: { url: {} },
+      aliases: ['\uB808\uD37C\uB7F0\uC2A4 \uB9C1\uD06C', 'guide link', 'reference link'],
+    },
+    {
+      name: PHOTO_GUIDE_ATTACHMENT_FIELD,
+      definition: { files: {} },
+      aliases: ['\uCC38\uACE0 \uD30C\uC77C', '\uB808\uD37C\uB7F0\uC2A4 \uC790\uB8CC', 'files'],
+    },
+  ]
 }
 
 function getPropertyDefinitionType(definition: AnyMap): string {
@@ -1840,6 +1950,7 @@ export class NotionWorkService {
 
   async listPhotoGuideView(): Promise<{
     configured: boolean
+    schema: ScreeningSchemaSyncResult
     database: {
       id: string | null
       title: string
@@ -1847,7 +1958,15 @@ export class NotionWorkService {
     columns: ScheduleColumn[]
     rows: ScheduleRow[]
   }> {
-    return this.listDatabaseGridView(normalizeText(this.env.NOTION_PHOTO_GUIDE_DB_ID))
+    const schema = await this.syncPhotoGuideDatabaseProperties()
+    const view = await this.listDatabaseGridView(schema.databaseId)
+    return {
+      configured: view.configured,
+      schema,
+      database: view.database,
+      columns: view.columns,
+      rows: view.rows,
+    }
   }
 
   private async listDatabaseGridView(databaseId: string | null): Promise<{
@@ -2066,6 +2185,14 @@ export class NotionWorkService {
         this.env.NOTION_TASK_DB_ID,
         this.getScreeningHistoryDbId() || null,
       ),
+    )
+  }
+
+  async syncPhotoGuideDatabaseProperties(): Promise<ScreeningSchemaSyncResult> {
+    return this.syncScreeningDatabaseProperties(
+      normalizeText(this.env.NOTION_PHOTO_GUIDE_DB_ID),
+      PHOTO_GUIDE_DATABASE_TITLE,
+      buildPhotoGuidePropertyDefinitions(this.env.NOTION_PROJECT_DB_ID),
     )
   }
 

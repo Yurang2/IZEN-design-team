@@ -63,7 +63,7 @@ export function PhotoGuideView({
     return (
       <EmptyState
         title="표시할 촬영 가이드가 없습니다."
-        message="Notion 촬영 가이드 DB에 row를 추가하면 이 화면에 정리됩니다."
+        message="촬영가이드 DB 컬럼은 자동 생성됩니다. 아직 row가 없으면 이 화면은 비어 보입니다."
         className="scheduleEmptyState"
       />
     )

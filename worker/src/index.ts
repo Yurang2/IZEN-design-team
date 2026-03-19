@@ -7055,6 +7055,21 @@ export default {
         )
       }
 
+      if (request.method === 'POST' && path === '/admin/notion/photo-guide-schema/sync') {
+        const sync = await service.syncPhotoGuideDatabaseProperties()
+        return ok(
+          {
+            ok: true,
+            configured: sync.configured,
+            databaseId: sync.databaseId,
+            created: sync.created,
+            existing: sync.existing,
+            renamed: sync.renamed,
+          },
+          origin,
+        )
+      }
+
       if (request.method === 'POST' && path === '/admin/notion/screening-plan-history-sync') {
         const sync = await service.syncCompletedScreeningPlansToHistory()
         return ok(
@@ -7600,6 +7615,7 @@ export default {
               'POST /api/event-graphics-timetable/:id/preset',
               'POST /api/admin/notion/screening-history-schema/sync',
               'POST /api/admin/notion/screening-plan-schema/sync',
+              'POST /api/admin/notion/photo-guide-schema/sync',
               'POST /api/admin/notion/screening-plan-history-sync',
               'POST /api/admin/notion/screening-plan-import-from-history',
               'GET /api/checklists?eventName=...&eventCategory=...',
