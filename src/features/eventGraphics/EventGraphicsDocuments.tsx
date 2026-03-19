@@ -485,6 +485,7 @@ export function EventGraphicsShareDocument({
   onUploadFile,
   presetStateByKey,
   onSetPreset,
+  previewRatioReadOnly = false,
 }: {
   embedded?: boolean
   locale: EventGraphicsShareLocale
@@ -500,6 +501,7 @@ export function EventGraphicsShareDocument({
   onUploadFile?: (rowId: string, field: AssetUploadField, file: File) => Promise<void>
   presetStateByKey?: Record<string, UploadState>
   onSetPreset?: (rowId: string, field: AssetUploadField, preset: EventGraphicsPresetValue) => Promise<void>
+  previewRatioReadOnly?: boolean
 }) {
   const previewRatioStyle = { ['--event-graphics-preview-ratio' as string]: toPreviewAspectRatioValue(previewRatio) }
   const pageClassName = embedded ? 'eventGraphicsSharePage is-embedded' : 'eventGraphicsSharePage'
@@ -545,7 +547,7 @@ export function EventGraphicsShareDocument({
             {actionSlot}
           </div>
         </div>
-        <EventGraphicsPreviewRatioControl value={previewRatio} onChange={onPreviewRatioChange} />
+        <EventGraphicsPreviewRatioControl value={previewRatio} onChange={onPreviewRatioChange} readOnly={previewRatioReadOnly} />
       </header>
 
       <div className="eventGraphicsShareList">

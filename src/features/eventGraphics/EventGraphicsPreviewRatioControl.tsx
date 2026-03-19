@@ -46,21 +46,37 @@ export function toPreviewAspectRatioValue(value: EventGraphicsPreviewRatio): str
   return `${width} / ${height}`
 }
 
+export function formatPreviewRatioLabel(value: EventGraphicsPreviewRatio): string {
+  const width = parsePositive(value.width, 2.33)
+  const height = parsePositive(value.height, 1)
+  return `${width}:${height}`
+}
+
 type EventGraphicsPreviewRatioControlProps = {
   value: EventGraphicsPreviewRatio
-  onChange: (nextValue: EventGraphicsPreviewRatio) => void
+  onChange?: (nextValue: EventGraphicsPreviewRatio) => void
+  readOnly?: boolean
 }
 
 export function EventGraphicsPreviewRatioControl({
   value,
   onChange,
+  readOnly = false,
 }: EventGraphicsPreviewRatioControlProps) {
+  if (readOnly) {
+    return (
+      <div className="eventGraphicsPreviewRatioControl is-readonly" aria-label="Selected preview ratio">
+        <span className="eventGraphicsPreviewRatioValue">{formatPreviewRatioLabel(value)}</span>
+      </div>
+    )
+  }
+
   const onWidthChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...value, width: event.target.value })
+    onChange?.({ ...value, width: event.target.value })
   }
 
   const onHeightChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...value, height: event.target.value })
+    onChange?.({ ...value, height: event.target.value })
   }
 
   return (
@@ -74,7 +90,7 @@ export function EventGraphicsPreviewRatioControl({
               type="button"
               className={active ? 'viewTab active' : 'viewTab'}
               aria-pressed={active}
-              onClick={() => onChange({ width: preset.width, height: preset.height })}
+              onClick={() => onChange?.({ width: preset.width, height: preset.height })}
             >
               {preset.label}
             </button>

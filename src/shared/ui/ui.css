@@ -4024,6 +4024,24 @@ button.dashboardNavButton {
   gap: 10px;
 }
 
+.eventGraphicsPreviewRatioControl.is-readonly {
+  justify-content: flex-end;
+}
+
+.eventGraphicsPreviewRatioValue {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(205, 214, 227, 0.95);
+  border-radius: 999px;
+  color: var(--text-main);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
 .eventGraphicsPreviewRatioPresets {
   display: flex;
   flex-wrap: wrap;

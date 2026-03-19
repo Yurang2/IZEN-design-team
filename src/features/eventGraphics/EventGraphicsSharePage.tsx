@@ -3,6 +3,7 @@ import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import {
   EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY,
+  normalizePreviewRatio,
   readStoredPreviewRatio,
   type EventGraphicsPreviewRatio,
 } from './EventGraphicsPreviewRatioControl'
@@ -92,8 +93,17 @@ export function EventGraphicsSharePage({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY, JSON.stringify(previewRatio))
-  }, [previewRatio])
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== EVENT_GRAPHICS_PREVIEW_RATIO_STORAGE_KEY) return
+      try {
+        setPreviewRatio(normalizePreviewRatio(event.newValue ? JSON.parse(event.newValue) : null))
+      } catch {
+        setPreviewRatio(readStoredPreviewRatio())
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   const copy = SHARE_COPY[locale]
   const { groupedCues } = useMemo(() => buildEventGraphicsShareData(columns, rows, copy.untitledEvent), [columns, copy.untitledEvent, rows])
@@ -158,6 +168,7 @@ export function EventGraphicsSharePage({
       groupedCues={groupedCues}
       previewRatio={previewRatio}
       onPreviewRatioChange={setPreviewRatio}
+      previewRatioReadOnly
       printHref={printHref}
     />
   )
