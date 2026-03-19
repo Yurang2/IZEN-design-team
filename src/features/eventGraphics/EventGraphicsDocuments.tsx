@@ -213,7 +213,7 @@ function ShareAssetPanel({
     label: string
     active: boolean
     pending?: boolean
-    onClick: () => void
+    onClick?: () => void
   }
 }) {
   const hasMissingFiles = missingFiles.length > 0
@@ -230,15 +230,21 @@ function ShareAssetPanel({
       {hasContent ? (
         <div className="eventGraphicsAuditChipList">
           {presetAction ? (
-            <button
-              type="button"
-              className={`eventGraphicsAuditChip eventGraphicsAuditChipButton${presetAction.active ? ' is-active' : ''}`}
-              title={presetAction.label}
-              disabled={presetAction.pending}
-              onClick={presetAction.onClick}
-            >
-              {presetAction.label}
-            </button>
+            presetAction.onClick ? (
+              <button
+                type="button"
+                className={`eventGraphicsAuditChip eventGraphicsAuditChipButton${presetAction.active ? ' is-active' : ''}`}
+                title={presetAction.label}
+                disabled={presetAction.pending}
+                onClick={presetAction.onClick}
+              >
+                {presetAction.label}
+              </button>
+            ) : (
+              <span className={`eventGraphicsAuditChip${presetAction.active ? ' is-active' : ''}`} title={presetAction.label}>
+                {presetAction.label}
+              </span>
+            )
           ) : null}
           {files.map((file) => (
             <span key={`${title}-${file.name}-${file.role}`} className="eventGraphicsAuditChip" title={file.role}>
@@ -403,56 +409,60 @@ export function EventGraphicsPrintDocument({
                 </thead>
                 <tbody>
                   {group.cues.flatMap((cue) =>
-                    cue.stages.map((stage, index) => (
-                      <tr key={stage.id}>
-                        {index === 0 ? (
-                          <>
-                            <td className="eventGraphicsPrintTimeCell" rowSpan={cue.stages.length}>
-                              <strong>{cue.startTime}</strong>
-                              <span>{formatEndTimeLabel(cue.endTime)}</span>
-                              <small>{formatRuntimeDisplay(cue.runtimeLabel, locale)}</small>
-                            </td>
-                            <td className="eventGraphicsPrintCueCell" rowSpan={cue.stages.length}>
-                              <strong>{cue.cueNumber}</strong>
-                              <span>{toCueTypeLabel(cue.cueType, locale)}</span>
-                            </td>
-                          </>
-                        ) : null}
-                        <td className="eventGraphicsPrintTitleCell">
-                          <div className="eventGraphicsPrintTitleMain">
-                            {stage.captureFiles.length > 0 && hasVisualPreviewUrl(stage.previewHref) ? (
-                              <EventGraphicsPreviewMedia
-                                src={stage.previewHref ?? ''}
-                                alt={`${stage.title} thumbnail`}
-                                className="eventGraphicsPrintThumb"
-                                noPreviewText=""
-                              />
-                            ) : stage.graphicPreset === 'speaker_ppt' || usesSpeakerPptPlaceholder(stage.cueType, stage.stageKind) ? (
-                              <div className="eventGraphicsPrintThumb">
-                                <div className="eventGraphicsSpeakerPptPlaceholder">{SPEAKER_PPT_DISPLAY}</div>
-                              </div>
-                            ) : null}
-                            <strong>{stage.title}</strong>
-                          </div>
-                          {showNotes ? (
-                            <p>
-                              <span>{copy.note}</span>
-                              {stage.note || copy.noNote}
-                            </p>
+                    cue.stages.map((stage, index) => {
+                      const { showSpeakerPpt } = getStageAssetState(stage)
+
+                      return (
+                        <tr key={stage.id}>
+                          {index === 0 ? (
+                            <>
+                              <td className="eventGraphicsPrintTimeCell" rowSpan={cue.stages.length}>
+                                <strong>{cue.startTime}</strong>
+                                <span>{formatEndTimeLabel(cue.endTime)}</span>
+                                <small>{formatRuntimeDisplay(cue.runtimeLabel, locale)}</small>
+                              </td>
+                              <td className="eventGraphicsPrintCueCell" rowSpan={cue.stages.length}>
+                                <strong>{cue.cueNumber}</strong>
+                                <span>{toCueTypeLabel(cue.cueType, locale)}</span>
+                              </td>
+                            </>
                           ) : null}
-                        </td>
-                        <td className={stage.graphicPreset === 'speaker_ppt' ? 'eventGraphicsPrintAssetCell is-speaker-ppt' : 'eventGraphicsPrintAssetCell'}>
-                          {stage.graphicPreset === 'speaker_ppt' ? (
-                            SPEAKER_PPT_DISPLAY
-                          ) : (
-                            <FileNameInlineList files={stage.captureFiles} fallback={stage.graphicLabel || copy.noAsset} />
-                          )}
-                        </td>
-                        <td className={stage.audioPreset === 'dj_ambient' ? 'eventGraphicsPrintAssetCell is-ambient-audio' : 'eventGraphicsPrintAssetCell'}>
-                          {stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioPreset === 'not_applicable' ? copy.noAsset : stage.audioLabel || copy.noAsset}
-                        </td>
-                      </tr>
-                    )),
+                          <td className="eventGraphicsPrintTitleCell">
+                            <div className="eventGraphicsPrintTitleMain">
+                              {stage.captureFiles.length > 0 && hasVisualPreviewUrl(stage.previewHref) ? (
+                                <EventGraphicsPreviewMedia
+                                  src={stage.previewHref ?? ''}
+                                  alt={`${stage.title} thumbnail`}
+                                  className="eventGraphicsPrintThumb"
+                                  noPreviewText=""
+                                />
+                              ) : showSpeakerPpt ? (
+                                <div className="eventGraphicsPrintThumb">
+                                  <div className="eventGraphicsSpeakerPptPlaceholder">{SPEAKER_PPT_DISPLAY}</div>
+                                </div>
+                              ) : null}
+                              <strong>{stage.title}</strong>
+                            </div>
+                            {showNotes ? (
+                              <p>
+                                <span>{copy.note}</span>
+                                {stage.note || copy.noNote}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className={showSpeakerPpt ? 'eventGraphicsPrintAssetCell is-speaker-ppt' : 'eventGraphicsPrintAssetCell'}>
+                            {showSpeakerPpt ? (
+                              SPEAKER_PPT_DISPLAY
+                            ) : (
+                              <FileNameInlineList files={stage.captureFiles} fallback={stage.graphicLabel || copy.noAsset} />
+                            )}
+                          </td>
+                          <td className={stage.audioPreset === 'dj_ambient' ? 'eventGraphicsPrintAssetCell is-ambient-audio' : 'eventGraphicsPrintAssetCell'}>
+                            {stage.audioPreset === 'video_embedded' ? VIDEO_INCLUDED_DISPLAY : stage.audioPreset === 'not_applicable' ? copy.noAsset : stage.audioLabel || copy.noAsset}
+                          </td>
+                        </tr>
+                      )
+                    }),
                   )}
                 </tbody>
               </table>
@@ -686,12 +696,12 @@ export function EventGraphicsShareDocument({
                                 openFileLabel={copy.openFile}
                                 showOpenFileLink={embedded}
                                 presetAction={
-                                  showSpeakerPpt && canSetPreset
+                                  showSpeakerPpt
                                     ? {
                                         label: SPEAKER_PPT_DISPLAY,
                                         active: hasSpeakerPptPreset,
-                                        pending: capturePresetState?.status === 'uploading',
-                                        onClick: handleSpeakerPptClick,
+                                        pending: canSetPreset ? capturePresetState?.status === 'uploading' : undefined,
+                                        onClick: canSetPreset ? handleSpeakerPptClick : undefined,
                                       }
                                     : undefined
                                 }

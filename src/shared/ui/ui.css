@@ -4347,6 +4347,7 @@ button.dashboardNavButton {
   font: inherit;
 }
 
+.eventGraphicsAuditChip.is-active,
 .eventGraphicsAuditChipButton.is-active {
   background: linear-gradient(180deg, rgba(254, 249, 195, 0.92), rgba(255, 251, 235, 0.96));
   border-color: #facc15;
