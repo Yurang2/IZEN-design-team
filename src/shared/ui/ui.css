@@ -4085,6 +4085,26 @@ button.dashboardNavButton {
   justify-content: space-between;
 }
 
+.eventGraphicsShareStageTitleBlock {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eventGraphicsShareStageCategory {
+  align-items: center;
+  background: color-mix(in srgb, #e6eefc 82%, white);
+  border-radius: 999px;
+  color: #274472;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
 .eventGraphicsShareStageHead strong {
   margin: 0;
 }
@@ -4273,6 +4293,10 @@ button.dashboardNavButton {
   white-space: normal;
   word-break: break-word;
   vertical-align: top;
+}
+
+.eventGraphicsSharePage:not(.is-embedded) .eventGraphicsAuditChip {
+  font-size: 13px;
 }
 
 .eventGraphicsAuditChipButton {

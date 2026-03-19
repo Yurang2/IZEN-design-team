@@ -181,6 +181,10 @@ function ToolbarGroup({
   )
 }
 
+function resolveVisualCueHeadingTitle(cue: EventGroup['cues'][number]): string {
+  return cue.stages.find((stage) => stage.stageKind !== 'appearance')?.title || cue.title
+}
+
 function ShareAssetPanel({
   title,
   files,
@@ -535,6 +539,7 @@ export function EventGraphicsShareDocument({
                   const { graphicMissing, audioMissing } = getStageAssetState(stage)
                   return graphicMissing || audioMissing
                 })
+                const cueHeadingTitle = resolveVisualCueHeadingTitle(cue)
 
                 return (
                   <article key={cue.id} className={`eventGraphicsShareRow${cueHasMissing ? ' is-missing' : ''}`}>
@@ -547,8 +552,7 @@ export function EventGraphicsShareDocument({
                     <div className="eventGraphicsShareBody">
                       <div className="eventGraphicsShareHead">
                         <span className="eventGraphicsOrder">{cue.cueNumber}</span>
-                        <span className="eventGraphicsShareSection">{cue.stages[0]?.category || toCueTypeLabel(cue.cueType, locale)}</span>
-                        <h3>{cue.title}</h3>
+                        <h3>{cueHeadingTitle}</h3>
                       </div>
 
                       <div className="eventGraphicsShareStageList">
@@ -625,7 +629,12 @@ export function EventGraphicsShareDocument({
                         return (
                           <section key={stage.id} className={`eventGraphicsShareStage${graphicMissing || audioMissing ? ' is-missing' : ''}`}>
                             <div className="eventGraphicsShareStageHead">
-                              <strong>{stage.title}</strong>
+                              <div className="eventGraphicsShareStageTitleBlock">
+                                <span className="eventGraphicsShareStageCategory">
+                                  {stage.category || toCueTypeLabel(stage.cueType, locale)}
+                                </span>
+                                <strong>{stage.title}</strong>
+                              </div>
                               <span className="eventGraphicsShareStageMeta">{hasStageNote ? stage.note : ''}</span>
                             </div>
                             <div className="eventGraphicsShareAssetGrid">
@@ -655,7 +664,7 @@ export function EventGraphicsShareDocument({
                                 title={copy.graphic}
                                 files={graphicFiles}
                                 missingFiles={graphicAlerts}
-                                href={stage.assetHref}
+                                href={embedded ? stage.assetHref : null}
                                 openFileLabel={copy.openFile}
                                 presetAction={
                                   showSpeakerPpt && canSetPreset
@@ -672,7 +681,7 @@ export function EventGraphicsShareDocument({
                                 title={copy.audio}
                                 files={audioFiles}
                                 missingFiles={audioAlerts}
-                                href={stage.assetHref}
+                                href={embedded ? stage.assetHref : null}
                                 openFileLabel={copy.openFile}
                                 tone={hasDjAmbientPreset ? 'ambient' : 'default'}
                               />
