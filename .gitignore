@@ -15,6 +15,11 @@ dist-ssr
 .wrangler
 worker/.dev.vars
 
+# Binary / generated assets
+files/
+footages/
+ops/generated/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
