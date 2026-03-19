@@ -443,12 +443,6 @@ export function EventGraphicsPrintDocument({
                               ) : null}
                               <strong>{stage.title}</strong>
                             </div>
-                            {showNotes ? (
-                              <p>
-                                <span>{copy.note}</span>
-                                {stage.note || copy.noNote}
-                              </p>
-                            ) : null}
                           </td>
                           <td className={showSpeakerPpt ? 'eventGraphicsPrintAssetCell is-speaker-ppt' : 'eventGraphicsPrintAssetCell'}>
                             {showSpeakerPpt ? (
@@ -596,7 +590,6 @@ export function EventGraphicsShareDocument({
                             graphicMissing,
                             audioMissing,
                           } = getStageAssetState(stage)
-                        const hasStageNote = Boolean(stage.note && stage.note !== copy.noSpecialNote && stage.note !== '메모 없음')
                         const graphicFiles =
                           showSpeakerPpt
                             ? []
@@ -663,7 +656,6 @@ export function EventGraphicsShareDocument({
                                 </span>
                                 <strong>{stage.title}</strong>
                               </div>
-                              <span className="eventGraphicsShareStageMeta">{hasStageNote ? stage.note : ''}</span>
                             </div>
                             <div className="eventGraphicsShareAssetGrid">
                               <section className="eventGraphicsAuditVisual">
