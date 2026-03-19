@@ -699,7 +699,7 @@ export function EventGraphicsShareDocument({
                                   showSpeakerPpt
                                     ? {
                                         label: SPEAKER_PPT_DISPLAY,
-                                        active: hasSpeakerPptPreset,
+                                        active: embedded ? hasSpeakerPptPreset : true,
                                         pending: canSetPreset ? capturePresetState?.status === 'uploading' : undefined,
                                         onClick: canSetPreset ? handleSpeakerPptClick : undefined,
                                       }
