@@ -249,6 +249,7 @@ function ShareAssetPanel({
           {files.map((file) => (
             <span key={`${title}-${file.name}-${file.role}`} className="eventGraphicsAuditChip" title={file.role}>
               {file.name}
+              {file.showImagePreviewBadge ? <span className="eventGraphicsAssetBadge">image preview</span> : null}
             </span>
           ))}
         </div>
