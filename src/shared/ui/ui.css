@@ -2289,6 +2289,12 @@ button.dashboardNavButton {
   gap: 10px;
 }
 
+.workflowNamingGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .workflowCheckpoint {
   background: var(--surface-soft);
   border: 1px solid var(--border);
@@ -2296,6 +2302,11 @@ button.dashboardNavButton {
   display: grid;
   gap: 6px;
   padding: 12px;
+}
+
+.workflowNamingExample {
+  color: var(--text-main);
+  font-weight: 700;
 }
 
 [data-theme='v2'] .workflowHero {

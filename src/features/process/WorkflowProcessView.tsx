@@ -74,6 +74,36 @@ const CHECKPOINTS = [
   { title: '업로드 가능 기준', detail: '완성본 수정 반영 후 최종 승인까지 끝난 상태' },
 ]
 
+const VIDEO_NAMING_GUIDE = [
+  {
+    title: 'Teaser Video',
+    usage: '행사 전 관심 유도와 사전 홍보용',
+    naming: '[event-name]-teaser-video',
+  },
+  {
+    title: 'Recap Video',
+    usage: '행사 종료 후 결과 공유와 회고용',
+    naming: '[event-name]-recap-video',
+  },
+  {
+    title: 'Highlight Video',
+    usage: '핵심 장면만 짧게 묶어 재공유할 때',
+    naming: '[event-name]-highlight-video',
+  },
+  {
+    title: 'Sketch Video',
+    usage: '분위기 전달과 현장 기록 중심',
+    naming: '[event-name]-sketch-video',
+  },
+]
+
+const VIDEO_NAMING_RULES = [
+  '파일명은 영문 소문자와 하이픈만 사용하는 kebab-case를 기본으로 합니다.',
+  '후기영상은 recap-video로 통일하고, aftermovie 같은 다른 표현은 별도 요청이 있을 때만 사용합니다.',
+  '협조전, 단체방, 파일명, 업로드 제목에서 같은 영문 명칭을 유지합니다.',
+  '대외 노출 제목에는 v1, final, edit, 수정본 같은 내부 작업 표현을 넣지 않습니다.',
+]
+
 type WorkflowProcessViewProps = {
   onOpenGuide: () => void
 }
@@ -147,6 +177,29 @@ export function WorkflowProcessView({ onOpenGuide }: WorkflowProcessViewProps) {
               </article>
             ))}
           </div>
+        </article>
+
+        <article className="workflowCard workflowCardWide">
+          <div className="workflowSectionHeader">
+            <div>
+              <span className="workflowSectionEyebrow">Video Naming</span>
+              <h3>영상 영문 파일명 가이드</h3>
+            </div>
+          </div>
+          <div className="workflowNamingGrid">
+            {VIDEO_NAMING_GUIDE.map((item) => (
+              <article key={item.title} className="workflowCheckpoint">
+                <h4>{item.title}</h4>
+                <p>{item.usage}</p>
+                <p className="workflowNamingExample">권장 표기: {item.naming}</p>
+              </article>
+            ))}
+          </div>
+          <ul className="workflowList">
+            {VIDEO_NAMING_RULES.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
         </article>
       </div>
     </section>
