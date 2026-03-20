@@ -265,6 +265,7 @@ export type TopView =
   | 'schedule'
   | 'screeningHistory'
   | 'screeningPlan'
+  | 'workflowProcess'
   | 'eventGraphics'
   | 'photoGuide'
   | 'checklist'

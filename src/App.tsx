@@ -8,6 +8,7 @@ import { EventGraphicsTimetableView } from './features/eventGraphics/EventGraphi
 import { MailTemplateView } from './features/mailTemplate/MailTemplateView'
 import { MeetingsView } from './features/meetings/MeetingsView'
 import { ProjectsView } from './features/projects/ProjectsView'
+import { WorkflowProcessView } from './features/process/WorkflowProcessView'
 import { ScheduleView } from './features/schedule/ScheduleView'
 import { ScreeningDbView } from './features/screening/ScreeningDbView'
 import { ScreeningPlanImportModal, type ScreeningPlanImportForm } from './features/screening/ScreeningPlanImportModal'
@@ -1716,6 +1717,7 @@ function App() {
       items: [
         { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list' },
         { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list' },
+        { view: 'workflowProcess', title: '업무진행 프로세스', label: '업무진행 프로세스', icon: 'list' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
         { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list' },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
@@ -2884,6 +2886,8 @@ function App() {
 
       {activeView === 'mailTemplate' ? <MailTemplateView onCopy={copyText} /> : null}
 
+      {activeView === 'workflowProcess' ? <WorkflowProcessView onOpenGuide={() => setActiveView('guide')} /> : null}
+
       {activeView === 'guide' ? (
         <section className="guideView" aria-label="서비스 사용법">
           <article className="guideHero">
@@ -2958,6 +2962,13 @@ function App() {
                 <p>반복 발송하는 메일 본문을 템플릿으로 만들고, 필요한 값만 넣어 바로 복사하는 탭입니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('mailTemplate')}>
                   메일 탭 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>업무진행 프로세스</h4>
+                <p>요청 접수부터 컨셉 승인, 본작업, 최종 업로드까지의 표준 업무 절차를 정리한 페이지입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('workflowProcess')}>
+                  프로세스 열기
                 </button>
               </section>
               <section className="guideTabItem">
