@@ -449,7 +449,7 @@ function App() {
     } finally {
       setScreeningPlanSyncing(false)
     }
-  }, [screeningHistory, screeningPlan, pushToast])
+  }, [screeningHistory.fetch, screeningPlan.fetch, pushToast])
 
   const openScreeningPlanImportModal = useCallback(() => {
     setScreeningPlanImportForm(INITIAL_SCREENING_PLAN_IMPORT_FORM)
@@ -496,7 +496,7 @@ function App() {
     } finally {
       setScreeningPlanImporting(false)
     }
-  }, [screeningHistory, screeningPlan, pushToast, screeningPlanImportForm])
+  }, [screeningHistory.fetch, screeningPlan.fetch, pushToast, screeningPlanImportForm])
 
 
   const fetchChecklistAssignments = useCallback(async (projectPageId?: string, options?: { ensure?: 'background' | 'sync' | 'none' }) => {
@@ -539,14 +539,14 @@ function App() {
     if (route.kind !== 'list') return
     if (activeView !== 'schedule') return
     void schedule.fetch()
-  }, [activeView, authState, schedule, route.kind])
+  }, [activeView, authState, schedule.fetch, route.kind])
 
   useEffect(() => {
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     if (activeView !== 'screeningHistory') return
     void screeningHistory.fetch()
-  }, [activeView, authState, screeningHistory, route.kind])
+  }, [activeView, authState, screeningHistory.fetch, route.kind])
 
   useEffect(() => {
     if (authState !== 'authenticated') return
@@ -554,7 +554,7 @@ function App() {
     if (activeView !== 'screeningPlan') return
     void screeningPlan.fetch()
     void screeningHistory.fetch()
-  }, [activeView, authState, screeningHistory, screeningPlan, route.kind])
+  }, [activeView, authState, screeningHistory.fetch, screeningPlan.fetch, route.kind])
 
   useEffect(() => {
     if (route.kind === 'eventGraphicsShare' || route.kind === 'eventGraphicsPrint') {
@@ -565,7 +565,7 @@ function App() {
     if (route.kind !== 'list') return
     if (activeView !== 'eventGraphics') return
     void eventGraphics.fetch()
-  }, [activeView, authState, eventGraphics, route.kind])
+  }, [activeView, authState, eventGraphics.fetch, route.kind])
 
   useEffect(() => {
     if (route.kind === 'photoGuideShare') {
@@ -576,7 +576,7 @@ function App() {
     if (route.kind !== 'list') return
     if (activeView !== 'photoGuide') return
     void photoGuide.fetch()
-  }, [activeView, authState, photoGuide, route.kind])
+  }, [activeView, authState, photoGuide.fetch, route.kind])
 
   const refreshListAndProjects = useCallback(async () => {
     const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
@@ -586,7 +586,7 @@ function App() {
     if (activeView === 'eventGraphics') jobs.push(eventGraphics.fetch())
     if (activeView === 'photoGuide') jobs.push(photoGuide.fetch())
     await Promise.all(jobs)
-  }, [activeView, eventGraphics, fetchProjects, fetchTasks, photoGuide, schedule, screeningHistory, screeningPlan])
+  }, [activeView, eventGraphics.fetch, fetchProjects, fetchTasks, photoGuide.fetch, schedule.fetch, screeningHistory.fetch, screeningPlan.fetch])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
