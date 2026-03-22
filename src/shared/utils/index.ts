@@ -1,5 +1,3 @@
-// Re-export all utilities from domain-specific modules for backward compatibility.
-// New code should import directly from 'shared/utils/<module>' instead.
 export {
   parseIsoDate,
   normalizeIsoDateInput,
@@ -10,7 +8,7 @@ export {
   shiftBusinessDays,
   toIsoDate,
   formatDateLabel,
-} from './utils/date'
+} from './date'
 
 export {
   parseTopView,
@@ -23,7 +21,7 @@ export {
   toTopViewPath,
   toTopViewTitle,
   parseRoute,
-} from './utils/route'
+} from './route'
 
 export {
   parseThemeValue,
@@ -34,7 +32,7 @@ export {
   applyThemeToDocument,
   readFrontGateAuthenticated,
   writeFrontGateAuthenticated,
-} from './utils/theme'
+} from './theme'
 
 export {
   getScheduleColumnIndex,
@@ -42,7 +40,7 @@ export {
   readScheduleTitleText,
   normalizeScheduleKey,
   resolveScheduleRelationText,
-} from './utils/schedule'
+} from './schedule'
 
 export {
   sanitizeChecklistTaskPageId,
@@ -61,7 +59,7 @@ export {
   includesChecklistValue,
   isChecklistSelectableProject,
   checklistAppliesToProject,
-} from './utils/checklist'
+} from './checklist'
 
 export {
   normalizeStatus,
@@ -77,4 +75,4 @@ export {
   createDefaultViewMenuOpenState,
   schemaUnknownMessage,
   toErrorMessage,
-} from './utils/format'
+} from './format'

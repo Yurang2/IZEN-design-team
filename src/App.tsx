@@ -1,28 +1,28 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+﻿import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { AssignmentModal } from './features/checklist/AssignmentModal'
-import { ChecklistView } from './features/checklist/ChecklistView'
-import { EventGraphicsPrintPage } from './features/eventGraphics/EventGraphicsPrintPage'
-import { EventGraphicsSharePage } from './features/eventGraphics/EventGraphicsSharePage'
-import { DashboardView } from './features/dashboard/DashboardView'
-import { EventGraphicsTimetableView } from './features/eventGraphics/EventGraphicsTimetableView'
-import { MailTemplateView } from './features/mailTemplate/MailTemplateView'
-import { MeetingsView } from './features/meetings/MeetingsView'
-import { ProjectsView } from './features/projects/ProjectsView'
-import { WorkflowProcessView } from './features/process/WorkflowProcessView'
-import { ScheduleView } from './features/schedule/ScheduleView'
-import { ScreeningDbView } from './features/screening/ScreeningDbView'
 import { ScreeningPlanImportModal, type ScreeningPlanImportForm } from './features/screening/ScreeningPlanImportModal'
-import { SnsPostGeneratorView } from './features/snsPost/SnsPostGeneratorView'
-import { PhotoGuideSharePage } from './features/photoGuide/PhotoGuideSharePage'
-import { PhotoGuideView } from './features/photoGuide/PhotoGuideView'
-import { TaskDetailView } from './features/taskDetail/TaskDetailView'
 import { TaskCreateModal } from './features/tasks/TaskCreateModal'
-import { TasksView } from './features/tasks/TasksView'
-import { GeminiImageTestView } from './features/tools/GeminiImageTestView'
+
+const ChecklistView = lazy(() => import('./features/checklist/ChecklistView').then((m) => ({ default: m.ChecklistView })))
+const DashboardView = lazy(() => import('./features/dashboard/DashboardView').then((m) => ({ default: m.DashboardView })))
+const EventGraphicsPrintPage = lazy(() => import('./features/eventGraphics/EventGraphicsPrintPage').then((m) => ({ default: m.EventGraphicsPrintPage })))
+const EventGraphicsSharePage = lazy(() => import('./features/eventGraphics/EventGraphicsSharePage').then((m) => ({ default: m.EventGraphicsSharePage })))
+const EventGraphicsTimetableView = lazy(() => import('./features/eventGraphics/EventGraphicsTimetableView').then((m) => ({ default: m.EventGraphicsTimetableView })))
+const GeminiImageTestView = lazy(() => import('./features/tools/GeminiImageTestView').then((m) => ({ default: m.GeminiImageTestView })))
+const MailTemplateView = lazy(() => import('./features/mailTemplate/MailTemplateView').then((m) => ({ default: m.MailTemplateView })))
+const MeetingsView = lazy(() => import('./features/meetings/MeetingsView').then((m) => ({ default: m.MeetingsView })))
+const PhotoGuideSharePage = lazy(() => import('./features/photoGuide/PhotoGuideSharePage').then((m) => ({ default: m.PhotoGuideSharePage })))
+const PhotoGuideView = lazy(() => import('./features/photoGuide/PhotoGuideView').then((m) => ({ default: m.PhotoGuideView })))
+const ProjectsView = lazy(() => import('./features/projects/ProjectsView').then((m) => ({ default: m.ProjectsView })))
+const ScheduleView = lazy(() => import('./features/schedule/ScheduleView').then((m) => ({ default: m.ScheduleView })))
+const ScreeningDbView = lazy(() => import('./features/screening/ScreeningDbView').then((m) => ({ default: m.ScreeningDbView })))
+const SnsPostGeneratorView = lazy(() => import('./features/snsPost/SnsPostGeneratorView').then((m) => ({ default: m.SnsPostGeneratorView })))
+const TaskDetailView = lazy(() => import('./features/taskDetail/TaskDetailView').then((m) => ({ default: m.TaskDetailView })))
+const TasksView = lazy(() => import('./features/tasks/TasksView').then((m) => ({ default: m.TasksView })))
+const WorkflowProcessView = lazy(() => import('./features/process/WorkflowProcessView').then((m) => ({ default: m.WorkflowProcessView })))
 import { api, USE_MOCK_DATA } from './shared/api/client'
 import {
   AUTH_GATE_ENABLED,
-  AUTH_GATE_PASSWORD,
   GUIDE_DB_ROWS,
   GUIDE_SECRET_ROWS,
   INITIAL_SCREENING_PLAN_IMPORT_FORM,
@@ -30,13 +30,16 @@ import {
   POLLING_MS,
   TASK_PAGE_SIZE,
   THEME_QUERY_KEY,
-  TOAST_LIFETIME_MS,
 } from './shared/constants'
 import { useDebouncedValue } from './shared/hooks/useDebouncedValue'
 import { useKeybinding } from './shared/hooks/useKeybinding'
+import { useToast } from './shared/hooks/useToast'
+import { useAuth } from './shared/hooks/useAuth'
+import { useAppVersion } from './shared/hooks/useAppVersion'
+import { useAppRouter } from './shared/hooks/useAppRouter'
+import { useNotionTableView } from './shared/hooks/useNotionTableView'
 import type {
   ApiSchemaSummary,
-  AppVersionManifest,
   ChecklistAssignmentRow,
   ChecklistAssignmentStatus,
   ChecklistAssignmentsResponse,
@@ -44,36 +47,25 @@ import type {
   ChecklistPreviewItem,
   ChecklistPreviewResponse,
   ChecklistSort,
-  CopyTextOptions,
   CreateForm,
   DetailForm,
-  EventGraphicsTimetableResponse,
-  Filters,
   ListTasksResponse,
   MetaResponse,
-  PhotoGuideResponse,
   ProjectRecord,
   ProjectSort,
   ProjectsResponse,
   QuickSearchScope,
-  Route,
-  ScheduleColumn,
-  ScheduleResponse,
-  ScheduleRow,
   ScreeningPlanHistorySyncResponse,
   ScreeningPlanImportResponse,
-  TaskLayoutMode,
-  TaskQuickGroupBy,
   TaskRecord,
   TaskResponse,
   TaskSort,
-  TaskViewFilters,
   ThemeKey,
   TopView,
   ViewMenuGroupKey,
   ChecklistAssignmentTarget,
 } from './shared/types'
-import { ToastStack, UiGlyph, type ToastItem, type ToastTone } from './shared/ui'
+import { ToastStack, UiGlyph, ErrorBoundary } from './shared/ui'
 import type { UiGlyphName } from './shared/ui'
 import {
   addDays,
@@ -99,8 +91,6 @@ import {
   normalizeNotionId,
   normalizeTaskLookupKey,
   parseIsoDate,
-  parseRoute,
-  readFrontGateAuthenticated,
   readListUiStateFromSearch,
   readScheduleCellText,
   readScheduleTitleText,
@@ -120,7 +110,6 @@ import {
   toTopViewPath,
   toTopViewTitle,
   unique,
-  writeFrontGateAuthenticated,
   writeThemeToStorage,
 } from './shared/utils'
 import './App.css'
@@ -128,25 +117,31 @@ import './shared/ui/ui.css'
 
 function App() {
   const initialListUiState = readListUiStateFromSearch(window.location.search)
-  const currentBuild = useMemo<AppVersionManifest>(
-    () => ({
-      id: __APP_BUILD_ID__,
-      builtAt: __APP_BUILD_TIME__,
-    }),
-    [],
-  )
-  const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname))
-  const [latestAvailableBuild, setLatestAvailableBuild] = useState<AppVersionManifest | null>(null)
+  const { toasts, pushToast, dismissToast, copyText } = useToast()
+  const { authState, authPassword, authSubmitting, authError, setAuthPassword, onAuthSubmit } = useAuth(pushToast)
+  const { currentBuild, latestAvailableBuild } = useAppVersion()
   const [theme, setTheme] = useState<ThemeKey>(() => resolveThemeFromSearch(window.location.search))
-  const [activeView, setActiveView] = useState<TopView>(initialListUiState.activeView)
+  const {
+    route,
+    activeView,
+    setActiveView,
+    taskLayout,
+    setTaskLayout,
+    taskQuickGroupBy,
+    setTaskQuickGroupBy,
+    showTaskFilters,
+    setShowTaskFilters,
+    filters,
+    setFilters,
+    taskViewFilters,
+    setTaskViewFilters,
+    navigate,
+  } = useAppRouter({ initialListUiState, setTheme })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuCollapsed, setMenuCollapsed] = useState(false)
   const [viewMenuOpenState, setViewMenuOpenState] = useState<Record<ViewMenuGroupKey, boolean>>(createDefaultViewMenuOpenState)
   const [projectSort, setProjectSort] = useState<ProjectSort>('name_asc')
   const [taskSort, setTaskSort] = useState<TaskSort>('due_asc')
-  const [taskLayout, setTaskLayout] = useState<TaskLayoutMode>(initialListUiState.taskLayout)
-  const [taskQuickGroupBy, setTaskQuickGroupBy] = useState<TaskQuickGroupBy>(initialListUiState.taskQuickGroupBy)
-  const [showTaskFilters, setShowTaskFilters] = useState(initialListUiState.showTaskFilters)
   const [checklistSort, setChecklistSort] = useState<ChecklistSort>('due_asc')
   const [checklistMode, setChecklistMode] = useState<'schedule_share' | 'assignment'>('assignment')
   const [quickSearch, setQuickSearch] = useState('')
@@ -161,35 +156,15 @@ function App() {
     project: string | null
     task: string | null
     checklist: string | null
-    schedule: string | null
-    screeningHistory: string | null
-    screeningPlan: string | null
     screeningVideo: string | null
-    eventGraphics: string | null
-    photoGuide: string | null
   }>({
     project: null,
     task: null,
     checklist: null,
-    schedule: null,
-    screeningHistory: null,
-    screeningPlan: null,
     screeningVideo: null,
-    eventGraphics: null,
-    photoGuide: null,
   })
 
-  const [filters, setFilters] = useState<Filters>(initialListUiState.filters)
-  const [taskViewFilters, setTaskViewFilters] = useState<TaskViewFilters>(initialListUiState.taskViewFilters)
   const debouncedFilterQ = useDebouncedValue(filters.q, 250)
-  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>(() => {
-    if (!AUTH_GATE_ENABLED) return 'authenticated'
-    if (USE_MOCK_DATA) return 'authenticated'
-    return readFrontGateAuthenticated() ? 'authenticated' : 'unauthenticated'
-  })
-  const [authPassword, setAuthPassword] = useState('')
-  const [authSubmitting, setAuthSubmitting] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
 
   const [loadingList, setLoadingList] = useState(true)
   const [loadingProjects, setLoadingProjects] = useState(true)
@@ -206,40 +181,15 @@ function App() {
   const [checklistItems, setChecklistItems] = useState<ChecklistPreviewItem[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState<string | null>(null)
-  const [scheduleConfigured, setScheduleConfigured] = useState(false)
-  const [scheduleDatabaseTitle, setScheduleDatabaseTitle] = useState('')
-  const [scheduleColumns, setScheduleColumns] = useState<ScheduleColumn[]>([])
-  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([])
-  const [scheduleLoading, setScheduleLoading] = useState(false)
-  const [scheduleError, setScheduleError] = useState<string | null>(null)
-  const [screeningHistoryConfigured, setScreeningHistoryConfigured] = useState(false)
-  const [screeningHistoryDatabaseTitle, setScreeningHistoryDatabaseTitle] = useState('')
-  const [screeningHistoryColumns, setScreeningHistoryColumns] = useState<ScheduleColumn[]>([])
-  const [screeningHistoryRows, setScreeningHistoryRows] = useState<ScheduleRow[]>([])
-  const [screeningHistoryLoading, setScreeningHistoryLoading] = useState(false)
-  const [screeningHistoryError, setScreeningHistoryError] = useState<string | null>(null)
-  const [screeningPlanConfigured, setScreeningPlanConfigured] = useState(false)
-  const [screeningPlanDatabaseTitle, setScreeningPlanDatabaseTitle] = useState('')
-  const [screeningPlanColumns, setScreeningPlanColumns] = useState<ScheduleColumn[]>([])
-  const [screeningPlanRows, setScreeningPlanRows] = useState<ScheduleRow[]>([])
-  const [screeningPlanLoading, setScreeningPlanLoading] = useState(false)
-  const [screeningPlanError, setScreeningPlanError] = useState<string | null>(null)
+  const schedule = useNotionTableView('/schedule', '일정 DB를 불러오지 못했습니다.')
+  const screeningHistory = useNotionTableView('/screening-history', '상영 기록 DB를 불러오지 못했습니다.')
+  const screeningPlan = useNotionTableView('/screening-plan', '상영 준비 DB를 불러오지 못했습니다.')
   const [screeningPlanSyncing, setScreeningPlanSyncing] = useState(false)
   const [screeningPlanImportOpen, setScreeningPlanImportOpen] = useState(false)
   const [screeningPlanImporting, setScreeningPlanImporting] = useState(false)
   const [screeningPlanImportForm, setScreeningPlanImportForm] = useState<ScreeningPlanImportForm>(INITIAL_SCREENING_PLAN_IMPORT_FORM)
-  const [eventGraphicsConfigured, setEventGraphicsConfigured] = useState(false)
-  const [eventGraphicsDatabaseTitle, setEventGraphicsDatabaseTitle] = useState('')
-  const [eventGraphicsColumns, setEventGraphicsColumns] = useState<ScheduleColumn[]>([])
-  const [eventGraphicsRows, setEventGraphicsRows] = useState<ScheduleRow[]>([])
-  const [eventGraphicsLoading, setEventGraphicsLoading] = useState(false)
-  const [eventGraphicsError, setEventGraphicsError] = useState<string | null>(null)
-  const [photoGuideConfigured, setPhotoGuideConfigured] = useState(false)
-  const [photoGuideDatabaseTitle, setPhotoGuideDatabaseTitle] = useState('')
-  const [photoGuideColumns, setPhotoGuideColumns] = useState<ScheduleColumn[]>([])
-  const [photoGuideRows, setPhotoGuideRows] = useState<ScheduleRow[]>([])
-  const [photoGuideLoading, setPhotoGuideLoading] = useState(false)
-  const [photoGuideError, setPhotoGuideError] = useState<string | null>(null)
+  const eventGraphics = useNotionTableView('/event-graphics-timetable', '행사 그래픽 타임테이블을 불러오지 못했습니다.')
+  const photoGuide = useNotionTableView('/photo-guide', '촬영 가이드를 불러오지 못했습니다.')
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
   const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
@@ -253,8 +203,6 @@ function App() {
   const [assignmentTarget, setAssignmentTarget] = useState<ChecklistAssignmentTarget | null>(null)
   const [assignmentSearch, setAssignmentSearch] = useState('')
   const [assignmentProjectFilter, setAssignmentProjectFilter] = useState('')
-  const [toasts, setToasts] = useState<ToastItem[]>([])
-  const toastTimerRef = useRef<Record<number, number>>({})
   const projectSchemaSyncDoneRef = useRef(false)
   const checklistTaskFetchInFlightRef = useRef<Set<string>>(new Set())
 
@@ -277,79 +225,9 @@ function App() {
   const [detailSaving, setDetailSaving] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
 
-  const dismissToast = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id))
-    const timerId = toastTimerRef.current[id]
-    if (timerId) {
-      window.clearTimeout(timerId)
-      delete toastTimerRef.current[id]
-    }
-  }, [])
-
-  const pushToast = useCallback(
-    (tone: ToastTone, message: string) => {
-      const id = Date.now() + Math.floor(Math.random() * 1000)
-      setToasts((prev) => [...prev, { id, tone, message }].slice(-5))
-      const timerId = window.setTimeout(() => {
-        dismissToast(id)
-      }, TOAST_LIFETIME_MS)
-      toastTimerRef.current[id] = timerId
-    },
-    [dismissToast],
-  )
-
-  const copyText = useCallback(
-    async (text: string, options?: CopyTextOptions) => {
-      const normalized = text.trim()
-      if (!normalized) {
-        pushToast('error', options?.emptyMessage ?? '복사할 내용이 없습니다.')
-        return
-      }
-
-      try {
-        await navigator.clipboard.writeText(normalized)
-        pushToast('success', options?.successMessage ?? '보고 문구를 복사했습니다.')
-      } catch {
-        pushToast('error', '클립보드 복사에 실패했습니다.')
-      }
-    },
-    [pushToast],
-  )
-
-  useEffect(() => {
-    const toastTimers = toastTimerRef.current
-    return () => {
-      for (const timerId of Object.values(toastTimers)) {
-        window.clearTimeout(timerId)
-      }
-    }
-  }, [])
-
   useEffect(() => {
     applyThemeToDocument(theme)
   }, [theme])
-
-  useEffect(() => {
-    if (!AUTH_GATE_ENABLED) {
-      setAuthState('authenticated')
-      setAuthError(null)
-      return
-    }
-
-    if (USE_MOCK_DATA) {
-      setAuthState('authenticated')
-      setAuthError(null)
-      return
-    }
-
-    setAuthState(readFrontGateAuthenticated() ? 'authenticated' : 'unauthenticated')
-    setAuthError(null)
-  }, [])
-
-  const navigate = useCallback((to: string) => {
-    window.history.pushState({}, '', to)
-    setRoute(parseRoute(to))
-  }, [])
 
   const onThemeChange = useCallback((nextTheme: ThemeKey) => {
     setTheme(nextTheme)
@@ -361,73 +239,6 @@ function App() {
     const nextUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname
     window.history.replaceState({}, '', nextUrl)
   }, [])
-
-  const applyListUiStateFromSearch = useCallback((search: string) => {
-    const next = readListUiStateFromSearch(search)
-    setActiveView(next.activeView)
-    setTaskLayout(next.taskLayout)
-    setTaskQuickGroupBy(next.taskQuickGroupBy)
-    setShowTaskFilters(next.showTaskFilters)
-    setFilters(next.filters)
-    setTaskViewFilters(next.taskViewFilters)
-  }, [])
-
-  useEffect(() => {
-    const onPopState = () => {
-      const nextRoute = parseRoute(window.location.pathname)
-      setRoute(nextRoute)
-      setTheme(resolveThemeFromSearch(window.location.search))
-      if (nextRoute.kind === 'list') {
-        applyListUiStateFromSearch(window.location.search)
-      }
-    }
-
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
-  }, [applyListUiStateFromSearch])
-
-  useEffect(() => {
-    let disposed = false
-    const versionUrl = new URL(/* @vite-ignore */ '../app-version.json', import.meta.url)
-
-    const checkLatestBuild = async () => {
-      try {
-        const response = await fetch(`${versionUrl.toString()}?t=${Date.now()}`, { cache: 'no-store' })
-        if (!response.ok) return
-        const manifest = (await response.json()) as Partial<AppVersionManifest>
-        if (!manifest.id || !manifest.builtAt || disposed) return
-        if (manifest.id !== currentBuild.id) {
-          setLatestAvailableBuild({
-            id: manifest.id,
-            builtAt: manifest.builtAt,
-          })
-          return
-        }
-        setLatestAvailableBuild(null)
-      } catch {
-        // Non-blocking: deployment checks should never break the workspace.
-      }
-    }
-
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void checkLatestBuild()
-      }
-    }
-
-    void checkLatestBuild()
-    const timer = window.setInterval(() => {
-      void checkLatestBuild()
-    }, 30_000)
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('focus', onVisible)
-    return () => {
-      disposed = true
-      window.clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('focus', onVisible)
-    }
-  }, [currentBuild.id])
 
   useEffect(() => {
     if (route.kind !== 'list') return
@@ -514,12 +325,7 @@ function App() {
         project: response.databases.project.url ?? toNotionUrlById(response.databases.project.id),
         task: response.databases.task.url ?? toNotionUrlById(response.databases.task.id),
         checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
-        schedule: response.databases.schedule?.url ?? toNotionUrlById(response.databases.schedule?.id ?? undefined),
-        screeningHistory: response.databases.screeningHistory?.url ?? toNotionUrlById(response.databases.screeningHistory?.id ?? undefined),
-        screeningPlan: response.databases.screeningPlan?.url ?? toNotionUrlById(response.databases.screeningPlan?.id ?? undefined),
         screeningVideo: response.databases.screeningVideo?.url ?? toNotionUrlById(response.databases.screeningVideo?.id ?? undefined),
-        eventGraphics: response.databases.eventGraphicsTimetable?.url ?? toNotionUrlById(response.databases.eventGraphicsTimetable?.id ?? undefined),
-        photoGuide: response.databases.photoGuide?.url ?? toNotionUrlById(response.databases.photoGuide?.id ?? undefined),
       })
     } catch {
       // Ignore meta failures; app can run without DB deep-links.
@@ -624,80 +430,7 @@ function App() {
     }
   }, [projects])
 
-  const fetchSchedule = useCallback(async () => {
-    setScheduleLoading(true)
-    setScheduleError(null)
 
-    try {
-      const response = await api<ScheduleResponse>('/schedule')
-      setScheduleConfigured(response.configured)
-      setScheduleDatabaseTitle(response.database.title)
-      setScheduleColumns(response.columns)
-      setScheduleRows(response.rows)
-      setDbLinks((prev) => ({
-        ...prev,
-        schedule: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
-      }))
-      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
-    } catch (error: unknown) {
-      setScheduleConfigured(false)
-      setScheduleColumns([])
-      setScheduleRows([])
-      setScheduleError(toErrorMessage(error, '일정 DB를 불러오지 못했습니다.'))
-    } finally {
-      setScheduleLoading(false)
-    }
-  }, [])
-
-  const fetchScreeningHistory = useCallback(async () => {
-    setScreeningHistoryLoading(true)
-    setScreeningHistoryError(null)
-
-    try {
-      const response = await api<ScheduleResponse>('/screening-history')
-      setScreeningHistoryConfigured(response.configured)
-      setScreeningHistoryDatabaseTitle(response.database.title)
-      setScreeningHistoryColumns(response.columns)
-      setScreeningHistoryRows(response.rows)
-      setDbLinks((prev) => ({
-        ...prev,
-        screeningHistory: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
-      }))
-      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
-    } catch (error: unknown) {
-      setScreeningHistoryConfigured(false)
-      setScreeningHistoryColumns([])
-      setScreeningHistoryRows([])
-      setScreeningHistoryError(toErrorMessage(error, '상영 기록 DB를 불러오지 못했습니다.'))
-    } finally {
-      setScreeningHistoryLoading(false)
-    }
-  }, [])
-
-  const fetchScreeningPlan = useCallback(async () => {
-    setScreeningPlanLoading(true)
-    setScreeningPlanError(null)
-
-    try {
-      const response = await api<ScheduleResponse>('/screening-plan')
-      setScreeningPlanConfigured(response.configured)
-      setScreeningPlanDatabaseTitle(response.database.title)
-      setScreeningPlanColumns(response.columns)
-      setScreeningPlanRows(response.rows)
-      setDbLinks((prev) => ({
-        ...prev,
-        screeningPlan: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
-      }))
-      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
-    } catch (error: unknown) {
-      setScreeningPlanConfigured(false)
-      setScreeningPlanColumns([])
-      setScreeningPlanRows([])
-      setScreeningPlanError(toErrorMessage(error, '상영 준비 DB를 불러오지 못했습니다.'))
-    } finally {
-      setScreeningPlanLoading(false)
-    }
-  }, [])
 
   const syncScreeningPlanHistory = useCallback(async () => {
     setScreeningPlanSyncing(true)
@@ -710,13 +443,13 @@ function App() {
           ? `상영 히스토리를 ${syncCount}건 반영했습니다.`
           : `상영 히스토리 반영 대상이 없습니다. ${response.skipped}건은 그대로 유지했습니다.`,
       )
-      await Promise.all([fetchScreeningPlan(), fetchScreeningHistory()])
+      await Promise.all([screeningPlan.fetch(), screeningHistory.fetch()])
     } catch (error: unknown) {
       pushToast('error', toErrorMessage(error, '상영 히스토리 반영에 실패했습니다.'))
     } finally {
       setScreeningPlanSyncing(false)
     }
-  }, [fetchScreeningHistory, fetchScreeningPlan, pushToast])
+  }, [screeningHistory, screeningPlan, pushToast])
 
   const openScreeningPlanImportModal = useCallback(() => {
     setScreeningPlanImportForm(INITIAL_SCREENING_PLAN_IMPORT_FORM)
@@ -755,7 +488,7 @@ function App() {
         pushToast('success', `새로 생성된 항목은 없습니다. ${response.skipped}건은 기존 초안과 중복되어 건너뛰었습니다.`)
       }
 
-      await Promise.all([fetchScreeningPlan(), fetchScreeningHistory()])
+      await Promise.all([screeningPlan.fetch(), screeningHistory.fetch()])
       setScreeningPlanImportOpen(false)
       setScreeningPlanImportForm(INITIAL_SCREENING_PLAN_IMPORT_FORM)
     } catch (error: unknown) {
@@ -763,57 +496,8 @@ function App() {
     } finally {
       setScreeningPlanImporting(false)
     }
-  }, [fetchScreeningHistory, fetchScreeningPlan, pushToast, screeningPlanImportForm])
+  }, [screeningHistory, screeningPlan, pushToast, screeningPlanImportForm])
 
-  const fetchEventGraphicsTimetable = useCallback(async () => {
-    setEventGraphicsLoading(true)
-    setEventGraphicsError(null)
-
-    try {
-      const response = await api<EventGraphicsTimetableResponse>('/event-graphics-timetable')
-      setEventGraphicsConfigured(response.configured)
-      setEventGraphicsDatabaseTitle(response.database.title)
-      setEventGraphicsColumns(response.columns)
-      setEventGraphicsRows(response.rows)
-      setDbLinks((prev) => ({
-        ...prev,
-        eventGraphics: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
-      }))
-      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
-    } catch (error: unknown) {
-      setEventGraphicsConfigured(false)
-      setEventGraphicsColumns([])
-      setEventGraphicsRows([])
-      setEventGraphicsError(toErrorMessage(error, '행사 그래픽 타임테이블을 불러오지 못했습니다.'))
-    } finally {
-      setEventGraphicsLoading(false)
-    }
-  }, [])
-
-  const fetchPhotoGuide = useCallback(async () => {
-    setPhotoGuideLoading(true)
-    setPhotoGuideError(null)
-
-    try {
-      const response = await api<PhotoGuideResponse>('/photo-guide')
-      setPhotoGuideConfigured(response.configured)
-      setPhotoGuideDatabaseTitle(response.database.title)
-      setPhotoGuideColumns(response.columns)
-      setPhotoGuideRows(response.rows)
-      setDbLinks((prev) => ({
-        ...prev,
-        photoGuide: response.database.url ?? toNotionUrlById(response.database.id ?? undefined),
-      }))
-      setLastSyncedAt(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
-    } catch (error: unknown) {
-      setPhotoGuideConfigured(false)
-      setPhotoGuideColumns([])
-      setPhotoGuideRows([])
-      setPhotoGuideError(toErrorMessage(error, '촬영 가이드를 불러오지 못했습니다.'))
-    } finally {
-      setPhotoGuideLoading(false)
-    }
-  }, [])
 
   const fetchChecklistAssignments = useCallback(async (projectPageId?: string, options?: { ensure?: 'background' | 'sync' | 'none' }) => {
     if (!projectPageId) {
@@ -843,41 +527,6 @@ function App() {
     }
   }, [])
 
-  const onAuthSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault()
-      if (USE_MOCK_DATA) {
-        writeFrontGateAuthenticated(true)
-        setAuthState('authenticated')
-        return
-      }
-
-      const password = authPassword.trim()
-      if (!password) {
-        setAuthError('비밀번호를 입력해 주세요.')
-        return
-      }
-
-      setAuthSubmitting(true)
-      setAuthError(null)
-
-      if (password !== AUTH_GATE_PASSWORD) {
-        writeFrontGateAuthenticated(false)
-        setAuthError('비밀번호가 올바르지 않습니다.')
-        setAuthState('unauthenticated')
-        setAuthSubmitting(false)
-        return
-      }
-
-      writeFrontGateAuthenticated(true)
-      setAuthPassword('')
-      setAuthState('authenticated')
-      setAuthSubmitting(false)
-      pushToast('success', '인증되었습니다.')
-    },
-    [authPassword, pushToast],
-  )
-
   useEffect(() => {
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
@@ -889,55 +538,55 @@ function App() {
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     if (activeView !== 'schedule') return
-    void fetchSchedule()
-  }, [activeView, authState, fetchSchedule, route.kind])
+    void schedule.fetch()
+  }, [activeView, authState, schedule, route.kind])
 
   useEffect(() => {
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     if (activeView !== 'screeningHistory') return
-    void fetchScreeningHistory()
-  }, [activeView, authState, fetchScreeningHistory, route.kind])
+    void screeningHistory.fetch()
+  }, [activeView, authState, screeningHistory, route.kind])
 
   useEffect(() => {
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     if (activeView !== 'screeningPlan') return
-    void fetchScreeningPlan()
-    void fetchScreeningHistory()
-  }, [activeView, authState, fetchScreeningHistory, fetchScreeningPlan, route.kind])
+    void screeningPlan.fetch()
+    void screeningHistory.fetch()
+  }, [activeView, authState, screeningHistory, screeningPlan, route.kind])
 
   useEffect(() => {
     if (route.kind === 'eventGraphicsShare' || route.kind === 'eventGraphicsPrint') {
-      void fetchEventGraphicsTimetable()
+      void eventGraphics.fetch()
       return
     }
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     if (activeView !== 'eventGraphics') return
-    void fetchEventGraphicsTimetable()
-  }, [activeView, authState, fetchEventGraphicsTimetable, route.kind])
+    void eventGraphics.fetch()
+  }, [activeView, authState, eventGraphics, route.kind])
 
   useEffect(() => {
     if (route.kind === 'photoGuideShare') {
-      void fetchPhotoGuide()
+      void photoGuide.fetch()
       return
     }
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
     if (activeView !== 'photoGuide') return
-    void fetchPhotoGuide()
-  }, [activeView, authState, fetchPhotoGuide, route.kind])
+    void photoGuide.fetch()
+  }, [activeView, authState, photoGuide, route.kind])
 
   const refreshListAndProjects = useCallback(async () => {
     const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
-    if (activeView === 'schedule') jobs.push(fetchSchedule())
-    if (activeView === 'screeningHistory') jobs.push(fetchScreeningHistory())
-    if (activeView === 'screeningPlan') jobs.push(fetchScreeningPlan(), fetchScreeningHistory())
-    if (activeView === 'eventGraphics') jobs.push(fetchEventGraphicsTimetable())
-    if (activeView === 'photoGuide') jobs.push(fetchPhotoGuide())
+    if (activeView === 'schedule') jobs.push(schedule.fetch())
+    if (activeView === 'screeningHistory') jobs.push(screeningHistory.fetch())
+    if (activeView === 'screeningPlan') jobs.push(screeningPlan.fetch(), screeningHistory.fetch())
+    if (activeView === 'eventGraphics') jobs.push(eventGraphics.fetch())
+    if (activeView === 'photoGuide') jobs.push(photoGuide.fetch())
     await Promise.all(jobs)
-  }, [activeView, fetchEventGraphicsTimetable, fetchPhotoGuide, fetchProjects, fetchSchedule, fetchScreeningHistory, fetchScreeningPlan, fetchTasks])
+  }, [activeView, eventGraphics, fetchProjects, fetchTasks, photoGuide, schedule, screeningHistory, screeningPlan])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -1610,31 +1259,31 @@ function App() {
 
   const screeningHistoryLabelMap = useMemo(() => {
     const map: Record<string, string> = {}
-    for (const row of screeningHistoryRows) {
-      const title = readScheduleTitleText(row, screeningHistoryColumns)
+    for (const row of screeningHistory.rows) {
+      const title = readScheduleTitleText(row, screeningHistory.columns)
       if (!title || title === '-') continue
       const normalized = row.id.replace(/-/g, '').toLowerCase()
       map[normalized] = title
       map[row.id] = title
     }
     return map
-  }, [screeningHistoryColumns, screeningHistoryRows])
+  }, [screeningHistory.columns, screeningHistory.rows])
 
   const screeningHistoryEventOptions = useMemo(() => {
     return Array.from(
       new Set(
-        screeningHistoryRows
+        screeningHistory.rows
           .map((row) => {
-            const projectRaw = readScheduleCellText(row, screeningHistoryColumns, '귀속 프로젝트')
+            const projectRaw = readScheduleCellText(row, screeningHistory.columns, '귀속 프로젝트')
             const projectName = projectRaw ? resolveScheduleRelationText(projectRaw, screeningProjectLabelMap) : ''
-            const eventName = readScheduleCellText(row, screeningHistoryColumns, '행사명')
-            const title = readScheduleTitleText(row, screeningHistoryColumns)
+            const eventName = readScheduleCellText(row, screeningHistory.columns, '행사명')
+            const title = readScheduleTitleText(row, screeningHistory.columns)
             return [projectName, eventName, title].map((value) => value.trim()).find((value) => value && value !== '-') ?? ''
           })
           .filter(Boolean),
       ),
     ).sort((left, right) => left.localeCompare(right, 'ko'))
-  }, [screeningHistoryColumns, screeningHistoryRows, screeningProjectLabelMap])
+  }, [screeningHistory.columns, screeningHistory.rows, screeningProjectLabelMap])
 
   const screeningPlanImportProjectOptions = useMemo(() => {
     return [...projects]
@@ -1664,14 +1313,14 @@ function App() {
     if (activeView === 'dashboard') return null
     if (activeView === 'projects') return dbLinks.project
     if (activeView === 'tasks') return dbLinks.task
-    if (activeView === 'schedule') return dbLinks.schedule
-    if (activeView === 'screeningHistory') return dbLinks.screeningHistory
-    if (activeView === 'screeningPlan') return dbLinks.screeningPlan
-    if (activeView === 'eventGraphics') return dbLinks.eventGraphics
-    if (activeView === 'photoGuide') return dbLinks.photoGuide
+    if (activeView === 'schedule') return schedule.databaseUrl
+    if (activeView === 'screeningHistory') return screeningHistory.databaseUrl
+    if (activeView === 'screeningPlan') return screeningPlan.databaseUrl
+    if (activeView === 'eventGraphics') return eventGraphics.databaseUrl
+    if (activeView === 'photoGuide') return photoGuide.databaseUrl
     if (activeView === 'checklist') return dbLinks.checklist
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.eventGraphics, dbLinks.photoGuide, dbLinks.project, dbLinks.schedule, dbLinks.screeningHistory, dbLinks.screeningPlan, dbLinks.task])
+  }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.task, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -2300,7 +1949,7 @@ function App() {
 
   if (route.kind === 'task') {
     return (
-      <>
+      <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>로딩 중...</div>}>
         <TaskDetailView
           detailTask={detailTask}
           detailForm={detailForm}
@@ -2317,46 +1966,52 @@ function App() {
           toProjectLabel={toProjectLabel}
         />
         <ToastStack toasts={toasts} onDismiss={dismissToast} />
-      </>
+      </Suspense>
     )
   }
 
   if (route.kind === 'eventGraphicsShare') {
     return (
-      <EventGraphicsSharePage
-        configured={eventGraphicsConfigured}
-        databaseTitle={eventGraphicsDatabaseTitle}
-        columns={eventGraphicsColumns}
-        rows={eventGraphicsRows}
-        loading={eventGraphicsLoading}
-        error={eventGraphicsError}
-      />
+      <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>로딩 중...</div>}>
+        <EventGraphicsSharePage
+          configured={eventGraphics.configured}
+          databaseTitle={eventGraphics.databaseTitle}
+          columns={eventGraphics.columns}
+          rows={eventGraphics.rows}
+          loading={eventGraphics.loading}
+          error={eventGraphics.error}
+        />
+      </Suspense>
     )
   }
 
   if (route.kind === 'eventGraphicsPrint') {
     return (
-      <EventGraphicsPrintPage
-        configured={eventGraphicsConfigured}
-        databaseTitle={eventGraphicsDatabaseTitle}
-        columns={eventGraphicsColumns}
-        rows={eventGraphicsRows}
-        loading={eventGraphicsLoading}
-        error={eventGraphicsError}
-      />
+      <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>로딩 중...</div>}>
+        <EventGraphicsPrintPage
+          configured={eventGraphics.configured}
+          databaseTitle={eventGraphics.databaseTitle}
+          columns={eventGraphics.columns}
+          rows={eventGraphics.rows}
+          loading={eventGraphics.loading}
+          error={eventGraphics.error}
+        />
+      </Suspense>
     )
   }
 
   if (route.kind === 'photoGuideShare') {
     return (
-      <PhotoGuideSharePage
-        configured={photoGuideConfigured}
-        databaseTitle={photoGuideDatabaseTitle}
-        columns={photoGuideColumns}
-        rows={photoGuideRows}
-        loading={photoGuideLoading}
-        error={photoGuideError}
-      />
+      <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>로딩 중...</div>}>
+        <PhotoGuideSharePage
+          configured={photoGuide.configured}
+          databaseTitle={photoGuide.databaseTitle}
+          columns={photoGuide.columns}
+          rows={photoGuide.rows}
+          loading={photoGuide.loading}
+          error={photoGuide.error}
+        />
+      </Suspense>
     )
   }
 
@@ -2695,6 +2350,8 @@ function App() {
         </div>
       </aside>
       <main className="mondayMain">
+        <ErrorBoundary>
+        <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>로딩 중...</div>}>
         <header className="header topbarHeader">
           <div className="topbarHeading">
             <p className="topbarPath">Design Team / {toTopViewPath(activeView)}</p>
@@ -2783,25 +2440,25 @@ function App() {
 
       {activeView === 'schedule' ? (
         <ScheduleView
-          configured={scheduleConfigured}
-          databaseTitle={scheduleDatabaseTitle}
-          databaseUrl={dbLinks.schedule}
-          columns={scheduleColumns}
-          rows={scheduleRows}
-          loading={scheduleLoading}
-          error={scheduleError}
+          configured={schedule.configured}
+          databaseTitle={schedule.databaseTitle}
+          databaseUrl={schedule.databaseUrl}
+          columns={schedule.columns}
+          rows={schedule.rows}
+          loading={schedule.loading}
+          error={schedule.error}
         />
       ) : null}
 
       {activeView === 'screeningHistory' ? (
         <ScreeningDbView
-          configured={screeningHistoryConfigured}
-          databaseTitle={screeningHistoryDatabaseTitle}
-          databaseUrl={dbLinks.screeningHistory}
-          columns={screeningHistoryColumns}
-          rows={screeningHistoryRows}
-          loading={screeningHistoryLoading}
-          error={screeningHistoryError}
+          configured={screeningHistory.configured}
+          databaseTitle={screeningHistory.databaseTitle}
+          databaseUrl={screeningHistory.databaseUrl}
+          columns={screeningHistory.columns}
+          rows={screeningHistory.rows}
+          loading={screeningHistory.loading}
+          error={screeningHistory.error}
           eyebrow="Notion Screening History DB"
           emptyTitle="상영 기록 DB가 연결되지 않았습니다."
           emptyMessage="Cloudflare Workers 환경변수에 NOTION_SCREENING_HISTORY_DB_ID를 추가하면 상영 기록 화면이 활성화됩니다."
@@ -2827,13 +2484,13 @@ function App() {
 
       {activeView === 'screeningPlan' ? (
         <ScreeningDbView
-          configured={screeningPlanConfigured}
-          databaseTitle={screeningPlanDatabaseTitle}
-          databaseUrl={dbLinks.screeningPlan}
-          columns={screeningPlanColumns}
-          rows={screeningPlanRows}
-          loading={screeningPlanLoading}
-          error={screeningPlanError}
+          configured={screeningPlan.configured}
+          databaseTitle={screeningPlan.databaseTitle}
+          databaseUrl={screeningPlan.databaseUrl}
+          columns={screeningPlan.columns}
+          rows={screeningPlan.rows}
+          loading={screeningPlan.loading}
+          error={screeningPlan.error}
           eyebrow="Notion Screening Plan DB"
           emptyTitle="상영 준비 DB가 연결되지 않았습니다."
           emptyMessage="Cloudflare Workers 환경변수에 NOTION_SCREENING_PLAN_DB_ID를 추가하면 상영 준비 화면이 활성화됩니다."
@@ -2854,26 +2511,26 @@ function App() {
 
       {activeView === 'eventGraphics' ? (
         <EventGraphicsTimetableView
-          configured={eventGraphicsConfigured}
-          databaseTitle={eventGraphicsDatabaseTitle}
-          databaseUrl={dbLinks.eventGraphics}
-          columns={eventGraphicsColumns}
-          rows={eventGraphicsRows}
-          loading={eventGraphicsLoading}
-          error={eventGraphicsError}
-          onRefresh={fetchEventGraphicsTimetable}
+          configured={eventGraphics.configured}
+          databaseTitle={eventGraphics.databaseTitle}
+          databaseUrl={eventGraphics.databaseUrl}
+          columns={eventGraphics.columns}
+          rows={eventGraphics.rows}
+          loading={eventGraphics.loading}
+          error={eventGraphics.error}
+          onRefresh={eventGraphics.fetch}
         />
       ) : null}
 
       {activeView === 'photoGuide' ? (
         <PhotoGuideView
-          configured={photoGuideConfigured}
-          databaseTitle={photoGuideDatabaseTitle}
-          databaseUrl={dbLinks.photoGuide}
-          columns={photoGuideColumns}
-          rows={photoGuideRows}
-          loading={photoGuideLoading}
-          error={photoGuideError}
+          configured={photoGuide.configured}
+          databaseTitle={photoGuide.databaseTitle}
+          databaseUrl={photoGuide.databaseUrl}
+          columns={photoGuide.columns}
+          rows={photoGuide.rows}
+          loading={photoGuide.loading}
+          error={photoGuide.error}
           shareHref="/share/photo-guide"
         />
       ) : null}
@@ -3028,23 +2685,23 @@ function App() {
                 ) : (
                   <span className="guideDbLink is-muted">체크리스트 DB: 연결 안 됨</span>
                 )}
-                {dbLinks.schedule ? (
-                  <a className="guideDbLink" href={dbLinks.schedule} target="_blank" rel="noreferrer">
-                    일정 DB: {dbLinks.schedule}
+                {schedule.databaseUrl ? (
+                  <a className="guideDbLink" href={schedule.databaseUrl} target="_blank" rel="noreferrer">
+                    일정 DB: {schedule.databaseUrl}
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">일정 DB: 연결 안 됨</span>
                 )}
-                {dbLinks.screeningHistory ? (
-                  <a className="guideDbLink" href={dbLinks.screeningHistory} target="_blank" rel="noreferrer">
-                    상영 기록 DB: {dbLinks.screeningHistory}
+                {screeningHistory.databaseUrl ? (
+                  <a className="guideDbLink" href={screeningHistory.databaseUrl} target="_blank" rel="noreferrer">
+                    상영 기록 DB: {screeningHistory.databaseUrl}
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">상영 기록 DB: 연결 안 됨</span>
                 )}
-                {dbLinks.screeningPlan ? (
-                  <a className="guideDbLink" href={dbLinks.screeningPlan} target="_blank" rel="noreferrer">
-                    상영 준비 DB: {dbLinks.screeningPlan}
+                {screeningPlan.databaseUrl ? (
+                  <a className="guideDbLink" href={screeningPlan.databaseUrl} target="_blank" rel="noreferrer">
+                    상영 준비 DB: {screeningPlan.databaseUrl}
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">상영 준비 DB: 연결 안 됨</span>
@@ -3056,16 +2713,16 @@ function App() {
                 ) : (
                   <span className="guideDbLink is-muted">상영 영상 DB: 연결 안 됨</span>
                 )}
-                {dbLinks.eventGraphics ? (
-                  <a className="guideDbLink" href={dbLinks.eventGraphics} target="_blank" rel="noreferrer">
-                    타임테이블 DB: {dbLinks.eventGraphics}
+                {eventGraphics.databaseUrl ? (
+                  <a className="guideDbLink" href={eventGraphics.databaseUrl} target="_blank" rel="noreferrer">
+                    타임테이블 DB: {eventGraphics.databaseUrl}
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">타임테이블 DB: 연결 안 됨</span>
                 )}
-                {dbLinks.photoGuide ? (
-                  <a className="guideDbLink" href={dbLinks.photoGuide} target="_blank" rel="noreferrer">
-                    촬영가이드 DB: {dbLinks.photoGuide}
+                {photoGuide.databaseUrl ? (
+                  <a className="guideDbLink" href={photoGuide.databaseUrl} target="_blank" rel="noreferrer">
+                    촬영가이드 DB: {photoGuide.databaseUrl}
                   </a>
                 ) : (
                   <span className="guideDbLink is-muted">촬영가이드 DB: 연결 안 됨</span>
@@ -3254,6 +2911,8 @@ function App() {
           <option key={option} value={option} />
         ))}
       </datalist>
+        </Suspense>
+        </ErrorBoundary>
     </main>
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>

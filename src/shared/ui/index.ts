@@ -1,4 +1,5 @@
 ﻿export { Badge, Pill } from './Badge'
+export { ErrorBoundary } from './ErrorBoundary'
 export { Button } from './Button'
 export { EmptyState } from './EmptyState'
 export { UiGlyph } from './Icon'
