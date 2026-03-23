@@ -79,4 +79,4 @@ binding = "MEETING_AUDIO_BUCKET"
 bucket_name = "izen-meeting-audio"
 
 [triggers]
-crons = ["0 0 * * *", "30 8 * * *", "*/30 * * * *"]
+crons = ["55 23 * * *", "30 8 * * *", "*/30 * * * *"]

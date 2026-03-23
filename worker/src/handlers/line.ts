@@ -1,5 +1,7 @@
 import type {
   Env,
+  ScheduleRow,
+  ScheduleColumn,
   TaskRecord,
 } from '../types'
 import {
@@ -81,6 +83,107 @@ export async function handleLineWebhook(request: Request, env: Env): Promise<{ o
   }
 }
 
+// ---------------------------------------------------------------------------
+// Schedule helpers
+// ---------------------------------------------------------------------------
+
+type ScheduleEvent = {
+  title: string
+  type: string
+  attendees: string
+  timeStart?: string
+  timeEnd?: string
+  isMultiDay: boolean
+}
+
+function findScheduleColumnIndex(columns: ScheduleColumn[], names: string[]): number {
+  for (const name of names) {
+    const idx = columns.findIndex((c) => c.name === name)
+    if (idx >= 0) return idx
+  }
+  return -1
+}
+
+function extractTimeFromIso(raw: string): string | undefined {
+  const match = raw.match(/T(\d{2}:\d{2})/)
+  if (!match || match[1] === '00:00') return undefined
+  return match[1]
+}
+
+function collectTodaySchedule(columns: ScheduleColumn[], rows: ScheduleRow[], todayIso: string): ScheduleEvent[] {
+  const titleIdx = findScheduleColumnIndex(columns, ['일정명', '이름', 'name'])
+  const dateIdx = findScheduleColumnIndex(columns, ['일시', '날짜', 'date'])
+  const typeIdx = findScheduleColumnIndex(columns, ['유형', '종류', 'type'])
+  const attendeeIdx = findScheduleColumnIndex(columns, ['예정 참석자', '참석자', '담당자'])
+
+  if (dateIdx < 0) return []
+
+  const events: ScheduleEvent[] = []
+
+  for (const row of rows) {
+    const dateText = (row.cells[dateIdx]?.text ?? '').trim()
+    if (!dateText) continue
+
+    const parts = dateText.split(/\s*->\s*/)
+    const startRaw = (parts[0] ?? '').trim()
+    const endRaw = parts.length > 1 ? parts[parts.length - 1].trim() : undefined
+
+    const dateStart = startRaw.slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStart)) continue
+
+    const dateEnd = endRaw ? endRaw.slice(0, 10) : dateStart
+
+    if (todayIso < dateStart || todayIso > dateEnd) continue
+
+    const isMultiDay = dateStart !== dateEnd
+    const title = titleIdx >= 0 ? (row.cells[titleIdx]?.text ?? '').trim() : ''
+    const type = typeIdx >= 0 ? (row.cells[typeIdx]?.text ?? '').trim() : ''
+    const attendees = attendeeIdx >= 0 ? (row.cells[attendeeIdx]?.text ?? '').trim() : ''
+
+    let timeStart: string | undefined
+    let timeEnd: string | undefined
+
+    if (isMultiDay) {
+      if (todayIso === dateStart) timeStart = extractTimeFromIso(startRaw)
+      if (todayIso === dateEnd) timeEnd = endRaw ? extractTimeFromIso(endRaw) : undefined
+    } else {
+      timeStart = extractTimeFromIso(startRaw)
+      timeEnd = endRaw ? extractTimeFromIso(endRaw) : undefined
+    }
+
+    events.push({ title: title || '(제목 없음)', type, attendees, timeStart, timeEnd, isMultiDay })
+  }
+
+  events.sort((a, b) => (a.timeStart ?? '99:99').localeCompare(b.timeStart ?? '99:99'))
+  return events
+}
+
+function formatScheduleLine(event: ScheduleEvent): string {
+  const timePart = event.timeStart && event.timeEnd
+    ? `${event.timeStart}~${event.timeEnd}`
+    : event.timeStart
+      ? `${event.timeStart}~`
+      : event.timeEnd
+        ? `~${event.timeEnd}`
+        : '종일'
+  const typePart = event.type ? `[${event.type}]` : ''
+  const attendeePart = event.attendees ? ` — ${event.attendees}` : ''
+  return `- ${timePart} ${event.title} ${typePart}${attendeePart}`
+}
+
+function buildScheduleSection(events: ScheduleEvent[]): string[] {
+  if (events.length === 0) return ['', '오늘 등록된 일정이 없습니다.']
+  const lines = ['', '📅 오늘 일정']
+  for (const event of events) {
+    lines.push(formatScheduleLine(event))
+  }
+  return lines
+}
+
+// ---------------------------------------------------------------------------
+// Task helpers
+// ---------------------------------------------------------------------------
+
 function matchesAssignee(task: TaskRecord, assigneeName: string): boolean {
   const target = normalizeNameToken(assigneeName)
   if (!target) return false
@@ -112,13 +215,16 @@ function limitReminderLines(lines: string[], suffix: string): string[] {
   return [...lines.slice(0, MAX_LINE_REMINDER_TASKS), `- 외 ${lines.length - MAX_LINE_REMINDER_TASKS}건 ${suffix}`]
 }
 
-function buildMorningReminderText(assigneeName: string, tasks: TaskRecord[], todayIso: string, now: Date): string {
+function buildMorningReminderText(assigneeName: string, tasks: TaskRecord[], todayIso: string, now: Date, scheduleEvents: ScheduleEvent[]): string {
   const dueToday = tasks.filter((task) => task.dueDate === todayIso)
   const overdue = tasks.filter((task) => Boolean(task.dueDate && task.dueDate < todayIso))
   const inProgress = tasks.filter((task) => !dueToday.includes(task) && !overdue.includes(task))
   const lines: string[] = ['[오늘 할 일]', `${todayIso} ${toSeoulTimeLabel(now)} 기준 ${assigneeName}님 업무입니다.`]
 
-  if (tasks.length === 0) {
+  // Schedule section first
+  lines.push(...buildScheduleSection(scheduleEvents))
+
+  if (tasks.length === 0 && scheduleEvents.length === 0) {
     lines.push('', '오늘 열려 있는 업무가 없습니다.')
     return lines.join('\n')
   }
@@ -186,7 +292,22 @@ export async function sendLineReminder(
   const snapshot = await getSnapshot(service, env, ctx)
   const todayIso = toSeoulDateIso(now)
   const tasks = collectReminderTasks(snapshot.tasks, assigneeName)
-  const text = kind === 'morning' ? buildMorningReminderText(assigneeName, tasks, todayIso, now) : buildEveningReminderText(assigneeName, tasks, todayIso, now)
+
+  let scheduleEvents: ScheduleEvent[] = []
+  if (kind === 'morning') {
+    try {
+      const schedule = await service.listScheduleView()
+      if (schedule.configured) {
+        scheduleEvents = collectTodaySchedule(schedule.columns, schedule.rows, todayIso)
+      }
+    } catch {
+      // Schedule fetch failure should not block the reminder
+    }
+  }
+
+  const text = kind === 'morning'
+    ? buildMorningReminderText(assigneeName, tasks, todayIso, now, scheduleEvents)
+    : buildEveningReminderText(assigneeName, tasks, todayIso, now)
   await pushLineTextMessage(env, targetUserId, text)
   return {
     ok: true,
