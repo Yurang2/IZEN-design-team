@@ -239,6 +239,7 @@ export type MetaResponse = {
     eventGraphicsTimetable?: { id: string | null; url: string | null }
     photoGuide?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
+    feedback?: { id: string | null; url: string | null }
   }
 }
 
@@ -258,6 +259,63 @@ export type TaskViewFilters = {
   hideDone: boolean
 }
 
+export type FeedbackRecord = {
+  id: string
+  url: string
+  content: string
+  sourceProjectId?: string
+  sourceProjectName?: string
+  eventCategory?: string
+  domainTags: string[]
+  reporter?: string
+  collectionMethod?: string
+  priority?: string
+  reflectionStatus?: string
+  appliedProjectId?: string
+  appliedProjectName?: string
+  recurring?: boolean
+  notes?: string
+  date?: string
+}
+
+export type FeedbackSummaryItem = {
+  id: string
+  content: string
+  domainTags: string[]
+  priority?: string
+  recurring?: boolean
+  reflectionStatus?: string
+}
+
+export type FeedbackListResponse = {
+  ok: boolean
+  feedback: FeedbackRecord[]
+  nextCursor?: string
+  hasMore: boolean
+  cacheTtlMs: number
+}
+
+export type FeedbackResponse = {
+  ok: boolean
+  feedback: FeedbackRecord
+}
+
+export type FeedbackSummaryResponse = {
+  ok: boolean
+  eventCategory: string
+  count: number
+  items: FeedbackSummaryItem[]
+}
+
+export type FeedbackFilters = {
+  eventCategory: string
+  domainTag: string
+  reflectionStatus: string
+  q: string
+}
+
+export type FeedbackSort = 'date_desc' | 'date_asc' | 'priority_desc'
+
 export type TopView =
   | 'dashboard'
   | 'projects'
@@ -273,6 +331,7 @@ export type TopView =
   | 'snsPost'
   | 'geminiImageTest'
   | 'mailTemplate'
+  | 'feedback'
   | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'

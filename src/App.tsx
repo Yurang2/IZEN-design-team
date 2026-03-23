@@ -5,6 +5,7 @@ import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 
 const ChecklistView = lazy(() => import('./features/checklist/ChecklistView').then((m) => ({ default: m.ChecklistView })))
 const DashboardView = lazy(() => import('./features/dashboard/DashboardView').then((m) => ({ default: m.DashboardView })))
+const FeedbackView = lazy(() => import('./features/feedback/FeedbackView').then((m) => ({ default: m.FeedbackView })))
 const EventGraphicsPrintPage = lazy(() => import('./features/eventGraphics/EventGraphicsPrintPage').then((m) => ({ default: m.EventGraphicsPrintPage })))
 const EventGraphicsSharePage = lazy(() => import('./features/eventGraphics/EventGraphicsSharePage').then((m) => ({ default: m.EventGraphicsSharePage })))
 const EventGraphicsTimetableView = lazy(() => import('./features/eventGraphics/EventGraphicsTimetableView').then((m) => ({ default: m.EventGraphicsTimetableView })))
@@ -46,6 +47,8 @@ import type {
   ChecklistPreviewFilters,
   ChecklistPreviewItem,
   ChecklistPreviewResponse,
+  FeedbackSummaryItem,
+  FeedbackSummaryResponse,
   ChecklistSort,
   CreateForm,
   DetailForm,
@@ -157,11 +160,13 @@ function App() {
     task: string | null
     checklist: string | null
     screeningVideo: string | null
+    feedback: string | null
   }>({
     project: null,
     task: null,
     checklist: null,
     screeningVideo: null,
+    feedback: null,
   })
 
   const debouncedFilterQ = useDebouncedValue(filters.q, 250)
@@ -181,6 +186,8 @@ function App() {
   const [checklistItems, setChecklistItems] = useState<ChecklistPreviewItem[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState<string | null>(null)
+  const [feedbackSummary, setFeedbackSummary] = useState<FeedbackSummaryItem[]>([])
+  const [feedbackCount, setFeedbackCount] = useState(0)
   const schedule = useNotionTableView('/schedule', '일정 DB를 불러오지 못했습니다.')
   const screeningHistory = useNotionTableView('/screening-history', '상영 기록 DB를 불러오지 못했습니다.')
   const screeningPlan = useNotionTableView('/screening-plan', '상영 준비 DB를 불러오지 못했습니다.')
@@ -326,6 +333,7 @@ function App() {
         task: response.databases.task.url ?? toNotionUrlById(response.databases.task.id),
         checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
         screeningVideo: response.databases.screeningVideo?.url ?? toNotionUrlById(response.databases.screeningVideo?.id ?? undefined),
+        feedback: response.databases.feedback?.url ?? toNotionUrlById(response.databases.feedback?.id ?? undefined),
       })
     } catch {
       // Ignore meta failures; app can run without DB deep-links.
@@ -430,7 +438,28 @@ function App() {
     }
   }, [projects])
 
-
+  // Fetch feedback summary when checklist eventCategory changes
+  useEffect(() => {
+    const eventCategory = checklistFilters.eventCategory.trim()
+    if (!eventCategory) {
+      setFeedbackSummary([])
+      setFeedbackCount(0)
+      return
+    }
+    let cancelled = false
+    api<FeedbackSummaryResponse>(`/feedback/summary?eventCategory=${encodeURIComponent(eventCategory)}`)
+      .then((response) => {
+        if (cancelled) return
+        setFeedbackSummary(response.items)
+        setFeedbackCount(response.count)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setFeedbackSummary([])
+        setFeedbackCount(0)
+      })
+    return () => { cancelled = true }
+  }, [checklistFilters.eventCategory])
 
   const syncScreeningPlanHistory = useCallback(async () => {
     setScreeningPlanSyncing(true)
@@ -1319,8 +1348,9 @@ function App() {
     if (activeView === 'eventGraphics') return eventGraphics.databaseUrl
     if (activeView === 'photoGuide') return photoGuide.databaseUrl
     if (activeView === 'checklist') return dbLinks.checklist
+    if (activeView === 'feedback') return dbLinks.feedback
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.project, dbLinks.task, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
+  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.project, dbLinks.task, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -1358,6 +1388,7 @@ function App() {
         { view: 'eventGraphics', title: '타임테이블', label: '타임테이블', icon: 'calendar' },
         { view: 'photoGuide', title: '촬영가이드', label: '촬영가이드', icon: 'list' },
         { view: 'checklist', title: '행사 체크리스트', label: '행사 체크리스트', icon: 'checksquare' },
+        { view: 'feedback', title: '피드백', label: '피드백', icon: 'list' },
       ],
     },
     {
@@ -2842,6 +2873,18 @@ function App() {
           toProjectLabel={toProjectLabel}
           toProjectThumbUrl={toProjectThumbUrl}
           formatDateLabel={formatDateLabel}
+          feedbackSummary={feedbackSummary}
+          feedbackCount={feedbackCount}
+          onNavigateToFeedback={() => {
+            setActiveView('feedback')
+          }}
+        />
+      ) : null}
+
+      {activeView === 'feedback' ? (
+        <FeedbackView
+          projects={projects}
+          loadingProjects={loadingProjects}
         />
       ) : null}
 

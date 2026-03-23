@@ -2,8 +2,10 @@ import { NotionWorkService } from './notionWork'
 import type {
   ChecklistAssignmentRow,
   ChecklistAssignmentStatus,
+  CreateFeedbackInput,
   CreateTaskInput,
   Env,
+  UpdateFeedbackInput,
   UpdateTaskInput,
 } from './types'
 import {
@@ -17,7 +19,6 @@ import {
   isAuthDisabled,
   jsonResponse,
   normalizeChecklistValue,
-  normalizeEventGraphicsUploadField,
   normalizeNotionId,
   normalizePath,
   notionDatabaseUrl,
@@ -58,6 +59,7 @@ import {
   normalizeEventGraphicsPresetEnabled,
   normalizeEventGraphicsPresetField,
   normalizeEventGraphicsPresetValue,
+  normalizeEventGraphicsUploadField,
   paginate,
   parseChecklistAssignmentBody,
   parseCreateBody,
@@ -83,6 +85,9 @@ import {
   writeChecklistAssignmentsToCache,
   writeChecklistAssignmentToD1,
   checklistAppliesToProject,
+  filterFeedback,
+  parseFeedbackCreateBody,
+  parseFeedbackUpdateBody,
 } from './handlers'
 
 export default {
@@ -352,6 +357,10 @@ export default {
               meeting: {
                 id: getMeetingNotionDbId(env),
                 url: notionDatabaseUrl(getMeetingNotionDbId(env)),
+              },
+              feedback: {
+                id: env.NOTION_FEEDBACK_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_FEEDBACK_DB_ID),
               },
             },
           },
@@ -1095,6 +1104,97 @@ export default {
         )
       }
 
+      // ---- Feedback CRUD ----
+
+      const feedbackMatch = path.match(/^\/feedback\/([^/]+)$/)
+
+      if (request.method === 'GET' && path === '/feedback/summary') {
+        const eventCategory = asString(url.searchParams.get('eventCategory'))
+        if (!eventCategory) {
+          return json({ ok: false, error: 'eventCategory_required' }, 400, origin)
+        }
+        const unreflectedOnly = url.searchParams.get('unreflectedOnly') !== 'false'
+        const allFeedback = await service.listFeedback()
+        const filtered = allFeedback.filter((item) => {
+          if (item.eventCategory !== eventCategory) return false
+          if (unreflectedOnly && item.reflectionStatus === '반영완료') return false
+          return true
+        })
+        return ok(
+          {
+            ok: true,
+            eventCategory,
+            count: filtered.length,
+            items: filtered.map((item) => ({
+              id: item.id,
+              content: item.content.length > 100 ? item.content.slice(0, 100) + '...' : item.content,
+              domainTags: item.domainTags,
+              priority: item.priority,
+              recurring: item.recurring,
+              reflectionStatus: item.reflectionStatus,
+            })),
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && path === '/feedback') {
+        const eventCategory = asString(url.searchParams.get('eventCategory'))
+        const domainTag = asString(url.searchParams.get('domainTag'))
+        const reflectionStatus = asString(url.searchParams.get('reflectionStatus'))
+        const recurring = asString(url.searchParams.get('recurring'))
+        const q = asString(url.searchParams.get('q'))
+        const cursor = asString(url.searchParams.get('cursor'))
+        const pageSize = parsePageSize(url.searchParams.get('pageSize'))
+
+        const allFeedback = await service.listFeedback()
+        const filtered = filterFeedback(allFeedback, eventCategory, domainTag, reflectionStatus, recurring, q)
+        const paged = paginate(filtered, cursor, pageSize)
+
+        return ok(
+          {
+            ok: true,
+            feedback: paged.items,
+            nextCursor: paged.nextCursor,
+            hasMore: paged.hasMore,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && feedbackMatch) {
+        const id = decodeURIComponent(feedbackMatch[1])
+        const feedback = await service.getFeedback(id)
+        return ok({ ok: true, feedback }, origin)
+      }
+
+      if (request.method === 'POST' && path === '/feedback') {
+        let payload: CreateFeedbackInput
+        try {
+          payload = parseFeedbackCreateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+
+        const created = await service.createFeedback(payload)
+        return json({ ok: true, feedback: created }, 201, origin)
+      }
+
+      if (request.method === 'PATCH' && feedbackMatch) {
+        const id = decodeURIComponent(feedbackMatch[1])
+        let patch: UpdateFeedbackInput
+
+        try {
+          patch = parseFeedbackUpdateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_patch' }, 400, origin)
+        }
+
+        const updated = await service.updateFeedback(id, patch)
+        return ok({ ok: true, feedback: updated }, origin)
+      }
+
       if (request.method === 'GET' && path === '/') {
         return ok(
           {
@@ -1135,6 +1235,11 @@ export default {
               'GET /api/tasks/:id',
               'POST /api/tasks',
               'PATCH /api/tasks/:id',
+              'GET /api/feedback?eventCategory=...&domainTag=...&reflectionStatus=...&q=...',
+              'GET /api/feedback/summary?eventCategory=...',
+              'GET /api/feedback/:id',
+              'POST /api/feedback',
+              'PATCH /api/feedback/:id',
             ],
           },
           origin,

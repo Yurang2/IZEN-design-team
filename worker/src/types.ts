@@ -40,6 +40,7 @@ export interface Env {
   NOTION_SCREENING_VIDEO_DB_ID?: string
   NOTION_MEETING_DB_ID?: string
   NOTION_CHECKLIST_ASSIGNMENT_DB_ID?: string
+  NOTION_FEEDBACK_DB_ID?: string
   PAGE_PASSWORD: string
   AUTH_DISABLED?: string
   SESSION_SECRET?: string
@@ -234,6 +235,70 @@ export type ChecklistAssignmentRow = {
   applicable: boolean
   assignmentStatus: ChecklistAssignmentStatus
   assignmentStatusText: string
+}
+
+export type FeedbackSchema = {
+  fields: {
+    content: FieldSchema
+    sourceProject: FieldSchema
+    eventCategory: FieldSchema
+    domain: FieldSchema
+    reporter: FieldSchema
+    collectionMethod: FieldSchema
+    priority: FieldSchema
+    reflectionStatus: FieldSchema
+    appliedProject: FieldSchema
+    recurring: FieldSchema
+    notes: FieldSchema
+    date: FieldSchema
+  }
+}
+
+export type FeedbackRecord = {
+  id: string
+  url: string
+  content: string
+  sourceProjectId?: string
+  sourceProjectName?: string
+  eventCategory?: string
+  domainTags: string[]
+  reporter?: string
+  collectionMethod?: string
+  priority?: string
+  reflectionStatus?: string
+  appliedProjectId?: string
+  appliedProjectName?: string
+  recurring?: boolean
+  notes?: string
+  date?: string
+}
+
+export type CreateFeedbackInput = {
+  content: string
+  sourceProjectId?: string
+  eventCategory?: string
+  domainTags?: string[]
+  reporter?: string
+  collectionMethod?: string
+  priority?: string
+  recurring?: boolean
+  notes?: string
+  date?: string
+}
+
+export type UpdateFeedbackInput = {
+  content?: string | null
+  sourceProjectId?: string | null
+  eventCategory?: string | null
+  domainTags?: string[] | null
+  reporter?: string | null
+  collectionMethod?: string | null
+  priority?: string | null
+  reflectionStatus?: string | null
+  appliedProjectId?: string | null
+  recurring?: boolean | null
+  notes?: string | null
+  date?: string | null
 }
 
 export type CreateTaskInput = {

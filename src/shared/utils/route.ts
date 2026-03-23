@@ -28,6 +28,7 @@ export function parseTopView(value: string | null): TopView {
     value === 'snsPost' ||
     value === 'geminiImageTest' ||
     value === 'mailTemplate' ||
+    value === 'feedback' ||
     value === 'guide'
   )
     return value
@@ -102,6 +103,7 @@ export function toTopViewPath(view: TopView): string {
   if (view === 'workflowProcess') return 'Workflow Process'
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'photoGuide') return 'Photo Guide'
+  if (view === 'feedback') return 'Feedback'
   if (view === 'meetings') return 'Meetings'
   if (view === 'snsPost') return 'SNS Post Generator'
   if (view === 'geminiImageTest') return 'Gemini Image Test'
@@ -120,6 +122,7 @@ export function toTopViewTitle(view: TopView): string {
   if (view === 'workflowProcess') return '업무진행 프로세스'
   if (view === 'eventGraphics') return '타임테이블'
   if (view === 'photoGuide') return '촬영가이드'
+  if (view === 'feedback') return '피드백'
   if (view === 'meetings') return '회의록'
   if (view === 'snsPost') return 'SNS 본문 생성'
   if (view === 'geminiImageTest') return 'Gemini 이미지 테스트'

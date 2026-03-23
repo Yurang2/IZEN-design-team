@@ -5,11 +5,15 @@ import type {
   ChecklistAssignmentRow,
   ChecklistAssignmentStatus,
   ChecklistPreviewItem,
+  CreateFeedbackInput,
   CreateTaskInput,
   Env,
+  FeedbackRecord,
+  FeedbackSchema,
   FieldSchema,
   FieldStatus,
   ProjectRecord,
+  UpdateFeedbackInput,
   ScheduleCell,
   ScheduleColumn,
   ScheduleRow,
@@ -3432,5 +3436,213 @@ export class NotionWorkService {
 
     await this.api.updatePage(id, { properties })
     return this.getTask(id)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Feedback
+  // ---------------------------------------------------------------------------
+
+  private buildFeedbackSchema(properties: Record<string, any>): FeedbackSchema {
+    const relationFallback = (entries: Array<[string, any]>) => {
+      const byTargetDb = entries.find(
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+      )
+      return byTargetDb
+    }
+
+    return {
+      fields: {
+        content: pickField('content', properties, '피드백 내용', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        sourceProject: pickField('sourceProject', properties, '출처 행사', ['relation'], true, relationFallback),
+        eventCategory: pickField('eventCategory', properties, '행사분류', ['select', 'multi_select', 'rich_text'], true),
+        domain: pickField('domain', properties, '도메인', ['multi_select', 'select', 'rich_text'], true),
+        reporter: pickField('reporter', properties, '제보자', ['rich_text', 'title', 'select'], true),
+        collectionMethod: pickField('collectionMethod', properties, '수집방법', ['select', 'rich_text'], true),
+        priority: pickField('priority', properties, '우선순위', ['select', 'status', 'rich_text'], true),
+        reflectionStatus: pickField('reflectionStatus', properties, '반영상태', ['select', 'status', 'rich_text'], true),
+        appliedProject: pickField('appliedProject', properties, '반영 행사', ['relation'], true, relationFallback),
+        recurring: pickField('recurring', properties, '반복발생', ['checkbox', 'select'], true),
+        notes: pickField('notes', properties, '비고', ['rich_text', 'title'], true),
+        date: pickField('date', properties, '등록일', ['date'], true),
+      },
+    }
+  }
+
+  private async getFeedbackSchema(): Promise<FeedbackSchema> {
+    const dbId = this.env.NOTION_FEEDBACK_DB_ID
+    if (!dbId) throw new Error('NOTION_FEEDBACK_DB_ID_not_configured')
+    const db: any = await this.api.retrieveDatabase(dbId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    return this.buildFeedbackSchema(properties)
+  }
+
+  private mapFeedbackPage(
+    page: any,
+    schema: FeedbackSchema,
+    projectNameMap: Record<string, string>,
+  ): FeedbackRecord {
+    const props = (page.properties ?? {}) as AnyMap
+
+    const sourceRelationIds = extractRelationIds(props, schema.fields.sourceProject)
+    const sourceProjectId = first(sourceRelationIds)
+    const sourceProjectName = sourceProjectId
+      ? projectNameMap[normalizeNotionId(sourceProjectId)] ?? projectNameMap[sourceProjectId]
+      : undefined
+
+    const appliedRelationIds = extractRelationIds(props, schema.fields.appliedProject)
+    const appliedProjectId = first(appliedRelationIds)
+    const appliedProjectName = appliedProjectId
+      ? projectNameMap[normalizeNotionId(appliedProjectId)] ?? projectNameMap[appliedProjectId]
+      : undefined
+
+    return {
+      id: page.id,
+      url: page.url,
+      content: extractTitle(props, schema.fields.content),
+      sourceProjectId: sourceProjectId || undefined,
+      sourceProjectName: sourceProjectName || undefined,
+      eventCategory: extractTextLike(props, schema.fields.eventCategory, '') || undefined,
+      domainTags: extractStringArray(props, schema.fields.domain).filter((tag) => tag !== '[UNKNOWN]'),
+      reporter: extractTextLike(props, schema.fields.reporter, '') || undefined,
+      collectionMethod: extractTextLike(props, schema.fields.collectionMethod, '') || undefined,
+      priority: extractTextLike(props, schema.fields.priority, '') || undefined,
+      reflectionStatus: extractTextLike(props, schema.fields.reflectionStatus, '') || undefined,
+      appliedProjectId: appliedProjectId || undefined,
+      appliedProjectName: appliedProjectName || undefined,
+      recurring: extractCheckbox(props, schema.fields.recurring) ?? undefined,
+      notes: extractTextLike(props, schema.fields.notes, '') || undefined,
+      date: extractDate(props, schema.fields.date),
+    }
+  }
+
+  async listFeedback(): Promise<FeedbackRecord[]> {
+    const dbId = this.env.NOTION_FEEDBACK_DB_ID
+    if (!dbId) return []
+
+    const [schema, projects, pages] = await Promise.all([
+      this.getFeedbackSchema(),
+      this.listProjects(),
+      this.queryAll(dbId),
+    ])
+
+    const projectNameMap: Record<string, string> = {}
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
+    }
+
+    return pages.map((page) => this.mapFeedbackPage(page, schema, projectNameMap))
+  }
+
+  async getFeedback(id: string): Promise<FeedbackRecord> {
+    const [schema, projects, page] = await Promise.all([
+      this.getFeedbackSchema(),
+      this.listProjects(),
+      this.api.retrievePage(id),
+    ])
+
+    const projectNameMap: Record<string, string> = {}
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
+    }
+
+    return this.mapFeedbackPage(page, schema, projectNameMap)
+  }
+
+  async createFeedback(input: CreateFeedbackInput): Promise<FeedbackRecord> {
+    const schema = await this.getFeedbackSchema()
+    const properties: AnyMap = {}
+
+    if (!isKnownField(schema.fields.content)) {
+      throw new Error('feedback_content_property_[UNKNOWN]')
+    }
+
+    const title = normalizeText(input.content)
+    if (!title) throw new Error('content_required')
+
+    if (schema.fields.content.actualType === 'title') {
+      properties[schema.fields.content.actualName] = { title: [{ text: { content: title } }] }
+    } else if (schema.fields.content.actualType === 'rich_text') {
+      properties[schema.fields.content.actualName] = { rich_text: [{ text: { content: title } }] }
+    }
+
+    if (input.sourceProjectId) {
+      applyRelationIds(properties, schema.fields.sourceProject, [input.sourceProjectId])
+    }
+    applySelectLike(properties, schema.fields.eventCategory, input.eventCategory)
+    applyStringArray(properties, schema.fields.domain, input.domainTags)
+    applyRichText(properties, schema.fields.reporter, input.reporter)
+    applySelectLike(properties, schema.fields.collectionMethod, input.collectionMethod)
+    applySelectLike(properties, schema.fields.priority, input.priority)
+    applyCheckbox(properties, schema.fields.recurring, input.recurring)
+    applyRichText(properties, schema.fields.notes, input.notes)
+    applyDate(properties, schema.fields.date, input.date)
+
+    const created: any = await this.api.createPage({
+      parent: { database_id: this.env.NOTION_FEEDBACK_DB_ID! },
+      properties,
+    })
+
+    return this.getFeedback(created.id)
+  }
+
+  async updateFeedback(id: string, patch: UpdateFeedbackInput): Promise<FeedbackRecord> {
+    const schema = await this.getFeedbackSchema()
+    const properties: AnyMap = {}
+
+    if (hasOwn(patch as Record<string, unknown>, 'content')) {
+      const value = normalizeText(patch.content ?? '')
+      if (value) applyTitleLike(properties, schema.fields.content, value)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'sourceProjectId')) {
+      const id = normalizeText(patch.sourceProjectId ?? '')
+      applyRelationIds(properties, schema.fields.sourceProject, id ? [id] : [])
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'eventCategory')) {
+      applySelectLike(properties, schema.fields.eventCategory, patch.eventCategory)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'domainTags')) {
+      applyStringArray(properties, schema.fields.domain, patch.domainTags)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'reporter')) {
+      applyRichText(properties, schema.fields.reporter, patch.reporter)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'collectionMethod')) {
+      applySelectLike(properties, schema.fields.collectionMethod, patch.collectionMethod)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'priority')) {
+      applySelectLike(properties, schema.fields.priority, patch.priority)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'reflectionStatus')) {
+      applySelectLike(properties, schema.fields.reflectionStatus, patch.reflectionStatus)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'appliedProjectId')) {
+      const projId = normalizeText(patch.appliedProjectId ?? '')
+      applyRelationIds(properties, schema.fields.appliedProject, projId ? [projId] : [])
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'recurring')) {
+      applyCheckbox(properties, schema.fields.recurring, patch.recurring)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'notes')) {
+      applyRichText(properties, schema.fields.notes, patch.notes)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'date')) {
+      applyDate(properties, schema.fields.date, patch.date)
+    }
+
+    await this.api.updatePage(id, { properties })
+    return this.getFeedback(id)
   }
 }

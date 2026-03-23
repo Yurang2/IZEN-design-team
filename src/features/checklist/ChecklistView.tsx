@@ -5,6 +5,7 @@ import type {
   ChecklistPreviewItem,
   ChecklistSort,
   ChecklistTableRow,
+  FeedbackSummaryItem,
   ProjectRecord,
 } from '../../shared/types'
 import { Button, EmptyState, Skeleton, TableWrap } from '../../shared/ui'
@@ -38,6 +39,9 @@ type ChecklistViewProps = {
   toProjectLabel: (project: ProjectRecord) => string
   toProjectThumbUrl: (project: ProjectRecord | undefined) => string | undefined
   formatDateLabel: (value: string) => string
+  feedbackSummary?: FeedbackSummaryItem[]
+  feedbackCount?: number
+  onNavigateToFeedback?: (eventCategory: string) => void
 }
 
 function parseIsoDate(value: string | undefined): Date | null {
@@ -246,6 +250,67 @@ function ChecklistSkeletonTable({ isAssignmentMode }: { isAssignmentMode: boolea
   )
 }
 
+function FeedbackBanner({
+  count,
+  items,
+  eventCategory,
+  onNavigate,
+}: {
+  count: number
+  items: FeedbackSummaryItem[]
+  eventCategory: string
+  onNavigate?: (eventCategory: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--warning-border, #ffcc80)',
+        borderRadius: 8,
+        padding: '8px 12px',
+        marginBottom: 10,
+        background: 'var(--warning-bg, #fff8e1)',
+        fontSize: '0.85em',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <strong>과거 피드백 {count}건</strong>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontSize: 'inherit', color: 'inherit' }}
+        >
+          {expanded ? '접기' : '펼치기'}
+        </button>
+        {onNavigate ? (
+          <button
+            type="button"
+            onClick={() => onNavigate(eventCategory)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontSize: 'inherit', color: 'var(--primary, #1976d2)', marginLeft: 'auto' }}
+          >
+            피드백 보기
+          </button>
+        ) : null}
+      </div>
+      {expanded ? (
+        <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+          {items.map((item) => (
+            <div key={item.id} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+              {item.priority === '높음' ? <span style={{ color: 'var(--error, #d32f2f)', fontWeight: 600 }}>!</span> : null}
+              {item.recurring ? <span style={{ color: 'var(--warning, #e65100)' }}>&#x21bb;</span> : null}
+              <span style={{ flex: 1 }}>{item.content}</span>
+              {item.domainTags.map((tag) => (
+                <span key={tag} style={{ background: 'var(--tag-bg, #e0e7ff)', borderRadius: 4, padding: '0 4px', fontSize: '0.9em' }}>{tag}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function ChecklistView({
   mode,
   checklistFilters,
@@ -275,6 +340,9 @@ export function ChecklistView({
   toProjectLabel,
   toProjectThumbUrl,
   formatDateLabel,
+  feedbackSummary,
+  feedbackCount,
+  onNavigateToFeedback,
 }: ChecklistViewProps) {
   const eventNameRef = useRef<HTMLSelectElement | null>(null)
   const isAssignmentMode = mode === 'assignment'
@@ -915,6 +983,15 @@ export function ChecklistView({
               onClick: () => eventNameRef.current?.focus(),
             },
           ]}
+        />
+      ) : null}
+
+      {feedbackCount && feedbackCount > 0 ? (
+        <FeedbackBanner
+          count={feedbackCount}
+          items={feedbackSummary ?? []}
+          eventCategory={checklistFilters.eventCategory}
+          onNavigate={onNavigateToFeedback}
         />
       ) : null}
 

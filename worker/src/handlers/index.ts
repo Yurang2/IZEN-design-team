@@ -1,3 +1,4 @@
+export * from './feedback'
 export * from './meetings'
 export * from './line'
 export * from './checklist'
