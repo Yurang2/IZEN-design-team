@@ -5844,6 +5844,155 @@ button.dashboardNavButton {
   margin-top: 8px;
 }
 
+/* Calendar */
+.scheduleCalendar {
+  margin-bottom: 8px;
+}
+
+.scheduleCalendarNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.scheduleCalendarNavBtn {
+  background: var(--control-soft-bg);
+  border: 1px solid var(--control-soft-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 10px;
+  color: var(--text1);
+}
+
+.scheduleCalendarNavBtn:hover { background: var(--control-soft-hover-bg, var(--bg-hover)); }
+
+.scheduleCalendarTodayBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 10px;
+  margin-left: 4px;
+  color: var(--primary, #1976d2);
+}
+
+.scheduleCalendarTitle {
+  font-size: 16px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.scheduleCalendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.scheduleCalendarDow {
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.scheduleCalendarDay {
+  min-height: 80px;
+  padding: 4px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card, #fff);
+  position: relative;
+}
+
+.scheduleCalendarDay:nth-child(7n+7) { border-right: none; }
+
+.scheduleCalendarDayOther {
+  background: var(--bg-soft, #f8f9fa);
+  opacity: 0.5;
+}
+
+.scheduleCalendarDayToday {
+  background: var(--primary-soft, #eff6ff);
+}
+
+.scheduleCalendarDayNum {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.scheduleCalendarSun { color: var(--error, #d32f2f); }
+.scheduleCalendarSat { color: #3b82f6; }
+
+.scheduleCalendarEvents {
+  display: grid;
+  gap: 2px;
+}
+
+.scheduleCalendarEvent {
+  border-left: 3px solid #94a3b8;
+  padding: 1px 4px;
+  border-radius: 0 3px 3px 0;
+  background: var(--surface-raised, rgba(0,0,0,0.03));
+  overflow: hidden;
+  cursor: default;
+}
+
+.scheduleCalendarEventTitle {
+  font-size: 11px;
+  font-weight: 500;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scheduleCalendarEventAttendees {
+  font-size: 10px;
+  color: var(--text-sub, #888);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scheduleCalendarEventMore {
+  font-size: 10px;
+  color: var(--text-sub, #888);
+  padding-left: 4px;
+}
+
+.scheduleCalendarLegend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 4px 0;
+}
+
+.scheduleCalendarLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-sub, #666);
+}
+
+.scheduleCalendarLegendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .assignmentTimelineSection {
   background: var(--surface1);
   border: 1px solid var(--border);
