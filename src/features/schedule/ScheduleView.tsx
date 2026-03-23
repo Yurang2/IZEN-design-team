@@ -216,7 +216,13 @@ function ScheduleCalendar({ events }: { events: CalendarEvent[] }) {
                     style={{ borderLeftColor: TYPE_COLORS[event.type] ?? '#94a3b8' }}
                     title={`${event.title}${event.attendees ? `\n${event.attendees}` : ''}${event.type ? `\n[${event.type}]` : ''}`}
                   >
-                    <span className="scheduleCalendarEventTitle">{event.timeStart ? `${event.timeStart} ` : ''}{event.title}</span>
+                    <span className="scheduleCalendarEventTitle">{(() => {
+                      const isMultiDay = event.dateEnd && event.dateEnd !== event.date
+                      if (!isMultiDay) return event.timeStart ? `${event.timeStart} ${event.title}` : event.title
+                      if (day.date === event.date && event.timeStart) return `${event.timeStart}~ ${event.title}`
+                      if (day.date === event.dateEnd && event.timeEnd) return `~${event.timeEnd} ${event.title}`
+                      return event.title
+                    })()}</span>
                     {event.attendees ? <span className="scheduleCalendarEventAttendees">{event.attendees}</span> : null}
                   </div>
                 ))}
