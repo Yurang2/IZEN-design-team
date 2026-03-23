@@ -1368,16 +1368,17 @@ function App() {
       label: string
       icon: UiGlyphName
       count?: string
+      test?: boolean
     }>
   }> = [
     {
       key: 'operations',
       label: '운영',
       items: [
-        { view: 'dashboard', title: '팀 운영 대시보드', label: '대시보드', icon: 'pulse' },
+        { view: 'dashboard', title: '팀 운영 대시보드', label: '대시보드', icon: 'pulse', test: true },
         { view: 'projects', title: '프로젝트', label: '프로젝트', icon: 'grid', count: projectTabCountLabel },
         { view: 'tasks', title: '업무', label: '업무', icon: 'list', count: taskTabCountLabel },
-        { view: 'schedule', title: '일정', label: '일정', icon: 'calendar' },
+        { view: 'schedule', title: '일정', label: '일정', icon: 'calendar', test: true },
         { view: 'meetings', title: '회의록', label: '회의록', icon: 'list' },
       ],
     },
@@ -1386,22 +1387,22 @@ function App() {
       label: '행사',
       items: [
         { view: 'eventGraphics', title: '타임테이블', label: '타임테이블', icon: 'calendar' },
-        { view: 'photoGuide', title: '촬영가이드', label: '촬영가이드', icon: 'list' },
+        { view: 'photoGuide', title: '촬영가이드', label: '촬영가이드', icon: 'list', test: true },
         { view: 'checklist', title: '행사 체크리스트', label: '행사 체크리스트', icon: 'checksquare' },
-        { view: 'feedback', title: '피드백', label: '피드백', icon: 'list' },
+        { view: 'feedback', title: '피드백', label: '피드백', icon: 'list', test: true },
       ],
     },
     {
       key: 'tools',
       label: '도구',
       items: [
-        { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list' },
-        { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list' },
+        { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list', test: true },
+        { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list', test: true },
         { view: 'workflowProcess', title: '업무진행 프로세스', label: '업무진행 프로세스', icon: 'list' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
-        { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list' },
+        { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list', test: true },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
-        { view: 'guide', title: '사용법', label: '사용법', icon: 'list' },
+        { view: 'guide', title: '사용법', label: '사용법', icon: 'list', test: true },
       ],
     },
   ]
@@ -2188,6 +2189,7 @@ function App() {
                           </span>
                           <span>{item.label}</span>
                         </span>
+                        {item.test ? <span className="viewTabTest">테스트</span> : null}
                         {item.count ? <span className="viewTabCount">{item.count}</span> : null}
                       </button>
                     ))}

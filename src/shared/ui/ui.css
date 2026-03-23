@@ -767,6 +767,17 @@ button.viewTab.active {
   text-align: center;
 }
 
+.viewTabTest {
+  background: var(--warning-bg, #fff3e0);
+  border: 1px solid var(--warning-border, #ffcc80);
+  border-radius: 999px;
+  color: var(--warning-text, #e65100);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  letter-spacing: 0.02em;
+}
+
 button.viewTab.active .viewTabCount {
   background: var(--primary-soft);
   border-color: var(--primary-soft-border-token);
@@ -895,6 +906,7 @@ button.viewTab.active .viewTabCount {
 .mondaySidebar.collapsed .sidebarBrand,
 .mondaySidebar.collapsed .viewMenuHeader strong,
 .mondaySidebar.collapsed .viewTabCount,
+.mondaySidebar.collapsed .viewTabTest,
 .mondaySidebar.collapsed .dbJump,
 .mondaySidebar.collapsed .sidebarControls,
 .mondaySidebar.collapsed .sidebarMeta,
