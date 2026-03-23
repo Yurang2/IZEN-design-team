@@ -3550,6 +3550,10 @@ export class NotionWorkService {
     return this.mapFeedbackPage(page, schema, projectNameMap)
   }
 
+  async createPageDirect(databaseId: string, properties: Record<string, unknown>): Promise<any> {
+    return this.api.createPage({ parent: { database_id: databaseId }, properties })
+  }
+
   async createFeedback(input: CreateFeedbackInput): Promise<FeedbackRecord> {
     const schema = await this.getFeedbackSchema()
     const properties: AnyMap = {}

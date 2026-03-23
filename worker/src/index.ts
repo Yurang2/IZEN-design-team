@@ -387,6 +387,37 @@ export default {
         )
       }
 
+      if (request.method === 'POST' && path === '/schedule') {
+        const scheduleDbId = normalizeNotionId(env.NOTION_SCHEDULE_DB_ID ?? '')
+        if (!scheduleDbId) {
+          return json({ ok: false, error: 'NOTION_SCHEDULE_DB_ID_not_configured' }, 400, origin)
+        }
+        let body: Record<string, unknown>
+        try {
+          body = (await readJsonBody(request)) as Record<string, unknown>
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+        const title = String(body.title ?? '').trim()
+        if (!title) return json({ ok: false, error: 'title_required' }, 400, origin)
+
+        const properties: Record<string, unknown> = {
+          '일정명': { title: [{ text: { content: title } }] },
+        }
+        const dateStart = String(body.dateStart ?? '').trim()
+        const dateEnd = String(body.dateEnd ?? '').trim() || undefined
+        if (dateStart) {
+          properties['일시'] = { date: { start: dateStart, end: dateEnd ?? null } }
+        }
+        const scheduleType = String(body.type ?? '').trim()
+        if (scheduleType) {
+          properties['유형'] = { select: { name: scheduleType } }
+        }
+
+        await service.createPageDirect(scheduleDbId, properties)
+        return json({ ok: true }, 201, origin)
+      }
+
       if (request.method === 'GET' && path === '/screening-history') {
         const screeningHistory = await service.listScreeningHistoryView()
         return ok(

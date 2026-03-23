@@ -1,6 +1,7 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
-import { EmptyState, Skeleton, TableWrap } from '../../shared/ui'
+import { api } from '../../shared/api/client'
+import { Button, EmptyState, Skeleton, TableWrap } from '../../shared/ui'
 
 type ScheduleViewProps = {
   configured: boolean
@@ -10,7 +11,10 @@ type ScheduleViewProps = {
   rows: ScheduleRow[]
   loading: boolean
   error: string | null
+  onRefresh?: () => void
 }
+
+const SCHEDULE_TYPE_OPTIONS = ['회의', '보고', '외부미팅', '웨비나', '휴가', '외근', '출장', '기타']
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,6 +47,8 @@ type CalendarEvent = {
   attendees: string
   date: string
   dateEnd?: string
+  timeStart?: string
+  timeEnd?: string
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -54,6 +60,13 @@ const TYPE_COLORS: Record<string, string> = {
   '외근': '#f97316',
   '출장': '#ec4899',
   '기타': '#94a3b8',
+}
+
+function extractTime(isoLike: string): string | undefined {
+  // "2026-04-16T21:30:00.000+09:00" → "21:30"
+  const match = isoLike.match(/T(\d{2}:\d{2})/)
+  if (!match) return undefined
+  return match[1] === '00:00' ? undefined : match[1]
 }
 
 function parseCalendarEvents(columns: ScheduleColumn[], rows: ScheduleRow[]): CalendarEvent[] {
@@ -70,13 +83,16 @@ function parseCalendarEvents(columns: ScheduleColumn[], rows: ScheduleRow[]): Ca
     const dateText = (row.cells[dateIdx]?.text ?? '').trim()
     if (!dateText) continue
 
-    // Notion date: "2026-03-25" or "2026-03-25 → 2026-03-27"
-    const dateParts = dateText.split(/\s*[→~–]\s*/).map((s) => s.trim()).filter(Boolean)
-    const dateStart = dateParts[0]?.slice(0, 10)
+    // Worker formats as "start -> end" or just "start"
+    const dateParts = dateText.split(/\s*->\s*/).map((s) => s.trim()).filter(Boolean)
+    const startRaw = dateParts[0] ?? ''
+    const endRaw = dateParts.length > 1 ? dateParts[dateParts.length - 1] : undefined
+
+    const dateStart = startRaw.slice(0, 10)
     if (!dateStart || !/^\d{4}-\d{2}-\d{2}$/.test(dateStart)) continue
 
-    const rawEnd = dateParts.length > 1 ? dateParts[dateParts.length - 1].slice(0, 10) : undefined
-    const dateEnd = rawEnd && /^\d{4}-\d{2}-\d{2}$/.test(rawEnd) ? rawEnd : undefined
+    const dateEnd = endRaw ? endRaw.slice(0, 10) : undefined
+    const validEnd = dateEnd && /^\d{4}-\d{2}-\d{2}$/.test(dateEnd) && dateEnd !== dateStart ? dateEnd : undefined
 
     results.push({
       id: row.id,
@@ -85,7 +101,9 @@ function parseCalendarEvents(columns: ScheduleColumn[], rows: ScheduleRow[]): Ca
       type: typeIdx >= 0 ? (row.cells[typeIdx]?.text ?? '').trim() : '',
       attendees: attendeeIdx >= 0 ? (row.cells[attendeeIdx]?.text ?? '').trim() : '',
       date: dateStart,
-      dateEnd,
+      dateEnd: validEnd,
+      timeStart: extractTime(startRaw),
+      timeEnd: endRaw ? extractTime(endRaw) : undefined,
     })
   }
 
@@ -198,7 +216,7 @@ function ScheduleCalendar({ events }: { events: CalendarEvent[] }) {
                     style={{ borderLeftColor: TYPE_COLORS[event.type] ?? '#94a3b8' }}
                     title={`${event.title}${event.attendees ? `\n${event.attendees}` : ''}${event.type ? `\n[${event.type}]` : ''}`}
                   >
-                    <span className="scheduleCalendarEventTitle">{event.title}</span>
+                    <span className="scheduleCalendarEventTitle">{event.timeStart ? `${event.timeStart} ` : ''}{event.title}</span>
                     {event.attendees ? <span className="scheduleCalendarEventAttendees">{event.attendees}</span> : null}
                   </div>
                 ))}
@@ -265,6 +283,7 @@ export function ScheduleView({
   rows,
   loading,
   error,
+  onRefresh,
 }: ScheduleViewProps) {
   const [query, setQuery] = useState('')
   const [showTable, setShowTable] = useState(false)
@@ -273,6 +292,50 @@ export function ScheduleView({
   const effectiveTitle = databaseTitle.trim() || 'Schedule DB'
 
   const calendarEvents = useMemo(() => parseCalendarEvents(columns, rows), [columns, rows])
+
+  // Create form
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createTitle, setCreateTitle] = useState('')
+  const [createDateStart, setCreateDateStart] = useState('')
+  const [createTimeStart, setCreateTimeStart] = useState('')
+  const [createDateEnd, setCreateDateEnd] = useState('')
+  const [createTimeEnd, setCreateTimeEnd] = useState('')
+  const [createType, setCreateType] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const handleCreateSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!createTitle.trim()) return
+    setCreating(true); setCreateError(null)
+    try {
+      const dateStart = createDateStart
+        ? createTimeStart ? `${createDateStart}T${createTimeStart}:00` : createDateStart
+        : undefined
+      const dateEnd = createDateEnd
+        ? createTimeEnd ? `${createDateEnd}T${createTimeEnd}:00` : createDateEnd
+        : createTimeEnd && createDateStart
+          ? `${createDateStart}T${createTimeEnd}:00`
+          : undefined
+
+      await api<{ ok: boolean }>('/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: createTitle.trim(),
+          dateStart,
+          dateEnd,
+          type: createType || undefined,
+        }),
+      })
+      setCreateTitle(''); setCreateDateStart(''); setCreateTimeStart('')
+      setCreateDateEnd(''); setCreateTimeEnd(''); setCreateType('')
+      setShowCreateForm(false)
+      onRefresh?.()
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : '일정 등록에 실패했습니다')
+    } finally { setCreating(false) }
+  }
 
   const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value)
@@ -316,6 +379,40 @@ export function ScheduleView({
 
       {/* Calendar — primary view */}
       <ScheduleCalendar events={calendarEvents} />
+
+      {/* Create form */}
+      <div style={{ marginTop: 12, marginBottom: 8 }}>
+        <Button onClick={() => setShowCreateForm(!showCreateForm)} size="mini">
+          {showCreateForm ? '취소' : '+ 일정 등록'}
+        </Button>
+      </div>
+      {showCreateForm ? (
+        <form onSubmit={handleCreateSubmit} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 14, background: 'var(--surface-raised, var(--bg-card, #fff))' }}>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="일정명 (필수)" required style={{ width: '100%' }} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <label style={{ fontSize: '0.85em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                시작
+                <input type="date" value={createDateStart} onChange={(e) => setCreateDateStart(e.target.value)} style={{ minWidth: 130 }} />
+                <input type="time" value={createTimeStart} onChange={(e) => setCreateTimeStart(e.target.value)} style={{ minWidth: 90 }} />
+              </label>
+              <label style={{ fontSize: '0.85em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                종료
+                <input type="date" value={createDateEnd} onChange={(e) => setCreateDateEnd(e.target.value)} style={{ minWidth: 130 }} />
+                <input type="time" value={createTimeEnd} onChange={(e) => setCreateTimeEnd(e.target.value)} style={{ minWidth: 90 }} />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select value={createType} onChange={(e) => setCreateType(e.target.value)} style={{ minWidth: 100 }}>
+                <option value="">유형 선택</option>
+                {SCHEDULE_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            {createError ? <div style={{ color: 'var(--error, #d32f2f)', fontSize: '0.85em' }}>{createError}</div> : null}
+            <div><Button type="submit" disabled={creating || !createTitle.trim()} size="mini">{creating ? '등록 중...' : '등록'}</Button></div>
+          </div>
+        </form>
+      ) : null}
 
       {/* Table toggle */}
       <div style={{ marginTop: 16, marginBottom: 8 }}>

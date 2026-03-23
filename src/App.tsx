@@ -2480,6 +2480,7 @@ function App() {
           rows={schedule.rows}
           loading={schedule.loading}
           error={schedule.error}
+          onRefresh={schedule.fetch}
         />
       ) : null}
 
