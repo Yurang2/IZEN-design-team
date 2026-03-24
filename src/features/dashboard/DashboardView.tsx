@@ -246,6 +246,23 @@ export function DashboardView({
     const checklistCoveragePct =
       checklistRows.length > 0 ? Math.round((checklistAssigned.length / checklistRows.length) * 100) : 0
 
+    const weeklyEfficiencyPct =
+      weekDueTasks.length > 0 ? Math.round((completedThisWeek.length / weekDueTasks.length) * 100) : 0
+
+    const weekdayTaskCounts = (() => {
+      const days = ['월', '화', '수', '목', '금'] as const
+      const dayOfWeek = today.getUTCDay()
+      const monday = new Date(today)
+      monday.setUTCDate(today.getUTCDate() - ((dayOfWeek + 6) % 7))
+      return days.map((label, i) => {
+        const d = new Date(monday)
+        d.setUTCDate(monday.getUTCDate() + i)
+        const iso = toIsoDate(d)
+        const count = activeTasks.filter((t) => t.dueDate === iso).length
+        return { label, count }
+      })
+    })()
+
     return {
       activeTasks,
       delayedTasks,
@@ -261,6 +278,8 @@ export function DashboardView({
       checklistFocusRows,
       focusBuckets,
       checklistCoveragePct,
+      weeklyEfficiencyPct,
+      weekdayTaskCounts,
     }
   }, [checklistRows, projects, tasks, today, todayIso])
 
@@ -321,21 +340,33 @@ export function DashboardView({
         <div className="dashboardMainColumn">
           <section className="dashboardMetricStrip" aria-label="핵심 지표">
             <article className="dashboardMetricCard">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /></svg>
+              </span>
               <span className="dashboardMetricLabel">활성 업무</span>
               <strong>{dashboardSummary.activeTasks.length}</strong>
               <small>오늘 진행 중인 전체 업무</small>
             </article>
             <article className="dashboardMetricCard tone-red">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+              </span>
               <span className="dashboardMetricLabel">지연 업무</span>
               <strong>{dashboardSummary.delayedTasks.length}</strong>
               <small>완료, 보류, 보관 제외</small>
             </article>
             <article className="dashboardMetricCard tone-blue">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+              </span>
               <span className="dashboardMetricLabel">오늘 마감</span>
               <strong>{dashboardSummary.todayDueTasks.length}</strong>
               <small>{formatDateLabel(todayIso)} 기준</small>
             </article>
             <article className="dashboardMetricCard tone-amber">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+              </span>
               <span className="dashboardMetricLabel">체크리스트 미할당</span>
               <strong>{dashboardSummary.checklistUnassigned.length}</strong>
               <small>{selectedChecklistProject ? `${selectedChecklistProject.name} 기준` : '선택 행사 기준'}</small>
@@ -505,6 +536,34 @@ export function DashboardView({
                 <span>체크리스트 할당률</span>
                 <strong>{dashboardSummary.checklistCoveragePct}%</strong>
               </div>
+            </div>
+            <div className="dashboardPulseEfficiency">
+              <div
+                className="dashboardPulseRing"
+                style={{ '--pct': `${Math.min(dashboardSummary.weeklyEfficiencyPct, 100)}%` } as React.CSSProperties}
+              >
+                <div className="dashboardPulseRingInner">
+                  <span className="dashboardPulseRingLabel">{dashboardSummary.weeklyEfficiencyPct}%</span>
+                </div>
+              </div>
+              <div className="dashboardPulseEfficiencyText">
+                <strong>주간 완료율</strong>
+                <span>
+                  {dashboardSummary.completedThisWeek.length}건 완료 / {dashboardSummary.weekDueTasks.length}건 마감
+                </span>
+              </div>
+            </div>
+            <div className="dashboardWeeklyBars">
+              {dashboardSummary.weekdayTaskCounts.map((day) => {
+                const maxCount = Math.max(...dashboardSummary.weekdayTaskCounts.map((d) => d.count), 1)
+                const heightPct = Math.max((day.count / maxCount) * 100, 8)
+                return (
+                  <div key={day.label} className="dashboardWeeklyBar">
+                    <div className="bar" style={{ height: `${heightPct}%` }} />
+                    <span className="dayLabel">{day.label}</span>
+                  </div>
+                )
+              })}
             </div>
           </article>
 

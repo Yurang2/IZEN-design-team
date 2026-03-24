@@ -1525,16 +1525,14 @@ button.boardCard:hover {
 
 .dashboardView {
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
 .dashboardHeader {
   align-items: flex-start;
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 30%),
-    linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
-  border: 1px solid #d7e3f7;
-  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   box-shadow: var(--shadow-sm);
   display: flex;
   gap: 16px;
@@ -1588,12 +1586,12 @@ button.boardCard:hover {
 
 .dashboardHeaderChip,
 .dashboardSummaryChip {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #d8e4f8;
+  background: transparent;
+  border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 6px 10px;
 }
 
@@ -1608,14 +1606,14 @@ button.boardCard:hover {
 
 .dashboardPrimaryGrid {
   display: grid;
-  gap: 14px;
+  gap: 18px;
   grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.9fr);
 }
 
 .dashboardMainColumn,
 .dashboardSidebar {
   display: grid;
-  gap: 14px;
+  gap: 18px;
   min-width: 0;
 }
 
@@ -1630,14 +1628,15 @@ button.boardCard:hover {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.03);
 }
 
 .dashboardMetricCard {
   display: grid;
-  gap: 6px;
-  min-height: 128px;
-  padding: 14px;
+  gap: 8px;
+  min-height: 136px;
+  padding: 16px;
+  position: relative;
 }
 
 .dashboardMetricCard strong {
@@ -1659,18 +1658,45 @@ button.boardCard:hover {
 }
 
 .dashboardMetricCard.tone-red {
-  border-color: #fecaca;
   box-shadow: 0 10px 28px rgba(185, 28, 28, 0.08);
 }
 
 .dashboardMetricCard.tone-blue {
-  border-color: #bfdbfe;
   box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
 }
 
 .dashboardMetricCard.tone-amber {
-  border-color: #fed7aa;
   box-shadow: 0 10px 28px rgba(194, 65, 12, 0.08);
+}
+
+.dashboardMetricIcon {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 999px;
+  color: #2563eb;
+  display: flex;
+  font-size: 16px;
+  height: 32px;
+  justify-content: center;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 32px;
+}
+
+.tone-red .dashboardMetricIcon {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.tone-blue .dashboardMetricIcon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.tone-amber .dashboardMetricIcon {
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .dashboardCard {
@@ -1754,16 +1780,20 @@ button.boardCard:hover {
 }
 
 .dashboardFocusLaneCount {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border: none;
   border-radius: 999px;
-  color: var(--text-main);
+  color: #fff;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1;
-  padding: 6px 8px;
+  padding: 4px 10px;
 }
+
+.tone-red .dashboardFocusLaneCount { background: #ef4444; }
+.tone-blue .dashboardFocusLaneCount { background: #3b82f6; }
+.tone-green .dashboardFocusLaneCount { background: #22c55e; }
+.tone-gray .dashboardFocusLaneCount { background: #94a3b8; }
 
 .dashboardLaneList,
 .dashboardList {
@@ -1786,8 +1816,27 @@ button.boardCard:hover {
 }
 
 .dashboardTaskCard {
+  border-radius: 12px;
   color: inherit;
   cursor: pointer;
+  gap: 8px;
+  padding: 14px;
+}
+
+.tone-red .dashboardTaskCard {
+  border-left: 3px solid #fca5a5;
+}
+
+.tone-blue .dashboardTaskCard {
+  border-left: 3px solid #93c5fd;
+}
+
+.tone-green .dashboardTaskCard {
+  border-left: 3px solid #86efac;
+}
+
+.tone-gray .dashboardTaskCard {
+  border-left: 3px solid #cbd5e1;
 }
 
 .dashboardTaskCard:hover,
@@ -1887,6 +1936,87 @@ button.dashboardNavButton {
   line-height: 1;
 }
 
+.dashboardPulseEfficiency {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  padding: 4px 0 0;
+}
+
+.dashboardPulseRing {
+  align-items: center;
+  background: conic-gradient(#3b82f6 var(--pct, 0%), var(--border) 0%);
+  border-radius: 999px;
+  display: flex;
+  flex-shrink: 0;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.dashboardPulseRingInner {
+  align-items: center;
+  background: var(--surface);
+  border-radius: 999px;
+  display: flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.dashboardPulseRingLabel {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboardPulseEfficiencyText {
+  display: grid;
+  gap: 2px;
+}
+
+.dashboardPulseEfficiencyText span {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+
+.dashboardPulseEfficiencyText strong {
+  color: var(--text-main);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.dashboardWeeklyBars {
+  align-items: flex-end;
+  display: flex;
+  gap: 6px;
+  height: 72px;
+  padding: 4px 0 0;
+}
+
+.dashboardWeeklyBar {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.dashboardWeeklyBar .bar {
+  background: #3b82f6;
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+  width: 100%;
+}
+
+.dashboardWeeklyBar .dayLabel {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
 .dashboardSummaryCard {
   gap: 10px;
 }
@@ -1918,9 +2048,7 @@ button.dashboardNavButton {
 }
 
 [data-theme='v2'] .dashboardHeader {
-  background:
-    radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 32%),
-    linear-gradient(180deg, #16202b 0%, #121a24 100%);
+  background: var(--surface);
   border-color: var(--border);
 }
 
@@ -1948,8 +2076,49 @@ button.dashboardNavButton {
 }
 
 [data-theme='v2'] .dashboardFocusLaneCount {
-  background: #202a38;
-  border-color: #334358;
+  color: #fff;
+}
+
+[data-theme='v2'] .tone-red .dashboardFocusLaneCount { background: #991b1b; }
+[data-theme='v2'] .tone-blue .dashboardFocusLaneCount { background: #1e40af; }
+[data-theme='v2'] .tone-green .dashboardFocusLaneCount { background: #166534; }
+[data-theme='v2'] .tone-gray .dashboardFocusLaneCount { background: #475569; }
+
+[data-theme='v2'] .dashboardMetricIcon {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+}
+
+[data-theme='v2'] .tone-red .dashboardMetricIcon {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+[data-theme='v2'] .tone-blue .dashboardMetricIcon {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+}
+
+[data-theme='v2'] .tone-amber .dashboardMetricIcon {
+  background: rgba(251, 146, 60, 0.12);
+  color: #fdba74;
+}
+
+[data-theme='v2'] .tone-red .dashboardTaskCard { border-left-color: #7f1d1d; }
+[data-theme='v2'] .tone-blue .dashboardTaskCard { border-left-color: #1e3a5f; }
+[data-theme='v2'] .tone-green .dashboardTaskCard { border-left-color: #14532d; }
+[data-theme='v2'] .tone-gray .dashboardTaskCard { border-left-color: #334155; }
+
+[data-theme='v2'] .dashboardPulseRing {
+  background: conic-gradient(#60a5fa var(--pct, 0%), var(--border) 0%);
+}
+
+[data-theme='v2'] .dashboardPulseRingInner {
+  background: var(--surface2);
+}
+
+[data-theme='v2'] .dashboardWeeklyBar .bar {
+  background: #60a5fa;
 }
 
 [data-theme='v2'] .dashboardFocusLane.tone-red,
