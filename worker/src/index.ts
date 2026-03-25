@@ -413,6 +413,18 @@ export default {
         if (scheduleType) {
           properties['유형'] = { select: { name: scheduleType } }
         }
+        const attendees = String(body.attendees ?? '').trim()
+        if (attendees) {
+          properties['예정 참석자'] = { rich_text: [{ text: { content: attendees } }] }
+        }
+        const location = String(body.location ?? '').trim()
+        if (location) {
+          properties['장소'] = { rich_text: [{ text: { content: location } }] }
+        }
+        const memo = String(body.memo ?? '').trim()
+        if (memo) {
+          properties['메모'] = { rich_text: [{ text: { content: memo } }] }
+        }
 
         await service.createPageDirect(scheduleDbId, properties)
         return json({ ok: true }, 201, origin)

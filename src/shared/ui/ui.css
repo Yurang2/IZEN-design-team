@@ -3679,6 +3679,41 @@ button.dashboardNavButton {
   text-decoration: none;
 }
 
+.scheduleTypeBadge {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.scheduleTypeDot {
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  height: 8px;
+  width: 8px;
+}
+
+.scheduleDateCell {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.scheduleCreateModal {
+  max-width: 560px;
+  width: 100%;
+}
+
+.scheduleCreateModal h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.scheduleCreateModal textarea {
+  resize: vertical;
+}
+
 .screeningGalleryGroups {
   display: grid;
   gap: 20px;

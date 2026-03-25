@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { api } from '../../shared/api/client'
-import { Button, EmptyState, Skeleton, TableWrap } from '../../shared/ui'
+import { Button, EmptyState, Modal, Skeleton, TableWrap } from '../../shared/ui'
 
 type ScheduleViewProps = {
   configured: boolean
@@ -63,7 +63,6 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 function extractTime(isoLike: string): string | undefined {
-  // "2026-04-16T21:30:00.000+09:00" → "21:30"
   const match = isoLike.match(/T(\d{2}:\d{2})/)
   if (!match) return undefined
   return match[1] === '00:00' ? undefined : match[1]
@@ -83,7 +82,6 @@ function parseCalendarEvents(columns: ScheduleColumn[], rows: ScheduleRow[]): Ca
     const dateText = (row.cells[dateIdx]?.text ?? '').trim()
     if (!dateText) continue
 
-    // Worker formats as "start -> end" or just "start"
     const dateParts = dateText.split(/\s*->\s*/).map((s) => s.trim()).filter(Boolean)
     const startRaw = dateParts[0] ?? ''
     const endRaw = dateParts.length > 1 ? dateParts[dateParts.length - 1] : undefined
@@ -110,25 +108,129 @@ function parseCalendarEvents(columns: ScheduleColumn[], rows: ScheduleRow[]): Ca
   return results
 }
 
+// ---------------------------------------------------------------------------
+// Display column ordering
+// ---------------------------------------------------------------------------
+
+type DisplayColumn = {
+  index: number
+  column: ScheduleColumn
+  role: 'title' | 'date' | 'type' | 'attendees' | 'other'
+}
+
+function buildDisplayColumns(columns: ScheduleColumn[]): DisplayColumn[] {
+  const titleIdx = findColumnIndex(columns, ['일정명', '이름', 'name', 'Name'])
+  const dateIdx = findColumnIndex(columns, ['일시', '날짜', '일정', 'date', 'Date'])
+  const typeIdx = findColumnIndex(columns, ['유형', '종류', 'type', 'Type'])
+  const attendeeIdx = findColumnIndex(columns, ['예정 참석자', '참석자', '담당자', 'attendees'])
+
+  const prioritySet = new Set([titleIdx, dateIdx, typeIdx, attendeeIdx].filter((i) => i >= 0))
+  const result: DisplayColumn[] = []
+
+  if (titleIdx >= 0) result.push({ index: titleIdx, column: columns[titleIdx], role: 'title' })
+  if (dateIdx >= 0) result.push({ index: dateIdx, column: columns[dateIdx], role: 'date' })
+  if (typeIdx >= 0) result.push({ index: typeIdx, column: columns[typeIdx], role: 'type' })
+  if (attendeeIdx >= 0) result.push({ index: attendeeIdx, column: columns[attendeeIdx], role: 'attendees' })
+
+  for (let i = 0; i < columns.length; i++) {
+    if (!prioritySet.has(i)) result.push({ index: i, column: columns[i], role: 'other' })
+  }
+
+  return result
+}
+
+// ---------------------------------------------------------------------------
+// Date formatting
+// ---------------------------------------------------------------------------
+
+const DOW_SHORT = ['일', '월', '화', '수', '목', '금', '토']
+
+function formatDateDisplay(dateText: string): string {
+  const parts = dateText.split(/\s*->\s*/).map((s) => s.trim()).filter(Boolean)
+  const startRaw = parts[0] ?? ''
+  const endRaw = parts.length > 1 ? parts[parts.length - 1] : undefined
+
+  const startDate = startRaw.slice(0, 10)
+  if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return dateText
+
+  const d = new Date(startDate + 'T00:00:00')
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  const dow = DOW_SHORT[d.getDay()]
+
+  const startTime = extractTime(startRaw)
+  const endTime = endRaw ? extractTime(endRaw) : undefined
+  const endDate = endRaw?.slice(0, 10)
+
+  let result = `${month}/${day} (${dow})`
+
+  if (startTime) {
+    result += ` ${startTime}`
+    if (endTime && (!endDate || endDate === startDate)) {
+      result += `~${endTime}`
+    }
+  }
+
+  if (endDate && endDate !== startDate) {
+    const ed = new Date(endDate + 'T00:00:00')
+    result += ` ~ ${ed.getMonth() + 1}/${ed.getDate()} (${DOW_SHORT[ed.getDay()]})`
+    if (endTime) result += ` ${endTime}`
+  }
+
+  return result
+}
+
+// ---------------------------------------------------------------------------
+// Summary stats
+// ---------------------------------------------------------------------------
+
+function countScheduleStats(events: CalendarEvent[]): { thisWeek: number; thisMonth: number; total: number } {
+  const now = new Date()
+  const dayOfWeek = now.getDay()
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const monday = new Date(now)
+  monday.setDate(now.getDate() + mondayOffset)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  const weekStart = fmt(monday)
+  const weekEnd = fmt(sunday)
+
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+  let thisWeek = 0
+  let thisMonth = 0
+
+  for (const event of events) {
+    const eventEnd = event.dateEnd || event.date
+    if (event.date <= weekEnd && eventEnd >= weekStart) thisWeek++
+    if (event.date <= monthEnd && eventEnd >= monthStart) thisMonth++
+  }
+
+  return { thisWeek, thisMonth, total: events.length }
+}
+
+// ---------------------------------------------------------------------------
+// Calendar helpers
+// ---------------------------------------------------------------------------
+
 function getMonthDays(year: number, month: number): { date: string; dayOfWeek: number; isCurrentMonth: boolean }[] {
   const firstDay = new Date(year, month, 1)
   const startDow = firstDay.getDay()
   const days: { date: string; dayOfWeek: number; isCurrentMonth: boolean }[] = []
 
-  // Fill leading days from previous month
   for (let i = startDow - 1; i >= 0; i--) {
     const d = new Date(year, month, -i)
     days.push({ date: fmt(d), dayOfWeek: d.getDay(), isCurrentMonth: false })
   }
 
-  // Current month
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d)
     days.push({ date: fmt(date), dayOfWeek: date.getDay(), isCurrentMonth: true })
   }
 
-  // Fill trailing days
   while (days.length % 7 !== 0) {
     const d = new Date(year, month + 1, days.length - daysInMonth - startDow + 1)
     days.push({ date: fmt(d), dayOfWeek: d.getDay(), isCurrentMonth: false })
@@ -235,7 +337,6 @@ function ScheduleCalendar({ events }: { events: CalendarEvent[] }) {
         })}
       </div>
 
-      {/* Legend */}
       <div className="scheduleCalendarLegend">
         {Object.entries(TYPE_COLORS).map(([type, color]) => (
           <span key={type} className="scheduleCalendarLegendItem">
@@ -278,6 +379,25 @@ function ScheduleSkeleton({ columnCount }: { columnCount: number }) {
 }
 
 // ---------------------------------------------------------------------------
+// Table cell renderers
+// ---------------------------------------------------------------------------
+
+function ScheduleTypeCell({ text }: { text: string }) {
+  if (!text || text === '-') return <span>-</span>
+  return (
+    <span className="scheduleTypeBadge">
+      <span className="scheduleTypeDot" style={{ background: TYPE_COLORS[text] ?? '#94a3b8' }} />
+      {text}
+    </span>
+  )
+}
+
+function ScheduleDateCell({ text }: { text: string }) {
+  if (!text || text === '-') return <span>-</span>
+  return <span className="scheduleDateCell">{formatDateDisplay(text)}</span>
+}
+
+// ---------------------------------------------------------------------------
 // Main view
 // ---------------------------------------------------------------------------
 
@@ -298,8 +418,10 @@ export function ScheduleView({
   const effectiveTitle = databaseTitle.trim() || 'Schedule DB'
 
   const calendarEvents = useMemo(() => parseCalendarEvents(columns, rows), [columns, rows])
+  const displayColumns = useMemo(() => buildDisplayColumns(columns), [columns])
+  const stats = useMemo(() => countScheduleStats(calendarEvents), [calendarEvents])
 
-  // Create form
+  // Create form (Modal)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createTitle, setCreateTitle] = useState('')
@@ -308,7 +430,17 @@ export function ScheduleView({
   const [createDateEnd, setCreateDateEnd] = useState('')
   const [createTimeEnd, setCreateTimeEnd] = useState('')
   const [createType, setCreateType] = useState('')
+  const [createAttendees, setCreateAttendees] = useState('')
+  const [createLocation, setCreateLocation] = useState('')
+  const [createMemo, setCreateMemo] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
+
+  const resetCreateForm = () => {
+    setCreateTitle(''); setCreateDateStart(''); setCreateTimeStart('')
+    setCreateDateEnd(''); setCreateTimeEnd(''); setCreateType('')
+    setCreateAttendees(''); setCreateLocation(''); setCreateMemo('')
+    setCreateError(null)
+  }
 
   const handleCreateSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -332,10 +464,12 @@ export function ScheduleView({
           dateStart,
           dateEnd,
           type: createType || undefined,
+          attendees: createAttendees.trim() || undefined,
+          location: createLocation.trim() || undefined,
+          memo: createMemo.trim() || undefined,
         }),
       })
-      setCreateTitle(''); setCreateDateStart(''); setCreateTimeStart('')
-      setCreateDateEnd(''); setCreateTimeEnd(''); setCreateType('')
+      resetCreateForm()
       setShowCreateForm(false)
       onRefresh?.()
     } catch (err: unknown) {
@@ -351,9 +485,9 @@ export function ScheduleView({
     return (
       <section className="scheduleView">
         <div className="scheduleSummary" aria-label="일정 요약">
-          <article><span>컬럼</span><strong>...</strong></article>
-          <article><span>행</span><strong>...</strong></article>
-          <article><span>검색 결과</span><strong>...</strong></article>
+          <article><span>이번 주</span><strong>...</strong></article>
+          <article><span>이번 달</span><strong>...</strong></article>
+          <article><span>전체</span><strong>...</strong></article>
         </div>
         <ScheduleSkeleton columnCount={Math.max(columns.length, 4)} />
       </section>
@@ -374,73 +508,41 @@ export function ScheduleView({
 
   return (
     <section className="scheduleView">
+      {/* Hero */}
       <div className="scheduleHero">
         <div className="scheduleHeroText">
           <h2>{effectiveTitle}</h2>
         </div>
-        {databaseUrl ? (
-          <a className="linkButton secondary" href={databaseUrl} target="_blank" rel="noreferrer">노션 DB 열기</a>
-        ) : null}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Button onClick={() => setShowCreateForm(true)} size="mini">+ 일정 등록</Button>
+          {databaseUrl ? (
+            <a className="linkButton secondary" href={databaseUrl} target="_blank" rel="noreferrer">노션 DB 열기</a>
+          ) : null}
+        </div>
       </div>
 
-      {/* Calendar — primary view */}
+      {/* Summary stats */}
+      <div className="scheduleSummary" aria-label="일정 요약">
+        <article><span>이번 주</span><strong>{stats.thisWeek}</strong></article>
+        <article><span>이번 달</span><strong>{stats.thisMonth}</strong></article>
+        <article><span>전체</span><strong>{stats.total}</strong></article>
+      </div>
+
+      {/* Calendar */}
       <ScheduleCalendar events={calendarEvents} />
 
-      {/* Create form */}
-      <div style={{ marginTop: 12, marginBottom: 8 }}>
-        <Button onClick={() => setShowCreateForm(!showCreateForm)} size="mini">
-          {showCreateForm ? '취소' : '+ 일정 등록'}
+      {/* Table toggle */}
+      <div>
+        <Button onClick={() => setShowTable(!showTable)} variant="secondary" size="mini">
+          {showTable ? '일정 목록 접기' : `일정 목록 (${rows.length}건)`}
         </Button>
       </div>
-      {showCreateForm ? (
-        <form onSubmit={handleCreateSubmit} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 14, background: 'var(--surface-raised, var(--bg-card, #fff))' }}>
-          <div style={{ display: 'grid', gap: 10 }}>
-            <input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="일정명 (필수)" required style={{ width: '100%' }} />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <label style={{ fontSize: '0.85em', display: 'flex', alignItems: 'center', gap: 4 }}>
-                시작
-                <input type="date" value={createDateStart} onChange={(e) => setCreateDateStart(e.target.value)} style={{ minWidth: 130 }} />
-                <input type="time" value={createTimeStart} onChange={(e) => setCreateTimeStart(e.target.value)} style={{ minWidth: 90 }} />
-              </label>
-              <label style={{ fontSize: '0.85em', display: 'flex', alignItems: 'center', gap: 4 }}>
-                종료
-                <input type="date" value={createDateEnd} onChange={(e) => setCreateDateEnd(e.target.value)} style={{ minWidth: 130 }} />
-                <input type="time" value={createTimeEnd} onChange={(e) => setCreateTimeEnd(e.target.value)} style={{ minWidth: 90 }} />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select value={createType} onChange={(e) => setCreateType(e.target.value)} style={{ minWidth: 100 }}>
-                <option value="">유형 선택</option>
-                {SCHEDULE_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            {createError ? <div style={{ color: 'var(--error, #d32f2f)', fontSize: '0.85em' }}>{createError}</div> : null}
-            <div><Button type="submit" disabled={creating || !createTitle.trim()} size="mini">{creating ? '등록 중...' : '등록'}</Button></div>
-          </div>
-        </form>
-      ) : null}
 
-      {/* Table toggle */}
-      <div style={{ marginTop: 16, marginBottom: 8 }}>
-        <button
-          type="button"
-          onClick={() => setShowTable(!showTable)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9em', color: 'var(--primary, #1976d2)', textDecoration: 'underline', padding: 0 }}
-        >
-          {showTable ? '일정 목록 접기' : `일정 목록 펼치기 (${rows.length}건)`}
-        </button>
-      </div>
-
-      {/* Table — secondary view */}
+      {/* Table */}
       {showTable ? (
         <>
-          <div className="scheduleSummary" aria-label="일정 요약">
-            <article><span>전체 행</span><strong>{rows.length}</strong></article>
-            <article><span>검색 결과</span><strong>{filteredRows.length}</strong></article>
-          </div>
-
           <div className="scheduleToolbar">
-            <input type="search" value={query} onChange={onQueryChange} placeholder="일정명, 상태, 메모 등으로 검색" aria-label="일정 검색" />
+            <input type="search" value={query} onChange={onQueryChange} placeholder="일정명, 참석자, 메모 등으로 검색" aria-label="일정 검색" />
           </div>
 
           {filteredRows.length === 0 ? (
@@ -450,11 +552,10 @@ export function ScheduleView({
               <table className="scheduleGridTable">
                 <thead>
                   <tr>
-                    {columns.map((column, index) => (
-                      <th key={column.id} className={index === 0 ? 'schedulePrimaryColumn' : undefined}>
+                    {displayColumns.map((dc, pos) => (
+                      <th key={dc.column.id} className={pos === 0 ? 'schedulePrimaryColumn' : undefined}>
                         <div className="scheduleColumnHeader">
-                          <strong>{column.name}</strong>
-                          <span>{column.type}</span>
+                          <strong>{dc.column.name}</strong>
                         </div>
                       </th>
                     ))}
@@ -463,28 +564,56 @@ export function ScheduleView({
                 <tbody>
                   {filteredRows.map((row) => (
                     <tr key={row.id}>
-                      {columns.map((column, index) => {
-                        const cell = row.cells[index]
+                      {displayColumns.map((dc, pos) => {
+                        const cell = row.cells[dc.index]
                         const label = toCellLabel(cell)
-                        const cellClassName = index === 0 ? 'schedulePrimaryColumn scheduleCell' : 'scheduleCell'
+                        const isPrimary = pos === 0
 
-                        if (index === 0 && row.url) {
+                        if (dc.role === 'title' && isPrimary && row.url) {
                           return (
-                            <td key={`${row.id}-${column.id}`} className={cellClassName}>
+                            <td key={`${row.id}-${dc.column.id}`} className="schedulePrimaryColumn scheduleCell">
                               <a className="schedulePrimaryLink" href={row.url} target="_blank" rel="noreferrer">{label}</a>
+                            </td>
+                          )
+                        }
+
+                        if (dc.role === 'title' && isPrimary) {
+                          return (
+                            <td key={`${row.id}-${dc.column.id}`} className="schedulePrimaryColumn scheduleCell">
+                              <strong>{label}</strong>
+                            </td>
+                          )
+                        }
+
+                        if (dc.role === 'date') {
+                          return (
+                            <td key={`${row.id}-${dc.column.id}`} className="scheduleCell">
+                              <ScheduleDateCell text={label} />
+                            </td>
+                          )
+                        }
+
+                        if (dc.role === 'type') {
+                          return (
+                            <td key={`${row.id}-${dc.column.id}`} className="scheduleCell">
+                              <ScheduleTypeCell text={label} />
                             </td>
                           )
                         }
 
                         if (cell?.href) {
                           return (
-                            <td key={`${row.id}-${column.id}`} className={cellClassName}>
+                            <td key={`${row.id}-${dc.column.id}`} className={isPrimary ? 'schedulePrimaryColumn scheduleCell' : 'scheduleCell'}>
                               <a href={cell.href} target="_blank" rel="noreferrer">{label}</a>
                             </td>
                           )
                         }
 
-                        return <td key={`${row.id}-${column.id}`} className={cellClassName}>{label}</td>
+                        return (
+                          <td key={`${row.id}-${dc.column.id}`} className={isPrimary ? 'schedulePrimaryColumn scheduleCell' : 'scheduleCell'}>
+                            {label}
+                          </td>
+                        )
                       })}
                     </tr>
                   ))}
@@ -494,6 +623,61 @@ export function ScheduleView({
           )}
         </>
       ) : null}
+
+      {/* Create Modal */}
+      <Modal open={showCreateForm} onClose={() => { setShowCreateForm(false); setCreateError(null) }} className="scheduleCreateModal">
+        <h3 style={{ margin: '0 0 14px' }}>일정 등록</h3>
+        <form onSubmit={handleCreateSubmit} className="createForm">
+          <label className="fullWidth">
+            일정명
+            <input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="일정명을 입력하세요" required />
+          </label>
+
+          <label>
+            시작
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input type="date" value={createDateStart} onChange={(e) => setCreateDateStart(e.target.value)} style={{ flex: 1 }} />
+              <input type="time" value={createTimeStart} onChange={(e) => setCreateTimeStart(e.target.value)} style={{ width: 100 }} />
+            </div>
+          </label>
+          <label>
+            종료
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input type="date" value={createDateEnd} onChange={(e) => setCreateDateEnd(e.target.value)} style={{ flex: 1 }} />
+              <input type="time" value={createTimeEnd} onChange={(e) => setCreateTimeEnd(e.target.value)} style={{ width: 100 }} />
+            </div>
+          </label>
+
+          <label>
+            유형
+            <select value={createType} onChange={(e) => setCreateType(e.target.value)}>
+              <option value="">선택</option>
+              {SCHEDULE_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label>
+            참석자
+            <input value={createAttendees} onChange={(e) => setCreateAttendees(e.target.value)} placeholder="홍길동, 김철수" />
+          </label>
+
+          <label className="fullWidth">
+            장소 / 링크
+            <input value={createLocation} onChange={(e) => setCreateLocation(e.target.value)} placeholder="회의실 또는 Zoom 링크" />
+          </label>
+
+          <label className="fullWidth">
+            메모
+            <textarea value={createMemo} onChange={(e) => setCreateMemo(e.target.value)} placeholder="참고 사항" rows={3} />
+          </label>
+
+          {createError ? <div className="fullWidth" style={{ color: 'var(--error, #d32f2f)', fontSize: '0.85em' }}>{createError}</div> : null}
+
+          <div className="actions fullWidth">
+            <Button type="button" variant="secondary" size="mini" onClick={() => { setShowCreateForm(false); setCreateError(null) }}>취소</Button>
+            <Button type="submit" disabled={creating || !createTitle.trim()} size="mini">{creating ? '등록 중...' : '등록'}</Button>
+          </div>
+        </form>
+      </Modal>
     </section>
   )
 }
