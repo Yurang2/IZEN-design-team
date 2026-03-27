@@ -2691,6 +2691,32 @@ button.dashboardNavButton {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.shotSectionDivider {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.shotSectionLabel {
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.shotSectionCount {
+  background: rgba(255, 237, 213, 0.9);
+  border-radius: 999px;
+  color: #9a3412;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 22px;
+  padding: 2px 7px;
+  text-align: center;
+}
+
 .shotSlotCard {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
   border: 1px solid rgba(205, 214, 227, 0.92);

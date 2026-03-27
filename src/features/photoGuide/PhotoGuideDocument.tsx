@@ -1,6 +1,20 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { ShotSlotCard } from './ShotSlotCard'
-import type { GuideSummaryBlock, ShotGroup } from './photoGuideData'
+import type { GuideSummaryBlock, ShotGroup, ShotSlot } from './photoGuideData'
+
+function isVideoShot(slot: ShotSlot): boolean {
+  return slot.title.includes('(영상)') || slot.title.includes('[영상]') || slot.description.startsWith('[영상]')
+}
+
+function splitPhotoVideo(shots: ShotSlot[]): { photoShots: ShotSlot[]; videoShots: ShotSlot[] } {
+  const photoShots: ShotSlot[] = []
+  const videoShots: ShotSlot[] = []
+  for (const shot of shots) {
+    if (isVideoShot(shot)) videoShots.push(shot)
+    else photoShots.push(shot)
+  }
+  return { photoShots, videoShots }
+}
 
 function MetaChip({ label, value, href }: { label: string; value: string; href?: string | null }) {
   if (!value) return null
@@ -40,6 +54,66 @@ function SummaryCards({ title, blocks }: { title: string; blocks: GuideSummaryBl
         ))}
       </div>
     </section>
+  )
+}
+
+function ShotGrid({
+  shots,
+  readonly,
+  onUploadImage,
+}: {
+  shots: ShotSlot[]
+  readonly: boolean
+  onUploadImage?: (slotId: string, file: File) => Promise<void>
+}) {
+  if (shots.length === 0) return null
+  return (
+    <div className="shotGrid">
+      {shots.map((slot) => (
+        <ShotSlotCard key={slot.id} slot={slot} readonly={readonly} onUploadImage={readonly ? undefined : onUploadImage} />
+      ))}
+    </div>
+  )
+}
+
+function ShotSections({
+  shots,
+  readonly,
+  onUploadImage,
+}: {
+  shots: ShotSlot[]
+  readonly: boolean
+  onUploadImage?: (slotId: string, file: File) => Promise<void>
+}) {
+  const { photoShots, videoShots } = useMemo(() => splitPhotoVideo(shots), [shots])
+
+  if (shots.length === 0) {
+    return (
+      <div className="photoGuideSummaryCard is-empty">
+        <h3>컷 슬롯 없음</h3>
+        <p>이 그룹에는 아직 저장된 컷 슬롯이 없습니다.</p>
+      </div>
+    )
+  }
+
+  // 사진만 또는 영상만 있는 경우 서브헤더 없이 표시
+  if (videoShots.length === 0) return <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
+  if (photoShots.length === 0) return <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
+
+  return (
+    <>
+      <div className="shotSectionDivider">
+        <span className="shotSectionLabel">사진 필수컷</span>
+        <span className="shotSectionCount">{photoShots.length}</span>
+      </div>
+      <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
+
+      <div className="shotSectionDivider">
+        <span className="shotSectionLabel">영상 필수컷</span>
+        <span className="shotSectionCount">{videoShots.length}</span>
+      </div>
+      <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
+    </>
   )
 }
 
@@ -93,23 +167,7 @@ export function PhotoGuideDocument({
 
             <SummaryCards title="그룹 메모" blocks={group.summaryBlocks} />
 
-            {group.shots.length > 0 ? (
-              <div className="shotGrid">
-                {group.shots.map((slot) => (
-                  <ShotSlotCard
-                    key={slot.id}
-                    slot={slot}
-                    readonly={readonly}
-                    onUploadImage={readonly ? undefined : onUploadImage}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="photoGuideSummaryCard is-empty">
-                <h3>컷 슬롯 없음</h3>
-                <p>이 그룹에는 아직 저장된 컷 슬롯이 없습니다.</p>
-              </div>
-            )}
+            <ShotSections shots={group.shots} readonly={readonly} onUploadImage={onUploadImage} />
           </section>
         ))}
       </div>
