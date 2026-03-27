@@ -2030,11 +2030,17 @@ export class NotionWorkService {
       ? (memoProp.title ?? []).map((t: any) => t?.plain_text ?? '').join('')
       : ''
 
+    const resolvedStatus: EquipmentCheckoutStatus =
+      status === '반출' || status === 'checked_out' ? 'checked_out' :
+      status === '반납' || status === 'returned' ? 'returned' :
+      status === '대기' || status === 'pending' ? 'pending' :
+      status === 'removed' ? 'removed' : 'pending'
+
     return {
       id: page.id,
       projectPageId,
       equipmentPageId,
-      status: (status as EquipmentCheckoutStatus) || 'pending',
+      status: resolvedStatus,
       checkoutDate: checkoutDateProp?.type === 'date' ? normalizeText(checkoutDateProp.date?.start) : '',
       returnDate: returnDateProp?.type === 'date' ? normalizeText(returnDateProp.date?.start) : '',
       memo: memoText,
