@@ -527,6 +527,18 @@ export default {
         }
       }
 
+      const photoGuideDeleteMatch = path.match(/^\/photo-guide\/([^/]+)$/)
+      if (request.method === 'DELETE' && photoGuideDeleteMatch) {
+        try {
+          const pageId = decodeURIComponent(photoGuideDeleteMatch[1])
+          await service.archivePhotoGuidePage(pageId)
+          return ok({ ok: true, pageId, archived: true }, origin)
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'photo_guide_delete_failed'
+          return json({ ok: false, error: message }, 500, origin)
+        }
+      }
+
       const photoGuideUploadMatch = path.match(/^\/photo-guide\/([^/]+)\/files$/)
       if (request.method === 'POST' && photoGuideUploadMatch) {
         try {

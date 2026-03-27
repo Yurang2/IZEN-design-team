@@ -2145,6 +2145,13 @@ export class NotionWorkService {
     }
   }
 
+  async archivePhotoGuidePage(pageId: string): Promise<void> {
+    await this.api.request(`/pages/${pageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ archived: true }),
+    })
+  }
+
   async createShotSlot(input: CreateShotSlotInput): Promise<{ id: string; url: string }> {
     const schema = await this.syncPhotoGuideDatabaseProperties()
     if (!schema.databaseId) {
