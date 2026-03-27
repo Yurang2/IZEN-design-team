@@ -1,53 +1,53 @@
-# 촬영 가이드 DB 설계
+# Photo Guide DB Design
 
-Date: 2026-03-19
+Date: 2026-03-27
 
-## 목표
+## Goal
+- Replace the old text-heavy photo guide entry model with a shot-slot model.
+- Support the real workflow: write the shot brief first, then attach or generate a matching image later.
+- Keep the runtime compatible with `Cloudflare Pages + Cloudflare Workers + Notion`.
 
-- 촬영 기사에게 공유할 읽기 전용 외부 페이지를 만든다.
-- 내부에서는 행사 탭 안의 `촬영가이드` 화면에서 같은 데이터를 본다.
-- DB는 타임테이블과 분리하고, `NOTION_PHOTO_GUIDE_DB_ID` 하나로 연결한다.
+## Runtime Paths
+- Internal page: `행사 > 촬영가이드`
+- Share page: `/share/photo-guide`
+- Worker API: `GET /api/photo-guide`, `POST /api/photo-guide`, `POST /api/photo-guide/:id/files`
 
-## 경로
+## UX Model
+- Top area: summary blocks for operating assumptions, goals, roles.
+- Main area: groups such as `토요일 학회`, `일요일 강연`, `월요일 크루즈`.
+- Each slot card contains:
+  - fixed 3:2 thumbnail area
+  - title
+  - description
+  - drag-and-drop image upload
+  - optional Gemini image generation from the slot brief
 
-- 내부 탭: `행사 > 촬영가이드`
-- 외부 공유: `/share/photo-guide`
-
-## 동작 원칙
-
-- 촬영가이드 화면을 열면 Worker가 DB 스키마를 먼저 자동 동기화한다.
-- 따라서 빈 DB여도 기본 컬럼은 자동 생성된다.
-- row가 하나도 없으면 화면은 비어 보일 수 있다.
-
-## 권장 컬럼
-
-| 속성 | 타입 | 용도 |
+## Notion Fields
+| Field | Type | Purpose |
 | --- | --- | --- |
-| `제목` | `title` | 섹션 제목 또는 가이드 제목 |
-| `귀속 프로젝트` | `relation -> NOTION_PROJECT_DB_ID` | 행사 연결 |
-| `행사명` | `rich_text` | 외부 페이지 그룹 제목 |
-| `정렬 순서` | `number` | 섹션 정렬 |
-| `섹션` | `select` | 예: 기본 정보, 필수 컷, 주의 사항 |
-| `행사일` | `date` | 행사 날짜 |
-| `장소` | `rich_text` | 촬영 장소 |
-| `콜타임` | `rich_text` | 기사 집합 시간 |
-| `현장 담당자` | `rich_text` | 연락 담당자 |
-| `촬영 목적` | `rich_text` | 촬영 목적/브리프 |
-| `필수 컷` | `rich_text` | 반드시 찍어야 할 컷 |
-| `시간대별 포인트` | `rich_text` | 시간대별 촬영 포인트 |
-| `주의 사항` | `rich_text` | 금지/주의 사항 |
-| `납품 규격` | `rich_text` | 납품 방식/규격 |
-| `참고 자료` | `rich_text` | 추가 메모 |
-| `참고 링크` | `url` | 레퍼런스 링크 |
-| `첨부 자료` | `files` | 참고 이미지/파일 |
+| `제목` | `title` | Slot title or summary title |
+| `귀속 프로젝트` | `relation` | Optional project linkage |
+| `행사명` | `rich_text` | Event label |
+| `정렬 순서` | `number` | Slot order inside a group |
+| `그룹` | `select` | Visual group / section |
+| `행사일` | `date` | Date metadata |
+| `장소` | `rich_text` | Location metadata |
+| `콜타임` | `rich_text` | Call time metadata |
+| `현장 담당자` | `rich_text` | Contact metadata |
+| `설명` | `rich_text` | Shot brief |
+| `컷 이미지` | `files` | Attached image for the slot |
+| `행 유형` | `select` | `shot` or `summary` |
+| `요약` | `rich_text` | Summary body text |
 
-## 별칭 허용
+## Row Rules
+- `행 유형 = shot`
+  - rendered as a slot card
+  - uses `설명` + `컷 이미지`
+- `행 유형 = summary`
+  - if `그룹` is empty: rendered in the page-level summary area
+  - if `그룹` exists: rendered above that group's slot grid
 
-- 웹 화면은 일부 영문/대체 컬럼명도 함께 읽는다.
-- 예: `call time`, `contact`, `section`, `reference link`
-- 팀 내 합의 전까지는 완전 고정 스키마가 아니어도 동작하게 둔다.
-
-## 수동 동기화
-
-- 명령: `npm run sync:photo-guide-schema`
-- 목적: 배포 전/후 Notion DB 컬럼을 강제로 한 번 맞출 때 사용
+## Notes
+- Old text fields such as `촬영 목적`, `필수 컷`, `시간대별 포인트`, `주의 사항` are no longer part of the synced schema.
+- Legacy columns may remain in Notion, but the v2 UI ignores them.
+- Image upload is limited to image files because the slot frame is image-first.

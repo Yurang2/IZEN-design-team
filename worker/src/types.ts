@@ -319,21 +319,16 @@ export type CreateTaskInput = {
   issue?: string
 }
 
-export type CreatePhotoGuideInput = {
+export type CreateShotSlotInput = {
   title: string
-  section?: string
+  group?: string
+  description?: string
   eventName?: string
   eventDate?: string
   location?: string
   callTime?: string
   contact?: string
-  purpose?: string
-  mustShoot?: string
-  timeline?: string
-  cautions?: string
-  delivery?: string
-  references?: string
-  referenceLink?: string
+  order?: number
 }
 
 export type UpdateTaskInput = {

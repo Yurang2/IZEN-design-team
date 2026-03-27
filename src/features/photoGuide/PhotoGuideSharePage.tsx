@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import { PhotoGuideDocument } from './PhotoGuideDocument'
-import { buildPhotoGuideGroups } from './photoGuideData'
+import { buildShotGuideData } from './photoGuideData'
 
 type PhotoGuideSharePageProps = {
   configured: boolean
@@ -22,7 +22,7 @@ export function PhotoGuideSharePage({
   error,
 }: PhotoGuideSharePageProps) {
   const pageTitle = databaseTitle.trim() || '촬영 가이드'
-  const groups = useMemo(() => buildPhotoGuideGroups(columns, rows, pageTitle), [columns, pageTitle, rows])
+  const documentData = useMemo(() => buildShotGuideData(columns, rows, pageTitle), [columns, pageTitle, rows])
 
   if (loading) {
     return (
@@ -61,17 +61,24 @@ export function PhotoGuideSharePage({
     )
   }
 
-  if (groups.length === 0) {
+  if (documentData.summaryBlocks.length === 0 && documentData.groups.length === 0) {
     return (
       <main className="photoGuideShell">
         <EmptyState
           title="표시할 촬영 가이드가 없습니다."
-          message="촬영가이드 DB 컬럼은 자동 생성됩니다. 아직 외부에 공유할 row가 없습니다."
+          message="아직 외부 공유용으로 보여줄 컷 슬롯이나 요약이 없습니다."
           className="scheduleEmptyState"
         />
       </main>
     )
   }
 
-  return <PhotoGuideDocument pageTitle={pageTitle} groups={groups} />
+  return (
+    <PhotoGuideDocument
+      pageTitle={pageTitle}
+      summaryBlocks={documentData.summaryBlocks}
+      groups={documentData.groups}
+      readonly
+    />
+  )
 }

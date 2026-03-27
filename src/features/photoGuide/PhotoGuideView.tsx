@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
+import { api } from '../../shared/api/client'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import { PhotoGuideCreateModal } from './PhotoGuideCreateModal'
 import { PhotoGuideDocument } from './PhotoGuideDocument'
-import { buildPhotoGuideGroups } from './photoGuideData'
+import { buildShotGuideData } from './photoGuideData'
 
 type PhotoGuideViewProps = {
   configured: boolean
@@ -14,7 +15,7 @@ type PhotoGuideViewProps = {
   loading: boolean
   error: string | null
   shareHref: string
-  onRefresh?: () => void
+  onRefresh?: () => void | Promise<void>
 }
 
 export function PhotoGuideView({
@@ -30,7 +31,17 @@ export function PhotoGuideView({
 }: PhotoGuideViewProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const pageTitle = databaseTitle.trim() || '촬영 가이드'
-  const groups = useMemo(() => buildPhotoGuideGroups(columns, rows, pageTitle), [columns, pageTitle, rows])
+  const documentData = useMemo(() => buildShotGuideData(columns, rows, pageTitle), [columns, pageTitle, rows])
+
+  const onUploadImage = async (slotId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    await api(`/photo-guide/${encodeURIComponent(slotId)}/files`, {
+      method: 'POST',
+      body: formData,
+    })
+    await onRefresh?.()
+  }
 
   if (loading) {
     return (
@@ -57,7 +68,7 @@ export function PhotoGuideView({
     return (
       <EmptyState
         title="촬영 가이드 DB가 연결되지 않았습니다."
-        message="Cloudflare Workers 환경변수에 NOTION_PHOTO_GUIDE_DB_ID를 추가하면 촬영 가이드 화면이 활성화됩니다."
+        message="Cloudflare Workers 환경변수에 NOTION_PHOTO_GUIDE_DB_ID를 추가하면 촬영가이드 화면이 활성화됩니다."
         className="scheduleEmptyState"
       />
     )
@@ -66,37 +77,33 @@ export function PhotoGuideView({
   const actionButtons = (
     <>
       <button type="button" className="linkButton secondary mini" onClick={() => setCreateOpen(true)}>
-        새 촬영가이드
+        새 컷 슬롯
       </button>
       <a className="linkButton secondary mini" href={shareHref} target="_blank" rel="noreferrer">
         External Share
       </a>
       {databaseUrl ? (
         <a className="linkButton secondary mini" href={databaseUrl} target="_blank" rel="noreferrer">
-          노션 DB
+          Notion DB
         </a>
       ) : null}
     </>
   )
 
-  if (groups.length === 0) {
+  if (documentData.summaryBlocks.length === 0 && documentData.groups.length === 0) {
     return (
       <>
         <EmptyState
-          title="표시할 촬영 가이드가 없습니다."
-          message="촬영가이드 DB 컬럼은 자동 생성됩니다. 아직 row가 없으면 이 화면은 비어 보입니다."
+          title="표시할 촬영가이드가 없습니다."
+          message="컷 설명부터 먼저 쌓아두고, 각 슬롯에 이미지는 나중에 업로드하면 됩니다."
           className="scheduleEmptyState"
         />
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12 }}>
           <button type="button" className="linkButton secondary mini" onClick={() => setCreateOpen(true)}>
-            새 촬영가이드
+            새 컷 슬롯
           </button>
         </div>
-        <PhotoGuideCreateModal
-          open={createOpen}
-          onClose={() => setCreateOpen(false)}
-          onCreated={() => onRefresh?.()}
-        />
+        <PhotoGuideCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => onRefresh?.()} />
       </>
     )
   }
@@ -106,14 +113,12 @@ export function PhotoGuideView({
       <PhotoGuideDocument
         embedded
         pageTitle={pageTitle}
-        groups={groups}
+        summaryBlocks={documentData.summaryBlocks}
+        groups={documentData.groups}
         actionSlot={actionButtons}
+        onUploadImage={onUploadImage}
       />
-      <PhotoGuideCreateModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={() => onRefresh?.()}
-      />
+      <PhotoGuideCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => onRefresh?.()} />
     </>
   )
 }

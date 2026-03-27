@@ -1,8 +1,19 @@
 import { NotionApi } from '../notionApi'
-import type { CreatePhotoGuideInput, Env } from '../types'
+import type { CreateShotSlotInput, Env } from '../types'
 import { asString, MAX_NOTION_FILE_UPLOAD_BYTES, parsePatchBody } from '../utils'
 
-export function parsePhotoGuideCreateBody(body: unknown): CreatePhotoGuideInput {
+function parseOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return undefined
+    const parsed = Number(trimmed)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+export function parseShotSlotCreateBody(body: unknown): CreateShotSlotInput {
   const payload = parsePatchBody(body)
   const title = asString(payload.title)
   if (!title) {
@@ -11,31 +22,21 @@ export function parsePhotoGuideCreateBody(body: unknown): CreatePhotoGuideInput 
 
   return {
     title,
-    section: asString(payload.section),
+    group: asString(payload.group) ?? asString(payload.section),
+    description: asString(payload.description) ?? asString(payload.purpose),
     eventName: asString(payload.eventName),
     eventDate: asString(payload.eventDate),
     location: asString(payload.location),
     callTime: asString(payload.callTime),
     contact: asString(payload.contact),
-    purpose: asString(payload.purpose),
-    mustShoot: asString(payload.mustShoot),
-    timeline: asString(payload.timeline),
-    cautions: asString(payload.cautions),
-    delivery: asString(payload.delivery),
-    references: asString(payload.references),
-    referenceLink: asString(payload.referenceLink),
+    order: parseOptionalNumber(payload.order),
   }
 }
 
 function isAcceptedPhotoGuideFile(file: File): boolean {
   const mimeType = (file.type || '').toLowerCase()
   const filename = file.name.toLowerCase()
-  return (
-    mimeType.startsWith('image/') ||
-    mimeType.startsWith('video/') ||
-    mimeType === 'application/pdf' ||
-    /\.(png|jpe?g|gif|webp|bmp|svg|mp4|mov|avi|pdf)$/i.test(filename)
-  )
+  return mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(filename)
 }
 
 export function toPhotoGuideUploadErrorStatus(message: string): number {
@@ -74,21 +75,31 @@ export async function uploadPhotoGuideFileToNotion(
 
   const page = (await api.retrievePage(pageId)) as Record<string, unknown>
   const properties = ((page.properties as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
-
-  // Find the attachment property and append the new file to existing files
-  const attachmentPropName = '첨부 자료'
-  const existingProp = properties[attachmentPropName] as Record<string, unknown> | undefined
+  const imagePropertyName = '\uCEF7 \uC774\uBBF8\uC9C0'
+  const existingProp = properties[imagePropertyName] as Record<string, unknown> | undefined
   const existingFiles: unknown[] = Array.isArray((existingProp as any)?.files) ? (existingProp as any).files : []
 
-  const preservedFiles = existingFiles.map((f: any) => {
-    if (f.type === 'file_upload') return { name: f.name, type: 'file_upload', file_upload: { id: f.file_upload?.id } }
-    if (f.type === 'external') return { name: f.name, type: 'external', external: { url: f.external?.url } }
-    return f
+  const preservedFiles = existingFiles.map((entry: any) => {
+    if (entry.type === 'file_upload') {
+      return {
+        name: entry.name,
+        type: 'file_upload',
+        file_upload: { id: entry.file_upload?.id },
+      }
+    }
+    if (entry.type === 'external') {
+      return {
+        name: entry.name,
+        type: 'external',
+        external: { url: entry.external?.url },
+      }
+    }
+    return entry
   })
 
   await api.updatePage(pageId, {
     properties: {
-      [attachmentPropName]: {
+      [imagePropertyName]: {
         files: [
           ...preservedFiles,
           {

@@ -88,7 +88,7 @@ import {
   filterFeedback,
   parseFeedbackCreateBody,
   parseFeedbackUpdateBody,
-  parsePhotoGuideCreateBody,
+  parseShotSlotCreateBody,
   toPhotoGuideUploadErrorStatus,
   uploadPhotoGuideFileToNotion,
 } from './handlers'
@@ -516,8 +516,8 @@ export default {
       if (request.method === 'POST' && path === '/photo-guide') {
         try {
           const body = await readJsonBody(request)
-          const input = parsePhotoGuideCreateBody(body)
-          const created = await service.createPhotoGuide(input)
+          const input = parseShotSlotCreateBody(body)
+          const created = await service.createShotSlot(input)
           invalidateSnapshotCache(ctx)
           return ok({ ok: true, id: created.id, url: created.url }, origin)
         } catch (error: unknown) {
@@ -1335,6 +1335,7 @@ export default {
               'GET /api/projects',
               'GET /api/meta',
               'GET /api/photo-guide',
+              'POST /api/photo-guide',
               'POST /api/event-graphics-timetable/:id/files',
               'POST /api/event-graphics-timetable/:id/preset',
               'POST /api/admin/notion/screening-history-schema/sync',

@@ -2572,7 +2572,8 @@ button.dashboardNavButton {
 
 .photoGuideHeroText h1,
 .photoGuideGroupHead h2,
-.photoGuideEntryHead h3 {
+.photoGuideSummaryCard h3,
+.shotSlotBodyHead h3 {
   margin: 0;
 }
 
@@ -2646,66 +2647,241 @@ button.dashboardNavButton {
   font-size: 13px;
 }
 
-.photoGuideEntryList {
+.photoGuideSummaryBlock {
   display: grid;
   gap: 12px;
 }
 
-.photoGuideEntryCard {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 249, 235, 0.56));
-  border: 1px solid rgba(205, 214, 227, 0.95);
-  border-radius: 20px;
+.photoGuideSummaryHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.photoGuideSummaryGrid {
   display: grid;
-  gap: 14px;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.photoGuideSummaryCard {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 235, 0.72));
+  border: 1px solid rgba(205, 214, 227, 0.94);
+  border-radius: 18px;
+  display: grid;
+  gap: 10px;
   padding: 16px;
 }
 
-.photoGuideEntryHead {
-  align-items: center;
-  display: flex;
+.photoGuideSummaryCard.is-empty {
+  background: rgba(248, 250, 252, 0.96);
+  border-style: dashed;
+}
+
+.photoGuideSummaryCard p {
+  color: var(--text-main);
+  line-height: 1.65;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.shotGrid {
+  display: grid;
   gap: 12px;
-  justify-content: space-between;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.photoGuideEntryTitleBlock {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.shotSlotCard {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+  border: 1px solid rgba(205, 214, 227, 0.92);
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
+  display: grid;
+  overflow: hidden;
 }
 
-.photoGuideSectionPill {
+.shotSlotThumb {
+  aspect-ratio: 3 / 2;
+  background:
+    radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 44%),
+    linear-gradient(180deg, rgba(255, 250, 240, 0.96), rgba(245, 247, 250, 0.96));
+  overflow: hidden;
+  position: relative;
+}
+
+.shotSlotThumb.is-empty {
+  border-bottom: 1px solid rgba(205, 214, 227, 0.92);
+}
+
+.shotSlotThumb.is-dragging {
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.9);
+}
+
+.shotSlotThumb img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.shotSlotAspect {
   align-items: center;
-  background: rgba(255, 237, 213, 0.92);
-  border: 1px solid rgba(251, 146, 60, 0.2);
+  background: rgba(15, 23, 42, 0.74);
   border-radius: 999px;
-  color: #9a3412;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 28px;
+  left: 10px;
+  letter-spacing: 0.04em;
+  padding: 0 10px;
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+}
+
+.shotSlotPlaceholder {
+  display: grid;
+  gap: 10px;
+  height: 100%;
+  justify-items: center;
+  padding: 20px;
+  place-content: center;
+  text-align: center;
+}
+
+.shotSlotPlaceholder strong {
+  color: var(--text-main);
+  font-size: 16px;
+}
+
+.shotSlotPlaceholder span {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.shotSlotPlaceholderIcon {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  border-radius: 999px;
+  color: #b45309;
+  display: inline-flex;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.shotSlotPlaceholderIcon svg {
+  height: 16px;
+  width: 16px;
+}
+
+.shotSlotUploadAction {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  border-radius: 999px;
+  bottom: 10px;
+  color: var(--text-main);
+  cursor: pointer;
   display: inline-flex;
   font-size: 12px;
-  font-weight: 800;
-  min-height: 28px;
-  padding: 0 10px;
+  font-weight: 700;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  position: absolute;
+  right: 10px;
+  text-decoration: none;
+  z-index: 2;
 }
 
-.photoGuideEntryGrid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.shotSlotUploadAction input[type='file'] {
+  cursor: pointer;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
 }
 
-.photoGuideSectionCard {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(205, 214, 227, 0.9);
-  border-radius: 16px;
+.shotSlotUploadAction.is-disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.shotSlotDropOverlay {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  inset: 0;
+  justify-content: center;
+  line-height: 1.5;
+  padding: 18px;
+  position: absolute;
+  text-align: center;
+  z-index: 3;
+}
+
+.shotSlotBody {
   display: grid;
   gap: 8px;
-  min-height: 100%;
   padding: 14px;
 }
 
-.photoGuideSectionCard p {
+.shotSlotBodyHead {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.shotSlotBody p {
+  color: var(--text-main);
+  line-height: 1.65;
   margin: 0;
   white-space: pre-wrap;
+}
+
+.shotSlotActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shotSlotGeneratePanel {
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(205, 214, 227, 0.92);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.shotSlotGenerateField {
+  display: grid;
+  gap: 6px;
+}
+
+.shotSlotGenerateField span {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.shotSlotGenerateField textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.shotSlotMessage {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .photoGuideSectionLabel {
@@ -2714,179 +2890,6 @@ button.dashboardNavButton {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.photoGuideBulletList {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding-left: 18px;
-}
-
-.photoGuideChipRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.photoGuideLinkChip,
-.photoGuideFileChip {
-  align-items: center;
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
-  min-height: 30px;
-  padding: 0 11px;
-  text-decoration: none;
-}
-
-.photoGuideLinkChip {
-  background: rgba(239, 246, 255, 0.92);
-  border: 1px solid rgba(147, 197, 253, 0.45);
-  color: #1d4ed8;
-}
-
-.photoGuideFileChip {
-  background: rgba(243, 244, 246, 0.92);
-  border: 1px solid rgba(209, 213, 219, 0.8);
-  color: #374151;
-}
-
-.photoGuideFileChip.is-image {
-  background: #ecfeff;
-  border-color: #a5f3fc;
-  color: #155e75;
-}
-
-.photoGuideFileChip.is-video {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
-}
-
-.photoGuideFileChip.is-audio {
-  background: #f5f3ff;
-  border-color: #ddd6fe;
-  color: #6d28d9;
-}
-
-.photoGuideEmpty {
-  color: var(--text-sub);
-  font-size: 12px;
-}
-
-/* Image gallery */
-.photoGuideGalleryWrap {
-  display: grid;
-  gap: 8px;
-}
-
-.photoGuideImageGallery {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-}
-
-.photoGuideImageGallery a {
-  display: block;
-}
-
-.photoGuideImageGallery img {
-  aspect-ratio: 4 / 3;
-  border-radius: 10px;
-  display: block;
-  object-fit: cover;
-  width: 100%;
-}
-
-.photoGuideGalleryDots {
-  display: none;
-}
-
-.photoGuideGalleryDot {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 50%;
-  height: 7px;
-  transition: background 0.2s;
-  width: 7px;
-}
-
-.photoGuideGalleryDot.is-active {
-  background: rgba(0, 0, 0, 0.6);
-}
-
-/* Create modal form extras */
-.photoGuideUploadLabel {
-  color: var(--text-sub);
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.photoGuideDropZone {
-  align-items: center;
-  background: rgba(249, 250, 251, 0.9);
-  border: 2px dashed rgba(209, 213, 219, 0.8);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-  min-height: 80px;
-  padding: 16px;
-  position: relative;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.photoGuideDropZone.is-dragging {
-  background: rgba(239, 246, 255, 0.9);
-  border-color: rgba(96, 165, 250, 0.7);
-}
-
-.photoGuideDropZone p {
-  color: var(--text-sub);
-  font-size: 13px;
-  margin: 0;
-  pointer-events: none;
-}
-
-.photoGuideDropZone input[type="file"] {
-  cursor: pointer;
-  height: 100%;
-  left: 0;
-  opacity: 0;
-  position: absolute;
-  top: 0;
-  width: 100%;
-}
-
-.photoGuideFileList {
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.photoGuideFileItem {
-  align-items: center;
-  background: rgba(243, 244, 246, 0.9);
-  border-radius: 8px;
-  display: flex;
-  font-size: 13px;
-  gap: 8px;
-  justify-content: space-between;
-  padding: 6px 10px;
-}
-
-.photoGuideFileItem button {
-  background: none;
-  border: none;
-  color: var(--text-sub);
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
 }
 
 .snsPostView {
@@ -5871,7 +5874,7 @@ button.dashboardNavButton {
 @media (max-width: 960px) {
   .photoGuideHeroTop,
   .photoGuideGroupHead,
-  .photoGuideEntryHead {
+  .shotSlotBodyHead {
     flex-direction: column;
   }
 
@@ -5879,8 +5882,8 @@ button.dashboardNavButton {
     justify-content: flex-start;
   }
 
-  .photoGuideEntryGrid {
-    grid-template-columns: 1fr;
+  .shotGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .eventGraphicsHero,
@@ -5977,7 +5980,8 @@ button.dashboardNavButton {
 
   .photoGuideHero,
   .photoGuideGroup,
-  .photoGuideEntryCard {
+  .photoGuideSummaryCard,
+  .shotSlotCard {
     border-radius: 18px;
   }
 }
@@ -6025,10 +6029,9 @@ button.dashboardNavButton {
     gap: 12px;
   }
 
-  .photoGuideEntryCard {
+  .photoGuideSummaryCard,
+  .shotSlotCard {
     border-radius: 14px;
-    padding: 14px;
-    gap: 12px;
   }
 
   .photoGuideHeroText h1 {
@@ -6068,66 +6071,35 @@ button.dashboardNavButton {
     font-size: 14px;
   }
 
-  .photoGuideSectionCard {
+  .photoGuideSummaryCard,
+  .shotSlotBody {
     border-radius: 12px;
     padding: 12px;
   }
 
-  .photoGuideSectionCard p,
-  .photoGuideBulletList li {
+  .photoGuideSummaryCard p,
+  .shotSlotBody p {
     font-size: 14px;
     line-height: 1.55;
   }
 
-  .photoGuideSectionLabel {
+  .photoGuideSectionLabel,
+  .shotSlotAspect {
     font-size: 10px;
   }
 
-  .photoGuideSectionPill {
-    font-size: 11px;
-    min-height: 26px;
-    padding: 0 8px;
+  .shotGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .photoGuideLinkChip,
-  .photoGuideFileChip {
-    font-size: 13px;
-    min-height: 44px;
-    padding: 10px 14px;
+  .photoGuideSummaryGrid {
+    grid-template-columns: 1fr;
   }
 
-  /* Swipe gallery on mobile */
-  .photoGuideImageGallery {
-    display: flex;
-    gap: 8px;
-    grid-template-columns: none;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 8px;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-  }
-
-  .photoGuideImageGallery::-webkit-scrollbar {
-    display: none;
-  }
-
-  .photoGuideImageGallery a {
-    flex-shrink: 0;
-    max-width: 85vw;
-    min-width: 280px;
-    scroll-snap-align: start;
-  }
-
-  .photoGuideImageGallery img {
-    border-radius: 12px;
-  }
-
-  .photoGuideGalleryDots {
-    align-items: center;
-    display: flex;
-    gap: 6px;
-    justify-content: center;
+  .shotSlotUploadAction {
+    font-size: 12px;
+    min-height: 38px;
+    padding: 0 12px;
   }
 }
 
@@ -9320,37 +9292,39 @@ tr:hover td {
 }
 
 .equipmentStatusSelect.is-pending {
-  background: var(--surface2, #f1f5f9);
-  color: var(--text2, #64748b);
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e40af;
 }
 
 .equipmentStatusSelect.is-checked_out {
-  background: #fff7ed;
-  border-color: #fdba74;
-  color: #9a3412;
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
 }
 
 .equipmentStatusSelect.is-returned {
   background: #f0fdf4;
-  border-color: #86efac;
-  color: #166534;
+  border-color: #6ee7b7;
+  color: #065f46;
 }
 
 [data-theme='v2'] .equipmentStatusSelect.is-pending {
-  background: var(--surface2);
-  color: var(--text2);
+  background: #172554;
+  border-color: #3b82f6;
+  color: #bfdbfe;
 }
 
 [data-theme='v2'] .equipmentStatusSelect.is-checked_out {
-  background: #451a03;
-  border-color: #f59e0b;
-  color: #fde68a;
+  background: #450a0a;
+  border-color: #ef4444;
+  color: #fecaca;
 }
 
 [data-theme='v2'] .equipmentStatusSelect.is-returned {
   background: #052e16;
-  border-color: #4ade80;
-  color: #dcfce7;
+  border-color: #34d399;
+  color: #d1fae5;
 }
 
 @media (max-width: 768px) {

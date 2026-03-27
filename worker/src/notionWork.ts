@@ -6,7 +6,7 @@ import type {
   ChecklistAssignmentStatus,
   ChecklistPreviewItem,
   CreateFeedbackInput,
-  CreatePhotoGuideInput,
+  CreateShotSlotInput,
   CreateTaskInput,
   Env,
   FeedbackRecord,
@@ -797,19 +797,15 @@ const PHOTO_GUIDE_TITLE_FIELD = '\uC81C\uBAA9'
 const PHOTO_GUIDE_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
 const PHOTO_GUIDE_EVENT_FIELD = '\uD589\uC0AC\uBA85'
 const PHOTO_GUIDE_ORDER_FIELD = '\uC815\uB82C \uC21C\uC11C'
-const PHOTO_GUIDE_SECTION_FIELD = '\uC139\uC158'
+const PHOTO_GUIDE_GROUP_FIELD = '\uADF8\uB8F9'
 const PHOTO_GUIDE_DATE_FIELD = '\uD589\uC0AC\uC77C'
 const PHOTO_GUIDE_LOCATION_FIELD = '\uC7A5\uC18C'
 const PHOTO_GUIDE_CALL_TIME_FIELD = '\uCF5C\uD0C0\uC784'
 const PHOTO_GUIDE_CONTACT_FIELD = '\uD604\uC7A5 \uB2F4\uB2F9\uC790'
-const PHOTO_GUIDE_PURPOSE_FIELD = '\uCD2C\uC601 \uBAA9\uC801'
-const PHOTO_GUIDE_MUST_SHOOT_FIELD = '\uD544\uC218 \uCEF7'
-const PHOTO_GUIDE_TIMELINE_FIELD = '\uC2DC\uAC04\uB300\uBCC4 \uD3EC\uC778\uD2B8'
-const PHOTO_GUIDE_CAUTION_FIELD = '\uC8FC\uC758 \uC0AC\uD56D'
-const PHOTO_GUIDE_DELIVERY_FIELD = '\uB0A9\uD488 \uADDC\uACA9'
-const PHOTO_GUIDE_REFERENCE_NOTE_FIELD = '\uCC38\uACE0 \uC790\uB8CC'
-const PHOTO_GUIDE_REFERENCE_LINK_FIELD = '\uCC38\uACE0 \uB9C1\uD06C'
-const PHOTO_GUIDE_ATTACHMENT_FIELD = '\uCCA8\uBD80 \uC790\uB8CC'
+const PHOTO_GUIDE_DESCRIPTION_FIELD = '\uC124\uBA85'
+const PHOTO_GUIDE_SHOT_IMAGE_FIELD = '\uCEF7 \uC774\uBBF8\uC9C0'
+const PHOTO_GUIDE_ROW_TYPE_FIELD = '\uD589 \uC720\uD615'
+const PHOTO_GUIDE_SUMMARY_TEXT_FIELD = '\uC694\uC57D'
 
 // Backward-compatible aliases for the older screening-video naming.
 const SCREENING_VIDEO_DATABASE_TITLE = SCREENING_HISTORY_DATABASE_TITLE
@@ -1139,9 +1135,9 @@ function buildPhotoGuidePropertyDefinitions(projectDatabaseId: string): Screenin
       aliases: ['order', 'no'],
     },
     {
-      name: PHOTO_GUIDE_SECTION_FIELD,
+      name: PHOTO_GUIDE_GROUP_FIELD,
       definition: { select: {} },
-      aliases: ['\uCE74\uD14C\uACE0\uB9AC', '\uAD6C\uBD84', 'section'],
+      aliases: ['\uC139\uC158', '\uCE74\uD14C\uACE0\uB9AC', '\uAD6C\uBD84', 'section', 'group'],
     },
     {
       name: PHOTO_GUIDE_DATE_FIELD,
@@ -1164,44 +1160,31 @@ function buildPhotoGuidePropertyDefinitions(projectDatabaseId: string): Screenin
       aliases: ['\uB2F4\uB2F9\uC790', '\uC5F0\uB77D\uCC98', 'contact'],
     },
     {
-      name: PHOTO_GUIDE_PURPOSE_FIELD,
+      name: PHOTO_GUIDE_DESCRIPTION_FIELD,
       definition: { rich_text: {} },
-      aliases: ['\uBAA9\uC801', 'brief'],
+      aliases: ['\uCD2C\uC601 \uBAA9\uC801', '\uBAA9\uC801', 'brief', 'description'],
     },
     {
-      name: PHOTO_GUIDE_MUST_SHOOT_FIELD,
-      definition: { rich_text: {} },
-      aliases: ['\uD544\uC218 \uCD2C\uC601 \uCEF7', 'must shots'],
-    },
-    {
-      name: PHOTO_GUIDE_TIMELINE_FIELD,
-      definition: { rich_text: {} },
-      aliases: ['\uD0C0\uC784\uB77C\uC778', '\uC77C\uC815 \uD3EC\uC778\uD2B8', 'timeline'],
-    },
-    {
-      name: PHOTO_GUIDE_CAUTION_FIELD,
-      definition: { rich_text: {} },
-      aliases: ['\uAE08\uC9C0/\uC8FC\uC758', '\uC8FC\uC758', 'caution'],
-    },
-    {
-      name: PHOTO_GUIDE_DELIVERY_FIELD,
-      definition: { rich_text: {} },
-      aliases: ['\uB0A9\uD488 \uBC29\uC2DD', 'deliverables', 'delivery'],
-    },
-    {
-      name: PHOTO_GUIDE_REFERENCE_NOTE_FIELD,
-      definition: { rich_text: {} },
-      aliases: ['\uB808\uD37C\uB7F0\uC2A4', 'reference note'],
-    },
-    {
-      name: PHOTO_GUIDE_REFERENCE_LINK_FIELD,
-      definition: { url: {} },
-      aliases: ['\uB808\uD37C\uB7F0\uC2A4 \uB9C1\uD06C', 'guide link', 'reference link'],
-    },
-    {
-      name: PHOTO_GUIDE_ATTACHMENT_FIELD,
+      name: PHOTO_GUIDE_SHOT_IMAGE_FIELD,
       definition: { files: {} },
-      aliases: ['\uCC38\uACE0 \uD30C\uC77C', '\uB808\uD37C\uB7F0\uC2A4 \uC790\uB8CC', 'files'],
+      aliases: ['\uCCA8\uBD80 \uC790\uB8CC', '\uCC38\uACE0 \uD30C\uC77C', 'files', 'image'],
+    },
+    {
+      name: PHOTO_GUIDE_ROW_TYPE_FIELD,
+      definition: {
+        select: {
+          options: [
+            { name: 'shot', color: 'blue' },
+            { name: 'summary', color: 'orange' },
+          ],
+        },
+      },
+      aliases: ['row type', 'type'],
+    },
+    {
+      name: PHOTO_GUIDE_SUMMARY_TEXT_FIELD,
+      definition: { rich_text: {} },
+      aliases: ['summary', '\uC694\uC57D \uD14D\uC2A4\uD2B8'],
     },
   ]
 }
@@ -2156,7 +2139,7 @@ export class NotionWorkService {
     }
   }
 
-  async createPhotoGuide(input: CreatePhotoGuideInput): Promise<{ id: string; url: string }> {
+  async createShotSlot(input: CreateShotSlotInput): Promise<{ id: string; url: string }> {
     const schema = await this.syncPhotoGuideDatabaseProperties()
     if (!schema.databaseId) {
       throw new Error('photo_guide_db_not_configured')
@@ -2167,6 +2150,7 @@ export class NotionWorkService {
 
     const properties: Record<string, unknown> = {
       [PHOTO_GUIDE_TITLE_FIELD]: { title: [{ text: { content: title } }] },
+      [PHOTO_GUIDE_ROW_TYPE_FIELD]: { select: { name: 'shot' } },
     }
 
     const applyText = (field: string, value: string | undefined) => {
@@ -2174,8 +2158,8 @@ export class NotionWorkService {
       if (text) properties[field] = { rich_text: [{ text: { content: text } }] }
     }
 
-    if (input.section) {
-      properties[PHOTO_GUIDE_SECTION_FIELD] = { select: { name: input.section } }
+    if (input.group) {
+      properties[PHOTO_GUIDE_GROUP_FIELD] = { select: { name: input.group } }
     }
     applyText(PHOTO_GUIDE_EVENT_FIELD, input.eventName)
     if (input.eventDate) {
@@ -2184,14 +2168,9 @@ export class NotionWorkService {
     applyText(PHOTO_GUIDE_LOCATION_FIELD, input.location)
     applyText(PHOTO_GUIDE_CALL_TIME_FIELD, input.callTime)
     applyText(PHOTO_GUIDE_CONTACT_FIELD, input.contact)
-    applyText(PHOTO_GUIDE_PURPOSE_FIELD, input.purpose)
-    applyText(PHOTO_GUIDE_MUST_SHOOT_FIELD, input.mustShoot)
-    applyText(PHOTO_GUIDE_TIMELINE_FIELD, input.timeline)
-    applyText(PHOTO_GUIDE_CAUTION_FIELD, input.cautions)
-    applyText(PHOTO_GUIDE_DELIVERY_FIELD, input.delivery)
-    applyText(PHOTO_GUIDE_REFERENCE_NOTE_FIELD, input.references)
-    if (input.referenceLink) {
-      properties[PHOTO_GUIDE_REFERENCE_LINK_FIELD] = { url: input.referenceLink }
+    applyText(PHOTO_GUIDE_DESCRIPTION_FIELD, input.description)
+    if (typeof input.order === 'number' && Number.isFinite(input.order)) {
+      properties[PHOTO_GUIDE_ORDER_FIELD] = { number: input.order }
     }
 
     const created = (await this.api.createPage({
