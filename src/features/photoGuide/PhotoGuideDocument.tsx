@@ -1,24 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { api } from '../../shared/api/client'
 import { ShotSlotCard } from './ShotSlotCard'
 import type { GuideSummaryBlock, ShotGroup, ShotSlot } from './photoGuideData'
-
-const CHECKED_STORAGE_KEY = 'photoGuide:checkedSlots'
-
-function loadCheckedSet(): Set<string> {
-  try {
-    const raw = localStorage.getItem(CHECKED_STORAGE_KEY)
-    if (!raw) return new Set()
-    return new Set(JSON.parse(raw) as string[])
-  } catch {
-    return new Set()
-  }
-}
-
-function saveCheckedSet(set: Set<string>) {
-  try {
-    localStorage.setItem(CHECKED_STORAGE_KEY, JSON.stringify(Array.from(set)))
-  } catch { /* ignore */ }
-}
 
 function isVideoShot(slot: ShotSlot): boolean {
   return slot.title.includes('(영상)') || slot.title.includes('[영상]') || slot.description.startsWith('[영상]')
@@ -197,18 +180,41 @@ export function PhotoGuideDocument({
   onUploadImage?: (slotId: string, file: File) => Promise<void>
 }) {
   const [columns, setColumns] = useState<GridColumns>(1)
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => loadCheckedSet())
   const [hideChecked, setHideChecked] = useState(true)
+  const [optimisticChecked, setOptimisticChecked] = useState<Map<string, boolean>>(new Map())
+
+  // DB에서 읽은 값 + 낙관적 오버라이드 합산
+  const checkedIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const group of groups) {
+      for (const shot of group.shots) {
+        const override = optimisticChecked.get(shot.id)
+        if (override !== undefined ? override : shot.checked) set.add(shot.id)
+      }
+    }
+    return set
+  }, [groups, optimisticChecked])
 
   const onToggleCheck = useCallback((id: string) => {
-    setCheckedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      saveCheckedSet(next)
-      return next
+    const currentlyChecked = checkedIds.has(id)
+    const nextChecked = !currentlyChecked
+
+    // 낙관적 업데이트
+    setOptimisticChecked((prev) => new Map(prev).set(id, nextChecked))
+
+    // DB에 저장 (fire-and-forget)
+    api(`/photo-guide/${encodeURIComponent(id)}/checked`, {
+      method: 'POST',
+      body: JSON.stringify({ checked: nextChecked }),
+    }).catch(() => {
+      // 실패 시 롤백
+      setOptimisticChecked((prev) => {
+        const next = new Map(prev)
+        next.delete(id)
+        return next
+      })
     })
-  }, [])
+  }, [checkedIds])
 
   const totalShots = groups.reduce((sum, g) => sum + g.shots.length, 0)
   const checkedCount = groups.reduce((sum, g) => sum + g.shots.filter((s) => checkedIds.has(s.id)).length, 0)

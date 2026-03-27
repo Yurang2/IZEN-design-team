@@ -539,6 +539,20 @@ export default {
         }
       }
 
+      const photoGuideCheckMatch = path.match(/^\/photo-guide\/([^/]+)\/checked$/)
+      if (request.method === 'POST' && photoGuideCheckMatch) {
+        try {
+          const pageId = decodeURIComponent(photoGuideCheckMatch[1])
+          const body = (await readJsonBody(request)) as Record<string, unknown>
+          const checked = body.checked === true
+          await service.togglePhotoGuideChecked(pageId, checked)
+          return ok({ ok: true, pageId, checked }, origin)
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'photo_guide_check_failed'
+          return json({ ok: false, error: message }, 500, origin)
+        }
+      }
+
       const photoGuideUploadMatch = path.match(/^\/photo-guide\/([^/]+)\/files$/)
       if (request.method === 'POST' && photoGuideUploadMatch) {
         try {

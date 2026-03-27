@@ -806,6 +806,7 @@ const PHOTO_GUIDE_DESCRIPTION_FIELD = '\uC124\uBA85'
 const PHOTO_GUIDE_SHOT_IMAGE_FIELD = '\uCEF7 \uC774\uBBF8\uC9C0'
 const PHOTO_GUIDE_ROW_TYPE_FIELD = '\uD589 \uC720\uD615'
 const PHOTO_GUIDE_SUMMARY_TEXT_FIELD = '\uC694\uC57D'
+const PHOTO_GUIDE_CHECKED_FIELD = '촬영완료'
 
 // Backward-compatible aliases for the older screening-video naming.
 const SCREENING_VIDEO_DATABASE_TITLE = SCREENING_HISTORY_DATABASE_TITLE
@@ -1185,6 +1186,11 @@ function buildPhotoGuidePropertyDefinitions(projectDatabaseId: string): Screenin
       name: PHOTO_GUIDE_SUMMARY_TEXT_FIELD,
       definition: { rich_text: {} },
       aliases: ['summary', '\uC694\uC57D \uD14D\uC2A4\uD2B8'],
+    },
+    {
+      name: PHOTO_GUIDE_CHECKED_FIELD,
+      definition: { checkbox: {} },
+      aliases: ['checked', 'done', '\uC644\uB8CC'],
     },
   ]
 }
@@ -2143,6 +2149,14 @@ export class NotionWorkService {
       columns: view.columns,
       rows: view.rows,
     }
+  }
+
+  async togglePhotoGuideChecked(pageId: string, checked: boolean): Promise<void> {
+    await this.api.updatePage(pageId, {
+      properties: {
+        [PHOTO_GUIDE_CHECKED_FIELD]: { checkbox: checked },
+      },
+    })
   }
 
   async archivePhotoGuidePage(pageId: string): Promise<void> {

@@ -15,6 +15,7 @@ export type ShotSlot = {
   order: number | null
   description: string
   image: ScheduleFile | null
+  checked: boolean
   eventName: string
   eventDate: string
   location: string
@@ -50,6 +51,7 @@ type ParsedGuideRow = {
   description: string
   summaryText: string
   image: ScheduleFile | null
+  checked: boolean
   eventName: string
   eventDate: string
   location: string
@@ -153,6 +155,8 @@ function parseGuideRow(row: ScheduleRow, columns: ScheduleColumn[], fallbackTitl
   const callTime = readText(row, columns, ['콜타임', '집합 시간', 'call time'])
   const contactCell = readCell(row, columns, ['현장 담당자', '담당자', '연락처', 'contact'])
   const rowType = normalizeRowType(readText(row, columns, ['행 유형', 'row type', 'type']))
+  const checkedText = readText(row, columns, ['촬영완료', 'checked', 'done', '완료'])
+  const checked = checkedText === 'true' || checkedText === 'Yes' || checkedText === '✓'
   const rawGroup = readText(row, columns, ['그룹', '섹션', '카테고리', '구분', 'group', 'section'])
   const group = rawGroup || (rowType === 'summary' ? '' : eventName || '기타 컷')
   const title = readTitle(row, columns, rowType === 'summary' ? '요약' : `컷 ${index + 1}`)
@@ -171,6 +175,7 @@ function parseGuideRow(row: ScheduleRow, columns: ScheduleColumn[], fallbackTitl
     description,
     summaryText,
     image,
+    checked,
     eventName,
     eventDate,
     location,
@@ -237,6 +242,7 @@ export function buildShotGuideData(columns: ScheduleColumn[], rows: ScheduleRow[
       order: row.order,
       description: row.description,
       image: row.image,
+      checked: row.checked,
       eventName: row.eventName,
       eventDate: row.eventDate,
       location: row.location,
