@@ -75,6 +75,9 @@ export interface Env {
   LINE_CHANNEL_SECRET?: string
   LINE_NOTIFY_TARGET_USER_ID?: string
   LINE_NOTIFY_ASSIGNEE_NAME?: string
+  GOOGLE_SERVICE_ACCOUNT_JSON?: string
+  GOOGLE_CLOUD_PROJECT_ID?: string
+  GOOGLE_CLOUD_LOCATION?: string
 }
 
 export type FieldStatus = 'exact' | 'fallback' | 'missing' | 'mismatch'

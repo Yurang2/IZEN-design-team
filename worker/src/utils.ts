@@ -829,6 +829,77 @@ export function getGeminiApiKey(env: Env): string {
   return apiKey
 }
 
+export function hasVertexAiCredentials(env: Env): boolean {
+  return Boolean(asString(env.GOOGLE_SERVICE_ACCOUNT_JSON) && asString(env.GOOGLE_CLOUD_PROJECT_ID))
+}
+
+function base64url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function base64urlEncode(text: string): string {
+  return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g, '')
+  const binary = atob(b64)
+  const buffer = new ArrayBuffer(binary.length)
+  const view = new Uint8Array(buffer)
+  for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i)
+  return buffer
+}
+
+async function signJwt(serviceAccount: { client_email: string; private_key: string }): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const header = base64urlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
+  const payload = base64urlEncode(
+    JSON.stringify({
+      iss: serviceAccount.client_email,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    }),
+  )
+  const signingInput = `${header}.${payload}`
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    pemToArrayBuffer(serviceAccount.private_key),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(signingInput))
+  return `${signingInput}.${base64url(signature)}`
+}
+
+export async function getVertexAiAccessToken(env: Env): Promise<string> {
+  const json = asString(env.GOOGLE_SERVICE_ACCOUNT_JSON)
+  if (!json) throw new Error('google_service_account_json_missing')
+  const sa = JSON.parse(json) as { client_email: string; private_key: string }
+  const jwt = await signJwt(sa)
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+  })
+  if (!response.ok) throw new Error(`google_oauth_token_failed_${response.status}`)
+  const result = (await response.json()) as { access_token?: string }
+  if (!result.access_token) throw new Error('google_oauth_token_empty')
+  return result.access_token
+}
+
+export function getVertexAiEndpoint(env: Env, model: string): string {
+  const projectId = asString(env.GOOGLE_CLOUD_PROJECT_ID)
+  if (!projectId) throw new Error('google_cloud_project_id_missing')
+  const location = asString(env.GOOGLE_CLOUD_LOCATION) || 'us-central1'
+  return `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${encodeURIComponent(model)}:generateContent`
+}
+
 export function getGeminiImageModel(env: Env): string {
   return asString(env.GEMINI_IMAGE_MODEL) ?? DEFAULT_GEMINI_IMAGE_MODEL
 }

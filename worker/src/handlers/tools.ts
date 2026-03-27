@@ -7,7 +7,10 @@ import {
   GeminiPromptImageRenderInput,
   getGeminiApiKey,
   getGeminiImageModel,
+  getVertexAiAccessToken,
+  getVertexAiEndpoint,
   GOOGLE_GENERATIVE_LANGUAGE_API_URL,
+  hasVertexAiCredentials,
   parsePatchBody,
   ThumbnailInlineImageInput,
   VideoThumbnailRenderInput,
@@ -126,23 +129,35 @@ async function requestGoogleAiStudioGenerateContent(
   parts: Array<Record<string, unknown>>,
   generationConfig: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const apiKey = getGeminiApiKey(env)
-  const response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts,
-        },
-      ],
-      generationConfig,
-    }),
+  const requestBody = JSON.stringify({
+    contents: [{ role: 'user', parts }],
+    generationConfig,
   })
+
+  let response: Response
+
+  if (hasVertexAiCredentials(env)) {
+    const accessToken = await getVertexAiAccessToken(env)
+    const endpoint = getVertexAiEndpoint(env, model)
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: requestBody,
+    })
+  } else {
+    const apiKey = getGeminiApiKey(env)
+    response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: requestBody,
+    })
+  }
 
   const payload = (await response.json()) as Record<string, unknown>
   if (!response.ok) {
