@@ -87,6 +87,7 @@ export function PhotoGuideCreateModal({ open, onClose, onCreated }: PhotoGuideCr
         <label>
           그룹
           <input name="group" value={form.group} onChange={onInput} placeholder="예: 일요일 강연 / 월요일 크루즈" />
+          <span className="photoGuideFieldHint">그룹은 상위 묶음입니다. 예: `토요일 학회`, `일요일 강연`, `월요일 크루즈`</span>
         </label>
 
         <label className="fullWidth">
@@ -100,30 +101,35 @@ export function PhotoGuideCreateModal({ open, onClose, onCreated }: PhotoGuideCr
           />
         </label>
 
-        <label>
-          행사명
-          <input name="eventName" value={form.eventName} onChange={onInput} />
-        </label>
+        <details className="photoGuideOptionalMeta fullWidth">
+          <summary>추가 메타 입력</summary>
+          <div className="photoGuideOptionalMetaGrid">
+            <label>
+              행사명
+              <input name="eventName" value={form.eventName} onChange={onInput} />
+            </label>
 
-        <label>
-          행사일
-          <input type="date" name="eventDate" value={form.eventDate} onChange={onInput} />
-        </label>
+            <label>
+              행사일
+              <input type="date" name="eventDate" value={form.eventDate} onChange={onInput} />
+            </label>
 
-        <label>
-          장소
-          <input name="location" value={form.location} onChange={onInput} />
-        </label>
+            <label>
+              장소
+              <input name="location" value={form.location} onChange={onInput} />
+            </label>
 
-        <label>
-          콜타임
-          <input name="callTime" value={form.callTime} onChange={onInput} placeholder="예: 08:00" />
-        </label>
+            <label>
+              콜타임
+              <input name="callTime" value={form.callTime} onChange={onInput} placeholder="예: 08:00" />
+            </label>
 
-        <label>
-          현장 담당자
-          <input name="contact" value={form.contact} onChange={onInput} />
-        </label>
+            <label>
+              현장 담당자
+              <input name="contact" value={form.contact} onChange={onInput} />
+            </label>
+          </div>
+        </details>
 
         <div className="actions fullWidth">
           <Button type="button" variant="secondary" onClick={handleClose}>

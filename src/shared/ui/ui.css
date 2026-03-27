@@ -6014,6 +6014,10 @@ button.dashboardNavButton {
 }
 
 @media (max-width: 430px) {
+  .photoGuideOptionalMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
   .photoGuideShell {
     padding: 16px 12px calc(12px + env(safe-area-inset-bottom, 24px));
   }
@@ -8518,6 +8522,40 @@ tr:hover td {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.photoGuideFieldHint {
+  color: var(--text-sub);
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+.photoGuideOptionalMeta {
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(205, 214, 227, 0.95);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.photoGuideOptionalMeta summary {
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.photoGuideOptionalMeta summary::-webkit-details-marker {
+  display: none;
+}
+
+.photoGuideOptionalMetaGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
 }
 
 .checkboxLabel {
