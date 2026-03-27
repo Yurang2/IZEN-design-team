@@ -2534,6 +2534,10 @@ button.dashboardNavButton {
 }
 
 .photoGuideShell {
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'tnum';
   margin: 0 auto;
   max-width: 1180px;
   padding: 28px 20px 48px;
@@ -2691,30 +2695,61 @@ button.dashboardNavButton {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.shotSectionWrap {
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.shotSectionWrap.is-photo {
+  background: linear-gradient(135deg, rgba(255, 251, 235, 0.95), rgba(254, 243, 199, 0.6));
+  border: 1px solid rgba(253, 230, 138, 0.5);
+}
+
+.shotSectionWrap.is-video {
+  background: linear-gradient(135deg, rgba(245, 243, 255, 0.95), rgba(233, 213, 255, 0.6));
+  border: 1px solid rgba(196, 181, 253, 0.5);
+}
+
 .shotSectionDivider {
   align-items: center;
   display: flex;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .shotSectionLabel {
-  color: #92400e;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
+.shotSectionWrap.is-photo .shotSectionLabel {
+  color: #92400e;
+}
+
+.shotSectionWrap.is-video .shotSectionLabel {
+  color: #6d28d9;
+}
+
 .shotSectionCount {
-  background: rgba(255, 237, 213, 0.9);
   border-radius: 999px;
-  color: #9a3412;
   font-size: 11px;
   font-weight: 700;
   min-width: 22px;
   padding: 2px 7px;
   text-align: center;
+}
+
+.shotSectionWrap.is-photo .shotSectionCount {
+  background: rgba(255, 237, 213, 0.9);
+  color: #9a3412;
+}
+
+.shotSectionWrap.is-video .shotSectionCount {
+  background: rgba(237, 233, 254, 0.9);
+  color: #6d28d9;
 }
 
 .shotSlotCard {
@@ -2756,11 +2791,14 @@ button.dashboardNavButton {
   border-radius: 999px;
   color: #fff;
   display: inline-flex;
+  font-family: 'Pretendard Variable', Pretendard, sans-serif;
+  font-feature-settings: 'tnum';
   font-size: 11px;
   font-weight: 800;
   height: 28px;
   left: 10px;
   letter-spacing: 0.04em;
+  line-height: 28px;
   padding: 0 10px;
   position: absolute;
   top: 10px;

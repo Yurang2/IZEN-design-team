@@ -97,22 +97,38 @@ function ShotSections({
   }
 
   // 사진만 또는 영상만 있는 경우 서브헤더 없이 표시
-  if (videoShots.length === 0) return <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
-  if (photoShots.length === 0) return <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
+  if (videoShots.length === 0) {
+    return (
+      <div className="shotSectionWrap is-photo">
+        <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
+      </div>
+    )
+  }
+  if (photoShots.length === 0) {
+    return (
+      <div className="shotSectionWrap is-video">
+        <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
+      </div>
+    )
+  }
 
   return (
     <>
-      <div className="shotSectionDivider">
-        <span className="shotSectionLabel">사진 필수컷</span>
-        <span className="shotSectionCount">{photoShots.length}</span>
+      <div className="shotSectionWrap is-photo">
+        <div className="shotSectionDivider">
+          <span className="shotSectionLabel">사진 필수컷</span>
+          <span className="shotSectionCount">{photoShots.length}</span>
+        </div>
+        <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
       </div>
-      <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
 
-      <div className="shotSectionDivider">
-        <span className="shotSectionLabel">영상 필수컷</span>
-        <span className="shotSectionCount">{videoShots.length}</span>
+      <div className="shotSectionWrap is-video">
+        <div className="shotSectionDivider">
+          <span className="shotSectionLabel">영상 필수컷</span>
+          <span className="shotSectionCount">{videoShots.length}</span>
+        </div>
+        <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
       </div>
-      <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
     </>
   )
 }
