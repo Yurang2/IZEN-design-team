@@ -2775,6 +2775,99 @@ button.dashboardNavButton {
   padding: 16px;
 }
 
+/* Check toolbar */
+.shotCheckToolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.shotCheckProgress {
+  background: rgba(226, 232, 240, 0.7);
+  border-radius: 999px;
+  flex: 1;
+  height: 6px;
+  min-width: 80px;
+  overflow: hidden;
+}
+
+.shotCheckProgressBar {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+  transition: width 0.3s;
+}
+
+.shotCheckCount {
+  color: var(--text-sub, #64748b);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.shotCheckHideToggle {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.shotCheckHideToggle input {
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Shot slot checkbox overlay */
+.shotSlotCheckWrap {
+  position: relative;
+}
+
+.shotSlotCheckWrap.is-checked {
+  opacity: 0.45;
+}
+
+.shotSlotCheckbox {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(203, 213, 225, 0.7);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 5px;
+  left: 8px;
+  padding: 4px 8px;
+  position: absolute;
+  top: 8px;
+  z-index: 5;
+}
+
+.shotSlotCheckbox input {
+  cursor: pointer;
+  margin: 0;
+}
+
+.shotSlotCheckWrap.is-checked .shotSlotCheckbox {
+  background: rgba(220, 252, 231, 0.95);
+  border-color: rgba(74, 222, 128, 0.6);
+  color: #166534;
+}
+
+.shotGridAllDone {
+  color: #16a34a;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  padding: 16px;
+  text-align: center;
+}
+
 .shotSectionWrap.is-photo {
   background: linear-gradient(135deg, rgba(255, 251, 235, 0.95), rgba(254, 243, 199, 0.6));
   border: 1px solid rgba(253, 230, 138, 0.5);

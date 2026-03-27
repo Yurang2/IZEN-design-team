@@ -1,6 +1,24 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { ShotSlotCard } from './ShotSlotCard'
 import type { GuideSummaryBlock, ShotGroup, ShotSlot } from './photoGuideData'
+
+const CHECKED_STORAGE_KEY = 'photoGuide:checkedSlots'
+
+function loadCheckedSet(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CHECKED_STORAGE_KEY)
+    if (!raw) return new Set()
+    return new Set(JSON.parse(raw) as string[])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveCheckedSet(set: Set<string>) {
+  try {
+    localStorage.setItem(CHECKED_STORAGE_KEY, JSON.stringify(Array.from(set)))
+  } catch { /* ignore */ }
+}
 
 function isVideoShot(slot: ShotSlot): boolean {
   return slot.title.includes('(영상)') || slot.title.includes('[영상]') || slot.description.startsWith('[영상]')
@@ -63,18 +81,34 @@ function ShotGrid({
   shots,
   readonly,
   columns,
+  checkedIds,
+  hideChecked,
+  onToggleCheck,
   onUploadImage,
 }: {
   shots: ShotSlot[]
   readonly: boolean
   columns: GridColumns
+  checkedIds?: Set<string>
+  hideChecked?: boolean
+  onToggleCheck?: (id: string) => void
   onUploadImage?: (slotId: string, file: File) => Promise<void>
 }) {
   if (shots.length === 0) return null
+  const visible = hideChecked ? shots.filter((s) => !checkedIds?.has(s.id)) : shots
+  if (visible.length === 0) return <p className="shotGridAllDone">모든 컷을 촬영 완료했습니다!</p>
   return (
     <div className={`shotGrid${columns === 1 ? ' is-single' : ''}`}>
-      {shots.map((slot) => (
-        <ShotSlotCard key={slot.id} slot={slot} readonly={readonly} onUploadImage={readonly ? undefined : onUploadImage} />
+      {visible.map((slot) => (
+        <div key={slot.id} className={`shotSlotCheckWrap${checkedIds?.has(slot.id) ? ' is-checked' : ''}`}>
+          {onToggleCheck ? (
+            <label className="shotSlotCheckbox">
+              <input type="checkbox" checked={checkedIds?.has(slot.id) ?? false} onChange={() => onToggleCheck(slot.id)} />
+              <span>촬영 완료</span>
+            </label>
+          ) : null}
+          <ShotSlotCard slot={slot} readonly={readonly} onUploadImage={readonly ? undefined : onUploadImage} />
+        </div>
       ))}
     </div>
   )
@@ -84,11 +118,17 @@ function ShotSections({
   shots,
   readonly,
   columns,
+  checkedIds,
+  hideChecked,
+  onToggleCheck,
   onUploadImage,
 }: {
   shots: ShotSlot[]
   readonly: boolean
   columns: GridColumns
+  checkedIds?: Set<string>
+  hideChecked?: boolean
+  onToggleCheck?: (id: string) => void
   onUploadImage?: (slotId: string, file: File) => Promise<void>
 }) {
   const { photoShots, videoShots } = useMemo(() => splitPhotoVideo(shots), [shots])
@@ -106,14 +146,14 @@ function ShotSections({
   if (videoShots.length === 0) {
     return (
       <div className="shotSectionWrap is-photo">
-        <ShotGrid shots={photoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
+        <ShotGrid shots={photoShots} readonly={readonly} columns={columns} checkedIds={checkedIds} hideChecked={hideChecked} onToggleCheck={onToggleCheck} onUploadImage={onUploadImage} />
       </div>
     )
   }
   if (photoShots.length === 0) {
     return (
       <div className="shotSectionWrap is-video">
-        <ShotGrid shots={videoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
+        <ShotGrid shots={videoShots} readonly={readonly} columns={columns} checkedIds={checkedIds} hideChecked={hideChecked} onToggleCheck={onToggleCheck} onUploadImage={onUploadImage} />
       </div>
     )
   }
@@ -125,7 +165,7 @@ function ShotSections({
           <span className="shotSectionLabel">사진 필수컷</span>
           <span className="shotSectionCount">{photoShots.length}</span>
         </div>
-        <ShotGrid shots={photoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
+        <ShotGrid shots={photoShots} readonly={readonly} columns={columns} checkedIds={checkedIds} hideChecked={hideChecked} onToggleCheck={onToggleCheck} onUploadImage={onUploadImage} />
       </div>
 
       <div className="shotSectionWrap is-video">
@@ -133,7 +173,7 @@ function ShotSections({
           <span className="shotSectionLabel">영상 필수컷</span>
           <span className="shotSectionCount">{videoShots.length}</span>
         </div>
-        <ShotGrid shots={videoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
+        <ShotGrid shots={videoShots} readonly={readonly} columns={columns} checkedIds={checkedIds} hideChecked={hideChecked} onToggleCheck={onToggleCheck} onUploadImage={onUploadImage} />
       </div>
     </>
   )
@@ -157,6 +197,21 @@ export function PhotoGuideDocument({
   onUploadImage?: (slotId: string, file: File) => Promise<void>
 }) {
   const [columns, setColumns] = useState<GridColumns>(1)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => loadCheckedSet())
+  const [hideChecked, setHideChecked] = useState(true)
+
+  const onToggleCheck = useCallback((id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      saveCheckedSet(next)
+      return next
+    })
+  }, [])
+
+  const totalShots = groups.reduce((sum, g) => sum + g.shots.length, 0)
+  const checkedCount = groups.reduce((sum, g) => sum + g.shots.filter((s) => checkedIds.has(s.id)).length, 0)
 
   const content = (
     <section className={`photoGuidePage${embedded ? ' is-embedded' : ''}`}>
@@ -178,6 +233,18 @@ export function PhotoGuideDocument({
             {actionSlot}
           </div>
         </div>
+        {totalShots > 0 ? (
+          <div className="shotCheckToolbar">
+            <div className="shotCheckProgress">
+              <span className="shotCheckProgressBar" style={{ width: `${totalShots > 0 ? (checkedCount / totalShots) * 100 : 0}%` }} />
+            </div>
+            <span className="shotCheckCount">{checkedCount}/{totalShots} 촬영 완료</span>
+            <label className="shotCheckHideToggle">
+              <input type="checkbox" checked={hideChecked} onChange={(e) => setHideChecked(e.target.checked)} />
+              <span>완료 항목 숨기기</span>
+            </label>
+          </div>
+        ) : null}
       </header>
 
       <div className="photoGuideList">
@@ -201,7 +268,7 @@ export function PhotoGuideDocument({
 
             <SummaryCards title="그룹 메모" blocks={group.summaryBlocks} />
 
-            <ShotSections shots={group.shots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
+            <ShotSections shots={group.shots} readonly={readonly} columns={columns} checkedIds={checkedIds} hideChecked={hideChecked} onToggleCheck={onToggleCheck} onUploadImage={onUploadImage} />
           </section>
         ))}
       </div>
