@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { ShotSlotCard } from './ShotSlotCard'
 import type { GuideSummaryBlock, ShotGroup, ShotSlot } from './photoGuideData'
 
@@ -57,18 +57,22 @@ function SummaryCards({ title, blocks }: { title: string; blocks: GuideSummaryBl
   )
 }
 
+type GridColumns = 1 | 2
+
 function ShotGrid({
   shots,
   readonly,
+  columns,
   onUploadImage,
 }: {
   shots: ShotSlot[]
   readonly: boolean
+  columns: GridColumns
   onUploadImage?: (slotId: string, file: File) => Promise<void>
 }) {
   if (shots.length === 0) return null
   return (
-    <div className="shotGrid">
+    <div className={`shotGrid${columns === 1 ? ' is-single' : ''}`}>
       {shots.map((slot) => (
         <ShotSlotCard key={slot.id} slot={slot} readonly={readonly} onUploadImage={readonly ? undefined : onUploadImage} />
       ))}
@@ -79,10 +83,12 @@ function ShotGrid({
 function ShotSections({
   shots,
   readonly,
+  columns,
   onUploadImage,
 }: {
   shots: ShotSlot[]
   readonly: boolean
+  columns: GridColumns
   onUploadImage?: (slotId: string, file: File) => Promise<void>
 }) {
   const { photoShots, videoShots } = useMemo(() => splitPhotoVideo(shots), [shots])
@@ -100,14 +106,14 @@ function ShotSections({
   if (videoShots.length === 0) {
     return (
       <div className="shotSectionWrap is-photo">
-        <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
+        <ShotGrid shots={photoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
       </div>
     )
   }
   if (photoShots.length === 0) {
     return (
       <div className="shotSectionWrap is-video">
-        <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
+        <ShotGrid shots={videoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
       </div>
     )
   }
@@ -119,7 +125,7 @@ function ShotSections({
           <span className="shotSectionLabel">사진 필수컷</span>
           <span className="shotSectionCount">{photoShots.length}</span>
         </div>
-        <ShotGrid shots={photoShots} readonly={readonly} onUploadImage={onUploadImage} />
+        <ShotGrid shots={photoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
       </div>
 
       <div className="shotSectionWrap is-video">
@@ -127,7 +133,7 @@ function ShotSections({
           <span className="shotSectionLabel">영상 필수컷</span>
           <span className="shotSectionCount">{videoShots.length}</span>
         </div>
-        <ShotGrid shots={videoShots} readonly={readonly} onUploadImage={onUploadImage} />
+        <ShotGrid shots={videoShots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
       </div>
     </>
   )
@@ -150,6 +156,8 @@ export function PhotoGuideDocument({
   actionSlot?: ReactNode
   onUploadImage?: (slotId: string, file: File) => Promise<void>
 }) {
+  const [columns, setColumns] = useState<GridColumns>(1)
+
   const content = (
     <section className={`photoGuidePage${embedded ? ' is-embedded' : ''}`}>
       <header className="photoGuideHero">
@@ -158,7 +166,17 @@ export function PhotoGuideDocument({
             <p className="muted small">{embedded ? '촬영 가이드' : 'External Share'}</p>
             <h1>{pageTitle}</h1>
           </div>
-          {actionSlot ? <div className="photoGuideActions">{actionSlot}</div> : null}
+          <div className="photoGuideActions">
+            <div className="shotGridToggle">
+              <button type="button" className={`shotGridToggleBtn${columns === 1 ? ' is-active' : ''}`} onClick={() => setColumns(1)} aria-label="1열 보기">
+                <span className="shotGridToggleIcon is-single" />
+              </button>
+              <button type="button" className={`shotGridToggleBtn${columns === 2 ? ' is-active' : ''}`} onClick={() => setColumns(2)} aria-label="2열 보기">
+                <span className="shotGridToggleIcon is-double" />
+              </button>
+            </div>
+            {actionSlot}
+          </div>
         </div>
       </header>
 
@@ -183,7 +201,7 @@ export function PhotoGuideDocument({
 
             <SummaryCards title="그룹 메모" blocks={group.summaryBlocks} />
 
-            <ShotSections shots={group.shots} readonly={readonly} onUploadImage={onUploadImage} />
+            <ShotSections shots={group.shots} readonly={readonly} columns={columns} onUploadImage={onUploadImage} />
           </section>
         ))}
       </div>

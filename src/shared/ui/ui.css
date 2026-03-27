@@ -2695,6 +2695,79 @@ button.dashboardNavButton {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.shotGrid.is-single {
+  grid-template-columns: 1fr;
+  max-width: 520px;
+}
+
+/* Grid column toggle */
+.shotGridToggle {
+  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid rgba(203, 213, 225, 0.7);
+  border-radius: 10px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.shotGridToggleBtn {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s;
+  width: 36px;
+}
+
+.shotGridToggleBtn.is-active {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.shotGridToggleIcon {
+  display: block;
+  height: 16px;
+  position: relative;
+  width: 18px;
+}
+
+.shotGridToggleIcon::before,
+.shotGridToggleIcon::after {
+  background: #64748b;
+  border-radius: 2px;
+  content: '';
+  position: absolute;
+  top: 0;
+}
+
+.shotGridToggleIcon.is-single::before {
+  height: 16px;
+  left: 3px;
+  width: 12px;
+}
+
+.shotGridToggleIcon.is-double::before {
+  height: 16px;
+  left: 0;
+  width: 7px;
+}
+
+.shotGridToggleIcon.is-double::after {
+  height: 16px;
+  right: 0;
+  width: 7px;
+}
+
+.shotGridToggleBtn.is-active .shotGridToggleIcon::before,
+.shotGridToggleBtn.is-active .shotGridToggleIcon::after {
+  background: #1e293b;
+}
+
 .shotSectionWrap {
   border-radius: 16px;
   display: grid;
@@ -6117,6 +6190,14 @@ button.dashboardNavButton {
 
   .shotSlotCard {
     border-radius: 12px;
+  }
+
+  .shotGrid.is-single {
+    max-width: none;
+  }
+
+  .shotGrid:not(.is-single) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .photoGuideSummaryCard {
