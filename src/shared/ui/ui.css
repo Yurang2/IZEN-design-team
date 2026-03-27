@@ -9164,7 +9164,8 @@ tr:hover td {
 
 .equipmentTable {
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
+  table-layout: auto;
   width: 100%;
 }
 
@@ -9174,14 +9175,15 @@ tr:hover td {
   color: var(--text2, #64748b);
   font-size: 11px;
   font-weight: 700;
-  padding: 8px 10px;
+  padding: 6px 8px;
   text-align: left;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .equipmentTable td {
   border-bottom: 1px solid var(--border, #f1f5f9);
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 
 .equipmentTable tbody tr:hover td {
@@ -9190,18 +9192,21 @@ tr:hover td {
 
 .equipmentName {
   font-weight: 600;
+  min-width: 120px;
 }
 
 .equipmentQty {
   text-align: center;
+  width: 44px;
 }
 
 .equipmentOwnerBadge {
   border-radius: 999px;
   display: inline-block;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 2px 7px;
+  white-space: nowrap;
 }
 
 .equipmentOwnerBadge.is-company {
@@ -9286,7 +9291,7 @@ tr:hover td {
 
 .equipmentCheckCol {
   text-align: center;
-  width: 40px;
+  width: 36px;
 }
 
 .equipmentTable tbody tr.is-checked td {
