@@ -26,6 +26,18 @@ import type {
 
 type AnyMap = Record<string, any>
 
+type EquipmentCheckoutStatus = 'pending' | 'checked_out' | 'returned' | 'removed'
+
+type EquipmentCheckoutRow = {
+  id: string
+  projectPageId: string
+  equipmentPageId: string
+  status: EquipmentCheckoutStatus
+  checkoutDate: string
+  returnDate: string
+  memo: string
+}
+
 type SchemaCache = {
   schema: TaskSchema
   updatedAt: number
@@ -1999,6 +2011,128 @@ export class NotionWorkService {
       columns,
       rows,
     }
+  }
+
+  async listEquipmentCheckouts(projectPageId: string): Promise<EquipmentCheckoutRow[]> {
+    const databaseId = normalizeText(this.env.NOTION_EQUIPMENT_CHECKOUT_DB_ID)
+    if (!databaseId) return []
+
+    const normalizedProjectId = normalizeNotionId(projectPageId)
+    let pages: any[]
+    try {
+      pages = await this.queryAll(databaseId, {
+        filter: { property: '프로젝트', relation: { contains: projectPageId } },
+      })
+    } catch {
+      pages = await this.queryAll(databaseId)
+      pages = pages.filter((page) => {
+        const ids = extractRelationIdsFromProperty((page.properties ?? {})['프로젝트'])
+        return ids.some((id) => normalizeNotionId(id) === normalizedProjectId)
+      })
+    }
+
+    return pages.map((page) => this.mapEquipmentCheckoutPage(page)).sort((a, b) => a.equipmentPageId.localeCompare(b.equipmentPageId))
+  }
+
+  private mapEquipmentCheckoutPage(page: any): EquipmentCheckoutRow {
+    const props = (page.properties ?? {}) as AnyMap
+    const projectPageId = first(extractRelationIdsFromProperty(props['프로젝트'])) ?? ''
+    const equipmentPageId = first(extractRelationIdsFromProperty(props['장비'])) ?? ''
+    const statusProp = props['상태']
+    const status = statusProp?.type === 'select' ? normalizeText(statusProp.select?.name) : ''
+    const checkoutDateProp = props['반출일']
+    const returnDateProp = props['반납일']
+    const memoProp = props['메모']
+    const memoText = memoProp?.type === 'title'
+      ? (memoProp.title ?? []).map((t: any) => t?.plain_text ?? '').join('')
+      : ''
+
+    return {
+      id: page.id,
+      projectPageId,
+      equipmentPageId,
+      status: (status as EquipmentCheckoutStatus) || 'pending',
+      checkoutDate: checkoutDateProp?.type === 'date' ? normalizeText(checkoutDateProp.date?.start) : '',
+      returnDate: returnDateProp?.type === 'date' ? normalizeText(returnDateProp.date?.start) : '',
+      memo: memoText,
+    }
+  }
+
+  async upsertEquipmentCheckout(body: Record<string, unknown>): Promise<EquipmentCheckoutRow> {
+    const databaseId = normalizeText(this.env.NOTION_EQUIPMENT_CHECKOUT_DB_ID)
+    if (!databaseId) throw new Error('equipment_checkout_db_not_configured')
+
+    const projectPageId = normalizeText(body.projectPageId as string)
+    const equipmentPageId = normalizeText(body.equipmentPageId as string)
+    const status = normalizeText(body.status as string) || 'pending'
+    const checkoutDate = normalizeText(body.checkoutDate as string)
+    const returnDate = normalizeText(body.returnDate as string)
+    const memo = normalizeText(body.memo as string)
+
+    if (!projectPageId) throw new Error('projectPageId_required')
+    if (!equipmentPageId) throw new Error('equipmentPageId_required')
+
+    // Find existing row for this project+equipment
+    const normalizedProjectId = normalizeNotionId(projectPageId)
+    const normalizedEquipmentId = normalizeNotionId(equipmentPageId)
+    let pages: any[]
+    try {
+      pages = await this.queryAll(databaseId, {
+        filter: { property: '프로젝트', relation: { contains: projectPageId } },
+      })
+    } catch {
+      pages = await this.queryAll(databaseId)
+    }
+
+    const existing = pages.find((page) => {
+      const props = (page.properties ?? {}) as AnyMap
+      const pId = first(extractRelationIdsFromProperty(props['프로젝트'])) ?? ''
+      const eId = first(extractRelationIdsFromProperty(props['장비'])) ?? ''
+      return normalizeNotionId(pId) === normalizedProjectId && normalizeNotionId(eId) === normalizedEquipmentId
+    })
+
+    const properties: AnyMap = {
+      '프로젝트': { relation: [{ id: projectPageId }] },
+      '장비': { relation: [{ id: equipmentPageId }] },
+      '상태': { select: { name: status === 'checked_out' ? '반출' : status === 'returned' ? '반납' : '대기' } },
+      '메모': { title: [{ text: { content: memo } }] },
+    }
+
+    if (checkoutDate) {
+      properties['반출일'] = { date: { start: checkoutDate } }
+    }
+    if (returnDate) {
+      properties['반납일'] = { date: { start: returnDate } }
+    }
+
+    // Remove (uncheck): delete the page
+    if (status === 'remove' && existing) {
+      await this.api.request(`/pages/${existing.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ archived: true }),
+      })
+      return {
+        id: existing.id,
+        projectPageId,
+        equipmentPageId,
+        status: 'removed',
+        checkoutDate: '',
+        returnDate: '',
+        memo: '',
+      }
+    }
+
+    let resultPage: any
+    if (existing) {
+      resultPage = await this.api.updatePage(existing.id, { properties })
+    } else {
+      resultPage = await this.api.createPage({
+        parent: { database_id: databaseId },
+        properties,
+      })
+    }
+
+    return this.mapEquipmentCheckoutPage(resultPage)
   }
 
   async listPhotoGuideView(): Promise<{

@@ -564,6 +564,32 @@ export default {
         )
       }
 
+      if (request.method === 'GET' && path === '/equipment-checkouts') {
+        const projectId = url.searchParams.get('projectId') ?? ''
+        if (!projectId) {
+          return json({ ok: false, error: 'projectId_required' }, 400, origin)
+        }
+        try {
+          const rows = await service.listEquipmentCheckouts(projectId)
+          return ok({ ok: true, projectId, rows, cacheTtlMs }, origin)
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'equipment_checkouts_fetch_failed'
+          return json({ ok: false, error: message }, 500, origin)
+        }
+      }
+
+      if (request.method === 'POST' && path === '/equipment-checkouts') {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>
+          const row = await service.upsertEquipmentCheckout(body)
+          return ok({ ok: true, row }, origin)
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'equipment_checkout_save_failed'
+          const status = message.endsWith('_required') ? 400 : 500
+          return json({ ok: false, error: message }, status, origin)
+        }
+      }
+
       const eventGraphicsUploadMatch = path.match(/^\/event-graphics-timetable\/([^/]+)\/files$/)
       if (request.method === 'POST' && eventGraphicsUploadMatch) {
         try {

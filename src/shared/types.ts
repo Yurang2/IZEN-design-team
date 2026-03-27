@@ -428,6 +428,24 @@ export type ChecklistTableRow = {
   computedDueDate?: string
 }
 
+export type EquipmentCheckoutStatus = 'pending' | 'checked_out' | 'returned' | 'removed'
+
+export type EquipmentCheckoutRow = {
+  id: string
+  projectPageId: string
+  equipmentPageId: string
+  status: EquipmentCheckoutStatus
+  checkoutDate: string
+  returnDate: string
+  memo: string
+}
+
+export type EquipmentCheckoutsResponse = {
+  ok: boolean
+  projectId: string
+  rows: EquipmentCheckoutRow[]
+}
+
 export type AppVersionManifest = {
   id: string
   builtAt: string

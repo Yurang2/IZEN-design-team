@@ -2581,6 +2581,7 @@ function App() {
           rows={equipment.rows}
           loading={equipment.loading}
           error={equipment.error}
+          projects={projects}
           onRefresh={equipment.fetch}
         />
       ) : null}
