@@ -5,11 +5,9 @@ import {
   asString,
   DEFAULT_GEMINI_IMAGE_MODEL,
   GeminiPromptImageRenderInput,
-  getGeminiApiKey,
   getGeminiImageModel,
   getVertexAiAccessToken,
   getVertexAiEndpoint,
-  GOOGLE_GENERATIVE_LANGUAGE_API_URL,
   hasVertexAiCredentials,
   parsePatchBody,
   ThumbnailInlineImageInput,
@@ -134,30 +132,20 @@ async function requestGoogleAiStudioGenerateContent(
     generationConfig,
   })
 
-  let response: Response
-
-  if (hasVertexAiCredentials(env)) {
-    const accessToken = await getVertexAiAccessToken(env)
-    const endpoint = getVertexAiEndpoint(env, model)
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: requestBody,
-    })
-  } else {
-    const apiKey = getGeminiApiKey(env)
-    response = await fetch(`${GOOGLE_GENERATIVE_LANGUAGE_API_URL}/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: requestBody,
-    })
+  if (!hasVertexAiCredentials(env)) {
+    throw new Error('vertex_ai_credentials_missing: GOOGLE_SERVICE_ACCOUNT_JSON과 GOOGLE_CLOUD_PROJECT_ID를 설정해 주세요.')
   }
+
+  const accessToken = await getVertexAiAccessToken(env)
+  const endpoint = getVertexAiEndpoint(env, model)
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: requestBody,
+  })
 
   const payload = (await response.json()) as Record<string, unknown>
   if (!response.ok) {
