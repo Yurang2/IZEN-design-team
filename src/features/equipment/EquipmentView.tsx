@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { EquipmentCheckoutRow, EquipmentCheckoutsResponse, ProjectRecord, ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
 import { api } from '../../shared/api/client'
+import { isChecklistSelectableProject } from '../../shared/utils/checklist'
 import { buildEquipmentItems, groupByCategory } from './equipmentData'
 import type { EquipmentGroup, EquipmentItem } from './equipmentData'
 
@@ -67,7 +68,7 @@ export function EquipmentView({
   // Project options: sorted by eventDate descending, past events optionally hidden
   const today = useMemo(() => todayIso(), [])
   const sortedProjects = useMemo(() => {
-    const copy = [...projects]
+    const copy = projects.filter((p) => isChecklistSelectableProject(p))
     copy.sort((a, b) => (b.eventDate ?? '').localeCompare(a.eventDate ?? ''))
     return copy
   }, [projects])
