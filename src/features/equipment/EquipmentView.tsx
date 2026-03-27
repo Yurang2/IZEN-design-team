@@ -35,6 +35,12 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+function parseDate(d: string | undefined): Date | null {
+  if (!d) return null
+  const t = new Date(d)
+  return Number.isFinite(t.getTime()) ? t : null
+}
+
 export function EquipmentView({
   configured,
   databaseTitle,
@@ -52,6 +58,9 @@ export function EquipmentView({
   const [checkouts, setCheckouts] = useState<EquipmentCheckoutRow[]>([])
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [savingIds, setSavingIds] = useState<Record<string, boolean>>({})
+  const [hidePastEvents, setHidePastEvents] = useState(true)
+
+  const isCheckMode = Boolean(selectedProjectId)
 
   const items = useMemo(() => buildEquipmentItems(columns, rows), [columns, rows])
   const filtered = useMemo(
@@ -60,6 +69,32 @@ export function EquipmentView({
   )
   const groups = useMemo(() => groupByCategory(filtered), [filtered])
   const pageTitle = databaseTitle.trim() || '촬영장비'
+
+  // Project options: sorted by eventDate descending, past events optionally hidden
+  const today = useMemo(() => todayIso(), [])
+  const sortedProjects = useMemo(() => {
+    const copy = [...projects]
+    copy.sort((a, b) => (b.eventDate ?? '').localeCompare(a.eventDate ?? ''))
+    return copy
+  }, [projects])
+
+  const upcomingProjects = useMemo(
+    () => sortedProjects.filter((p) => {
+      if (p.id === selectedProjectId) return true
+      const d = p.eventDate ?? ''
+      if (!d) return true
+      return d >= today
+    }),
+    [sortedProjects, selectedProjectId, today],
+  )
+  const pastProjects = useMemo(
+    () => sortedProjects.filter((p) => {
+      if (p.id === selectedProjectId) return false
+      const d = p.eventDate ?? ''
+      return d && d < today
+    }),
+    [sortedProjects, selectedProjectId, today],
+  )
 
   const checkoutMap = useMemo(() => {
     const map = new Map<string, EquipmentCheckoutRow>()
@@ -104,12 +139,7 @@ export function EquipmentView({
       const body: Record<string, unknown> = {
         projectPageId: selectedProjectId,
         equipmentPageId: item.id,
-      }
-
-      if (existing) {
-        body.status = 'remove'
-      } else {
-        body.status = 'pending'
+        status: existing ? 'remove' : 'pending',
       }
 
       const res = await api<{ ok: boolean; row: EquipmentCheckoutRow }>('/equipment-checkouts', {
@@ -119,9 +149,9 @@ export function EquipmentView({
 
       if (res.row) {
         setCheckouts((prev) => {
-          const filtered = prev.filter((r) => r.equipmentPageId.replace(/-/g, '').toLowerCase() !== normalizedId)
-          if (res.row.status !== 'removed') filtered.push(res.row)
-          return filtered
+          const rest = prev.filter((r) => r.equipmentPageId.replace(/-/g, '').toLowerCase() !== normalizedId)
+          if (res.row.status !== 'removed') rest.push(res.row)
+          return rest
         })
       }
     } finally {
@@ -195,6 +225,8 @@ export function EquipmentView({
     )
   }
 
+  const selectedProject = sortedProjects.find((p) => p.id === selectedProjectId)
+
   return (
     <main className="equipmentShell">
       <section className="equipmentPage">
@@ -203,19 +235,59 @@ export function EquipmentView({
             <h1>{pageTitle}</h1>
             <span className="muted small">{items.length}건</span>
           </div>
-          <div className="equipmentToolbar">
+
+          {/* Project selector */}
+          <div className="equipmentProjectBar">
             <select
               className="equipmentProjectSelect"
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
             >
-              <option value="">행사 선택 (장비 체크 모드)</option>
-              {projects.map((p) => (
+              <option value="">-- 행사를 선택하세요 --</option>
+              {upcomingProjects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}{p.eventDate ? ` (${p.eventDate})` : ''}
                 </option>
               ))}
+              {!hidePastEvents && pastProjects.length > 0 ? (
+                <optgroup label="지난 행사">
+                  {pastProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.eventDate ? ` (${p.eventDate})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
+            <label className="equipmentToggle">
+              <input
+                type="checkbox"
+                checked={hidePastEvents}
+                onChange={(e) => setHidePastEvents(e.target.checked)}
+              />
+              <span>지난 행사 접기</span>
+            </label>
+          </div>
+
+          {/* Check mode banner */}
+          {!isCheckMode ? (
+            <div className="equipmentBanner">
+              행사를 선택하면 가져갈 장비를 체크하고 반출/반납 상태를 관리할 수 있습니다.
+            </div>
+          ) : (
+            <div className="equipmentBanner is-active">
+              <strong>{selectedProject?.name ?? '선택된 행사'}</strong>
+              {selectedProject?.eventDate ? <span className="muted"> · {selectedProject.eventDate}</span> : null}
+              <span className="equipmentBannerStats">
+                {' '}— 선택 {selectedCount}건
+                {checkedOutCount > 0 ? ` · 반출 ${checkedOutCount}건` : ''}
+                {checkoutLoading ? ' · 로딩 중...' : ''}
+              </span>
+            </div>
+          )}
+
+          {/* Filters */}
+          <div className="equipmentToolbar">
             <div className="equipmentFilterGroup">
               {(['all', 'IZEN', '개인'] as OwnerFilter[]).map((value) => (
                 <button
@@ -245,12 +317,6 @@ export function EquipmentView({
               ) : null}
             </div>
           </div>
-          {selectedProjectId ? (
-            <div className="equipmentSummary">
-              선택 {selectedCount}건{checkedOutCount > 0 ? ` · 반출 ${checkedOutCount}건` : ''}
-              {checkoutLoading ? ' · 로딩 중...' : ''}
-            </div>
-          ) : null}
         </header>
 
         {groups.length === 0 ? (
@@ -262,7 +328,7 @@ export function EquipmentView({
                 key={group.category}
                 group={group}
                 showLocation={showLocation}
-                isCheckMode={Boolean(selectedProjectId)}
+                isCheckMode={isCheckMode}
                 checkoutMap={checkoutMap}
                 savingIds={savingIds}
                 onToggleCheck={handleToggleCheck}
@@ -309,13 +375,13 @@ function EquipmentGroupSection({
       <table className="equipmentTable">
         <thead>
           <tr>
-            {isCheckMode ? <th className="equipmentCheckCol">선택</th> : null}
+            <th className="equipmentCheckCol">선택</th>
             <th>장비명</th>
             <th>소유</th>
             <th>수량</th>
             <th>귀속장비</th>
             {showLocation ? <th>물품 위치</th> : null}
-            {isCheckMode ? <th>상태</th> : null}
+            <th>상태</th>
             <th>비고</th>
           </tr>
         </thead>
@@ -328,16 +394,14 @@ function EquipmentGroupSection({
 
             return (
               <tr key={item.id} className={isChecked ? 'is-checked' : ''}>
-                {isCheckMode ? (
-                  <td className="equipmentCheckCol">
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      disabled={isSaving}
-                      onChange={() => onToggleCheck(item)}
-                    />
-                  </td>
-                ) : null}
+                <td className="equipmentCheckCol">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    disabled={!isCheckMode || isSaving}
+                    onChange={() => onToggleCheck(item)}
+                  />
+                </td>
                 <td className="equipmentName">{item.name || '-'}</td>
                 <td>
                   <span className={`equipmentOwnerBadge ${item.owner === 'IZEN' ? 'is-company' : 'is-personal'}`}>
@@ -347,23 +411,21 @@ function EquipmentGroupSection({
                 <td className="equipmentQty">{item.qty ?? '-'}</td>
                 <td>{item.parentEquipment || '-'}</td>
                 {showLocation ? <td>{item.location || '-'}</td> : null}
-                {isCheckMode ? (
-                  <td>
-                    {isChecked && checkout ? (
-                      <button
-                        type="button"
-                        className={`equipmentStatusBtn is-${checkout.status}`}
-                        disabled={isSaving}
-                        onClick={() => onStatusCycle(item)}
-                        title="클릭하여 상태 변경"
-                      >
-                        {isSaving ? '...' : STATUS_LABELS[checkout.status] || checkout.status}
-                      </button>
-                    ) : (
-                      <span className="muted">-</span>
-                    )}
-                  </td>
-                ) : null}
+                <td>
+                  {isChecked && checkout ? (
+                    <button
+                      type="button"
+                      className={`equipmentStatusBtn is-${checkout.status}`}
+                      disabled={isSaving}
+                      onClick={() => onStatusCycle(item)}
+                      title="클릭하여 상태 변경: 대기 → 반출 → 반납"
+                    >
+                      {isSaving ? '...' : STATUS_LABELS[checkout.status] || checkout.status}
+                    </button>
+                  ) : (
+                    <span className="muted">-</span>
+                  )}
+                </td>
                 <td className="muted">{item.note || '-'}</td>
               </tr>
             )

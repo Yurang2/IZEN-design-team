@@ -9230,20 +9230,52 @@ tr:hover td {
   border-bottom-color: var(--border);
 }
 
+.equipmentProjectBar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .equipmentProjectSelect {
   background: var(--surface2, #f1f5f9);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: 8px;
   color: var(--text1, #1e293b);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 6px 10px;
+  min-width: 260px;
+  padding: 8px 12px;
 }
 
-.equipmentSummary {
+.equipmentBanner {
+  background: var(--surface2, #f8fafc);
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: 10px;
   color: var(--text2, #64748b);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  padding: 12px 16px;
+}
+
+.equipmentBanner.is-active {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: var(--text1, #1e293b);
+}
+
+[data-theme='v2'] .equipmentBanner {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+
+[data-theme='v2'] .equipmentBanner.is-active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.equipmentBannerStats {
+  color: var(--text2, #64748b);
+  font-weight: 400;
 }
 
 .equipmentCheckedCount {
