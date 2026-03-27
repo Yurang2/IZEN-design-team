@@ -35,12 +35,6 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function parseDate(d: string | undefined): Date | null {
-  if (!d) return null
-  const t = new Date(d)
-  return Number.isFinite(t.getTime()) ? t : null
-}
-
 export function EquipmentView({
   configured,
   databaseTitle,
