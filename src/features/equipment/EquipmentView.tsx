@@ -384,14 +384,14 @@ function EquipmentGroupSection({
       <table className="equipmentTable">
         <thead>
           <tr>
-            <th className="equipmentCheckCol">선택</th>
-            <th>장비명</th>
-            <th>소유</th>
-            <th>수량</th>
-            <th>귀속장비</th>
-            {showLocation ? <th>물품 위치</th> : null}
-            <th>상태</th>
-            <th>비고</th>
+            <th className="eqCol-check">선택</th>
+            <th className="eqCol-name">장비명</th>
+            <th className="eqCol-owner">소유</th>
+            <th className="eqCol-qty">수량</th>
+            <th className="eqCol-parent">귀속장비</th>
+            {showLocation ? <th className="eqCol-location">물품 위치</th> : null}
+            <th className="eqCol-status">상태</th>
+            <th className="eqCol-note">비고</th>
           </tr>
         </thead>
         <tbody>
@@ -403,7 +403,7 @@ function EquipmentGroupSection({
 
             return (
               <tr key={item.id} className={isChecked ? 'is-checked' : ''}>
-                <td className="equipmentCheckCol">
+                <td className="eqCol-check">
                   <input
                     type="checkbox"
                     checked={isChecked}

@@ -9165,6 +9165,8 @@ tr:hover td {
 .equipmentTable {
   border-collapse: collapse;
   font-size: 12px;
+  table-layout: fixed;
+  width: 100%;
 }
 
 .equipmentTable th,
@@ -9190,8 +9192,20 @@ tr:hover td {
   background: var(--surface2, #f8fafc);
 }
 
+/* Column widths (table-layout: fixed) */
+.eqCol-check { width: 36px; text-align: center; }
+.eqCol-name { width: 200px; }
+.eqCol-owner { width: 56px; }
+.eqCol-qty { width: 40px; text-align: center; }
+.eqCol-parent { width: 140px; }
+.eqCol-location { width: 80px; }
+.eqCol-status { width: 68px; }
+/* eqCol-note: no width = takes remaining space */
+
 .equipmentName {
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .equipmentQty {
@@ -9287,10 +9301,6 @@ tr:hover td {
   font-weight: 700;
 }
 
-.equipmentCheckCol {
-  text-align: center;
-  width: 36px;
-}
 
 .equipmentTable tbody tr.is-checked td {
   background: #eff6ff;
