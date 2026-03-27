@@ -20,17 +20,11 @@ type EquipmentViewProps = {
 
 type OwnerFilter = 'all' | 'IZEN' | '개인'
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: '대기',
-  checked_out: '반출',
-  returned: '반납',
-}
-
-const STATUS_CYCLE: Record<string, string> = {
-  pending: 'checked_out',
-  checked_out: 'returned',
-  returned: 'pending',
-}
+const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'pending', label: '대기' },
+  { value: 'checked_out', label: '반출' },
+  { value: 'returned', label: '반납' },
+]
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -154,14 +148,14 @@ export function EquipmentView({
     }
   }, [selectedProjectId, checkoutMap, savingIds])
 
-  const handleStatusCycle = useCallback(async (item: EquipmentItem) => {
+  const handleStatusChange = useCallback(async (item: EquipmentItem, nextStatus: string) => {
     if (!selectedProjectId) return
     const normalizedId = item.id.replace(/-/g, '').toLowerCase()
     const existing = checkoutMap.get(normalizedId)
     if (!existing || existing.status === 'removed') return
+    if (existing.status === nextStatus) return
     if (savingIds[item.id]) return
 
-    const nextStatus = STATUS_CYCLE[existing.status] || 'pending'
     setSavingIds((prev) => ({ ...prev, [item.id]: true }))
     try {
       const body: Record<string, unknown> = {
@@ -327,7 +321,7 @@ export function EquipmentView({
                 checkoutMap={checkoutMap}
                 savingIds={savingIds}
                 onToggleCheck={handleToggleCheck}
-                onStatusCycle={handleStatusCycle}
+                onStatusChange={handleStatusChange}
               />
             ))}
           </div>
@@ -344,7 +338,7 @@ function EquipmentGroupSection({
   checkoutMap,
   savingIds,
   onToggleCheck,
-  onStatusCycle,
+  onStatusChange,
 }: {
   group: EquipmentGroup
   showLocation: boolean
@@ -352,7 +346,7 @@ function EquipmentGroupSection({
   checkoutMap: Map<string, EquipmentCheckoutRow>
   savingIds: Record<string, boolean>
   onToggleCheck: (item: EquipmentItem) => void
-  onStatusCycle: (item: EquipmentItem) => void
+  onStatusChange: (item: EquipmentItem, status: string) => void
 }) {
   const checkedCount = isCheckMode
     ? group.items.filter((i) => checkoutMap.has(i.id.replace(/-/g, '').toLowerCase())).length
@@ -408,15 +402,16 @@ function EquipmentGroupSection({
                 {showLocation ? <td>{item.location || '-'}</td> : null}
                 <td>
                   {isChecked && checkout ? (
-                    <button
-                      type="button"
-                      className={`equipmentStatusBtn is-${checkout.status}`}
+                    <select
+                      className={`equipmentStatusSelect is-${checkout.status}`}
+                      value={checkout.status}
                       disabled={isSaving}
-                      onClick={() => onStatusCycle(item)}
-                      title="클릭하여 상태 변경: 대기 → 반출 → 반납"
+                      onChange={(e) => onStatusChange(item, e.target.value)}
                     >
-                      {isSaving ? '...' : STATUS_LABELS[checkout.status] || checkout.status}
-                    </button>
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
                   ) : (
                     <span className="muted">-</span>
                   )}

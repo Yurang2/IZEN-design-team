@@ -9166,7 +9166,6 @@ tr:hover td {
   border-collapse: collapse;
   font-size: 12px;
   table-layout: auto;
-  width: 100%;
 }
 
 .equipmentTable th {
@@ -9302,45 +9301,44 @@ tr:hover td {
   background: rgba(37, 99, 235, 0.08);
 }
 
-.equipmentStatusBtn {
+.equipmentStatusSelect {
   border: 1px solid var(--border, #e2e8f0);
-  border-radius: 999px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 10px;
-  transition: background 0.15s, color 0.15s;
+  padding: 3px 6px;
 }
 
-.equipmentStatusBtn.is-pending {
+.equipmentStatusSelect.is-pending {
   background: var(--surface2, #f1f5f9);
   color: var(--text2, #64748b);
 }
 
-.equipmentStatusBtn.is-checked_out {
+.equipmentStatusSelect.is-checked_out {
   background: #fff7ed;
   border-color: #fdba74;
   color: #9a3412;
 }
 
-.equipmentStatusBtn.is-returned {
+.equipmentStatusSelect.is-returned {
   background: #f0fdf4;
   border-color: #86efac;
   color: #166534;
 }
 
-[data-theme='v2'] .equipmentStatusBtn.is-pending {
+[data-theme='v2'] .equipmentStatusSelect.is-pending {
   background: var(--surface2);
   color: var(--text2);
 }
 
-[data-theme='v2'] .equipmentStatusBtn.is-checked_out {
+[data-theme='v2'] .equipmentStatusSelect.is-checked_out {
   background: #451a03;
   border-color: #f59e0b;
   color: #fde68a;
 }
 
-[data-theme='v2'] .equipmentStatusBtn.is-returned {
+[data-theme='v2'] .equipmentStatusSelect.is-returned {
   background: #052e16;
   border-color: #4ade80;
   color: #dcfce7;

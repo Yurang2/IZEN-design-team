@@ -46,8 +46,13 @@ function readNumber(row: ScheduleRow, columns: ScheduleColumn[], aliases: string
   return Number.isFinite(n) ? n : null
 }
 
+function normalizeId(id: string): string {
+  return id.replace(/-/g, '').toLowerCase()
+}
+
 export function buildEquipmentItems(columns: ScheduleColumn[], rows: ScheduleRow[]): EquipmentItem[] {
-  return rows.map((row) => ({
+  // First pass: build items with raw parentEquipment (may contain Notion IDs)
+  const items = rows.map((row) => ({
     id: row.id,
     url: row.url,
     name: readText(row, columns, ['장비명', '이름', 'name']),
@@ -59,6 +64,24 @@ export function buildEquipmentItems(columns: ScheduleColumn[], rows: ScheduleRow
     note: readText(row, columns, ['비고', 'note', 'notes']),
     order: readNumber(row, columns, ['정렬순서', 'order']),
   }))
+
+  // Second pass: resolve relation IDs to equipment names
+  const idToName = new Map<string, string>()
+  for (const item of items) {
+    idToName.set(normalizeId(item.id), item.name)
+  }
+  for (const item of items) {
+    if (!item.parentEquipment) continue
+    const resolved = item.parentEquipment
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((id) => idToName.get(normalizeId(id)) ?? id)
+      .join(', ')
+    item.parentEquipment = resolved
+  }
+
+  return items
 }
 
 export function groupByCategory(items: EquipmentItem[]): EquipmentGroup[] {
