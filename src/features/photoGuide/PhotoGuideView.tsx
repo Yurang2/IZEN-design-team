@@ -40,7 +40,8 @@ export function PhotoGuideView({
       method: 'POST',
       body: formData,
     })
-    await onRefresh?.()
+    // 백그라운드에서 데이터 갱신 — await하지 않아 UI 리셋/스크롤 점프 방지
+    onRefresh?.()
   }
 
   if (loading) {
