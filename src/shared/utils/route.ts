@@ -23,6 +23,7 @@ export function parseTopView(value: string | null): TopView {
     value === 'workflowProcess' ||
     value === 'eventGraphics' ||
     value === 'photoGuide' ||
+    value === 'equipment' ||
     value === 'checklist' ||
     value === 'meetings' ||
     value === 'snsPost' ||
@@ -103,6 +104,7 @@ export function toTopViewPath(view: TopView): string {
   if (view === 'workflowProcess') return 'Workflow Process'
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'photoGuide') return 'Photo Guide'
+  if (view === 'equipment') return 'Equipment'
   if (view === 'feedback') return 'Feedback'
   if (view === 'meetings') return 'Meetings'
   if (view === 'snsPost') return 'SNS Post Generator'
@@ -122,6 +124,7 @@ export function toTopViewTitle(view: TopView): string {
   if (view === 'workflowProcess') return '업무진행 프로세스'
   if (view === 'eventGraphics') return '타임테이블'
   if (view === 'photoGuide') return '촬영가이드'
+  if (view === 'equipment') return '촬영장비'
   if (view === 'feedback') return '피드백'
   if (view === 'meetings') return '회의록'
   if (view === 'snsPost') return 'SNS 본문 생성'

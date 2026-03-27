@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ScheduleFile } from '../../shared/types'
 import type { PhotoGuideEntry, PhotoGuideGroup } from './photoGuideData'
 
@@ -42,16 +42,70 @@ function MetaChip({ label, value, href }: { label: string; value: string; href?:
   return <div className="photoGuideMetaChip">{content}</div>
 }
 
+function ImageGallery({ images }: { images: ScheduleFile[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const index = Number((entry.target as HTMLElement).dataset.index)
+            if (Number.isFinite(index)) setActiveIndex(index)
+          }
+        }
+      },
+      { root: container, threshold: 0.6 },
+    )
+
+    const items = container.querySelectorAll('[data-index]')
+    for (const item of items) observer.observe(item)
+    return () => observer.disconnect()
+  }, [images.length])
+
+  return (
+    <div className="photoGuideGalleryWrap">
+      <div className="photoGuideImageGallery" ref={scrollRef}>
+        {images.map((file, index) => (
+          <a key={`${file.name}-${file.url}`} href={file.url} target="_blank" rel="noreferrer" data-index={index}>
+            <img src={file.url} alt={file.name} loading="lazy" />
+          </a>
+        ))}
+      </div>
+      {images.length > 1 && (
+        <div className="photoGuideGalleryDots">
+          {images.map((_, index) => (
+            <span key={index} className={`photoGuideGalleryDot${index === activeIndex ? ' is-active' : ''}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AttachmentList({ files }: { files: ScheduleFile[] }) {
   if (files.length === 0) return <span className="photoGuideEmpty">-</span>
+
+  const images = files.filter((file) => file.kind === 'image')
+  const others = files.filter((file) => file.kind !== 'image')
+
   return (
-    <div className="photoGuideChipRow">
-      {files.map((file) => (
-        <a key={`${file.name}-${file.url}`} className={`photoGuideFileChip is-${file.kind}`} href={file.url} target="_blank" rel="noreferrer">
-          {file.name}
-        </a>
-      ))}
-    </div>
+    <>
+      {images.length > 0 && <ImageGallery images={images} />}
+      {others.length > 0 && (
+        <div className="photoGuideChipRow">
+          {others.map((file) => (
+            <a key={`${file.name}-${file.url}`} className={`photoGuideFileChip is-${file.kind}`} href={file.url} target="_blank" rel="noreferrer">
+              {file.name}
+            </a>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 

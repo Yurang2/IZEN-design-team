@@ -14,6 +14,7 @@ const MailTemplateView = lazy(() => import('./features/mailTemplate/MailTemplate
 const MeetingsView = lazy(() => import('./features/meetings/MeetingsView').then((m) => ({ default: m.MeetingsView })))
 const PhotoGuideSharePage = lazy(() => import('./features/photoGuide/PhotoGuideSharePage').then((m) => ({ default: m.PhotoGuideSharePage })))
 const PhotoGuideView = lazy(() => import('./features/photoGuide/PhotoGuideView').then((m) => ({ default: m.PhotoGuideView })))
+const EquipmentView = lazy(() => import('./features/equipment/EquipmentView').then((m) => ({ default: m.EquipmentView })))
 const ProjectsView = lazy(() => import('./features/projects/ProjectsView').then((m) => ({ default: m.ProjectsView })))
 const ScheduleView = lazy(() => import('./features/schedule/ScheduleView').then((m) => ({ default: m.ScheduleView })))
 const ScreeningDbView = lazy(() => import('./features/screening/ScreeningDbView').then((m) => ({ default: m.ScreeningDbView })))
@@ -197,6 +198,7 @@ function App() {
   const [screeningPlanImportForm, setScreeningPlanImportForm] = useState<ScreeningPlanImportForm>(INITIAL_SCREENING_PLAN_IMPORT_FORM)
   const eventGraphics = useNotionTableView('/event-graphics-timetable', '행사 그래픽 타임테이블을 불러오지 못했습니다.')
   const photoGuide = useNotionTableView('/photo-guide', '촬영 가이드를 불러오지 못했습니다.')
+  const equipment = useNotionTableView('/equipment', '촬영장비 목록을 불러오지 못했습니다.')
   const [assignmentSyncError, setAssignmentSyncError] = useState<string | null>(null)
   const [assignmentStorageMode, setAssignmentStorageMode] = useState<'notion_matrix' | 'd1' | 'cache'>('notion_matrix')
   const [assignmentRows, setAssignmentRows] = useState<ChecklistAssignmentRow[]>([])
@@ -603,9 +605,10 @@ function App() {
     }
     if (authState !== 'authenticated') return
     if (route.kind !== 'list') return
-    if (activeView !== 'photoGuide') return
-    void photoGuide.fetch()
-  }, [activeView, authState, photoGuide.fetch, route.kind])
+    if (activeView !== 'photoGuide' && activeView !== 'equipment') return
+    if (activeView === 'photoGuide') void photoGuide.fetch()
+    if (activeView === 'equipment') void equipment.fetch()
+  }, [activeView, authState, equipment.fetch, photoGuide.fetch, route.kind])
 
   const refreshListAndProjects = useCallback(async () => {
     const jobs: Array<Promise<unknown>> = [fetchProjects(), fetchTasks()]
@@ -614,8 +617,9 @@ function App() {
     if (activeView === 'screeningPlan') jobs.push(screeningPlan.fetch(), screeningHistory.fetch())
     if (activeView === 'eventGraphics') jobs.push(eventGraphics.fetch())
     if (activeView === 'photoGuide') jobs.push(photoGuide.fetch())
+    if (activeView === 'equipment') jobs.push(equipment.fetch())
     await Promise.all(jobs)
-  }, [activeView, eventGraphics.fetch, fetchProjects, fetchTasks, photoGuide.fetch, schedule.fetch, screeningHistory.fetch, screeningPlan.fetch])
+  }, [activeView, equipment.fetch, eventGraphics.fetch, fetchProjects, fetchTasks, photoGuide.fetch, schedule.fetch, screeningHistory.fetch, screeningPlan.fetch])
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -1110,6 +1114,7 @@ function App() {
         assignedTaskActualEndDate: assignedTask?.actualEndDate,
         assignedTaskAssigneeText: assignedTask ? joinOrDash(assignedTask.assignee) : '',
         isAssigned: assignmentStatus === 'assigned',
+        hasAssignee: assignedTask ? assignedTask.assignee.length > 0 : false,
         totalLeadDays,
         computedDueDate,
         __sortIndex: index,
@@ -1347,10 +1352,11 @@ function App() {
     if (activeView === 'screeningPlan') return screeningPlan.databaseUrl
     if (activeView === 'eventGraphics') return eventGraphics.databaseUrl
     if (activeView === 'photoGuide') return photoGuide.databaseUrl
+    if (activeView === 'equipment') return equipment.databaseUrl
     if (activeView === 'checklist') return dbLinks.checklist
     if (activeView === 'feedback') return dbLinks.feedback
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.project, dbLinks.task, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
+  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.project, dbLinks.task, equipment.databaseUrl, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -1388,6 +1394,7 @@ function App() {
       items: [
         { view: 'eventGraphics', title: '타임테이블', label: '타임테이블', icon: 'calendar' },
         { view: 'photoGuide', title: '촬영가이드', label: '촬영가이드', icon: 'list', test: true },
+        { view: 'equipment', title: '촬영장비', label: '촬영장비', icon: 'list' },
         { view: 'checklist', title: '행사 체크리스트', label: '행사 체크리스트', icon: 'checksquare' },
         { view: 'feedback', title: '피드백', label: '피드백', icon: 'list', test: true },
       ],
@@ -1682,19 +1689,11 @@ function App() {
     setAssignmentSyncError(null)
 
     try {
-      const detailLines = [
-        '[체크리스트 자동 생성]',
-        project.name ? `행사: ${project.name}` : '',
-        row.item.workCategory ? `작업분류: ${row.item.workCategory}` : '',
-        row.item.finalDueText ? `체크리스트 기준: ${row.item.finalDueText}` : '',
-      ].filter(Boolean)
-
       const payload: Record<string, unknown> = {
         taskName: row.item.productName?.trim() || row.item.workCategory?.trim() || '체크리스트 업무',
         workType: row.item.workCategory?.trim() || undefined,
         assignee: splitByComma(assigneeText ?? ''),
         dueDate: row.computedDueDate || undefined,
-        detail: detailLines.join('\n') || undefined,
       }
 
       if (schema?.projectBindingMode === 'relation') {
@@ -1711,9 +1710,12 @@ function App() {
       setSchema(created.schema)
       setChecklistTaskOverrides((prev) => ({ ...prev, [created.task.id]: created.task }))
 
+      const hasAssignee = splitByComma(assigneeText ?? '').length > 0
       await setChecklistAssignment(itemId, created.task.id, {
         assignmentStatus: 'assigned',
-        successMessage: '체크리스트 기반 업무를 생성하고 할당했습니다.',
+        successMessage: hasAssignee
+          ? '체크리스트 기반 업무를 생성하고 할당했습니다.'
+          : '업무가 생성되었지만 담당자가 미지정 상태입니다. 나중에 담당자를 지정해주세요.',
       })
     } catch (error: unknown) {
       const message = toErrorMessage(error, '체크리스트 기반 업무 생성에 실패했습니다.')
@@ -2566,6 +2568,20 @@ function App() {
           loading={photoGuide.loading}
           error={photoGuide.error}
           shareHref="/share/photo-guide"
+          onRefresh={photoGuide.fetch}
+        />
+      ) : null}
+
+      {activeView === 'equipment' ? (
+        <EquipmentView
+          configured={equipment.configured}
+          databaseTitle={equipment.databaseTitle}
+          databaseUrl={equipment.databaseUrl}
+          columns={equipment.columns}
+          rows={equipment.rows}
+          loading={equipment.loading}
+          error={equipment.error}
+          onRefresh={equipment.fetch}
         />
       ) : null}
 

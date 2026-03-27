@@ -208,6 +208,7 @@ type AssignmentTimelineBar = {
   dueDateIso: string
   lane: number
   assignmentStatus: ChecklistTableRow['assignmentStatus']
+  hasAssignee: boolean
   isCompleted: boolean
   isOverdue: boolean
   isDueToday: boolean
@@ -416,12 +417,15 @@ export function ChecklistView({
       preparedBars.push({
         id: row.item.id,
         label: row.item.productName || row.item.workCategory || '-',
-        assignmentStatusLabel: row.assignmentStatusLabel || (row.assignmentStatus === 'assigned' ? '할당' : '미할당'),
+        assignmentStatusLabel: row.assignmentStatus === 'assigned' && !row.hasAssignee
+          ? '업무만 연결됨'
+          : row.assignmentStatusLabel || (row.assignmentStatus === 'assigned' ? '할당' : '미할당'),
         startDate,
         dueDate,
         startDateIso: toIsoDate(startDate),
         dueDateIso: row.computedDueDate,
         assignmentStatus: row.assignmentStatus,
+        hasAssignee: row.hasAssignee,
         isCompleted,
         isOverdue: !isCompleted && row.computedDueDate < todayIso,
         isDueToday: !isCompleted && row.computedDueDate === todayIso,
@@ -907,6 +911,7 @@ export function ChecklistView({
                         const className = [
                           'assignmentAsanaBar',
                           entry.assignmentStatus === 'unassigned' ? 'is-unassigned' : '',
+                          entry.assignmentStatus === 'assigned' && !entry.hasAssignee ? 'is-no-assignee' : '',
                           entry.isCompleted ? 'is-completed' : '',
                           entry.isDueToday ? 'is-due-today' : '',
                           entry.isOverdue ? 'is-overdue' : '',
@@ -1045,11 +1050,15 @@ export function ChecklistView({
                               : row.assignmentStatus === 'not_applicable'
                                 ? 'notApplicable'
                                 : row.assignmentStatus === 'assigned'
-                                  ? 'assigned'
+                                  ? (row.hasAssignee ? 'assigned' : 'assignedNoAssignee')
                                   : 'unassigned'
                           }`}
                         >
-                          {assignmentLoading ? '확인 중' : row.assignmentStatusLabel}
+                          {assignmentLoading
+                            ? '확인 중'
+                            : row.assignmentStatus === 'assigned' && !row.hasAssignee
+                              ? '업무만 연결됨'
+                              : row.assignmentStatusLabel}
                         </span>
                       </td>
                     ) : null}

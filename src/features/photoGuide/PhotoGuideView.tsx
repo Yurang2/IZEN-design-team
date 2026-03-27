@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ScheduleColumn, ScheduleRow } from '../../shared/types'
 import { EmptyState } from '../../shared/ui'
+import { PhotoGuideCreateModal } from './PhotoGuideCreateModal'
 import { PhotoGuideDocument } from './PhotoGuideDocument'
 import { buildPhotoGuideGroups } from './photoGuideData'
 
@@ -13,6 +14,7 @@ type PhotoGuideViewProps = {
   loading: boolean
   error: string | null
   shareHref: string
+  onRefresh?: () => void
 }
 
 export function PhotoGuideView({
@@ -24,7 +26,9 @@ export function PhotoGuideView({
   loading,
   error,
   shareHref,
+  onRefresh,
 }: PhotoGuideViewProps) {
+  const [createOpen, setCreateOpen] = useState(false)
   const pageTitle = databaseTitle.trim() || '촬영 가이드'
   const groups = useMemo(() => buildPhotoGuideGroups(columns, rows, pageTitle), [columns, pageTitle, rows])
 
@@ -59,33 +63,57 @@ export function PhotoGuideView({
     )
   }
 
+  const actionButtons = (
+    <>
+      <button type="button" className="linkButton secondary mini" onClick={() => setCreateOpen(true)}>
+        새 촬영가이드
+      </button>
+      <a className="linkButton secondary mini" href={shareHref} target="_blank" rel="noreferrer">
+        External Share
+      </a>
+      {databaseUrl ? (
+        <a className="linkButton secondary mini" href={databaseUrl} target="_blank" rel="noreferrer">
+          노션 DB
+        </a>
+      ) : null}
+    </>
+  )
+
   if (groups.length === 0) {
     return (
-      <EmptyState
-        title="표시할 촬영 가이드가 없습니다."
-        message="촬영가이드 DB 컬럼은 자동 생성됩니다. 아직 row가 없으면 이 화면은 비어 보입니다."
-        className="scheduleEmptyState"
-      />
+      <>
+        <EmptyState
+          title="표시할 촬영 가이드가 없습니다."
+          message="촬영가이드 DB 컬럼은 자동 생성됩니다. 아직 row가 없으면 이 화면은 비어 보입니다."
+          className="scheduleEmptyState"
+        />
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+          <button type="button" className="linkButton secondary mini" onClick={() => setCreateOpen(true)}>
+            새 촬영가이드
+          </button>
+        </div>
+        <PhotoGuideCreateModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => onRefresh?.()}
+        />
+      </>
     )
   }
 
   return (
-    <PhotoGuideDocument
-      embedded
-      pageTitle={pageTitle}
-      groups={groups}
-      actionSlot={
-        <>
-          <a className="linkButton secondary mini" href={shareHref} target="_blank" rel="noreferrer">
-            External Share
-          </a>
-          {databaseUrl ? (
-            <a className="linkButton secondary mini" href={databaseUrl} target="_blank" rel="noreferrer">
-              노션 DB
-            </a>
-          ) : null}
-        </>
-      }
-    />
+    <>
+      <PhotoGuideDocument
+        embedded
+        pageTitle={pageTitle}
+        groups={groups}
+        actionSlot={actionButtons}
+      />
+      <PhotoGuideCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => onRefresh?.()}
+      />
+    </>
   )
 }

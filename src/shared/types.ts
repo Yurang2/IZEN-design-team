@@ -326,6 +326,7 @@ export type TopView =
   | 'workflowProcess'
   | 'eventGraphics'
   | 'photoGuide'
+  | 'equipment'
   | 'checklist'
   | 'meetings'
   | 'snsPost'
@@ -422,6 +423,7 @@ export type ChecklistTableRow = {
   assignedTaskActualEndDate?: string
   assignedTaskAssigneeText?: string
   isAssigned: boolean
+  hasAssignee: boolean
   totalLeadDays?: number
   computedDueDate?: string
 }

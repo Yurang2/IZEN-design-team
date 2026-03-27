@@ -88,6 +88,9 @@ import {
   filterFeedback,
   parseFeedbackCreateBody,
   parseFeedbackUpdateBody,
+  parsePhotoGuideCreateBody,
+  toPhotoGuideUploadErrorStatus,
+  uploadPhotoGuideFileToNotion,
 } from './handlers'
 
 export default {
@@ -354,6 +357,10 @@ export default {
                 id: env.NOTION_PHOTO_GUIDE_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_PHOTO_GUIDE_DB_ID),
               },
+              equipment: {
+                id: env.NOTION_EQUIPMENT_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_EQUIPMENT_DB_ID),
+              },
               meeting: {
                 id: getMeetingNotionDbId(env),
                 url: notionDatabaseUrl(getMeetingNotionDbId(env)),
@@ -500,6 +507,57 @@ export default {
             },
             columns: photoGuide.columns,
             rows: photoGuide.rows,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'POST' && path === '/photo-guide') {
+        try {
+          const body = await readJsonBody(request)
+          const input = parsePhotoGuideCreateBody(body)
+          const created = await service.createPhotoGuide(input)
+          invalidateSnapshotCache(ctx)
+          return ok({ ok: true, id: created.id, url: created.url }, origin)
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'photo_guide_create_failed'
+          const status = message === 'title_required' ? 400 : 500
+          return json({ ok: false, error: message }, status, origin)
+        }
+      }
+
+      const photoGuideUploadMatch = path.match(/^\/photo-guide\/([^/]+)\/files$/)
+      if (request.method === 'POST' && photoGuideUploadMatch) {
+        try {
+          const pageId = decodeURIComponent(photoGuideUploadMatch[1])
+          const form = await request.formData()
+          const file = form.get('file')
+          if (!(file instanceof File)) {
+            return json({ ok: false, error: 'photo_guide_upload_file_missing' }, 400, origin)
+          }
+
+          const uploaded = await uploadPhotoGuideFileToNotion(env, pageId, file)
+          return ok({ ok: true, pageId, fileName: uploaded.fileName }, origin)
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : 'photo_guide_upload_failed'
+          return json({ ok: false, error: message, message }, toPhotoGuideUploadErrorStatus(message), origin)
+        }
+      }
+
+      if (request.method === 'GET' && path === '/equipment') {
+        const equipment = await service.listEquipmentView()
+        return ok(
+          {
+            ok: true,
+            configured: equipment.configured,
+            database: {
+              id: equipment.database.id,
+              url: notionDatabaseUrl(equipment.database.id ?? undefined),
+              title: equipment.database.title,
+            },
+            columns: equipment.columns,
+            rows: equipment.rows,
             cacheTtlMs,
           },
           origin,

@@ -6,6 +6,7 @@ import type {
   ChecklistAssignmentStatus,
   ChecklistPreviewItem,
   CreateFeedbackInput,
+  CreatePhotoGuideInput,
   CreateTaskInput,
   Env,
   FeedbackRecord,
@@ -1952,6 +1953,54 @@ export class NotionWorkService {
     }
   }
 
+  async listEquipmentView(): Promise<{
+    configured: boolean
+    database: {
+      id: string | null
+      title: string
+    }
+    columns: ScheduleColumn[]
+    rows: ScheduleRow[]
+  }> {
+    const databaseId = normalizeText(this.env.NOTION_EQUIPMENT_DB_ID)
+    if (!databaseId) {
+      return {
+        configured: false,
+        database: { id: null, title: '' },
+        columns: [],
+        rows: [],
+      }
+    }
+
+    const db: any = await this.api.retrieveDatabase(databaseId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    const columns = Object.entries(properties).map(([name, prop]) => ({
+      id: normalizeText(String(prop?.id ?? name)) || name,
+      name,
+      type: normalizeText(String(prop?.type ?? 'unknown')) || 'unknown',
+    }))
+
+    const pages = await this.queryAll(databaseId)
+    const rows = pages.map((page) => {
+      const props = (page.properties ?? {}) as AnyMap
+      return {
+        id: page.id,
+        url: normalizeText(page.url) || null,
+        cells: columns.map((column) => serializeScheduleCell(props[column.name], column)),
+      }
+    })
+
+    return {
+      configured: true,
+      database: {
+        id: databaseId,
+        title: parseDbTitle(db),
+      },
+      columns,
+      rows,
+    }
+  }
+
   async listPhotoGuideView(): Promise<{
     configured: boolean
     schema: ScreeningSchemaSyncResult
@@ -1971,6 +2020,52 @@ export class NotionWorkService {
       columns: view.columns,
       rows: view.rows,
     }
+  }
+
+  async createPhotoGuide(input: CreatePhotoGuideInput): Promise<{ id: string; url: string }> {
+    const schema = await this.syncPhotoGuideDatabaseProperties()
+    if (!schema.databaseId) {
+      throw new Error('photo_guide_db_not_configured')
+    }
+
+    const title = normalizeText(input.title)
+    if (!title) throw new Error('title_required')
+
+    const properties: Record<string, unknown> = {
+      [PHOTO_GUIDE_TITLE_FIELD]: { title: [{ text: { content: title } }] },
+    }
+
+    const applyText = (field: string, value: string | undefined) => {
+      const text = normalizeText(value ?? '')
+      if (text) properties[field] = { rich_text: [{ text: { content: text } }] }
+    }
+
+    if (input.section) {
+      properties[PHOTO_GUIDE_SECTION_FIELD] = { select: { name: input.section } }
+    }
+    applyText(PHOTO_GUIDE_EVENT_FIELD, input.eventName)
+    if (input.eventDate) {
+      properties[PHOTO_GUIDE_DATE_FIELD] = { date: { start: input.eventDate } }
+    }
+    applyText(PHOTO_GUIDE_LOCATION_FIELD, input.location)
+    applyText(PHOTO_GUIDE_CALL_TIME_FIELD, input.callTime)
+    applyText(PHOTO_GUIDE_CONTACT_FIELD, input.contact)
+    applyText(PHOTO_GUIDE_PURPOSE_FIELD, input.purpose)
+    applyText(PHOTO_GUIDE_MUST_SHOOT_FIELD, input.mustShoot)
+    applyText(PHOTO_GUIDE_TIMELINE_FIELD, input.timeline)
+    applyText(PHOTO_GUIDE_CAUTION_FIELD, input.cautions)
+    applyText(PHOTO_GUIDE_DELIVERY_FIELD, input.delivery)
+    applyText(PHOTO_GUIDE_REFERENCE_NOTE_FIELD, input.references)
+    if (input.referenceLink) {
+      properties[PHOTO_GUIDE_REFERENCE_LINK_FIELD] = { url: input.referenceLink }
+    }
+
+    const created = (await this.api.createPage({
+      parent: { database_id: schema.databaseId },
+      properties,
+    })) as { id: string; url: string }
+
+    return { id: created.id, url: created.url }
   }
 
   private async listDatabaseGridView(databaseId: string | null): Promise<{

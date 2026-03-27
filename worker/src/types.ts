@@ -35,6 +35,7 @@ export interface Env {
   NOTION_SCHEDULE_DB_ID?: string
   NOTION_EVENT_GRAPHICS_TIMETABLE_DB_ID?: string
   NOTION_PHOTO_GUIDE_DB_ID?: string
+  NOTION_EQUIPMENT_DB_ID?: string
   NOTION_SCREENING_HISTORY_DB_ID?: string
   NOTION_SCREENING_PLAN_DB_ID?: string
   NOTION_SCREENING_VIDEO_DB_ID?: string
@@ -315,6 +316,23 @@ export type CreateTaskInput = {
   priority?: string
   urgent?: boolean
   issue?: string
+}
+
+export type CreatePhotoGuideInput = {
+  title: string
+  section?: string
+  eventName?: string
+  eventDate?: string
+  location?: string
+  callTime?: string
+  contact?: string
+  purpose?: string
+  mustShoot?: string
+  timeline?: string
+  cautions?: string
+  delivery?: string
+  references?: string
+  referenceLink?: string
 }
 
 export type UpdateTaskInput = {
