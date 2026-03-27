@@ -46,7 +46,7 @@ export function EquipmentView({
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const [checkouts, setCheckouts] = useState<EquipmentCheckoutRow[]>([])
   const [checkoutLoading, setCheckoutLoading] = useState(false)
-  const [savingIds, setSavingIds] = useState<Record<string, boolean>>({})
+  const [savingIds] = useState<Record<string, boolean>>({})
   const [hidePastEvents, setHidePastEvents] = useState(true)
 
   const isCheckMode = Boolean(selectedProjectId)
@@ -120,22 +120,34 @@ export function EquipmentView({
     if (!selectedProjectId) return
     const normalizedId = item.id.replace(/-/g, '').toLowerCase()
     const existing = checkoutMap.get(normalizedId)
-    const isSaving = savingIds[item.id]
-    if (isSaving) return
 
-    setSavingIds((prev) => ({ ...prev, [item.id]: true }))
-    try {
-      const body: Record<string, unknown> = {
+    // Optimistic update
+    const prevCheckouts = checkouts
+    if (existing) {
+      setCheckouts((prev) => prev.filter((r) => r.equipmentPageId.replace(/-/g, '').toLowerCase() !== normalizedId))
+    } else {
+      const optimistic: EquipmentCheckoutRow = {
+        id: `temp-${item.id}`,
         projectPageId: selectedProjectId,
         equipmentPageId: item.id,
-        status: existing ? 'remove' : 'pending',
+        status: 'pending',
+        checkoutDate: '',
+        returnDate: '',
+        memo: '',
       }
+      setCheckouts((prev) => [...prev, optimistic])
+    }
 
+    try {
       const res = await api<{ ok: boolean; row: EquipmentCheckoutRow }>('/equipment-checkouts', {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          projectPageId: selectedProjectId,
+          equipmentPageId: item.id,
+          status: existing ? 'remove' : 'pending',
+        }),
       })
-
+      // Replace optimistic with server response
       if (res.row) {
         setCheckouts((prev) => {
           const rest = prev.filter((r) => r.equipmentPageId.replace(/-/g, '').toLowerCase() !== normalizedId)
@@ -143,10 +155,10 @@ export function EquipmentView({
           return rest
         })
       }
-    } finally {
-      setSavingIds((prev) => ({ ...prev, [item.id]: false }))
+    } catch {
+      setCheckouts(prevCheckouts) // Rollback on error
     }
-  }, [selectedProjectId, checkoutMap, savingIds])
+  }, [selectedProjectId, checkoutMap, checkouts])
 
   const handleStatusChange = useCallback(async (item: EquipmentItem, nextStatus: string) => {
     if (!selectedProjectId) return
@@ -154,9 +166,17 @@ export function EquipmentView({
     const existing = checkoutMap.get(normalizedId)
     if (!existing || existing.status === 'removed') return
     if (existing.status === nextStatus) return
-    if (savingIds[item.id]) return
 
-    setSavingIds((prev) => ({ ...prev, [item.id]: true }))
+    // Optimistic update
+    const prevCheckouts = checkouts
+    setCheckouts((prev) =>
+      prev.map((r) =>
+        r.equipmentPageId.replace(/-/g, '').toLowerCase() === normalizedId
+          ? { ...r, status: nextStatus as EquipmentCheckoutRow['status'] }
+          : r,
+      ),
+    )
+
     try {
       const body: Record<string, unknown> = {
         projectPageId: selectedProjectId,
@@ -174,16 +194,16 @@ export function EquipmentView({
         method: 'POST',
         body: JSON.stringify(body),
       })
-
+      // Replace optimistic with server response
       if (res.row) {
         setCheckouts((prev) =>
           prev.map((r) => (r.equipmentPageId.replace(/-/g, '').toLowerCase() === normalizedId ? res.row : r)),
         )
       }
-    } finally {
-      setSavingIds((prev) => ({ ...prev, [item.id]: false }))
+    } catch {
+      setCheckouts(prevCheckouts) // Rollback on error
     }
-  }, [selectedProjectId, checkoutMap, savingIds])
+  }, [selectedProjectId, checkoutMap, checkouts])
 
   if (loading) {
     return (
