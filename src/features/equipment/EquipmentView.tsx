@@ -56,7 +56,7 @@ export function EquipmentView({
       <main className="equipmentShell">
         <EmptyState
           title="촬영장비 DB 미연결"
-          description="NOTION_EQUIPMENT_DB_ID 환경변수를 설정해주세요."
+          message="NOTION_EQUIPMENT_DB_ID 환경변수를 설정해주세요."
         />
       </main>
     )
@@ -65,7 +65,7 @@ export function EquipmentView({
   if (error) {
     return (
       <main className="equipmentShell">
-        <EmptyState title="오류 발생" description={error} />
+        <EmptyState title="오류 발생" message={error} />
       </main>
     )
   }
@@ -111,7 +111,7 @@ export function EquipmentView({
         </header>
 
         {groups.length === 0 ? (
-          <EmptyState title="장비 없음" description="등록된 장비가 없습니다." />
+          <EmptyState title="장비 없음" message="등록된 장비가 없습니다." />
         ) : (
           <div className="equipmentGroups">
             {groups.map((group) => (
