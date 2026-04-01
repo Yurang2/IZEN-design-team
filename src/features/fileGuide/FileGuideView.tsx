@@ -8,6 +8,7 @@
 
 type FolderNode = {
   name: string
+  comment?: string
   children?: FolderNode[]
 }
 
@@ -29,46 +30,132 @@ type VersionRule = {
   example: string
 }
 
+type ExtensionGuide = {
+  extensions: string
+  category: string
+  location: string
+  note: string
+}
+
 // ---- Dummy Data: Folder Structure ----
 
-const FOLDER_STRUCTURE: FolderNode = {
+const PROJECT_FOLDER: FolderNode = {
   name: '2026_춘계학술대회',
   children: [
     {
-      name: '01_기획',
+      name: '00_기획',
       children: [
         { name: '요청서' },
         { name: '레퍼런스' },
       ],
     },
     {
-      name: '02_디자인',
+      name: '01_인쇄물',
+      comment: '포스터, 현수막, 리플렛 등',
       children: [
-        { name: '시안' },
-        { name: '작업파일' },
+        {
+          name: '포스터',
+          children: [
+            { name: '_src', comment: '.ai .psd .indd 작업파일' },
+            { name: '_export', comment: '.pdf .tiff 출력용' },
+          ],
+        },
+        {
+          name: '현수막',
+          children: [
+            { name: '_src' },
+            { name: '_export' },
+          ],
+        },
+        {
+          name: '리플렛',
+          children: [
+            { name: '_src' },
+            { name: '_export' },
+          ],
+        },
       ],
     },
     {
-      name: '03_최종',
+      name: '02_디지털',
+      comment: '웹배너, SNS 카드 등',
       children: [
-        { name: '인쇄용' },
-        { name: '웹용' },
-        { name: 'SNS용' },
+        {
+          name: '웹배너',
+          children: [
+            { name: '_src' },
+            { name: '_export', comment: '.png .jpg .gif' },
+          ],
+        },
+        {
+          name: 'SNS',
+          children: [
+            { name: '_src' },
+            { name: '_export' },
+          ],
+        },
       ],
     },
     {
-      name: '04_아카이브',
+      name: '03_영상',
+      children: [
+        { name: '_src', comment: '.prproj .aep 편집 프로젝트' },
+        { name: '_export', comment: '.mp4 .mov 최종 렌더' },
+        { name: '_소스클립', comment: '촬영 원본, 스톡 영상' },
+      ],
+    },
+    {
+      name: '04_사진',
+      children: [
+        { name: '_원본', comment: '.raw .cr2 .nef 카메라 원본' },
+        { name: '_보정', comment: '.jpg .tiff 보정 완료본' },
+        { name: '_선별', comment: '최종 선별된 사진' },
+      ],
+    },
+    {
+      name: '05_아카이브',
+      comment: '폐기 시안, 과거 버전 등',
     },
   ],
 }
+
+const SHARED_ASSETS_FOLDER: FolderNode = {
+  name: '_공용에셋',
+  comment: '프로젝트 공통 자산 (모든 프로젝트에서 참조)',
+  children: [
+    { name: '로고', comment: '회사/브랜드 로고 원본' },
+    { name: '템플릿', comment: '반복 사용하는 레이아웃 템플릿' },
+    { name: '폰트', comment: '팀 공용 폰트 파일' },
+    { name: '아이콘_소스', comment: '공용 아이콘, 일러스트' },
+  ],
+}
+
+// ---- Dummy Data: Extension Guide ----
+
+const EXTENSION_GUIDE: ExtensionGuide[] = [
+  { extensions: '.ai', category: '벡터 작업', location: '_src/', note: 'Illustrator 원본. 로고, 포스터, 인포그래픽' },
+  { extensions: '.psd', category: '비트맵 작업', location: '_src/', note: 'Photoshop 원본. 사진 합성, 배너' },
+  { extensions: '.indd', category: '편집 레이아웃', location: '_src/', note: 'InDesign 원본. 리플렛, 브로셔, 다페이지' },
+  { extensions: '.prproj', category: '영상 편집', location: '03_영상/_src/', note: 'Premiere Pro 프로젝트' },
+  { extensions: '.aep', category: '모션 그래픽', location: '03_영상/_src/', note: 'After Effects 프로젝트' },
+  { extensions: '.pdf (인쇄)', category: '인쇄 출력물', location: '01_인쇄물/_export/', note: 'CMYK, 재단선 포함, 고해상도' },
+  { extensions: '.pdf (웹)', category: '디지털 배포', location: '02_디지털/_export/', note: 'RGB, 경량화, 웹 최적화' },
+  { extensions: '.png .jpg', category: '웹/SNS 이미지', location: '02_디지털/_export/', note: 'PNG=투명 배경, JPG=사진/배경 있는 이미지' },
+  { extensions: '.gif', category: '움직이는 이미지', location: '02_디지털/_export/', note: 'SNS용 짧은 애니메이션' },
+  { extensions: '.tiff', category: '고해상도 이미지', location: '_export/', note: '인쇄 납품 또는 사진 보정 최종본' },
+  { extensions: '.mp4', category: '영상 최종', location: '03_영상/_export/', note: 'H.264 코덱, 범용 재생' },
+  { extensions: '.mov', category: '영상 고품질', location: '03_영상/_export/', note: 'ProRes 등 고품질 납품용' },
+  { extensions: '.raw .cr2 .nef', category: '사진 원본', location: '04_사진/_원본/', note: '카메라 RAW. 절대 삭제 금지' },
+  { extensions: '.eps .svg', category: '벡터 호환', location: '_src/ 또는 _export/', note: '외부 납품용 벡터. 로고 배포 시 사용' },
+]
 
 // ---- Dummy Data: Naming Rules ----
 
 const NAMING_RULES: NamingRule[] = [
   {
     label: '기본 패턴',
-    pattern: 'YYMMDD_프로젝트약칭_파일설명_버전.확장자',
-    detail: '날짜를 맨 앞에 두어 정렬했을 때 시간순으로 나열됩니다.',
+    pattern: 'YYMMDD_프로젝트약칭_산출물_설명_버전.확장자',
+    detail: '날짜를 맨 앞에 두어 정렬 시 시간순. 언더스코어(_)로 구분하면 자동 파싱이 가능합니다.',
   },
   {
     label: '날짜 형식',
@@ -78,12 +165,22 @@ const NAMING_RULES: NamingRule[] = [
   {
     label: '구분자',
     pattern: '언더스코어 (_)',
-    detail: '공백, 하이픈 대신 언더스코어로 통일합니다. 공백은 시스템 간 호환 문제를 일으킬 수 있습니다.',
+    detail: '공백, 하이픈 대신 언더스코어로 통일. 공백은 시스템 간 호환 문제를 일으킬 수 있습니다.',
   },
   {
     label: '프로젝트 약칭',
     pattern: '2~4글자 한글 약칭',
-    detail: '팀 내 공용으로 쓰는 약칭. 예: 춘계학회, 가을축제, 신입OT',
+    detail: '팀 내 공용 약칭 사전에서 선택. 예: 춘계학회, 가을축제, 신입OT',
+  },
+  {
+    label: '산출물 유형',
+    pattern: '포스터, 현수막, 리플렛, 웹배너, SNS카드 등',
+    detail: '무엇을 만들었는지 한눈에 파악할 수 있도록.',
+  },
+  {
+    label: '규격/용도',
+    pattern: 'A1, 가로6m, 1080x1080 등',
+    detail: '같은 산출물이라도 규격이 다르면 파일명에 포함. 선택 사항.',
   },
 ]
 
@@ -92,7 +189,7 @@ const NAMING_RULES: NamingRule[] = [
 const NAMING_EXAMPLES: NamingExample[] = [
   {
     bad: '포스터 최종_진짜최종_수정본(3).psd',
-    good: '260401_춘계학회_포스터A1_v3.psd',
+    good: '260401_춘계학회_포스터_A1_v3.psd',
     reason: '버전이 명확하고, 날짜로 시점을 알 수 있습니다.',
   },
   {
@@ -109,6 +206,16 @@ const NAMING_EXAMPLES: NamingExample[] = [
     bad: '리플렛 앞면 final edit 수정완료.pdf',
     good: '260405_춘계학회_리플렛_앞면_final.pdf',
     reason: '승인된 최종본은 final 하나만 씁니다.',
+  },
+  {
+    bad: 'IMG_4821.CR2',
+    good: '260401_춘계학회_RAW_001.cr2',
+    reason: '카메라 기본 파일명 대신 프로젝트 정보를 포함.',
+  },
+  {
+    bad: 'Premiere Project.prproj',
+    good: '260401_춘계학회_리캡영상_v2.prproj',
+    reason: '영상 프로젝트 파일도 동일한 규칙 적용.',
   },
 ]
 
@@ -137,6 +244,10 @@ const TEAM_AGREEMENT_ITEMS = [
     options: '팀 공용 약칭 사전을 만들어 통일 (예: 춘계학회, 가을축제)',
   },
   {
+    topic: '_src / _export 폴더명',
+    options: '현재 제안대로? 또는 다른 이름? (원본/출력물, source/output 등)',
+  },
+  {
     topic: '하위 폴더 깊이 제한',
     options: '최대 3단계까지? 4단계까지?',
   },
@@ -146,11 +257,11 @@ const TEAM_AGREEMENT_ITEMS = [
   },
   {
     topic: '공용 에셋 저장 위치',
-    options: '로고, 템플릿, 폰트 등 팀 공유 자산의 고정 위치',
+    options: '로고, 템플릿, 폰트 등 팀 공유 자산의 고정 위치와 접근 방법',
   },
   {
-    topic: '사진/영상 원본 관리',
-    options: '원본은 별도 드라이브? 프로젝트 폴더 내?',
+    topic: '사진/영상 원본 보존 기간',
+    options: 'RAW 파일 보존 기간? 별도 외장드라이브? 클라우드?',
   },
 ]
 
@@ -158,7 +269,8 @@ const TEAM_AGREEMENT_ITEMS = [
 
 function renderFolderTree(node: FolderNode, prefix: string, isLast: boolean, isRoot: boolean): string[] {
   const connector = isRoot ? '' : isLast ? '└── ' : '├── '
-  const lines: string[] = [`${prefix}${connector}${node.name}/`]
+  const comment = node.comment ? `  ← ${node.comment}` : ''
+  const lines: string[] = [`${prefix}${connector}${node.name}/${comment}`]
   if (node.children) {
     const childPrefix = isRoot ? '' : prefix + (isLast ? '    ' : '│   ')
     node.children.forEach((child, i) => {
@@ -171,7 +283,8 @@ function renderFolderTree(node: FolderNode, prefix: string, isLast: boolean, isR
 // ---- Component ----
 
 export function FileGuideView() {
-  const treeLines = renderFolderTree(FOLDER_STRUCTURE, '', true, true)
+  const projectTree = renderFolderTree(PROJECT_FOLDER, '', true, true)
+  const sharedTree = renderFolderTree(SHARED_ASSETS_FOLDER, '', true, true)
 
   return (
     <section className="workflowView" aria-label="파일/폴더 가이드">
@@ -182,12 +295,13 @@ export function FileGuideView() {
           <p>
             팀 공용 파일/폴더 명명 규칙입니다.
             아래 내용은 초안이며, 팀 합의를 거쳐 확정합니다.
+            핵심 원칙: <strong>작업파일(_src)과 출력물(_export)을 분리</strong>합니다.
           </p>
         </div>
       </header>
 
       <div className="workflowGrid">
-        {/* Card 1: Folder Structure */}
+        {/* Card 1: Project Folder Structure */}
         <article className="workflowCard workflowCardWide">
           <div className="workflowSectionHeader">
             <div>
@@ -195,30 +309,60 @@ export function FileGuideView() {
               <h3>프로젝트 폴더 구조</h3>
             </div>
           </div>
-          <p>모든 프로젝트는 아래 구조를 기본으로 합니다. 필요에 따라 하위 폴더를 추가할 수 있습니다.</p>
-          <pre className="fileGuideTree">{treeLines.join('\n')}</pre>
-          <div className="workflowCheckpointGrid">
-            <article className="workflowCheckpoint">
-              <h4>01_기획</h4>
-              <p>요청서, 업무협조전, 레퍼런스 이미지 등 기획 단계 자료</p>
-            </article>
-            <article className="workflowCheckpoint">
-              <h4>02_디자인</h4>
-              <p>시안(컨셉 단계), 작업파일(본작업 AI/PSD 등)</p>
-            </article>
-            <article className="workflowCheckpoint">
-              <h4>03_최종</h4>
-              <p>승인된 최종 산출물. 인쇄용/웹용/SNS용으로 분류</p>
-            </article>
-            <article className="workflowCheckpoint">
-              <h4>04_아카이브</h4>
-              <p>프로젝트 완료 후 참고용으로 보관하는 과거 버전 및 원본</p>
-            </article>
+          <p>
+            모든 프로젝트는 <strong>산출물 유형별</strong>로 1차 분류하고,
+            각 산출물 안에서 <code className="fileGuideCode">_src</code>(작업파일)와 <code className="fileGuideCode">_export</code>(출력물)를 분리합니다.
+          </p>
+          <pre className="fileGuideTree">{projectTree.join('\n')}</pre>
+        </article>
+
+        {/* Card 2: Shared Assets */}
+        <article className="workflowCard">
+          <div className="workflowSectionHeader">
+            <div>
+              <span className="workflowSectionEyebrow">Shared Assets</span>
+              <h3>공용 에셋 폴더</h3>
+            </div>
+          </div>
+          <p>프로젝트와 무관하게 팀 전체가 공유하는 자산입니다. 프로젝트 폴더 바깥에 위치합니다.</p>
+          <pre className="fileGuideTree">{sharedTree.join('\n')}</pre>
+        </article>
+
+        {/* Card 3: Extension Guide */}
+        <article className="workflowCard">
+          <div className="workflowSectionHeader">
+            <div>
+              <span className="workflowSectionEyebrow">Extension Guide</span>
+              <h3>확장자별 저장 위치</h3>
+            </div>
+          </div>
+          <p>어떤 파일이 어디로 가는지 한눈에 확인할 수 있습니다.</p>
+          <div className="guideTableWrap">
+            <table className="fileGuideTable">
+              <thead>
+                <tr>
+                  <th>확장자</th>
+                  <th>분류</th>
+                  <th>저장 위치</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {EXTENSION_GUIDE.map((row) => (
+                  <tr key={row.extensions}>
+                    <td><code className="fileGuideCode">{row.extensions}</code></td>
+                    <td>{row.category}</td>
+                    <td><code className="fileGuideCode">{row.location}</code></td>
+                    <td>{row.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </article>
 
-        {/* Card 2: Naming Rules */}
-        <article className="workflowCard">
+        {/* Card 4: Naming Rules */}
+        <article className="workflowCard workflowCardWide">
           <div className="workflowSectionHeader">
             <div>
               <span className="workflowSectionEyebrow">Naming Rules</span>
@@ -240,7 +384,7 @@ export function FileGuideView() {
           </div>
         </article>
 
-        {/* Card 3: Version Rules */}
+        {/* Card 5: Version Rules */}
         <article className="workflowCard">
           <div className="workflowSectionHeader">
             <div>
@@ -259,8 +403,8 @@ export function FileGuideView() {
           </div>
         </article>
 
-        {/* Card 4: Good vs Bad Examples */}
-        <article className="workflowCard workflowCardWide">
+        {/* Card 6: Good vs Bad Examples */}
+        <article className="workflowCard">
           <div className="workflowSectionHeader">
             <div>
               <span className="workflowSectionEyebrow">Before &amp; After</span>
@@ -282,7 +426,7 @@ export function FileGuideView() {
           </div>
         </article>
 
-        {/* Card 5: Team Agreement Items */}
+        {/* Card 7: Team Agreement Items */}
         <article className="workflowCard workflowCardWide fileGuideAgreementCard">
           <div className="workflowSectionHeader">
             <div>

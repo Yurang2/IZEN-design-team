@@ -2605,6 +2605,32 @@ button.dashboardNavButton {
   color: #f59e0b;
 }
 
+.fileGuideTable {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+
+.fileGuideTable th,
+.fileGuideTable td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.fileGuideTable th {
+  background: var(--surface-soft);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fileGuideTable td:first-child {
+  white-space: nowrap;
+}
+
 [data-theme='v2'] .fileGuideTree {
   background: rgba(255, 255, 255, 0.04);
 }
