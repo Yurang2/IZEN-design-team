@@ -333,6 +333,7 @@ export type TopView =
   | 'geminiImageTest'
   | 'mailTemplate'
   | 'feedback'
+  | 'fileGuide'
   | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'

@@ -22,6 +22,7 @@ const SnsPostGeneratorView = lazy(() => import('./features/snsPost/SnsPostGenera
 const TaskDetailView = lazy(() => import('./features/taskDetail/TaskDetailView').then((m) => ({ default: m.TaskDetailView })))
 const TasksView = lazy(() => import('./features/tasks/TasksView').then((m) => ({ default: m.TasksView })))
 const WorkflowProcessView = lazy(() => import('./features/process/WorkflowProcessView').then((m) => ({ default: m.WorkflowProcessView })))
+const FileGuideView = lazy(() => import('./features/fileGuide/FileGuideView').then((m) => ({ default: m.FileGuideView })))
 import { api, USE_MOCK_DATA } from './shared/api/client'
 import {
   AUTH_GATE_ENABLED,
@@ -1406,6 +1407,7 @@ function App() {
         { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list', test: true },
         { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list', test: true },
         { view: 'workflowProcess', title: '업무진행 프로세스', label: '업무진행 프로세스', icon: 'list' },
+        { view: 'fileGuide', title: '파일/폴더 가이드', label: '파일/폴더 가이드', icon: 'list' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
         { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list', test: true },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
@@ -2595,6 +2597,8 @@ function App() {
       {activeView === 'mailTemplate' ? <MailTemplateView onCopy={copyText} /> : null}
 
       {activeView === 'workflowProcess' ? <WorkflowProcessView onOpenGuide={() => setActiveView('guide')} /> : null}
+
+      {activeView === 'fileGuide' ? <FileGuideView /> : null}
 
       {activeView === 'guide' ? (
         <section className="guideView" aria-label="서비스 사용법">
