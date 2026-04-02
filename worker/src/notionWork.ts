@@ -3992,6 +3992,38 @@ export class NotionWorkService {
     return pages.map((page) => this.mapSubtitleVideoPage(page, schema, projectNameMap))
   }
 
+  async createSubtitleVideo(input: Record<string, unknown>): Promise<SubtitleVideoRecord> {
+    const schema = await this.getSubtitleVideoSchema()
+    const properties: AnyMap = {}
+
+    applyTitleLike(properties, schema.fields.videoName, String(input.videoName ?? ''))
+    if (input.videoCode) applyRichText(properties, schema.fields.videoCode, String(input.videoCode))
+    if (input.category) applySelectLike(properties, schema.fields.category, String(input.category))
+    if (input.resolution) applySelectLike(properties, schema.fields.resolution, String(input.resolution))
+    if (input.status) applySelectLike(properties, schema.fields.status, String(input.status))
+    if (input.creator) applyRichText(properties, schema.fields.creator, String(input.creator))
+    if (input.memo) applyRichText(properties, schema.fields.memo, String(input.memo))
+
+    if (isKnownField(schema.fields.revision)) {
+      properties[schema.fields.revision.actualName] = { number: 1 }
+    }
+    applyDate(properties, schema.fields.productionDate, new Date().toISOString().slice(0, 10))
+    applyDate(properties, schema.fields.lastModifiedDate, new Date().toISOString().slice(0, 10))
+
+    const created = await this.api.createPage({
+      parent: { database_id: this.env.NOTION_SUBTITLE_VIDEO_DB_ID! },
+      properties,
+    })
+
+    const projects = await this.listProjects()
+    const projectNameMap: Record<string, string> = {}
+    for (const p of projects) {
+      projectNameMap[p.id] = p.name
+      projectNameMap[normalizeNotionId(p.id)] = p.name
+    }
+    return this.mapSubtitleVideoPage(created, schema, projectNameMap)
+  }
+
   // ---------------------------------------------------------------------------
   // Subtitle Revision
   // ---------------------------------------------------------------------------

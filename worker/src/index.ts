@@ -1283,6 +1283,19 @@ export default {
         return ok({ ok: true, videos, cacheTtlMs }, origin)
       }
 
+      if (request.method === 'POST' && path === '/subtitle-videos') {
+        let payload: Record<string, unknown>
+        try {
+          payload = parsePatchBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+        const videoName = asString(payload.videoName)
+        if (!videoName) return json({ ok: false, error: 'videoName_required' }, 400, origin)
+        const video = await service.createSubtitleVideo(payload)
+        return json({ ok: true, video }, 201, origin)
+      }
+
       if (request.method === 'GET' && path === '/subtitle-revisions') {
         const videoId = asString(url.searchParams.get('videoId'))
         const revisions = await service.listSubtitleRevisions(videoId || undefined)
