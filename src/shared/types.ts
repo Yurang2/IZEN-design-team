@@ -406,6 +406,7 @@ export type TopView =
   | 'feedback'
   | 'fileGuide'
   | 'subtitle'
+  | 'videoManagement'
   | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
