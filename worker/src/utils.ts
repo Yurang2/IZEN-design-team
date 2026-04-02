@@ -283,7 +283,7 @@ export function parseBoundedInt(value: string | undefined, fallback: number, min
 
 export function parsePageSize(value: unknown): number {
   const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return 50
+  if (!Number.isFinite(parsed) || parsed <= 0) return 50
   return Math.max(1, Math.min(100, Math.floor(parsed)))
 }
 
