@@ -43,6 +43,8 @@ export interface Env {
   NOTION_MEETING_DB_ID?: string
   NOTION_CHECKLIST_ASSIGNMENT_DB_ID?: string
   NOTION_FEEDBACK_DB_ID?: string
+  NOTION_SUBTITLE_VIDEO_DB_ID?: string
+  NOTION_SUBTITLE_REVISION_DB_ID?: string
   PAGE_PASSWORD: string
   AUTH_DISABLED?: string
   SESSION_SECRET?: string
@@ -304,6 +306,77 @@ export type UpdateFeedbackInput = {
   recurring?: boolean | null
   notes?: string | null
   date?: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Subtitle
+// ---------------------------------------------------------------------------
+
+export type SubtitleVideoSchema = {
+  fields: {
+    videoName: FieldSchema
+    infographic: FieldSchema
+    fileLink: FieldSchema
+    memo: FieldSchema
+  }
+}
+
+export type SubtitleVideoRecord = {
+  id: string
+  url: string
+  videoName: string
+  infographic?: string
+  fileLink?: string
+  memo?: string
+}
+
+export type SubtitleSegment = {
+  index: number
+  label: string
+  startTime: string
+  endTime: string
+  ko: string
+  en: string
+  zh: string
+  ru: string
+}
+
+export type SubtitleSnapshotData = {
+  segments: SubtitleSegment[]
+}
+
+export type SubtitleRevisionSchema = {
+  fields: {
+    revisionName: FieldSchema
+    video: FieldSchema
+    revisionNumber: FieldSchema
+    modifiedDate: FieldSchema
+    modifier: FieldSchema
+    changeSummary: FieldSchema
+    snapshotData: FieldSchema
+  }
+}
+
+export type SubtitleRevisionRecord = {
+  id: string
+  url: string
+  revisionName: string
+  videoId?: string
+  videoName?: string
+  revisionNumber: number
+  modifiedDate?: string
+  modifier?: string
+  changeSummary?: string
+  snapshot: SubtitleSnapshotData
+}
+
+export type CreateSubtitleRevisionInput = {
+  videoId: string
+  revisionName: string
+  revisionNumber: number
+  modifier?: string
+  changeSummary?: string
+  snapshot: SubtitleSnapshotData
 }
 
 export type CreateTaskInput = {

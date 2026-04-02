@@ -23,6 +23,8 @@ const TaskDetailView = lazy(() => import('./features/taskDetail/TaskDetailView')
 const TasksView = lazy(() => import('./features/tasks/TasksView').then((m) => ({ default: m.TasksView })))
 const WorkflowProcessView = lazy(() => import('./features/process/WorkflowProcessView').then((m) => ({ default: m.WorkflowProcessView })))
 const FileGuideView = lazy(() => import('./features/fileGuide/FileGuideView').then((m) => ({ default: m.FileGuideView })))
+const SubtitleView = lazy(() => import('./features/subtitle/SubtitleView').then((m) => ({ default: m.SubtitleView })))
+const SubtitleSharePage = lazy(() => import('./features/subtitle/SubtitleSharePage').then((m) => ({ default: m.SubtitleSharePage })))
 import { api, USE_MOCK_DATA } from './shared/api/client'
 import {
   AUTH_GATE_ENABLED,
@@ -1404,6 +1406,7 @@ function App() {
       key: 'tools',
       label: '도구',
       items: [
+        { view: 'subtitle', title: '자막 스크립트', label: '자막 스크립트', icon: 'list', test: true },
         { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list', test: true },
         { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list', test: true },
         { view: 'workflowProcess', title: '업무진행 프로세스', label: '업무진행 프로세스', icon: 'list' },
@@ -1949,6 +1952,7 @@ function App() {
     route.kind !== 'eventGraphicsShare' &&
     route.kind !== 'eventGraphicsPrint' &&
     route.kind !== 'photoGuideShare' &&
+    route.kind !== 'subtitleShare' &&
     authState !== 'authenticated'
   ) {
     const checking = authState === 'checking'
@@ -2047,6 +2051,14 @@ function App() {
           loading={photoGuide.loading}
           error={photoGuide.error}
         />
+      </Suspense>
+    )
+  }
+
+  if (route.kind === 'subtitleShare') {
+    return (
+      <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>로딩 중...</div>}>
+        <SubtitleSharePage />
       </Suspense>
     )
   }
@@ -2911,6 +2923,8 @@ function App() {
           loadingProjects={loadingProjects}
         />
       ) : null}
+
+      {activeView === 'subtitle' ? <SubtitleView /> : null}
 
       {activeView === 'projects' ? (
         <ProjectsView

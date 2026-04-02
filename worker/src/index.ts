@@ -89,6 +89,7 @@ import {
   parseFeedbackCreateBody,
   parseFeedbackUpdateBody,
   parseShotSlotCreateBody,
+  parseSubtitleRevisionCreateBody,
   toPhotoGuideUploadErrorStatus,
   uploadPhotoGuideFileToNotion,
 } from './handlers'
@@ -237,6 +238,14 @@ export default {
       if (meetingHandled) return meetingHandled
     }
 
+    // Subtitle share — public (no auth required)
+    if (request.method === 'GET' && path === '/subtitle-share') {
+      const videoId = asString(url.searchParams.get('videoId'))
+      const revisions = await service.listSubtitleRevisions(videoId || undefined)
+      const latest = revisions.slice(0, 2)
+      return ok({ ok: true, revisions: latest, cacheTtlMs }, origin)
+    }
+
     if (!(await isAuthenticated(request, env))) {
       return json(
         { ok: false, error: 'unauthorized', message: 'Missing or invalid credentials.' },
@@ -368,6 +377,14 @@ export default {
               feedback: {
                 id: env.NOTION_FEEDBACK_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_FEEDBACK_DB_ID),
+              },
+              subtitleVideo: {
+                id: env.NOTION_SUBTITLE_VIDEO_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_SUBTITLE_VIDEO_DB_ID),
+              },
+              subtitleRevision: {
+                id: env.NOTION_SUBTITLE_REVISION_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_SUBTITLE_REVISION_DB_ID),
               },
             },
           },
@@ -1255,6 +1272,38 @@ export default {
           },
           origin,
         )
+      }
+
+      // ---- Subtitle ----
+
+      const subtitleRevisionMatch = path.match(/^\/subtitle-revisions\/([^/]+)$/)
+
+      if (request.method === 'GET' && path === '/subtitle-videos') {
+        const videos = await service.listSubtitleVideos()
+        return ok({ ok: true, videos, cacheTtlMs }, origin)
+      }
+
+      if (request.method === 'GET' && path === '/subtitle-revisions') {
+        const videoId = asString(url.searchParams.get('videoId'))
+        const revisions = await service.listSubtitleRevisions(videoId || undefined)
+        return ok({ ok: true, revisions, cacheTtlMs }, origin)
+      }
+
+      if (request.method === 'GET' && subtitleRevisionMatch) {
+        const id = decodeURIComponent(subtitleRevisionMatch[1])
+        const revision = await service.getSubtitleRevision(id)
+        return ok({ ok: true, revision }, origin)
+      }
+
+      if (request.method === 'POST' && path === '/subtitle-revisions') {
+        let payload: any
+        try {
+          payload = parseSubtitleRevisionCreateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+        const created = await service.createSubtitleRevision(payload)
+        return json({ ok: true, revision: created }, 201, origin)
       }
 
       // ---- Feedback CRUD ----

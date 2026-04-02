@@ -7,6 +7,7 @@ import type {
   ChecklistPreviewItem,
   CreateFeedbackInput,
   CreateShotSlotInput,
+  CreateSubtitleRevisionInput,
   CreateTaskInput,
   Env,
   FeedbackRecord,
@@ -14,6 +15,11 @@ import type {
   FieldSchema,
   FieldStatus,
   ProjectRecord,
+  SubtitleRevisionRecord,
+  SubtitleRevisionSchema,
+  SubtitleSnapshotData,
+  SubtitleVideoRecord,
+  SubtitleVideoSchema,
   UpdateFeedbackInput,
   ScheduleCell,
   ScheduleColumn,
@@ -3883,5 +3889,197 @@ export class NotionWorkService {
 
     await this.api.updatePage(id, { properties })
     return this.getFeedback(id)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Subtitle Video
+  // ---------------------------------------------------------------------------
+
+  private buildSubtitleVideoSchema(properties: Record<string, any>): SubtitleVideoSchema {
+    return {
+      fields: {
+        videoName: pickField('videoName', properties, '영상명', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        infographic: pickField('infographic', properties, '인포그래픽', ['select', 'rich_text'], true),
+        fileLink: pickField('fileLink', properties, '파일 링크', ['url', 'rich_text'], true),
+        memo: pickField('memo', properties, '메모', ['rich_text'], true),
+      },
+    }
+  }
+
+  private async getSubtitleVideoSchema(): Promise<SubtitleVideoSchema> {
+    const dbId = this.env.NOTION_SUBTITLE_VIDEO_DB_ID
+    if (!dbId) throw new Error('NOTION_SUBTITLE_VIDEO_DB_ID_not_configured')
+    const db: any = await this.api.retrieveDatabase(dbId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    return this.buildSubtitleVideoSchema(properties)
+  }
+
+  private mapSubtitleVideoPage(page: any, schema: SubtitleVideoSchema): SubtitleVideoRecord {
+    const props = (page.properties ?? {}) as AnyMap
+    return {
+      id: page.id,
+      url: page.url,
+      videoName: extractTitle(props, schema.fields.videoName),
+      infographic: extractTextLike(props, schema.fields.infographic, '') || undefined,
+      fileLink: extractUrlLike(props, schema.fields.fileLink) || undefined,
+      memo: extractTextLike(props, schema.fields.memo, '') || undefined,
+    }
+  }
+
+  async listSubtitleVideos(): Promise<SubtitleVideoRecord[]> {
+    const dbId = this.env.NOTION_SUBTITLE_VIDEO_DB_ID
+    if (!dbId) return []
+    const [schema, pages] = await Promise.all([this.getSubtitleVideoSchema(), this.queryAll(dbId)])
+    return pages.map((page) => this.mapSubtitleVideoPage(page, schema))
+  }
+
+  // ---------------------------------------------------------------------------
+  // Subtitle Revision
+  // ---------------------------------------------------------------------------
+
+  private buildSubtitleRevisionSchema(properties: Record<string, any>): SubtitleRevisionSchema {
+    const videoRelationFallback = (entries: Array<[string, any]>) => {
+      const byTargetDb = entries.find(
+        ([, prop]) =>
+          prop?.type === 'relation' &&
+          normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_SUBTITLE_VIDEO_DB_ID ?? ''),
+      )
+      return byTargetDb
+    }
+
+    return {
+      fields: {
+        revisionName: pickField('revisionName', properties, '리비전명', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        video: pickField('video', properties, '영상', ['relation'], true, videoRelationFallback),
+        revisionNumber: pickField('revisionNumber', properties, '리비전 번호', ['number'], true),
+        modifiedDate: pickField('modifiedDate', properties, '수정일', ['date'], true),
+        modifier: pickField('modifier', properties, '수정자', ['rich_text', 'select'], true),
+        changeSummary: pickField('changeSummary', properties, '변경 요약', ['rich_text'], true),
+        snapshotData: pickField('snapshotData', properties, '스냅샷 데이터', ['rich_text'], true),
+      },
+    }
+  }
+
+  private async getSubtitleRevisionSchema(): Promise<SubtitleRevisionSchema> {
+    const dbId = this.env.NOTION_SUBTITLE_REVISION_DB_ID
+    if (!dbId) throw new Error('NOTION_SUBTITLE_REVISION_DB_ID_not_configured')
+    const db: any = await this.api.retrieveDatabase(dbId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    return this.buildSubtitleRevisionSchema(properties)
+  }
+
+  private mapSubtitleRevisionPage(
+    page: any,
+    schema: SubtitleRevisionSchema,
+    videoNameMap: Record<string, string>,
+  ): SubtitleRevisionRecord {
+    const props = (page.properties ?? {}) as AnyMap
+
+    const videoRelationIds = extractRelationIds(props, schema.fields.video)
+    const videoId = first(videoRelationIds)
+    const videoName = videoId ? videoNameMap[normalizeNotionId(videoId)] ?? videoNameMap[videoId] : undefined
+
+    const snapshotRaw = extractTextLike(props, schema.fields.snapshotData, '')
+    let snapshot: SubtitleSnapshotData = { segments: [] }
+    if (snapshotRaw) {
+      try {
+        const parsed = JSON.parse(snapshotRaw)
+        if (parsed && Array.isArray(parsed.segments)) {
+          snapshot = parsed as SubtitleSnapshotData
+        }
+      } catch {
+        // invalid JSON — keep empty
+      }
+    }
+
+    const revNum = extractNumberFromProperty((props as any)[schema.fields.revisionNumber.actualName])
+
+    return {
+      id: page.id,
+      url: page.url,
+      revisionName: extractTitle(props, schema.fields.revisionName),
+      videoId: videoId || undefined,
+      videoName: videoName || undefined,
+      revisionNumber: revNum ?? 0,
+      modifiedDate: extractDate(props, schema.fields.modifiedDate),
+      modifier: extractTextLike(props, schema.fields.modifier, '') || undefined,
+      changeSummary: extractTextLike(props, schema.fields.changeSummary, '') || undefined,
+      snapshot,
+    }
+  }
+
+  async listSubtitleRevisions(videoId?: string): Promise<SubtitleRevisionRecord[]> {
+    const dbId = this.env.NOTION_SUBTITLE_REVISION_DB_ID
+    if (!dbId) return []
+
+    const filter = videoId
+      ? { property: (await this.getSubtitleRevisionSchema()).fields.video.actualName, relation: { contains: videoId } }
+      : undefined
+
+    const [schema, videos, pages] = await Promise.all([
+      this.getSubtitleRevisionSchema(),
+      this.listSubtitleVideos(),
+      this.queryAll(dbId, filter ? { filter } : undefined),
+    ])
+
+    const videoNameMap: Record<string, string> = {}
+    for (const v of videos) {
+      videoNameMap[v.id] = v.videoName
+      videoNameMap[normalizeNotionId(v.id)] = v.videoName
+    }
+
+    const records = pages.map((page) => this.mapSubtitleRevisionPage(page, schema, videoNameMap))
+    records.sort((a, b) => b.revisionNumber - a.revisionNumber)
+    return records
+  }
+
+  async getSubtitleRevision(id: string): Promise<SubtitleRevisionRecord> {
+    const [schema, videos, page] = await Promise.all([
+      this.getSubtitleRevisionSchema(),
+      this.listSubtitleVideos(),
+      this.api.retrievePage(id),
+    ])
+
+    const videoNameMap: Record<string, string> = {}
+    for (const v of videos) {
+      videoNameMap[v.id] = v.videoName
+      videoNameMap[normalizeNotionId(v.id)] = v.videoName
+    }
+
+    return this.mapSubtitleRevisionPage(page, schema, videoNameMap)
+  }
+
+  async createSubtitleRevision(input: CreateSubtitleRevisionInput): Promise<SubtitleRevisionRecord> {
+    const schema = await this.getSubtitleRevisionSchema()
+    const properties: AnyMap = {}
+
+    applyTitleLike(properties, schema.fields.revisionName, input.revisionName)
+    applyRelationIds(properties, schema.fields.video, [input.videoId])
+
+    if (isKnownField(schema.fields.revisionNumber) && schema.fields.revisionNumber.actualType === 'number') {
+      properties[schema.fields.revisionNumber.actualName] = { number: input.revisionNumber }
+    }
+
+    applyDate(properties, schema.fields.modifiedDate, new Date().toISOString().slice(0, 10))
+    applyRichText(properties, schema.fields.modifier, input.modifier)
+    applyRichText(properties, schema.fields.changeSummary, input.changeSummary)
+
+    // Snapshot JSON — chunk into 1900-char rich_text blocks to stay under Notion's 2000-char limit
+    const snapshotJson = JSON.stringify(input.snapshot)
+    if (isKnownField(schema.fields.snapshotData)) {
+      const CHUNK_SIZE = 1900
+      const chunks: Array<{ text: { content: string } }> = []
+      for (let i = 0; i < snapshotJson.length; i += CHUNK_SIZE) {
+        chunks.push({ text: { content: snapshotJson.slice(i, i + CHUNK_SIZE) } })
+      }
+      properties[schema.fields.snapshotData.actualName] = { rich_text: chunks.length > 0 ? chunks : [] }
+    }
+
+    const created = await this.api.createPage({
+      parent: { database_id: this.env.NOTION_SUBTITLE_REVISION_DB_ID! },
+      properties,
+    })
+
+    return this.getSubtitleRevision(created.id)
   }
 }

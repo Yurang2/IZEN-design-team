@@ -12,6 +12,9 @@ export type Route =
       kind: 'photoGuideShare'
     }
   | {
+      kind: 'subtitleShare'
+    }
+  | {
       kind: 'task'
       id: string
     }
@@ -316,6 +319,59 @@ export type FeedbackFilters = {
 
 export type FeedbackSort = 'date_desc' | 'date_asc' | 'priority_desc'
 
+// ---------------------------------------------------------------------------
+// Subtitle
+// ---------------------------------------------------------------------------
+
+export type SubtitleSegment = {
+  index: number
+  label: string
+  startTime: string
+  endTime: string
+  ko: string
+  en: string
+  zh: string
+  ru: string
+}
+
+export type SubtitleSnapshotData = {
+  segments: SubtitleSegment[]
+}
+
+export type SubtitleVideoRecord = {
+  id: string
+  url: string
+  videoName: string
+  infographic?: string
+  fileLink?: string
+  memo?: string
+}
+
+export type SubtitleRevisionRecord = {
+  id: string
+  url: string
+  revisionName: string
+  videoId?: string
+  videoName?: string
+  revisionNumber: number
+  modifiedDate?: string
+  modifier?: string
+  changeSummary?: string
+  snapshot: SubtitleSnapshotData
+}
+
+export type SubtitleVideosResponse = {
+  ok: boolean
+  videos: SubtitleVideoRecord[]
+  cacheTtlMs: number
+}
+
+export type SubtitleRevisionsResponse = {
+  ok: boolean
+  revisions: SubtitleRevisionRecord[]
+  cacheTtlMs: number
+}
+
 export type TopView =
   | 'dashboard'
   | 'projects'
@@ -334,6 +390,7 @@ export type TopView =
   | 'mailTemplate'
   | 'feedback'
   | 'fileGuide'
+  | 'subtitle'
   | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
