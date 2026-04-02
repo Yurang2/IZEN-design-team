@@ -3896,11 +3896,32 @@ export class NotionWorkService {
   // ---------------------------------------------------------------------------
 
   private buildSubtitleVideoSchema(properties: Record<string, any>): SubtitleVideoSchema {
+    const projectRelationFallback = (entries: Array<[string, any]>) => {
+      const byTargetDb = entries.find(
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+      )
+      return byTargetDb
+    }
+
     return {
       fields: {
         videoName: pickField('videoName', properties, '영상명', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
-        infographic: pickField('infographic', properties, '인포그래픽', ['select', 'rich_text'], true),
-        fileLink: pickField('fileLink', properties, '파일 링크', ['url', 'rich_text'], true),
+        videoCode: pickField('videoCode', properties, '영상 코드', ['rich_text'], true),
+        category: pickField('category', properties, '카테고리', ['select', 'rich_text'], true),
+        resolution: pickField('resolution', properties, '원본 해상도', ['select', 'rich_text'], true),
+        resolutionVariants: pickField('resolutionVariants', properties, '변환 버전', ['multi_select'], true),
+        talent: pickField('talent', properties, '출연자', ['rich_text'], true),
+        revision: pickField('revision', properties, '리비전', ['number'], true),
+        lastModifiedDate: pickField('lastModifiedDate', properties, '최종 수정일', ['date'], true),
+        recentChanges: pickField('recentChanges', properties, '최근 변경사항', ['rich_text'], true),
+        creator: pickField('creator', properties, '제작자', ['rich_text'], true),
+        lastModifier: pickField('lastModifier', properties, '최종 수정자', ['rich_text'], true),
+        productionDate: pickField('productionDate', properties, '제작일', ['date'], true),
+        status: pickField('status', properties, '상태', ['select', 'status', 'rich_text'], true),
+        event: pickField('event', properties, '행사', ['relation'], true, projectRelationFallback),
+        gdriveLink: pickField('gdriveLink', properties, '구글 드라이브 링크', ['url', 'rich_text'], true),
+        nasPath: pickField('nasPath', properties, 'NAS 경로', ['rich_text'], true),
+        fileName: pickField('fileName', properties, '파일명', ['rich_text'], true),
         memo: pickField('memo', properties, '메모', ['rich_text'], true),
       },
     }
@@ -3914,14 +3935,40 @@ export class NotionWorkService {
     return this.buildSubtitleVideoSchema(properties)
   }
 
-  private mapSubtitleVideoPage(page: any, schema: SubtitleVideoSchema): SubtitleVideoRecord {
+  private mapSubtitleVideoPage(
+    page: any,
+    schema: SubtitleVideoSchema,
+    projectNameMap: Record<string, string>,
+  ): SubtitleVideoRecord {
     const props = (page.properties ?? {}) as AnyMap
+
+    const eventRelationIds = extractRelationIds(props, schema.fields.event)
+    const eventIds = eventRelationIds.filter(Boolean)
+    const eventNames = eventIds.map((id) => projectNameMap[normalizeNotionId(id)] ?? projectNameMap[id] ?? '').filter(Boolean)
+
+    const revNum = extractNumberFromProperty((props as any)[schema.fields.revision.actualName])
+
     return {
       id: page.id,
       url: page.url,
       videoName: extractTitle(props, schema.fields.videoName),
-      infographic: extractTextLike(props, schema.fields.infographic, '') || undefined,
-      fileLink: extractUrlLike(props, schema.fields.fileLink) || undefined,
+      videoCode: extractTextLike(props, schema.fields.videoCode, '') || undefined,
+      category: extractTextLike(props, schema.fields.category, '') || undefined,
+      resolution: extractTextLike(props, schema.fields.resolution, '') || undefined,
+      resolutionVariants: extractStringArray(props, schema.fields.resolutionVariants).filter((v) => v !== '[UNKNOWN]'),
+      talent: extractTextLike(props, schema.fields.talent, '') || undefined,
+      revision: revNum ?? undefined,
+      lastModifiedDate: extractDate(props, schema.fields.lastModifiedDate),
+      recentChanges: extractTextLike(props, schema.fields.recentChanges, '') || undefined,
+      creator: extractTextLike(props, schema.fields.creator, '') || undefined,
+      lastModifier: extractTextLike(props, schema.fields.lastModifier, '') || undefined,
+      productionDate: extractDate(props, schema.fields.productionDate),
+      status: extractTextLike(props, schema.fields.status, '') || undefined,
+      eventIds,
+      eventNames,
+      gdriveLink: extractUrlLike(props, schema.fields.gdriveLink) || undefined,
+      nasPath: extractTextLike(props, schema.fields.nasPath, '') || undefined,
+      fileName: extractTextLike(props, schema.fields.fileName, '') || undefined,
       memo: extractTextLike(props, schema.fields.memo, '') || undefined,
     }
   }
@@ -3929,8 +3976,20 @@ export class NotionWorkService {
   async listSubtitleVideos(): Promise<SubtitleVideoRecord[]> {
     const dbId = this.env.NOTION_SUBTITLE_VIDEO_DB_ID
     if (!dbId) return []
-    const [schema, pages] = await Promise.all([this.getSubtitleVideoSchema(), this.queryAll(dbId)])
-    return pages.map((page) => this.mapSubtitleVideoPage(page, schema))
+
+    const [schema, projects, pages] = await Promise.all([
+      this.getSubtitleVideoSchema(),
+      this.listProjects(),
+      this.queryAll(dbId),
+    ])
+
+    const projectNameMap: Record<string, string> = {}
+    for (const p of projects) {
+      projectNameMap[p.id] = p.name
+      projectNameMap[normalizeNotionId(p.id)] = p.name
+    }
+
+    return pages.map((page) => this.mapSubtitleVideoPage(page, schema, projectNameMap))
   }
 
   // ---------------------------------------------------------------------------

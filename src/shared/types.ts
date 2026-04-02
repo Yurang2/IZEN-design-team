@@ -342,8 +342,23 @@ export type SubtitleVideoRecord = {
   id: string
   url: string
   videoName: string
-  infographic?: string
-  fileLink?: string
+  videoCode?: string
+  category?: string
+  resolution?: string
+  resolutionVariants: string[]
+  talent?: string
+  revision?: number
+  lastModifiedDate?: string
+  recentChanges?: string
+  creator?: string
+  lastModifier?: string
+  productionDate?: string
+  status?: string
+  eventIds: string[]
+  eventNames: string[]
+  gdriveLink?: string
+  nasPath?: string
+  fileName?: string
   memo?: string
 }
 

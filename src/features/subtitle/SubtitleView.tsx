@@ -255,7 +255,11 @@ export function SubtitleView() {
             }}
           >
             <div style={{ fontWeight: 600 }}>{v.videoName}</div>
-            {v.infographic ? <span style={{ fontSize: '0.8em', opacity: 0.7 }}>인포: {v.infographic}</span> : null}
+            {v.videoCode ? <div style={{ fontSize: '0.75em', opacity: 0.6, fontFamily: 'monospace' }}>{v.videoCode}</div> : null}
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+              {v.category ? <span style={{ fontSize: '0.7em', padding: '1px 4px', borderRadius: 3, background: v.id === selectedVideoId ? 'rgba(255,255,255,0.2)' : 'var(--border)' }}>{v.category}</span> : null}
+              {v.status ? <span style={{ fontSize: '0.7em', padding: '1px 4px', borderRadius: 3, background: v.status === '사용중' ? '#d4edda' : v.status === '제작중' ? '#fff3cd' : v.status === '폐기' ? '#f8d7da' : 'var(--border)', color: v.id === selectedVideoId ? '#fff' : undefined }}>{v.status}</span> : null}
+            </div>
           </button>
         ))}
       </aside>

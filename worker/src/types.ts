@@ -315,8 +315,22 @@ export type UpdateFeedbackInput = {
 export type SubtitleVideoSchema = {
   fields: {
     videoName: FieldSchema
-    infographic: FieldSchema
-    fileLink: FieldSchema
+    videoCode: FieldSchema
+    category: FieldSchema
+    resolution: FieldSchema
+    resolutionVariants: FieldSchema
+    talent: FieldSchema
+    revision: FieldSchema
+    lastModifiedDate: FieldSchema
+    recentChanges: FieldSchema
+    creator: FieldSchema
+    lastModifier: FieldSchema
+    productionDate: FieldSchema
+    status: FieldSchema
+    event: FieldSchema
+    gdriveLink: FieldSchema
+    nasPath: FieldSchema
+    fileName: FieldSchema
     memo: FieldSchema
   }
 }
@@ -325,8 +339,23 @@ export type SubtitleVideoRecord = {
   id: string
   url: string
   videoName: string
-  infographic?: string
-  fileLink?: string
+  videoCode?: string
+  category?: string
+  resolution?: string
+  resolutionVariants: string[]
+  talent?: string
+  revision?: number
+  lastModifiedDate?: string
+  recentChanges?: string
+  creator?: string
+  lastModifier?: string
+  productionDate?: string
+  status?: string
+  eventIds: string[]
+  eventNames: string[]
+  gdriveLink?: string
+  nasPath?: string
+  fileName?: string
   memo?: string
 }
 
