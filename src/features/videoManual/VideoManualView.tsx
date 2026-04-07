@@ -205,6 +205,22 @@ export function VideoManualView() {
         >
           ◐ 오버레이 실행
         </a>
+        <a
+          href="https://github.com/Yurang2/IZEN-design-team/releases/download/v1.0.0-overlay/IZEN-Video-Checklist.exe"
+          style={{
+            padding: '4px 12px',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            background: 'var(--bg)',
+            cursor: 'pointer',
+            fontSize: '0.82em',
+            fontWeight: 600,
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
+          ↓ 오버레이 다운로드
+        </a>
       </div>
 
       {loading ? <div style={{ padding: 16, textAlign: 'center' }}>로딩 중...</div> : null}
