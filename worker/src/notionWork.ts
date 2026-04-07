@@ -20,6 +20,8 @@ import type {
   SubtitleSnapshotData,
   SubtitleVideoRecord,
   SubtitleVideoSchema,
+  VideoManualItemRecord,
+  VideoManualSchema,
   UpdateFeedbackInput,
   ScheduleCell,
   ScheduleColumn,
@@ -4172,5 +4174,49 @@ export class NotionWorkService {
     })
 
     return this.getSubtitleRevision(created.id)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Video Manual
+  // ---------------------------------------------------------------------------
+
+  private buildVideoManualSchema(properties: Record<string, any>): VideoManualSchema {
+    return {
+      fields: {
+        itemName: pickField('itemName', properties, '항목명', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        category: pickField('category', properties, '카테고리', ['select', 'rich_text'], false),
+        sortOrder: pickField('sortOrder', properties, '순서', ['number'], true),
+        description: pickField('description', properties, '설명', ['rich_text'], true),
+      },
+    }
+  }
+
+  private async getVideoManualSchema(): Promise<VideoManualSchema> {
+    const dbId = this.env.NOTION_VIDEO_MANUAL_DB_ID
+    if (!dbId) throw new Error('NOTION_VIDEO_MANUAL_DB_ID_not_configured')
+    const db: any = await this.api.retrieveDatabase(dbId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    return this.buildVideoManualSchema(properties)
+  }
+
+  private mapVideoManualPage(page: any, schema: VideoManualSchema): VideoManualItemRecord {
+    const props = (page.properties ?? {}) as AnyMap
+    return {
+      id: page.id,
+      url: page.url,
+      itemName: extractTitle(props, schema.fields.itemName),
+      category: extractTextLike(props, schema.fields.category, '') || '미분류',
+      sortOrder: extractNumberFromProperty((props as any)[schema.fields.sortOrder.actualName]) ?? 999,
+      description: extractTextLike(props, schema.fields.description, '') || undefined,
+    }
+  }
+
+  async listVideoManualItems(): Promise<VideoManualItemRecord[]> {
+    const dbId = this.env.NOTION_VIDEO_MANUAL_DB_ID
+    if (!dbId) return []
+
+    const [schema, pages] = await Promise.all([this.getVideoManualSchema(), this.queryAll(dbId)])
+
+    return pages.map((page) => this.mapVideoManualPage(page, schema)).sort((a, b) => a.sortOrder - b.sortOrder)
   }
 }

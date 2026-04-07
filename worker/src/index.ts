@@ -386,6 +386,10 @@ export default {
                 id: env.NOTION_SUBTITLE_REVISION_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_SUBTITLE_REVISION_DB_ID),
               },
+              videoManual: {
+                id: env.NOTION_VIDEO_MANUAL_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_VIDEO_MANUAL_DB_ID),
+              },
             },
           },
           origin,
@@ -1272,6 +1276,13 @@ export default {
           },
           origin,
         )
+      }
+
+      // ---- Video Manual ----
+
+      if (request.method === 'GET' && path === '/video-manual') {
+        const items = await service.listVideoManualItems()
+        return ok({ ok: true, items, cacheTtlMs }, origin)
       }
 
       // ---- Subtitle ----

@@ -243,6 +243,7 @@ export type MetaResponse = {
     photoGuide?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
     feedback?: { id: string | null; url: string | null }
+    videoManual?: { id: string | null; url: string | null }
   }
 }
 
@@ -387,6 +388,25 @@ export type SubtitleRevisionsResponse = {
   cacheTtlMs: number
 }
 
+// ---------------------------------------------------------------------------
+// Video Manual
+// ---------------------------------------------------------------------------
+
+export type VideoManualItemRecord = {
+  id: string
+  url: string
+  itemName: string
+  category: string
+  sortOrder: number
+  description?: string
+}
+
+export type VideoManualResponse = {
+  ok: boolean
+  items: VideoManualItemRecord[]
+  cacheTtlMs: number
+}
+
 export type TopView =
   | 'dashboard'
   | 'projects'
@@ -407,6 +427,7 @@ export type TopView =
   | 'fileGuide'
   | 'subtitle'
   | 'videoManagement'
+  | 'videoManual'
   | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'

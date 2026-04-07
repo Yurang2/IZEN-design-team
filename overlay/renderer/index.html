@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Checklist</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="overlay-shell">
+    <!-- Title Bar (draggable) -->
+    <header class="titlebar">
+      <span class="titlebar-label">Video Checklist</span>
+      <div class="titlebar-actions">
+        <div class="opacity-control" title="투명도 조절">
+          <input type="range" id="opacity-slider" min="0" max="100" value="75" class="opacity-slider" />
+          <span class="opacity-value" id="opacity-value">75%</span>
+        </div>
+        <button class="titlebar-btn" id="btn-minimize" title="최소화">─</button>
+        <button class="titlebar-btn titlebar-btn--close" id="btn-close" title="닫기">✕</button>
+      </div>
+    </header>
+
+    <!-- Progress -->
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+      <span class="progress-text" id="progress-text">0 / 0</span>
+    </div>
+
+    <!-- Checklist Content -->
+    <main class="checklist-body" id="checklist-body"></main>
+
+    <!-- Footer -->
+    <footer class="overlay-footer">
+      <button class="footer-btn" id="btn-reset">전체 초기화</button>
+      <button class="footer-btn" id="btn-collapse-all">모두 접기</button>
+    </footer>
+  </div>
+
+  <script src="rules.js"></script>
+</body>
+</html>

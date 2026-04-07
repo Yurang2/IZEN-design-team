@@ -15,6 +15,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "pages:prune": "node scripts/prune-pages-deployments.mjs --keep=3",
     "preview": "vite preview",
+    "overlay": "cd overlay && npm start",
     "publish:web": "bash ./scripts/publish-web.sh",
     "extract:video-explorer-thumbnails": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\extract-video-explorer-thumbnails.ps1",
     "generate:event-graphics-draft": "node scripts/generate-event-graphics-timetable-draft.mjs && node scripts/rebuild-bangkok-event-graphics-operational-order.mjs && node scripts/augment-event-graphics-entrance-cues.mjs",

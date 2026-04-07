@@ -45,6 +45,7 @@ export interface Env {
   NOTION_FEEDBACK_DB_ID?: string
   NOTION_SUBTITLE_VIDEO_DB_ID?: string
   NOTION_SUBTITLE_REVISION_DB_ID?: string
+  NOTION_VIDEO_MANUAL_DB_ID?: string
   PAGE_PASSWORD: string
   AUTH_DISABLED?: string
   SESSION_SECRET?: string
@@ -406,6 +407,28 @@ export type CreateSubtitleRevisionInput = {
   modifier?: string
   changeSummary?: string
   snapshot: SubtitleSnapshotData
+}
+
+// ---------------------------------------------------------------------------
+// Video Manual
+// ---------------------------------------------------------------------------
+
+export type VideoManualSchema = {
+  fields: {
+    itemName: FieldSchema
+    category: FieldSchema
+    sortOrder: FieldSchema
+    description: FieldSchema
+  }
+}
+
+export type VideoManualItemRecord = {
+  id: string
+  url: string
+  itemName: string
+  category: string
+  sortOrder: number
+  description?: string
 }
 
 export type CreateTaskInput = {

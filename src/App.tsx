@@ -25,6 +25,7 @@ const WorkflowProcessView = lazy(() => import('./features/process/WorkflowProces
 const FileGuideView = lazy(() => import('./features/fileGuide/FileGuideView').then((m) => ({ default: m.FileGuideView })))
 const SubtitleView = lazy(() => import('./features/subtitle/SubtitleView').then((m) => ({ default: m.SubtitleView })))
 const VideoManagementView = lazy(() => import('./features/videoManagement/VideoManagementView').then((m) => ({ default: m.VideoManagementView })))
+const VideoManualView = lazy(() => import('./features/videoManual/VideoManualView').then((m) => ({ default: m.VideoManualView })))
 const SubtitleSharePage = lazy(() => import('./features/subtitle/SubtitleSharePage').then((m) => ({ default: m.SubtitleSharePage })))
 import { api, USE_MOCK_DATA } from './shared/api/client'
 import {
@@ -1408,6 +1409,7 @@ function App() {
       label: '도구',
       items: [
         { view: 'videoManagement', title: '영상 관리', label: '영상 관리', icon: 'list', test: true },
+        { view: 'videoManual', title: '영상 작업 매뉴얼', label: '영상 작업 매뉴얼', icon: 'list', test: true },
         { view: 'subtitle', title: '자막 스크립트', label: '자막 스크립트', icon: 'list', test: true },
         { view: 'screeningHistory', title: '상영 기록', label: '상영 기록', icon: 'list', test: true },
         { view: 'screeningPlan', title: '상영 준비', label: '상영 준비', icon: 'list', test: true },
@@ -2927,6 +2929,8 @@ function App() {
       ) : null}
 
       {activeView === 'videoManagement' ? <VideoManagementView /> : null}
+
+      {activeView === 'videoManual' ? <VideoManualView /> : null}
 
       {activeView === 'subtitle' ? <SubtitleView /> : null}
 
