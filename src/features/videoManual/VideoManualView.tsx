@@ -117,13 +117,19 @@ export function VideoManualView() {
   }, [fetchItems])
 
   const grouped = useMemo(() => {
+    const CATEGORY_ORDER = ['사전준비', '편집', '마무리']
     const map = new Map<string, VideoManualItemRecord[]>()
     for (const item of items) {
       const list = map.get(item.category) ?? []
       list.push(item)
       map.set(item.category, list)
     }
-    return [...map.entries()]
+    return [...map.entries()].sort((a, b) => {
+      const ai = CATEGORY_ORDER.indexOf(a[0])
+      const bi = CATEGORY_ORDER.indexOf(b[0])
+      // 목록에 없는 카테고리는 맨 뒤로
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+    })
   }, [items])
 
   const totalCount = items.length
