@@ -2796,7 +2796,7 @@ export async function handleMeetingRoutes(
         webhook_auth_header_value: webhookSecret,
       }
       if (keywordInfo.phrases.length > 0) {
-        assemblyPayload.word_boost = keywordInfo.phrases
+        assemblyPayload.keyterms_prompt = keywordInfo.phrases
       }
       // [UNKNOWN] AssemblyAI diarization range field compatibility may differ by API version.
       assemblyPayload.speaker_options = {
@@ -3503,7 +3503,7 @@ async function handleMeetingRoutesNotion(
         webhook_auth_header_value: webhookSecret,
       }
       if (keywordInfo.phrases.length > 0) {
-        assemblyPayload.word_boost = keywordInfo.phrases
+        assemblyPayload.keyterms_prompt = keywordInfo.phrases
       }
       // [UNKNOWN] AssemblyAI diarization range field compatibility may differ by API version.
       assemblyPayload.speaker_options = {
