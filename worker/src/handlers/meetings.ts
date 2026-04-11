@@ -392,6 +392,86 @@ async function readSpeakerMap(env: Env, transcriptId: string): Promise<Record<st
   return map
 }
 
+async function deleteMeetingTranscriptLocal(
+  env: Env,
+  transcriptId: string,
+): Promise<{ transcriptId: string; meetingId: string; deletedFrom: 'd1' }> {
+  await ensureMeetingDbTables(env)
+  const db = requireMeetingsDb(env)
+  const existing = await db
+    .prepare(
+      `SELECT t.id, t.meeting_id
+       FROM transcripts t
+       WHERE t.id = ?`,
+    )
+    .bind(transcriptId)
+    .first<{ id?: unknown; meeting_id?: unknown }>()
+
+  if (!existing || typeof existing.id !== 'string' || typeof existing.meeting_id !== 'string') {
+    throw new Error('transcript_not_found')
+  }
+
+  await db.prepare(`DELETE FROM speaker_maps WHERE transcript_id = ?`).bind(transcriptId).run()
+  await db.prepare(`DELETE FROM transcripts WHERE id = ?`).bind(transcriptId).run()
+  await db.prepare(`DELETE FROM meetings WHERE id = ?`).bind(existing.meeting_id).run()
+
+  if (env.CHECKLIST_DB) {
+    try {
+      await db
+        .prepare(`DELETE FROM meeting_upload_events WHERE upload_id IN (SELECT id FROM meeting_upload_sessions WHERE transcript_id = ? OR meeting_id = ?)`)
+        .bind(transcriptId, existing.meeting_id)
+        .run()
+      await db
+        .prepare(`DELETE FROM meeting_upload_sessions WHERE transcript_id = ? OR meeting_id = ?`)
+        .bind(transcriptId, existing.meeting_id)
+        .run()
+    } catch {
+      // Keep transcript deletion resilient even if upload-log cleanup fails.
+    }
+  }
+
+  return {
+    transcriptId,
+    meetingId: existing.meeting_id,
+    deletedFrom: 'd1',
+  }
+}
+
+async function deleteMeetingTranscriptNotion(
+  env: Env,
+  transcriptId: string,
+): Promise<{ transcriptId: string; meetingId: string; deletedFrom: 'notion'; notionPageId: string }> {
+  const found = await getMeetingNotionTranscriptById(env, transcriptId)
+  if (!found) {
+    throw new Error('transcript_not_found')
+  }
+
+  await found.ctx.api.updatePage(found.row.pageId, { archived: true })
+
+  if (env.CHECKLIST_DB) {
+    try {
+      const db = requireMeetingsDb(env)
+      await db
+        .prepare(`DELETE FROM meeting_upload_events WHERE upload_id IN (SELECT id FROM meeting_upload_sessions WHERE transcript_id = ? OR meeting_id = ?)`)
+        .bind(transcriptId, found.row.meetingId)
+        .run()
+      await db
+        .prepare(`DELETE FROM meeting_upload_sessions WHERE transcript_id = ? OR meeting_id = ?`)
+        .bind(transcriptId, found.row.meetingId)
+        .run()
+    } catch {
+      // Keep transcript deletion resilient even if upload-log cleanup fails.
+    }
+  }
+
+  return {
+    transcriptId,
+    meetingId: found.row.meetingId,
+    deletedFrom: 'notion',
+    notionPageId: found.row.pageId,
+  }
+}
+
 async function updateTranscriptFromAssembly(env: Env, assemblyId: string): Promise<void> {
   await ensureMeetingDbTables(env)
   const db = requireMeetingsDb(env)
@@ -2795,9 +2875,6 @@ export async function handleMeetingRoutes(
         webhook_auth_header_name: 'x-assemblyai-webhook-secret',
         webhook_auth_header_value: webhookSecret,
       }
-      if (keywordInfo.phrases.length > 0) {
-        assemblyPayload.keyterms_prompt = keywordInfo.phrases
-      }
       // [UNKNOWN] AssemblyAI diarization range field compatibility may differ by API version.
       assemblyPayload.speaker_options = {
         min_speakers: payload.minSpeakers,
@@ -2976,6 +3053,12 @@ export async function handleMeetingRoutes(
           },
         },
       })
+    }
+
+    if (request.method === 'DELETE' && transcriptMatch) {
+      const transcriptId = decodeURIComponent(transcriptMatch[1])
+      const deleted = await deleteMeetingTranscriptLocal(env, transcriptId)
+      return respond.ok({ ok: true, ...deleted })
     }
 
     if ((request.method === 'POST' || request.method === 'PATCH') && speakerMatch) {
@@ -3502,9 +3585,6 @@ async function handleMeetingRoutesNotion(
         webhook_auth_header_name: 'x-assemblyai-webhook-secret',
         webhook_auth_header_value: webhookSecret,
       }
-      if (keywordInfo.phrases.length > 0) {
-        assemblyPayload.keyterms_prompt = keywordInfo.phrases
-      }
       // [UNKNOWN] AssemblyAI diarization range field compatibility may differ by API version.
       assemblyPayload.speaker_options = {
         min_speakers: payload.minSpeakers,
@@ -3718,6 +3798,12 @@ async function handleMeetingRoutesNotion(
           },
         },
       })
+    }
+
+    if (request.method === 'DELETE' && transcriptMatch) {
+      const transcriptId = decodeURIComponent(transcriptMatch[1])
+      const deleted = await deleteMeetingTranscriptNotion(env, transcriptId)
+      return respond.ok({ ok: true, ...deleted })
     }
 
     if ((request.method === 'POST' || request.method === 'PATCH') && speakerMatch) {

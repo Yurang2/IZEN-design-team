@@ -3,23 +3,6 @@ import { API_BASE_URL, api } from '../../shared/api/client'
 import { Button, TableWrap } from '../../shared/ui'
 import { useRef } from 'react'
 
-type KeywordSetRow = {
-  id: string
-  name: string
-  isActive: boolean
-  createdAt: number
-  keywordCount: number
-}
-
-type KeywordRow = {
-  id: string
-  setId: string
-  phrase: string
-  weight: number | null
-  tags: string | null
-  createdAt: number
-}
-
 type TranscriptListRow = {
   id: string
   meetingId: string
@@ -283,39 +266,7 @@ function combineAbortSignals(signals: AbortSignal[]): AbortSignal {
   return controller.signal
 }
 
-function ActionIcon({ kind }: { kind: 'edit' | 'delete' | 'loading' }) {
-  if (kind === 'loading') {
-    return (
-      <svg className="meetingsActionIcon is-spinning" viewBox="0 0 16 16" aria-hidden="true">
-        <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.6" opacity="0.35" />
-        <path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    )
-  }
-  if (kind === 'edit') {
-    return (
-      <svg className="meetingsActionIcon" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M10.8 2.4l2.8 2.8-7.6 7.6H3.2V10z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        <path d="M9.8 3.4l2.8 2.8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    )
-  }
-  return (
-    <svg className="meetingsActionIcon" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M4 4.5h8M6 4.5v-1h4v1M6 6.2v5.3M8 6.2v5.3M10 6.2v5.3M5.2 4.5l.4 8h4.8l.4-8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 export function MeetingsView() {
-  const [keywordSets, setKeywordSets] = useState<KeywordSetRow[]>([])
-  const [selectedKeywordSetId, setSelectedKeywordSetId] = useState('')
-  const [keywords, setKeywords] = useState<KeywordRow[]>([])
-  const [keywordSetName, setKeywordSetName] = useState('')
-  const [keywordPhrase, setKeywordPhrase] = useState('')
-  const [keywordWeight, setKeywordWeight] = useState('')
-  const [keywordTags, setKeywordTags] = useState('')
-
   const [file, setFile] = useState<File | null>(null)
   const [minSpeakers, setMinSpeakers] = useState(2)
   const [maxSpeakers, setMaxSpeakers] = useState(10)
@@ -342,11 +293,7 @@ export function MeetingsView() {
   const [errorMessage, setErrorMessage] = useState('')
   const [loadingTranscripts, setLoadingTranscripts] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
-  const [creatingKeywordSet, setCreatingKeywordSet] = useState(false)
-  const [creatingKeyword, setCreatingKeyword] = useState(false)
-  const [renamingKeywordSetId, setRenamingKeywordSetId] = useState<string | null>(null)
-  const [deletingKeywordSetId, setDeletingKeywordSetId] = useState<string | null>(null)
-  const [deletingKeywordId, setDeletingKeywordId] = useState<string | null>(null)
+  const [deletingTranscriptId, setDeletingTranscriptId] = useState<string | null>(null)
 
   const updatePendingMeetingActions = useCallback(
     (updater: (current: PendingMeetingActionMap) => PendingMeetingActionMap) => {
@@ -358,30 +305,6 @@ export function MeetingsView() {
     },
     [],
   )
-
-  const loadKeywordSets = useCallback(async () => {
-    try {
-      const response = await api<{ ok: boolean; sets: KeywordSetRow[] }>('/keyword-sets')
-      setKeywordSets(response.sets ?? [])
-      if (!selectedKeywordSetId && response.sets.length > 0) {
-        setSelectedKeywordSetId(response.sets[0].id)
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드 세트를 불러오지 못했습니다.'
-      setErrorMessage(message)
-    }
-  }, [selectedKeywordSetId])
-
-  const loadKeywords = useCallback(async (setId?: string) => {
-    try {
-      const query = setId ? `?setId=${encodeURIComponent(setId)}` : ''
-      const response = await api<{ ok: boolean; keywords: KeywordRow[] }>(`/keywords${query}`)
-      setKeywords(response.keywords ?? [])
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드를 불러오지 못했습니다.'
-      setErrorMessage(message)
-    }
-  }, [])
 
   const loadTranscripts = useCallback(async () => {
     setLoadingTranscripts(true)
@@ -499,18 +422,10 @@ export function MeetingsView() {
   }, [])
 
   useEffect(() => {
-    void loadKeywordSets()
     void loadTranscripts()
     void loadUploadSessions()
-  }, [loadKeywordSets, loadTranscripts, loadUploadSessions])
+  }, [loadTranscripts, loadUploadSessions])
 
-  useEffect(() => {
-    if (!selectedKeywordSetId) {
-      setKeywords([])
-      return
-    }
-    void loadKeywords(selectedKeywordSetId)
-  }, [loadKeywords, selectedKeywordSetId])
 
   useEffect(() => {
     if (!selectedTranscriptId) {
@@ -558,11 +473,6 @@ export function MeetingsView() {
     if (!transcriptDetail) return []
     return Array.from(new Set(transcriptDetail.utterances.map((entry) => entry.speaker).filter(Boolean)))
   }, [transcriptDetail])
-
-  const keywordSetOptions = useMemo(
-    () => keywordSets.map((set) => ({ ...set, label: `${set.name} (${set.keywordCount})` })),
-    [keywordSets],
-  )
 
   const inProgressTranscriptCount = useMemo(
     () => transcripts.filter((row) => isTranscriptInProgress(row.status)).length,
@@ -738,7 +648,6 @@ export function MeetingsView() {
               title: selectedFile.name,
               minSpeakers,
               maxSpeakers,
-              keywordSetId: selectedKeywordSetId || null,
               uploadId: activeSession?.id ?? null,
             }),
           }),
@@ -1121,129 +1030,36 @@ export function MeetingsView() {
     }
   }
 
-  const onCreateKeywordSet = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!keywordSetName.trim()) {
-      setErrorMessage('키워드 세트 이름을 입력해 주세요.')
-      return
-    }
-    setCreatingKeywordSet(true)
+
+  const onDeleteTranscript = async () => {
+    if (!selectedTranscriptId || !transcriptDetail) return
+    const firstConfirmed = window.confirm('이 회의록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')
+    if (!firstConfirmed) return
+    const secondConfirmed = window.confirm('정말로 삭제합니다. Notion에서도 함께 삭제됩니다. 계속하시겠습니까?')
+    if (!secondConfirmed) return
+
+    setDeletingTranscriptId(selectedTranscriptId)
     setErrorMessage('')
     try {
-      await api('/keyword-sets', {
-        method: 'POST',
-        body: JSON.stringify({ name: keywordSetName.trim(), isActive: true }),
+      await api(`/transcripts/${encodeURIComponent(selectedTranscriptId)}`, {
+        method: 'DELETE',
       })
-      setKeywordSetName('')
-      await loadKeywordSets()
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드 세트를 생성하지 못했습니다.'
-      setErrorMessage(message)
-    } finally {
-      setCreatingKeywordSet(false)
-    }
-  }
-
-  const onCreateKeyword = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!selectedKeywordSetId) {
-      setErrorMessage('키워드 세트를 먼저 선택해 주세요.')
-      return
-    }
-    if (!keywordPhrase.trim()) {
-      setErrorMessage('키워드 문구를 입력해 주세요.')
-      return
-    }
-    setCreatingKeyword(true)
-    setErrorMessage('')
-    try {
-      await api('/keywords', {
-        method: 'POST',
-        body: JSON.stringify({
-          setId: selectedKeywordSetId,
-          phrase: keywordPhrase.trim(),
-          weight: keywordWeight.trim() ? Number(keywordWeight) : null,
-          tags: keywordTags.trim() || null,
-        }),
+      setUploadMessage('회의록을 삭제했습니다.')
+      setTranscriptDetail(null)
+      updatePendingMeetingActions((current) => {
+        if (!current[selectedTranscriptId]) return current
+        const next = { ...current }
+        delete next[selectedTranscriptId]
+        return next
       })
-      setKeywordPhrase('')
-      setKeywordWeight('')
-      setKeywordTags('')
-      await loadKeywords(selectedKeywordSetId)
-      await loadKeywordSets()
+      await loadTranscripts()
+      const remaining = transcripts.filter((row) => row.id !== selectedTranscriptId)
+      setSelectedTranscriptId(remaining[0]?.id ?? '')
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드를 추가하지 못했습니다.'
+      const message = error instanceof Error ? error.message : '회의록을 삭제하지 못했습니다.'
       setErrorMessage(message)
     } finally {
-      setCreatingKeyword(false)
-    }
-  }
-
-  const onDeleteKeyword = async (keywordId: string) => {
-    setDeletingKeywordId(keywordId)
-    try {
-      await api(`/keywords?id=${encodeURIComponent(keywordId)}`, { method: 'DELETE' })
-      await loadKeywords(selectedKeywordSetId || undefined)
-      await loadKeywordSets()
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드를 삭제하지 못했습니다.'
-      setErrorMessage(message)
-    } finally {
-      setDeletingKeywordId(null)
-    }
-  }
-
-  const onToggleKeywordSetActive = async (set: KeywordSetRow) => {
-    try {
-      await api('/keyword-sets', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          id: set.id,
-          isActive: !set.isActive,
-        }),
-      })
-      await loadKeywordSets()
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드 세트 상태를 변경하지 못했습니다.'
-      setErrorMessage(message)
-    }
-  }
-
-  const onRenameKeywordSet = async (set: KeywordSetRow) => {
-    const nextName = window.prompt('세트 이름', set.name)
-    if (nextName === null) return
-    if (!nextName.trim()) return
-    setRenamingKeywordSetId(set.id)
-    try {
-      await api('/keyword-sets', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          id: set.id,
-          name: nextName.trim(),
-        }),
-      })
-      await loadKeywordSets()
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드 세트 이름을 수정하지 못했습니다.'
-      setErrorMessage(message)
-    } finally {
-      setRenamingKeywordSetId(null)
-    }
-  }
-
-  const onDeleteKeywordSet = async (id: string) => {
-    setDeletingKeywordSetId(id)
-    try {
-      await api(`/keyword-sets?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
-      if (selectedKeywordSetId === id) {
-        setSelectedKeywordSetId('')
-      }
-      await loadKeywordSets()
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '키워드 세트를 삭제하지 못했습니다.'
-      setErrorMessage(message)
-    } finally {
-      setDeletingKeywordSetId(null)
+      setDeletingTranscriptId(null)
     }
   }
 
@@ -1267,17 +1083,6 @@ export function MeetingsView() {
           <label>
             최대 화자 수
             <input type="number" min={1} max={10} value={maxSpeakers} onChange={(event) => setMaxSpeakers(Math.max(1, Math.min(10, Number(event.target.value) || 1)))} />
-          </label>
-          <label>
-            키워드 세트
-            <select value={selectedKeywordSetId} onChange={(event) => setSelectedKeywordSetId(event.target.value)}>
-              <option value="">선택 안 함</option>
-              {keywordSetOptions.map((set) => (
-                <option key={set.id} value={set.id}>
-                  {set.label}
-                </option>
-              ))}
-            </select>
           </label>
           <div className="meetingsActions">
             <Button type="submit" disabled={uploading}>
@@ -1410,9 +1215,6 @@ export function MeetingsView() {
             <p className="muted">상세 조회 중...</p>
           ) : transcriptDetail ? (
             <>
-              {transcriptDetail.keywordsUsed.length > 0 ? (
-                <p className="muted small">전사에 적용된 Word Boost: {transcriptDetail.keywordsUsed.join(', ')}</p>
-              ) : null}
               {transcriptDetail.errorMessage ? <p className="error">{transcriptDetail.errorMessage}</p> : null}
 
               <section className="meetingsSpeakerMap">
@@ -1477,6 +1279,21 @@ export function MeetingsView() {
                     disabled={!transcriptDetail.meeting.notionPageUrl}
                   >
                     Notion에서 열기
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void onDeleteTranscript()}
+                    disabled={
+                      deletingTranscriptId === selectedTranscriptId ||
+                      publishingToNotion ||
+                      retryingSummary ||
+                      rewritingTranscript ||
+                      regeneratingPage ||
+                      savingSpeakers
+                    }
+                  >
+                    {deletingTranscriptId === selectedTranscriptId ? '삭제 중...' : '회의록 삭제'}
                   </Button>
                 </div>
                 <section className="meetingsRepairPanel" aria-label="회의록 유지보수 작업">
@@ -1577,101 +1394,6 @@ export function MeetingsView() {
         </article>
       </div>
 
-      <article className="meetingsCard meetingsKeywordCard">
-        <div className="meetingsCardHeader">
-          <h3>키워드 세트 / Word Boost</h3>
-        </div>
-        <form className="meetingsInlineForm meetingsKeywordCreateSetForm" onSubmit={onCreateKeywordSet}>
-          <input value={keywordSetName} onChange={(event) => setKeywordSetName(event.target.value)} placeholder="세트 이름" />
-          <Button type="submit" size="mini" disabled={creatingKeywordSet}>
-            {creatingKeywordSet ? '추가 중...' : '추가'}
-          </Button>
-        </form>
-        <div className="meetingsKeywordSets meetingsKeywordSetsCompact">
-          {keywordSets.map((set) => (
-            <div key={set.id} className={selectedKeywordSetId === set.id ? 'meetingsKeywordSetItem is-active' : 'meetingsKeywordSetItem'}>
-              <button type="button" className="linkButton secondary mini" onClick={() => setSelectedKeywordSetId(set.id)}>
-                {set.name} ({set.keywordCount})
-              </button>
-              <div className="meetingsKeywordSetActions">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="mini"
-                  onClick={() => void onRenameKeywordSet(set)}
-                  title="이름 수정"
-                  aria-label="이름 수정"
-                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
-                >
-                  <span className="meetingsIconButtonContent">
-                    <ActionIcon kind={renamingKeywordSetId === set.id ? 'loading' : 'edit'} />
-                  </span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="mini"
-                  onClick={() => void onToggleKeywordSetActive(set)}
-                  disabled={renamingKeywordSetId === set.id || deletingKeywordSetId === set.id}
-                >
-                  {set.isActive ? 'Off' : 'On'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="mini"
-                  onClick={() => void onDeleteKeywordSet(set.id)}
-                  title="세트 삭제"
-                  aria-label="세트 삭제"
-                  disabled={deletingKeywordSetId === set.id}
-                >
-                  <span className="meetingsIconButtonContent">
-                    <ActionIcon kind={deletingKeywordSetId === set.id ? 'loading' : 'delete'} />
-                  </span>
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <form className="meetingsInlineForm meetingsKeywordCreateKeywordForm" onSubmit={onCreateKeyword}>
-          <input value={keywordPhrase} onChange={(event) => setKeywordPhrase(event.target.value)} placeholder="키워드" />
-          <input value={keywordWeight} onChange={(event) => setKeywordWeight(event.target.value)} placeholder="w" />
-          <input value={keywordTags} onChange={(event) => setKeywordTags(event.target.value)} placeholder="tags" />
-          <Button type="submit" size="mini" disabled={!selectedKeywordSetId || creatingKeyword}>
-            {creatingKeyword ? '추가 중...' : '추가'}
-          </Button>
-        </form>
-        {!selectedKeywordSetId ? <p className="muted small">세트를 선택해야 키워드 추가가 가능합니다.</p> : null}
-        <div className="meetingsKeywordList meetingsKeywordListCompact">
-          {keywords.map((keyword) => (
-            <div key={keyword.id} className="meetingsKeywordItem">
-              <div className="meetingsKeywordItemHeader">
-                <strong className="meetingsKeywordPhrase">{keyword.phrase}</strong>
-                <span className="muted small">
-                  {keyword.weight != null ? `w:${keyword.weight}` : '-'} / {keyword.tags || '-'}
-                </span>
-              </div>
-              <div className="meetingsKeywordSetActions">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="mini"
-                  onClick={() => void onDeleteKeyword(keyword.id)}
-                  title="키워드 삭제"
-                  aria-label="키워드 삭제"
-                  disabled={deletingKeywordId === keyword.id}
-                >
-                  <span className="meetingsIconButtonContent">
-                    <ActionIcon kind={deletingKeywordId === keyword.id ? 'loading' : 'delete'} />
-                  </span>
-                </Button>
-              </div>
-            </div>
-          ))}
-          {selectedKeywordSetId && keywords.length === 0 ? <p className="muted small">등록된 키워드가 없습니다.</p> : null}
-        </div>
-      </article>
     </section>
   )
 }
-
