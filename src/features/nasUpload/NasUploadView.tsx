@@ -244,6 +244,7 @@ export function NasUploadView() {
       if (res.ok && res.sid) {
         setSid(res.sid)
         setStep('task')
+        fetchTasks(account)
       } else {
         setLoginError(res.error === 'nas_login_failed_invalid_credentials' ? '아이디 또는 비밀번호가 틀렸습니다' : res.error ?? '로그인 실패')
       }
@@ -262,15 +263,16 @@ export function NasUploadView() {
     setTasks([])
   }, [sid])
 
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (assigneeName: string) => {
     setTasksLoading(true)
     try {
       const res = await api<ListTasksResponse>('/tasks?pageSize=200')
-      // filter to in-progress tasks
-      const inProgress = res.tasks.filter((t) =>
-        !['완료', '보류', '취소'].some((s) => t.status.includes(s)),
+      // filter: assignee matches NAS account name + not completed
+      const mine = res.tasks.filter((t) =>
+        !['완료', '보류', '취소'].some((s) => t.status.includes(s)) &&
+        t.assignee.some((a) => a.includes(assigneeName)),
       )
-      setTasks(inProgress)
+      setTasks(mine)
     } catch {
       setTasks([])
     } finally {
@@ -340,10 +342,7 @@ export function NasUploadView() {
     }
   }, [selectedFile, sid, fullNasPath, generatedFilename, loadTargetFiles])
 
-  // load tasks after login
-  useEffect(() => {
-    if (step === 'task') fetchTasks()
-  }, [step, fetchTasks])
+  // (tasks are loaded immediately after login via fetchTasks(account))
 
   // load target files when path changes
   useEffect(() => {
@@ -415,7 +414,7 @@ export function NasUploadView() {
       {/* ── Step 2: Task selection ── */}
       {step === 'task' ? (
         <div style={cardStyle}>
-          <h3 style={{ margin: '0 0 8px', fontSize: '0.95em' }}>진행중 업무 선택</h3>
+          <h3 style={{ margin: '0 0 8px', fontSize: '0.95em' }}>{account}님의 진행중 업무</h3>
           <p style={{ fontSize: '0.82em', color: 'var(--text2)', margin: '0 0 12px' }}>
             업무를 선택하면 프로젝트 폴더와 파일명이 자동 설정됩니다.
           </p>
