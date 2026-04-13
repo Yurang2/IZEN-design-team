@@ -428,6 +428,7 @@ export type TopView =
   | 'subtitle'
   | 'videoManagement'
   | 'videoManual'
+  | 'nasGuide'
   | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'
