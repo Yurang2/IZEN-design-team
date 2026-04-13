@@ -1,27 +1,80 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../shared/api/client'
+import type { TaskRecord } from '../../shared/types'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type NasFile = { name: string; path: string; isDir: boolean; size?: number; mtime?: number }
-type Step = 'login' | 'select' | 'upload' | 'done'
+type Step = 'login' | 'task' | 'configure' | 'upload' | 'done'
+
+type ListTasksResponse = {
+  tasks: TaskRecord[]
+  hasMore: boolean
+  nextCursor?: string
+}
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const NAS_BASE_PATH = '/Izenimplant/Marketing'
+const NAS_BASE = '/Izenimplant/Marketing'
 
-const PROJECT_SUBFOLDERS = [
-  '00_기획-문서',
-  '01_인쇄물',
-  '02_부스',
-  '03_디지털',
-  '04_영상',
-  '05_사진',
-] as const
+const SUBFOLDER_MAP: Record<string, string> = {
+  '기획': '00_기획-문서',
+  '인쇄': '01_인쇄물',
+  '인쇄물': '01_인쇄물',
+  '포스터': '01_인쇄물/포스터',
+  '리플렛': '01_인쇄물/리플렛',
+  '브로슈어': '01_인쇄물/브로슈어',
+  '카달로그': '01_인쇄물/카달로그',
+  '배너': '01_인쇄물/배너-현수막',
+  '현수막': '01_인쇄물/배너-현수막',
+  'certificate': '01_인쇄물/certificate',
+  '부스': '02_부스',
+  '부스디자인': '02_부스/부스디자인',
+  '부스그래픽': '02_부스/부스그래픽',
+  '디지털': '03_디지털',
+  'SNS': '03_디지털/SNS-이미지',
+  'PPT': '03_디지털/PPT',
+  '렌더링': '03_디지털/렌더링',
+  '영상': '04_영상',
+  '촬영': '04_영상/자체촬영',
+  '편집': '04_영상/편집-프로젝트',
+  '모션': '04_영상/2D-모션',
+  '3D': '04_영상/3D-모션',
+  '사진': '05_사진',
+}
+
+const SUBFOLDER_OPTIONS = [
+  { label: '00 기획-문서', value: '00_기획-문서' },
+  { label: '01 인쇄물', value: '01_인쇄물' },
+  { label: '  포스터', value: '01_인쇄물/포스터' },
+  { label: '  리플렛', value: '01_인쇄물/리플렛' },
+  { label: '  브로슈어', value: '01_인쇄물/브로슈어' },
+  { label: '  카달로그', value: '01_인쇄물/카달로그' },
+  { label: '  배너-현수막', value: '01_인쇄물/배너-현수막' },
+  { label: '  certificate', value: '01_인쇄물/certificate' },
+  { label: '02 부스', value: '02_부스' },
+  { label: '  부스디자인', value: '02_부스/부스디자인' },
+  { label: '  부스그래픽', value: '02_부스/부스그래픽' },
+  { label: '03 디지털', value: '03_디지털' },
+  { label: '  SNS-이미지', value: '03_디지털/SNS-이미지' },
+  { label: '  PPT', value: '03_디지털/PPT' },
+  { label: '  렌더링', value: '03_디지털/렌더링' },
+  { label: '04 영상', value: '04_영상' },
+  { label: '  편집-프로젝트', value: '04_영상/편집-프로젝트' },
+  { label: '  3D-모션', value: '04_영상/3D-모션' },
+  { label: '  최종본', value: '04_영상/최종본' },
+  { label: '05 사진', value: '05_사진' },
+  { label: '  자체촬영', value: '05_사진/자체촬영' },
+  { label: '  선별', value: '05_사진/선별' },
+  { label: '  보정', value: '05_사진/보정' },
+]
+
+const BRANDS = ['IZEN', 'IAM', 'ZENEX', 'Cleanimplant', '']
+const LANGUAGES = ['', 'EN', 'RU', 'ZH', 'KO']
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,23 +87,51 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GB`
 }
 
-function extractVersion(filename: string): { prefix: string; num: number; type: 'v' | 'Rev' } | null {
+function extractVersion(filename: string): { num: number; type: 'v' | 'Rev' } | null {
   const vMatch = filename.match(/_v(\d+)/)
-  if (vMatch) return { prefix: 'v', num: parseInt(vMatch[1], 10), type: 'v' }
+  if (vMatch) return { num: parseInt(vMatch[1], 10), type: 'v' }
   const revMatch = filename.match(/_Rev(\d+)/)
-  if (revMatch) return { prefix: 'Rev', num: parseInt(revMatch[1], 10), type: 'Rev' }
+  if (revMatch) return { num: parseInt(revMatch[1], 10), type: 'Rev' }
   return null
 }
 
-function suggestNextVersion(files: NasFile[], type: 'v' | 'Rev'): string {
+function suggestNextVersion(files: NasFile[], type: 'v' | 'Rev'): number {
   let max = 0
   for (const f of files) {
     if (f.isDir) continue
     const v = extractVersion(f.name)
     if (v && v.type === type) max = Math.max(max, v.num)
   }
-  const next = String(max + 1).padStart(2, '0')
-  return type === 'v' ? `v${next}` : `Rev${next}`
+  return max + 1
+}
+
+function guessSubfolder(workType: string): string {
+  const lower = workType.toLowerCase()
+  for (const [keyword, folder] of Object.entries(SUBFOLDER_MAP)) {
+    if (lower.includes(keyword.toLowerCase())) return folder
+  }
+  return '00_기획-문서'
+}
+
+function buildFilename(parts: {
+  brand: string
+  contentName: string
+  lang: string
+  spec: string
+  versionType: 'v' | 'Rev'
+  versionNum: number
+  ext: string
+}): string {
+  const segs: string[] = []
+  if (parts.brand) segs.push(parts.brand)
+  if (parts.contentName) segs.push(parts.contentName)
+  if (parts.lang) segs.push(parts.lang)
+  if (parts.spec) segs.push(parts.spec)
+  const vStr = parts.versionType === 'v'
+    ? `v${String(parts.versionNum).padStart(2, '0')}`
+    : `Rev${String(parts.versionNum).padStart(2, '0')}`
+  segs.push(vStr)
+  return segs.join('_') + (parts.ext.startsWith('.') ? parts.ext : `.${parts.ext}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +157,8 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
+const selectStyle: React.CSSProperties = { ...inputStyle }
+
 const labelStyle: React.CSSProperties = {
   fontSize: '0.82em',
   fontWeight: 600,
@@ -84,24 +167,15 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
 }
 
-const fileListStyle: React.CSSProperties = {
-  background: 'var(--surface2, var(--bg))',
+const previewStyle: React.CSSProperties = {
+  background: 'var(--surface2, #f5f7fb)',
   border: '1px solid var(--border)',
-  borderRadius: 10,
-  padding: '8px 0',
-  maxHeight: 240,
-  overflowY: 'auto',
+  borderRadius: 8,
+  padding: '10px 14px',
+  fontFamily: "'Courier New', monospace",
+  fontSize: '0.82em',
+  wordBreak: 'break-all',
 }
-
-const fileItemStyle = (isDir: boolean): React.CSSProperties => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '4px 12px',
-  fontSize: '0.85em',
-  cursor: isDir ? 'pointer' : 'default',
-  color: isDir ? 'var(--primary)' : 'var(--text1)',
-})
 
 // ---------------------------------------------------------------------------
 // Component
@@ -109,17 +183,32 @@ const fileItemStyle = (isDir: boolean): React.CSSProperties => ({
 
 export function NasUploadView() {
   const [step, setStep] = useState<Step>('login')
+
+  // auth
   const [sid, setSid] = useState('')
   const [account, setAccount] = useState('')
   const [passwd, setPasswd] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
 
-  // folder navigation
-  const [currentPath, setCurrentPath] = useState(NAS_BASE_PATH + '/01_PROJECT')
-  const [files, setFiles] = useState<NasFile[]>([])
-  const [listLoading, setListLoading] = useState(false)
-  const [listError, setListError] = useState('')
+  // tasks
+  const [tasks, setTasks] = useState<TaskRecord[]>([])
+  const [tasksLoading, setTasksLoading] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null)
+
+  // file naming
+  const [subfolder, setSubfolder] = useState('')
+  const [brand, setBrand] = useState('IZEN')
+  const [contentName, setContentName] = useState('')
+  const [lang, setLang] = useState('')
+  const [spec, setSpec] = useState('')
+  const [versionType, setVersionType] = useState<'v' | 'Rev'>('v')
+  const [versionNum, setVersionNum] = useState(1)
+  const [ext, setExt] = useState('.ai')
+
+  // NAS files in target folder
+  const [targetFiles, setTargetFiles] = useState<NasFile[]>([])
+  const [targetLoading, setTargetLoading] = useState(false)
 
   // upload
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -128,12 +217,20 @@ export function NasUploadView() {
   const [uploadResult, setUploadResult] = useState<{ ok: boolean; message: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // new folder
-  const [newFolderName, setNewFolderName] = useState('')
-  const [creatingFolder, setCreatingFolder] = useState(false)
+  // ---------------------------------------------------------------------------
+  // Computed
+  // ---------------------------------------------------------------------------
+
+  const projectFolder = selectedTask
+    ? `01_PROJECT/${selectedTask.projectKey || selectedTask.projectName || 'unknown'}`
+    : '01_PROJECT'
+
+  const fullNasPath = `${NAS_BASE}/${projectFolder}${subfolder ? `/${subfolder}` : ''}`
+
+  const generatedFilename = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, ext })
 
   // ---------------------------------------------------------------------------
-  // NAS API calls
+  // API calls
   // ---------------------------------------------------------------------------
 
   const nasLogin = useCallback(async () => {
@@ -146,7 +243,7 @@ export function NasUploadView() {
       })
       if (res.ok && res.sid) {
         setSid(res.sid)
-        setStep('select')
+        setStep('task')
       } else {
         setLoginError(res.error === 'nas_login_failed_invalid_credentials' ? '아이디 또는 비밀번호가 틀렸습니다' : res.error ?? '로그인 실패')
       }
@@ -158,68 +255,69 @@ export function NasUploadView() {
   }, [account, passwd])
 
   const nasLogout = useCallback(async () => {
-    if (sid) {
-      await api('/nas/logout', { method: 'POST', body: JSON.stringify({ sid }) }).catch(() => {})
-    }
+    if (sid) await api('/nas/logout', { method: 'POST', body: JSON.stringify({ sid }) }).catch(() => {})
     setSid('')
     setStep('login')
-    setFiles([])
-    setCurrentPath(NAS_BASE_PATH + '/01_PROJECT')
+    setSelectedTask(null)
+    setTasks([])
   }, [sid])
 
-  const nasList = useCallback(async (folderPath: string) => {
-    setListLoading(true)
-    setListError('')
+  const fetchTasks = useCallback(async () => {
+    setTasksLoading(true)
     try {
-      const res = await api<{ ok: boolean; files?: NasFile[]; error?: string }>('/nas/list', {
+      const res = await api<ListTasksResponse>('/tasks?pageSize=200')
+      // filter to in-progress tasks
+      const inProgress = res.tasks.filter((t) =>
+        !['완료', '보류', '취소'].some((s) => t.status.includes(s)),
+      )
+      setTasks(inProgress)
+    } catch {
+      setTasks([])
+    } finally {
+      setTasksLoading(false)
+    }
+  }, [])
+
+  const loadTargetFiles = useCallback(async (folderPath: string) => {
+    setTargetLoading(true)
+    try {
+      const res = await api<{ ok: boolean; files?: NasFile[] }>('/nas/list', {
         method: 'POST',
         body: JSON.stringify({ sid, folderPath }),
       })
       if (res.ok && res.files) {
-        // sort: folders first, then files. alphabetical within each group
-        const sorted = res.files.sort((a, b) => {
-          if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
-          return a.name.localeCompare(b.name)
-        })
-        setFiles(sorted)
-        setCurrentPath(folderPath)
+        const sorted = res.files.filter((f) => !f.isDir).sort((a, b) => a.name.localeCompare(b.name))
+        setTargetFiles(sorted)
+        // auto-suggest version
+        const nextV = suggestNextVersion(sorted, versionType)
+        setVersionNum(nextV)
       } else {
-        setListError(res.error ?? '폴더를 열 수 없습니다')
+        setTargetFiles([])
       }
-    } catch (err) {
-      setListError(err instanceof Error ? err.message : '목록 조회 실패')
-    } finally {
-      setListLoading(false)
-    }
-  }, [sid])
-
-  const nasCreateFolder = useCallback(async () => {
-    if (!newFolderName.trim()) return
-    setCreatingFolder(true)
-    try {
-      await api('/nas/create-folder', {
-        method: 'POST',
-        body: JSON.stringify({ sid, folderPath: currentPath, name: newFolderName.trim() }),
-      })
-      setNewFolderName('')
-      await nasList(currentPath)
     } catch {
-      // ignore — will show in list refresh
+      setTargetFiles([])
     } finally {
-      setCreatingFolder(false)
+      setTargetLoading(false)
     }
-  }, [sid, currentPath, newFolderName, nasList])
+  }, [sid, versionType])
 
   const nasUpload = useCallback(async () => {
     if (!selectedFile) return
     setUploading(true)
     setUploadResult(null)
     try {
+      // create parent folders if needed
+      await api('/nas/create-folder', {
+        method: 'POST',
+        body: JSON.stringify({ sid, folderPath: fullNasPath.substring(0, fullNasPath.lastIndexOf('/')), name: fullNasPath.substring(fullNasPath.lastIndexOf('/') + 1) }),
+      }).catch(() => {})
+
       const fd = new FormData()
       fd.append('sid', sid)
-      fd.append('dest_folder_path', currentPath)
+      fd.append('dest_folder_path', fullNasPath)
       fd.append('create_parents', 'true')
-      fd.append('file', selectedFile, selectedFile.name)
+      // upload with generated filename, not original
+      fd.append('file', selectedFile, generatedFilename)
 
       const res = await api<{ ok: boolean; filename?: string; error?: string }>('/nas/upload', {
         method: 'POST',
@@ -227,11 +325,11 @@ export function NasUploadView() {
       })
 
       if (res.ok) {
-        setUploadResult({ ok: true, message: `${res.filename} 업로드 완료` })
+        setUploadResult({ ok: true, message: `${generatedFilename} 업로드 완료!` })
         setStep('done')
-        await nasList(currentPath)
+        loadTargetFiles(fullNasPath)
       } else if (res.error?.includes('already_exists')) {
-        setUploadResult({ ok: false, message: `같은 이름의 파일이 이미 존재합니다. 파일명의 버전 번호를 올려주세요 (예: ${nextV})` })
+        setUploadResult({ ok: false, message: `${generatedFilename} 이(가) 이미 존재합니다. 버전 번호를 올려주세요.` })
       } else {
         setUploadResult({ ok: false, message: res.error ?? '업로드 실패' })
       }
@@ -240,21 +338,39 @@ export function NasUploadView() {
     } finally {
       setUploading(false)
     }
-  }, [selectedFile, sid, currentPath, nasList])
+  }, [selectedFile, sid, fullNasPath, generatedFilename, loadTargetFiles])
 
-  // auto-load file list when entering select step
+  // load tasks after login
   useEffect(() => {
-    if (step === 'select' && sid) {
-      nasList(currentPath)
+    if (step === 'task') fetchTasks()
+  }, [step, fetchTasks])
+
+  // load target files when path changes
+  useEffect(() => {
+    if (sid && subfolder && selectedTask) {
+      loadTargetFiles(fullNasPath)
     }
-  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fullNasPath]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // version hint
-  const nextV = files.length ? suggestNextVersion(files, 'v') : 'v01'
-  const nextRev = files.length ? suggestNextVersion(files, 'Rev') : 'Rev01'
+  // auto-fill from task selection
+  function selectTask(task: TaskRecord) {
+    setSelectedTask(task)
+    // guess subfolder from workType
+    setSubfolder(guessSubfolder(task.workType))
+    // guess content name from task name
+    setContentName(task.taskName.replace(/\s+/g, '-'))
+    setStep('configure')
+  }
 
-  // breadcrumb
-  const pathParts = currentPath.replace(NAS_BASE_PATH, '').split('/').filter(Boolean)
+  // auto-detect extension from file
+  function onFileSelect(file: File | null) {
+    setSelectedFile(file)
+    setUploadResult(null)
+    if (file) {
+      const dotIdx = file.name.lastIndexOf('.')
+      if (dotIdx > 0) setExt(file.name.substring(dotIdx))
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Render
@@ -266,7 +382,7 @@ export function NasUploadView() {
         <div className="workflowHeroMain">
           <span className="workflowEyebrow">NAS Upload</span>
           <h2>NAS 파일 업로드</h2>
-          <p>Synology NAS에 파일을 업로드합니다. 업로드와 폴더 생성만 가능하며, 기존 파일 수정/삭제는 불가합니다.</p>
+          <p>업무를 선택하면 경로와 파일명이 자동으로 설정됩니다. 파일을 선택하면 규칙에 맞는 이름으로 업로드됩니다.</p>
         </div>
         {sid ? (
           <button type="button" className="secondary mini" onClick={nasLogout} style={{ alignSelf: 'flex-start' }}>
@@ -275,38 +391,20 @@ export function NasUploadView() {
         ) : null}
       </header>
 
-      {/* Step 1: Login */}
+      {/* ── Step 1: Login ── */}
       {step === 'login' ? (
         <div style={cardStyle}>
           <h3 style={{ margin: '0 0 12px', fontSize: '0.95em' }}>NAS 로그인</h3>
-          <p style={{ fontSize: '0.82em', color: 'var(--text2)', margin: '0 0 12px' }}>
-            Synology NAS 계정으로 로그인하세요. 본인 계정의 권한만 사용됩니다.
-          </p>
           <div style={{ display: 'grid', gap: 10, maxWidth: 340 }}>
             <div>
               <label style={labelStyle}>아이디</label>
-              <input
-                style={inputStyle}
-                value={account}
-                onChange={(e) => setAccount(e.target.value)}
-                placeholder="NAS 아이디"
-                onKeyDown={(e) => e.key === 'Enter' && nasLogin()}
-              />
+              <input style={inputStyle} value={account} onChange={(e) => setAccount(e.target.value)} placeholder="NAS 아이디" onKeyDown={(e) => e.key === 'Enter' && nasLogin()} />
             </div>
             <div>
               <label style={labelStyle}>비밀번호</label>
-              <input
-                type="password"
-                style={inputStyle}
-                value={passwd}
-                onChange={(e) => setPasswd(e.target.value)}
-                placeholder="NAS 비밀번호"
-                onKeyDown={(e) => e.key === 'Enter' && nasLogin()}
-              />
+              <input type="password" style={inputStyle} value={passwd} onChange={(e) => setPasswd(e.target.value)} placeholder="NAS 비밀번호" onKeyDown={(e) => e.key === 'Enter' && nasLogin()} />
             </div>
-            {loginError ? (
-              <div style={{ fontSize: '0.82em', color: 'var(--danger)' }}>{loginError}</div>
-            ) : null}
+            {loginError ? <div style={{ fontSize: '0.82em', color: 'var(--danger)' }}>{loginError}</div> : null}
             <button type="button" onClick={nasLogin} disabled={loginLoading || !account || !passwd}>
               {loginLoading ? '로그인 중...' : '로그인'}
             </button>
@@ -314,216 +412,206 @@ export function NasUploadView() {
         </div>
       ) : null}
 
-      {/* Step 2: Select folder */}
-      {step === 'select' || step === 'upload' || step === 'done' ? (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {/* Breadcrumb */}
-          <div style={{ ...cardStyle, padding: '10px 14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.82em', flexWrap: 'wrap' }}>
-              <span
-                style={{ cursor: 'pointer', color: 'var(--primary)', fontWeight: 600 }}
-                onClick={() => nasList(NAS_BASE_PATH)}
-              >
-                Marketing
-              </span>
-              {pathParts.map((part, i) => {
-                const fullPath = NAS_BASE_PATH + '/' + pathParts.slice(0, i + 1).join('/')
-                return (
-                  <span key={fullPath} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ color: 'var(--muted)' }}>/</span>
-                    <span
-                      style={{ cursor: 'pointer', color: i === pathParts.length - 1 ? 'var(--text1)' : 'var(--primary)' }}
-                      onClick={() => nasList(fullPath)}
-                    >
-                      {part}
-                    </span>
+      {/* ── Step 2: Task selection ── */}
+      {step === 'task' ? (
+        <div style={cardStyle}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '0.95em' }}>진행중 업무 선택</h3>
+          <p style={{ fontSize: '0.82em', color: 'var(--text2)', margin: '0 0 12px' }}>
+            업무를 선택하면 프로젝트 폴더와 파일명이 자동 설정됩니다.
+          </p>
+          {tasksLoading ? (
+            <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>업무 불러오는 중...</div>
+          ) : (
+            <div style={{ display: 'grid', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
+              {tasks.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  className="secondary"
+                  style={{ textAlign: 'left', padding: '10px 12px', display: 'grid', gap: 2 }}
+                  onClick={() => selectTask(task)}
+                >
+                  <span style={{ fontWeight: 600, fontSize: '0.88em' }}>{task.taskName}</span>
+                  <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>
+                    {task.projectName} · {task.workType} · {task.status}
                   </span>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* File list + upload side by side */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {/* Left: folder browser */}
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <h3 style={{ margin: 0, fontSize: '0.88em' }}>폴더 탐색</h3>
-                <button type="button" className="secondary mini" onClick={() => nasList(currentPath)} disabled={listLoading}>
-                  새로고침
                 </button>
-              </div>
-
-              {listError ? (
-                <div style={{ fontSize: '0.82em', color: 'var(--danger)', marginBottom: 8 }}>{listError}</div>
-              ) : null}
-
-              {listLoading ? (
-                <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div>
-              ) : (
-                <div style={fileListStyle}>
-                  {/* Parent folder */}
-                  {currentPath !== NAS_BASE_PATH ? (
-                    <div
-                      style={{ ...fileItemStyle(true), fontWeight: 600 }}
-                      onClick={() => {
-                        const parent = currentPath.substring(0, currentPath.lastIndexOf('/'))
-                        nasList(parent || NAS_BASE_PATH)
-                      }}
-                    >
-                      📁 ..
-                    </div>
-                  ) : null}
-                  {files.map((f) => (
-                    <div
-                      key={f.path || f.name}
-                      style={fileItemStyle(f.isDir)}
-                      onClick={() => f.isDir && nasList(currentPath + '/' + f.name)}
-                    >
-                      {f.isDir ? '📁' : '📄'} {f.name}
-                      {!f.isDir && f.size ? (
-                        <span style={{ marginLeft: 'auto', fontSize: '0.78em', color: 'var(--muted)' }}>
-                          {formatBytes(f.size)}
-                        </span>
-                      ) : null}
-                    </div>
-                  ))}
-                  {files.length === 0 && !listLoading ? (
-                    <div style={{ padding: '12px 12px', fontSize: '0.82em', color: 'var(--muted)', textAlign: 'center' }}>
-                      빈 폴더
-                    </div>
-                  ) : null}
+              ))}
+              {tasks.length === 0 ? (
+                <div style={{ padding: 12, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>
+                  진행중 업무가 없습니다
                 </div>
-              )}
+              ) : null}
+            </div>
+          )}
+        </div>
+      ) : null}
 
-              {/* Create folder */}
-              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                <input
-                  style={{ ...inputStyle, flex: 1 }}
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="새 폴더 이름"
-                  onKeyDown={(e) => e.key === 'Enter' && nasCreateFolder()}
-                />
-                <button type="button" className="secondary mini" onClick={nasCreateFolder} disabled={creatingFolder || !newFolderName.trim()}>
-                  생성
-                </button>
+      {/* ── Step 3: Configure filename + upload ── */}
+      {step === 'configure' || step === 'upload' || step === 'done' ? (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {/* Selected task info */}
+          {selectedTask ? (
+            <div style={{ ...cardStyle, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ fontWeight: 700, fontSize: '0.88em' }}>{selectedTask.taskName}</span>
+                <span style={{ fontSize: '0.78em', color: 'var(--muted)', marginLeft: 8 }}>
+                  {selectedTask.projectName} · {selectedTask.workType}
+                </span>
+              </div>
+              <button type="button" className="secondary mini" onClick={() => { setSelectedTask(null); setStep('task') }}>
+                업무 변경
+              </button>
+            </div>
+          ) : null}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {/* Left: filename builder */}
+            <div style={cardStyle}>
+              <h3 style={{ margin: '0 0 10px', fontSize: '0.88em' }}>파일명 설정</h3>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div>
+                  <label style={labelStyle}>저장 위치 (하위 폴더)</label>
+                  <select style={selectStyle} value={subfolder} onChange={(e) => setSubfolder(e.target.value)}>
+                    <option value="">-- 선택 --</option>
+                    {SUBFOLDER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={labelStyle}>브랜드</label>
+                    <select style={selectStyle} value={brand} onChange={(e) => setBrand(e.target.value)}>
+                      {BRANDS.map((b) => <option key={b} value={b}>{b || '(없음)'}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>언어</label>
+                    <select style={selectStyle} value={lang} onChange={(e) => setLang(e.target.value)}>
+                      {LANGUAGES.map((l) => <option key={l} value={l}>{l || '(없음)'}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>콘텐츠명 (하이픈 구분)</label>
+                  <input style={inputStyle} value={contentName} onChange={(e) => setContentName(e.target.value)} placeholder="CIS2026_포스터" />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={labelStyle}>규격 (선택)</label>
+                    <input style={inputStyle} value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="A1, 16x9" />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>버전 종류</label>
+                    <select style={selectStyle} value={versionType} onChange={(e) => { setVersionType(e.target.value as 'v' | 'Rev'); }}>
+                      <option value="v">v (내부)</option>
+                      <option value="Rev">Rev (배포)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>버전 번호</label>
+                    <input type="number" min={1} style={inputStyle} value={versionNum} onChange={(e) => setVersionNum(parseInt(e.target.value) || 1)} />
+                  </div>
+                </div>
               </div>
 
-              {/* Quick folder buttons */}
-              <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-                {PROJECT_SUBFOLDERS.map((sub) => (
-                  <button
-                    key={sub}
-                    type="button"
-                    className="secondary mini"
-                    style={{ fontSize: '0.72em', padding: '3px 6px' }}
-                    onClick={() => {
-                      setNewFolderName(sub)
-                    }}
-                  >
-                    {sub}
-                  </button>
-                ))}
+              {/* Preview */}
+              <div style={{ marginTop: 12 }}>
+                <label style={labelStyle}>생성될 파일명</label>
+                <div style={previewStyle}>{generatedFilename}</div>
+              </div>
+              <div style={{ marginTop: 6 }}>
+                <label style={labelStyle}>업로드 경로</label>
+                <div style={{ ...previewStyle, fontSize: '0.75em' }}>{fullNasPath}/</div>
               </div>
             </div>
 
-            {/* Right: upload panel */}
+            {/* Right: file select + existing files + upload */}
             <div style={cardStyle}>
-              <h3 style={{ margin: '0 0 8px', fontSize: '0.88em' }}>파일 업로드</h3>
-              <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '0 0 12px' }}>
-                현재 위치: <code style={{ fontSize: '0.9em' }}>{currentPath.replace(NAS_BASE_PATH + '/', '')}</code>
-              </p>
-
-              {/* Version hint */}
-              <div style={{
-                display: 'flex', gap: 8, marginBottom: 12, fontSize: '0.78em',
-              }}>
-                <span style={{ background: '#dcfce7', border: '1px solid #22c55e', borderRadius: 4, padding: '2px 6px', color: '#166534' }}>
-                  다음 내부버전: {nextV}
-                </span>
-                <span style={{ background: '#fff7ed', border: '1px solid #f97316', borderRadius: 4, padding: '2px 6px', color: '#9a3412' }}>
-                  다음 배포버전: {nextRev}
-                </span>
-              </div>
+              <h3 style={{ margin: '0 0 10px', fontSize: '0.88em' }}>파일 선택 & 업로드</h3>
 
               {/* File input */}
               <div style={{ marginBottom: 10 }}>
-                <label style={labelStyle}>파일 선택</label>
+                <label style={labelStyle}>파일 선택 (내용만 사용, 파일명은 왼쪽 설정대로)</label>
                 <input
                   ref={fileInputRef}
                   type="file"
                   style={{ fontSize: '0.85em' }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0] ?? null
-                    setSelectedFile(f)
-                    setUploadResult(null)
-                    if (f) setStep('upload')
-                  }}
+                  onChange={(e) => onFileSelect(e.target.files?.[0] ?? null)}
                 />
               </div>
 
               {selectedFile ? (
-                <div style={{ fontSize: '0.82em', color: 'var(--text2)', marginBottom: 10 }}>
-                  <strong>{selectedFile.name}</strong> ({formatBytes(selectedFile.size)})
+                <div style={{ fontSize: '0.82em', color: 'var(--text2)', marginBottom: 8 }}>
+                  원본: <strong>{selectedFile.name}</strong> ({formatBytes(selectedFile.size)})
+                  <br />
+                  업로드명: <strong style={{ color: 'var(--primary)' }}>{generatedFilename}</strong>
                 </div>
               ) : null}
 
               {/* Upload reason */}
               <div style={{ marginBottom: 10 }}>
-                <label style={labelStyle}>수정/업로드 사유 (선택)</label>
-                <input
-                  style={inputStyle}
-                  value={uploadReason}
-                  onChange={(e) => setUploadReason(e.target.value)}
-                  placeholder="예: 자막 오타 수정 + 컬러 변경"
-                />
+                <label style={labelStyle}>수정/업로드 사유</label>
+                <input style={inputStyle} value={uploadReason} onChange={(e) => setUploadReason(e.target.value)} placeholder="예: 자막 오타 수정 + 컬러 변경" />
               </div>
 
               {/* Upload button */}
-              <button
-                type="button"
-                onClick={nasUpload}
-                disabled={uploading || !selectedFile}
-                style={{ width: '100%' }}
-              >
-                {uploading ? '업로드 중...' : '업로드'}
+              <button type="button" onClick={nasUpload} disabled={uploading || !selectedFile || !contentName} style={{ width: '100%' }}>
+                {uploading ? '업로드 중...' : `${generatedFilename} 업로드`}
               </button>
 
               {/* Result */}
               {uploadResult ? (
-                <div
-                  style={{
-                    marginTop: 10,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    fontSize: '0.85em',
-                    background: uploadResult.ok ? '#dcfce7' : '#fef2f2',
-                    color: uploadResult.ok ? '#166534' : '#b91c1c',
-                    border: `1px solid ${uploadResult.ok ? '#22c55e' : '#fca5a5'}`,
-                  }}
-                >
+                <div style={{
+                  marginTop: 10, padding: '8px 12px', borderRadius: 8, fontSize: '0.85em',
+                  background: uploadResult.ok ? '#dcfce7' : '#fef2f2',
+                  color: uploadResult.ok ? '#166534' : '#b91c1c',
+                  border: `1px solid ${uploadResult.ok ? '#22c55e' : '#fca5a5'}`,
+                }}>
                   {uploadResult.message}
                 </div>
               ) : null}
 
-              {/* Done: upload another */}
               {step === 'done' ? (
-                <button
-                  type="button"
-                  className="secondary"
-                  style={{ marginTop: 8, width: '100%' }}
-                  onClick={() => {
-                    setSelectedFile(null)
-                    setUploadResult(null)
-                    setUploadReason('')
-                    setStep('select')
-                    if (fileInputRef.current) fileInputRef.current.value = ''
-                  }}
-                >
+                <button type="button" className="secondary" style={{ marginTop: 8, width: '100%' }} onClick={() => {
+                  setSelectedFile(null)
+                  setUploadResult(null)
+                  setUploadReason('')
+                  setStep('configure')
+                  if (fileInputRef.current) fileInputRef.current.value = ''
+                }}>
                   다른 파일 업로드
                 </button>
               ) : null}
+
+              {/* Existing files in target folder */}
+              <div style={{ marginTop: 14 }}>
+                <label style={labelStyle}>
+                  현재 폴더의 파일 목록
+                  {targetLoading ? ' (불러오는 중...)' : ` (${targetFiles.length}개)`}
+                </label>
+                <div style={{
+                  background: 'var(--surface2, #f5f7fb)', border: '1px solid var(--border)',
+                  borderRadius: 8, padding: '4px 0', maxHeight: 160, overflowY: 'auto',
+                }}>
+                  {targetFiles.map((f) => (
+                    <div key={f.name} style={{ padding: '3px 10px', fontSize: '0.78em', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>📄 {f.name}</span>
+                      {f.size ? <span style={{ color: 'var(--muted)' }}>{formatBytes(f.size)}</span> : null}
+                    </div>
+                  ))}
+                  {targetFiles.length === 0 && !targetLoading ? (
+                    <div style={{ padding: '8px 10px', fontSize: '0.78em', color: 'var(--muted)', textAlign: 'center' }}>
+                      {subfolder ? '빈 폴더 (첫 업로드)' : '하위 폴더를 선택하세요'}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </div>
         </div>
