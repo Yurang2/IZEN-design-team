@@ -104,8 +104,10 @@ const CHECKLIST_ITEMS = [
   { category: '마무리 / Export', order: 2, name: '인트로/아웃트로 브랜딩 요소 포함 여부' },
   { category: '마무리 / Export', order: 3, name: '최종 렌더 설정 (H.264/ProRes, 비트레이트) 확인' },
   { category: '마무리 / Export', order: 4, name: '렌더 후 처음~끝 풀 재생으로 최종 확인' },
-  { category: '마무리 / Export', order: 5, name: '파일명 네이밍 규칙 준수 (kebab-case, 버전 표기)' },
-  { category: '마무리 / Export', order: 6, name: '납품 경로에 업로드 및 팀 공유 완료' },
+  { category: '마무리 / Export', order: 5, name: '모든 프리뷰 요소 최종본 갱신 확인(스톡 이미지/오디오)' },
+  { category: '마무리 / Export', order: 6, name: 'SNS 게시용 본문 및 해시태그 생성' },
+  { category: '마무리 / Export', order: 7, name: '파일명 네이밍 규칙 준수 (kebab-case, 버전 표기)' },
+  { category: '마무리 / Export', order: 8, name: '납품 경로에 업로드 및 팀 공유 완료' },
 ]
 
 async function main() {
