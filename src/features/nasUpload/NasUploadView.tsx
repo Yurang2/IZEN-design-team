@@ -230,6 +230,8 @@ export function NasUploadView() {
         setUploadResult({ ok: true, message: `${res.filename} 업로드 완료` })
         setStep('done')
         await nasList(currentPath)
+      } else if (res.error?.includes('already_exists')) {
+        setUploadResult({ ok: false, message: `같은 이름의 파일이 이미 존재합니다. 파일명의 버전 번호를 올려주세요 (예: ${nextV})` })
       } else {
         setUploadResult({ ok: false, message: res.error ?? '업로드 실패' })
       }

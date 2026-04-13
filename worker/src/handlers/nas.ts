@@ -108,6 +108,7 @@ export async function handleNasRoutes(
       : message.includes('session_expired') ? 401
       : message.includes('permission_denied') ? 403
       : message.includes('not_found') ? 404
+      : message.includes('already_exists') ? 409
       : 500
     return respond.json({ ok: false, error: message }, status)
   }
