@@ -474,4 +474,5 @@ export type UpdateTaskInput = {
   priority?: string | null
   urgent?: boolean | null
   issue?: string | null
+  outputLink?: string | null
 }

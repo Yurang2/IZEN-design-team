@@ -3677,6 +3677,18 @@ export class NotionWorkService {
       applyRichText(properties, schema.fields.issue, patch.issue)
     }
 
+    if (hasOwn(patch as Record<string, unknown>, 'outputLink')) {
+      const field = schema.fields.outputLink
+      if (isKnownField(field)) {
+        const value = normalizeText(patch.outputLink ?? '') || null
+        if (field.actualType === 'url') {
+          properties[field.actualName] = { url: value }
+        } else if (field.actualType === 'rich_text') {
+          applyRichText(properties, field, value)
+        }
+      }
+    }
+
     await this.api.updatePage(id, { properties })
     return this.getTask(id)
   }

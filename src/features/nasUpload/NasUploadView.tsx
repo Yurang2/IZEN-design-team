@@ -330,6 +330,17 @@ export function NasUploadView() {
         setUploadResult({ ok: true, message: `${generatedFilename} 업로드 완료!` })
         setStep('done')
         loadTargetFiles(fullNasPath)
+
+        // auto-fill outputLink in Notion task
+        if (selectedTask) {
+          const nasLink = `${fullNasPath}/${generatedFilename}`
+          const existing = selectedTask.outputLink
+          const newLink = existing ? `${existing}\n${nasLink}` : nasLink
+          api(`/tasks/${encodeURIComponent(selectedTask.id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ outputLink: newLink }),
+          }).catch(() => {})
+        }
       } else if (res.error?.includes('already_exists')) {
         setUploadResult({ ok: false, message: `${generatedFilename} 이(가) 이미 존재합니다. 버전 번호를 올려주세요.` })
       } else {
