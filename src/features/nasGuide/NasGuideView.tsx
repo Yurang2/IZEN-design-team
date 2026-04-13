@@ -58,98 +58,85 @@ const NAS_TREE: TreeNode[] = [
     dc('DT-2603-001_CIS-Conference', '풀세트 행사 프로젝트', [
       d('00_기획-문서', [
         dc('기획서', '타팀 수령 기획서', [fc('[수신]_CIS2026_기획서_마케팅팀.docx', '타팀에서 받은 파일')]),
-        d('보고서-제안서', [f('IZEN_CIS2026_부스_제안서_v2.pptx')]),
-        d('품의서-지출결의서'),
+        d('보고서-제안서', [f('IZEN_CIS2026_부스_제안서_v02.pptx')]),
+        d('품의서-지출결의서', [fc('판촉물_견적서_기프트인포_v01.pdf', '판촉물 견적서도 여기에')]),
         d('미팅'),
       ]),
       d('01_인쇄물', [
-        dc('포스터', '1p', [f('IZEN_CIS2026_포스터_EN_A1_v1_작업중.psd'), f('IZEN_CIS2026_포스터_EN_A1_v3.pdf')]),
-        dc('리플렛', '1~4p', [f('IZEN_CIS2026_리플렛_EN_A4_v1.ai'), f('IZEN_CIS2026_리플렛_RU_A4_v1.pdf')]),
+        dc('포스터', '1p', [f('IZEN_CIS2026_포스터_EN_A1_v01_작업중.psd'), f('IZEN_CIS2026_포스터_EN_A1_v03.ai')]),
+        dc('리플렛', '1~4p', [f('IZEN_CIS2026_리플렛_EN_A4_v01.ai'), f('IZEN_CIS2026_리플렛_RU_A4_v01.ai')]),
         dc('브로슈어', '6~24p'),
-        d('배너-현수막', [f('IZEN_CIS2026_배너_EN_v2.ai')]),
-        d('certificate', [f('IZEN_CIS2026_certificate_v1.ai')]),
+        dc('카달로그', '다페이지 인쇄물', [f('IZEN_I-system_카달로그_EN_v04.indd')]),
+        d('배너-현수막', [f('IZEN_CIS2026_배너_EN_v02.ai')]),
+        d('certificate', [f('IZEN_CIS2026_certificate_v01.ai')]),
       ]),
       d('02_부스', [
-        dc('부스디자인', '3D 부스 모델링', [f('IZEN_부스_CIS2026_v3.c4d')]),
-        dc('부스그래픽', '벽면 그래픽 디자인', [f('IZEN_CIS2026_부스_벽면A_v2.ai'), f('IZEN_CIS2026_부스_미팅룸_v1.psd')]),
+        dc('부스디자인', '3D 부스 모델링 (C4D 등)', [f('IZEN_부스_CIS2026_v03.c4d')]),
+        dc('부스그래픽', '벽면 그래픽 디자인', [f('IZEN_CIS2026_부스_벽면A_v02.ai')]),
       ]),
       d('03_디지털', [
         d('SNS-이미지'),
         dc('SNS-업로드', '최종 업로드용'),
-        d('PPT', [f('IZEN_CIS2026_발표자료_v1.pptx')]),
-        dc('스크린', 'LED/TV 대기화면', [f('IZEN_CIS2026_LED_대기화면_16x9_v1.mp4')]),
+        d('PPT', [f('IZEN_CIS2026_발표자료_v01.pptx')]),
+        dc('스크린', 'LED/TV 대기화면', [f('IZEN_CIS2026_LED_대기화면_16x9_v01.mp4')]),
+        dc('렌더링', '프로젝트 전용 제품 렌더링', [f('IZEN_CIS2026_제품_렌더_정면_v01.png')]),
         d('홈페이지'),
       ]),
       d('04_영상', [
         dc('촬영원본', 'MOV, MXF 등', [f('CIS2026_DAY1_CAM-A_001.MXF')]),
-        dc('편집-프로젝트', '.prproj, .aep', [f('IZEN_CIS2026_후기영상_v2.prproj')]),
+        dc('편집-프로젝트', '.prproj, .aep', [f('IZEN_CIS2026_후기영상_v02.prproj')]),
         d('2D-모션'),
-        d('3D-모션'),
+        d('3D-모션', [f('IZEN_CIS2026_오프닝_3D_v01.c4d')]),
         d('SNS-영상'),
-        d('최종본', [f('IZEN_CIS2026_후기영상_16x9_v2.mp4')]),
+        d('최종본', [f('IZEN_CIS2026_후기영상_16x9_v03.mp4')]),
       ]),
       d('05_사진', [d('촬영원본'), d('보정-선별')]),
-      d('06_3D', [d('렌더링')]),
-      dc('07_판촉물', '굿즈, 기념품, 견적서'),
-      dc('08_키트-패킹', '마케팅 마테리얼 패킹'),
-      d('09_카달로그'),
-      dc('10_최종납품', '타팀·외부 전달용 확정 파일', [
-        f('IZEN_CIS2026_포스터_EN_A1_v3.pdf'),
-        f('IZEN_CIS2026_리플렛_EN_A4_v1.pdf'),
-        f('IZEN_CIS2026_리플렛_RU_A4_v1.pdf'),
-        f('IZEN_CIS2026_후기영상_16x9_v2.mp4'),
-      ]),
     ]),
     dc('DT-2604-002_AEEDC-Dubai', '중간 규모', [
       d('00_기획-문서'),
       d('01_인쇄물', [d('리플렛'), d('배너-현수막')]),
       d('02_부스', [d('부스디자인'), d('부스그래픽')]),
       d('04_영상', [d('촬영원본'), d('편집-프로젝트'), d('최종본')]),
-      d('10_최종납품'),
     ]),
     dc('DT-2609-005_IDS-Cologne', '소규모', [
       d('01_인쇄물', [d('리플렛'), d('배너-현수막')]),
       d('02_부스', [d('부스디자인'), d('부스그래픽')]),
-      d('10_최종납품'),
     ]),
     dc('DT-2610-006_Russia-Dental-Expo', '러시아어 버전 포함', [
       d('01_인쇄물', [
-        d('포스터', [f('IZEN_RusDentalExpo_포스터_RU_A1_v1.ai')]),
-        d('리플렛', [f('IZEN_RusDentalExpo_리플렛_RU_A4_v1.pdf'), f('IZEN_RusDentalExpo_리플렛_EN_A4_v1.pdf')]),
+        d('포스터', [f('IZEN_RusDentalExpo_포스터_RU_A1_v01.ai')]),
+        d('리플렛', [f('IZEN_RusDentalExpo_리플렛_RU_A4_v01.ai'), f('IZEN_RusDentalExpo_리플렛_EN_A4_v01.ai')]),
       ]),
       d('02_부스'),
-      d('10_최종납품'),
     ]),
     // ── 제품/콘텐츠 ──
     dc('DT-2604-003_회사소개영상-v3수정', '영업팀 검수 → 자막 수정 → 최종본', [
       d('00_기획-문서', [fc('[수신]_회사소개영상_검수의견_영업팀.docx', '영업팀 검수 docx')]),
       d('04_영상', [
-        d('편집-프로젝트', [f('IZEN_회사소개영상_v3.prproj')]),
-        d('최종본', [f('IZEN_회사소개영상_EN_v3.mp4'), f('IZEN_회사소개영상_RU_v3.mp4'), f('IZEN_회사소개영상_ZH_v3.mp4')]),
+        d('편집-프로젝트', [f('IZEN_회사소개영상-Full_v03.prproj')]),
+        d('최종본', [f('IZEN_회사소개영상-Full_EN_v03.mp4'), f('IZEN_회사소개영상-Short_EN_v03.mp4'), f('IZEN_회사소개영상-Full_RU_v03.mp4')]),
       ]),
-      d('10_최종납품'),
     ]),
     dc('DT-2605-004_I-system-카달로그-리뉴얼', 'InDesign → 다국어 PDF', [
-      d('09_카달로그', [
-        f('IZEN_I-system_카달로그_마스터_v2.indd'),
-        f('IZEN_I-system_카달로그_EN_v2.pdf'),
-        f('IZEN_I-system_카달로그_RU_v2.pdf'),
+      d('01_인쇄물', [
+        d('카달로그', [
+          f('IZEN_I-system_카달로그_EN_v04.indd'),
+          f('IZEN_I-system_카달로그_EN_v04.pdf'),
+          f('IZEN_I-system_카달로그_RU_v02.pdf'),
+        ]),
       ]),
-      d('10_최종납품'),
     ]),
     dc('DT-2606-005_신제품-렌더링-연구소요청', '연구소 요청 → 3D → 납품', [
       d('00_기획-문서', [f('[수신]_신제품_렌더링요청_연구소.docx')]),
-      d('06_3D', [d('렌더링', [f('IZEN_신제품_렌더_정면_v1.png'), f('IZEN_신제품_렌더_측면_v1.png')])]),
-      d('10_최종납품'),
+      d('03_디지털', [d('렌더링', [f('IZEN_신제품_렌더_정면_v01.png'), f('IZEN_신제품_렌더_측면_v01.png')])]),
     ]),
     dc('DT-2607-006_제품-사용법영상-T-system', '스토리보드 → 3D → 편집', [
-      d('00_기획-문서', [f('IZEN_T-system_사용법영상_스토리보드_v1.pptx')]),
+      d('00_기획-문서', [f('IZEN_T-system_사용법영상_스토리보드_v01.pptx')]),
       d('04_영상', [
-        d('3D-모션', [f('IZEN_T-system_사용법_3D_v2.c4d')]),
-        d('편집-프로젝트', [f('IZEN_T-system_사용법영상_v2.prproj')]),
-        d('최종본', [f('IZEN_T-system_사용법영상_v1.mp4')]),
+        d('3D-모션', [f('IZEN_T-system_사용법_3D_v02.c4d')]),
+        d('편집-프로젝트', [f('IZEN_T-system_사용법영상-기본편_v02.prproj')]),
+        d('최종본', [f('IZEN_T-system_사용법영상-기본편_v02.mp4')]),
       ]),
-      d('10_최종납품'),
     ]),
     // ── 상시 프로젝트 ──
     dc('DT-2601-010_SNS-정기콘텐츠', '상시 (매년 1월 생성)', [
@@ -183,16 +170,16 @@ const NAS_TREE: TreeNode[] = [
     d('09_패키지'),
     d('10_임상', [dc('자사-케이스', '자사 임상 사진'), dc('레퍼런스', '타사 참고자료')]),
   ]),
-  dc('03_LIBRARY', '완성 배포본 (항상 최신본만)', [
+  dc('03_LIBRARY', '완성 배포본 (항상 최신 Rev만)', [
     d('01_회사소개', [
-      dc('company-profile', 'PPT, PDF', [f('IZEN_회사소개서_EN_v1.2.pdf'), f('IZEN_회사소개서_EN_v1.2.pptx')]),
-      dc('company-video', '소개영상 최종본', [f('IZEN_회사소개영상_EN_v3.mp4')]),
+      dc('company-profile', 'PPT, PDF', [f('IZEN_회사소개서_EN_Rev02.pdf'), f('IZEN_회사소개서_EN_Rev02.pptx')]),
+      dc('company-video', '소개영상 최종본', [f('IZEN_회사소개영상-Full_EN_Rev01.mp4'), f('IZEN_회사소개영상-Short_EN_Rev01.mp4')]),
     ]),
     d('02_카달로그', [
       d('I-system', [
-        f('IZEN_I-system_카달로그_EN_v3.pdf'),
-        f('IZEN_I-system_카달로그_RU_v2.pdf'),
-        dc('_archive', '구버전', [f('IZEN_I-system_카달로그_EN_v2.pdf'), f('IZEN_I-system_카달로그_EN_v1.pdf')]),
+        fc('IZEN_I-system_카달로그_EN_Rev03.pdf', '← 최신 배포본'),
+        f('IZEN_I-system_카달로그_RU_Rev02.pdf'),
+        dc('_archive', '구버전', [f('IZEN_I-system_카달로그_EN_Rev02.pdf'), f('IZEN_I-system_카달로그_EN_Rev01.pdf')]),
       ]),
       d('T-system'),
       d('R-system'),
@@ -241,7 +228,7 @@ const GDRIVE_TREE: TreeNode[] = [
 
 const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof C; path: string }> = [
   { situation: 'CIS 행사 포스터 작업중 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../01_인쇄물/포스터/' },
-  { situation: 'CIS 포스터 완성본 PDF', loc: 'PROJECT + LIBRARY', color: 'project', path: 'PROJECT 10_최종납품/ + LIBRARY 05_포스터/' },
+  { situation: 'CIS 포스터 완성 배포본 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/05_포스터/ (Rev01)' },
   { situation: 'IZEN 로고 AI, PNG', loc: 'ASSET', color: 'asset', path: '02_ASSET/01_로고/IZEN_CI/' },
   { situation: 'I-system 카달로그 최신 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/02_카달로그/I-system/' },
   { situation: '영업팀이 보내준 검수 docx', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-..._회사소개영상/00_기획-문서/' },
@@ -249,23 +236,24 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
   { situation: 'Dr. Kim 임상 사진 (반복 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/10_임상/자사-케이스/' },
   { situation: '타사 임상 포스터 참고자료', loc: 'ASSET', color: 'asset', path: '02_ASSET/10_임상/레퍼런스/' },
   { situation: 'AEEDC 부스 3D 모델링 C4D', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2604-002_.../02_부스/부스디자인/' },
-  { situation: '부스용 제품 렌더링 (CIS 전용)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../06_3D/렌더링/' },
+  { situation: '프로젝트 전용 제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../03_디지털/렌더링/' },
   { situation: '제품 렌더링 범용 원본 (여러 곳 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/02_제품-렌더링/I-system/' },
-  { situation: '연구소 요청 신제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2606-005_.../06_3D/렌더링/' },
+  { situation: '연구소 요청 신제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2606-005_.../03_디지털/렌더링/' },
   { situation: '행사 촬영 RAW 영상 (MOV, MXF)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../04_영상/촬영원본/' },
   { situation: '행사 보정 완료 사진', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../05_사진/보정-선별/' },
-  { situation: '회사소개영상 최종본 MP4', loc: 'PROJECT + LIBRARY', color: 'library', path: 'PROJECT 10_최종납품/ + LIBRARY 01_회사소개/' },
+  { situation: '회사소개영상 최종 배포본 MP4', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/01_회사소개/company-video/ (Rev)' },
   { situation: 'Pretendard 폰트 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/06_폰트/' },
   { situation: 'SNS 템플릿 PSD', loc: 'ASSET', color: 'asset', path: '02_ASSET/07_템플릿/' },
   { situation: 'I-system STEP 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/03_3D-소스/' },
   { situation: '브랜드 가이드라인 PDF', loc: 'ASSET', color: 'asset', path: '02_ASSET/05_브랜드-가이드/' },
   { situation: '카달로그 InDesign 마스터', loc: 'ASSET', color: 'asset', path: '02_ASSET/04_카달로그-마스터/' },
   { situation: 'IFU 작업중 InDesign', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2601-013_IFU/' },
-  { situation: 'IFU 최종 출력용 PDF', loc: 'PROJECT + LIBRARY', color: 'library', path: 'PROJECT + LIBRARY 10_IFU/' },
+  { situation: 'IFU 최종 출력용 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/10_IFU/ (Rev)' },
   { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2601-011_뉴스레터/2026-04/' },
-  { situation: '기념품 업체 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../07_판촉물/' },
+  { situation: '판촉물/굿즈 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../00_기획-문서/' },
   { situation: '홈페이지 팝업 이미지', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2601-012_홈페이지/' },
   { situation: 'LED 대기화면 영상 (행사용)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../03_디지털/스크린/' },
+  { situation: '영상용 3D 모션 (C4D)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-.../04_영상/3D-모션/' },
   { situation: '2024년 이전 파일 전부', loc: 'ARCHIVE', color: 'archive', path: '99_ARCHIVE/2024_07_이전/' },
 ]
 
@@ -276,39 +264,49 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
 const NAMING_ELEMENTS: Array<{ el: string; req: string; desc: string; ex: string }> = [
   { el: '브랜드', req: '필수 (해당시)', desc: 'IZEN, IAM, ZENEX, Cleanimplant', ex: 'IZEN' },
   { el: '콘텐츠명', req: '필수', desc: '한영 혼용, 공백 대신 하이픈(-)', ex: 'CIS2026_리플렛' },
+  { el: 'variant', req: '여러 버전일 때', desc: '콘텐츠명에 하이픈으로 연결', ex: '회사소개영상-Full' },
   { el: '언어', req: '다국어일 때만', desc: 'EN, RU, ZH, KO', ex: 'EN' },
   { el: '규격', req: '필요시만', desc: '인쇄: A3, A4 / 디지털: 1080x1080, 16x9', ex: 'A4' },
-  { el: '버전', req: '필수', desc: 'v1, v2, v3...', ex: 'v3' },
+  { el: '버전 (v)', req: 'PROJECT 소스', desc: '내부 수정 버전: v01, v02, v03...', ex: 'v03' },
+  { el: '리비전 (Rev)', req: 'LIBRARY 배포본', desc: '외부 배포/인허가 갱신: Rev01, Rev02...', ex: 'Rev01' },
 ]
 
 const NAMING_CATEGORIES: Array<{ cat: string; examples: string[] }> = [
   {
-    cat: '인쇄물',
+    cat: '인쇄물 (PROJECT, v 체계)',
     examples: [
-      'IZEN_I-system_카달로그_EN_v3.pdf',
-      'IZEN_CIS2026_리플렛_RU_A4_v1.pdf',
-      'IZEN_CIS2026_배너_EN_v2.ai',
+      'IZEN_CIS2026_리플렛_EN_A4_v03.ai',
+      'IZEN_CIS2026_포스터_RU_A1_v01_작업중.psd',
+      'IZEN_CIS2026_배너_EN_v02.ai',
     ],
   },
   {
-    cat: '영상',
+    cat: '영상 (PROJECT, v 체계)',
     examples: [
-      'IZEN_회사소개영상_EN_v3.mp4',
-      'IZEN_I-system_사용법영상_v1.mp4',
-      'IZEN_CIS2026_후기영상_16x9_v2.mp4',
+      'IZEN_회사소개영상-Full_EN_v03.prproj',
+      'IZEN_I-system_사용법영상-기본편_v02.prproj',
+      'IZEN_CIS2026_후기영상_16x9_v03.mp4',
     ],
   },
   {
-    cat: 'SNS',
-    examples: ['IZEN_SNS_임상_Dr-Kim-case_v1.png', 'IZEN_SNS_제품_I-system-fixture_v2.png'],
+    cat: 'LIBRARY 배포본 (Rev 체계)',
+    examples: [
+      'IZEN_I-system_카달로그_EN_Rev03.pdf',
+      'IZEN_회사소개영상-Full_EN_Rev01.mp4',
+      'IZEN_회사소개서_EN_Rev02.pdf',
+    ],
   },
   {
-    cat: '3D',
-    examples: ['IZEN_I-system_렌더_정면_v1.png', 'IZEN_부스_CIS2026_v3.c4d'],
+    cat: 'SNS / 3D',
+    examples: [
+      'IZEN_SNS_임상_Dr-Kim-case_v01.png',
+      'IZEN_부스_CIS2026_v03.c4d',
+      'IZEN_I-system_렌더_정면_v01.png',
+    ],
   },
   {
     cat: '작업중 (PROJECT 안에서만)',
-    examples: ['IZEN_CIS2026_포스터_EN_v1_작업중.psd'],
+    examples: ['IZEN_CIS2026_포스터_EN_v01_작업중.psd'],
   },
   {
     cat: '타팀 수신',
@@ -543,7 +541,8 @@ function StructureSection() {
         </div>
         <p>
           <strong>PROJECT</strong>는 프로젝트 코드(<code className="fileGuideCode">DT-YYMM-NNN_프로젝트명</code>)로 분류합니다.
-          해당 없는 하위 폴더는 만들지 않습니다.
+          하위 폴더는 <strong>00~05 (6개)</strong>이며, 해당 없는 폴더는 만들지 않습니다.
+          버전: PROJECT 소스파일은 <code className="fileGuideCode">v01, v02...</code>, LIBRARY 배포본은 <code className="fileGuideCode">Rev01, Rev02...</code>
         </p>
       </article>
 
@@ -738,7 +737,7 @@ function NamingSection() {
         </div>
         <div className="fileGuideTree" style={{ textAlign: 'center', fontSize: '1em' }}>
           <code style={{ fontSize: '1.05em', letterSpacing: 0.5 }}>
-            [브랜드]_[콘텐츠명]_[언어]_[규격]_v[버전].[확장자]
+            [브랜드]_[콘텐츠명-variant]_[언어]_[규격]_v[버전].[확장자]
           </code>
         </div>
         <div className="guideTableWrap">
@@ -801,9 +800,11 @@ function NamingSection() {
         </div>
         <ul className="workflowList" style={{ fontSize: '0.88em' }}>
           <li>프로젝트 코드(DT-YYMM-NNN)는 <strong>파일명에 포함하지 않음</strong> — 폴더가 이미 프로젝트별로 분리</li>
+          <li><strong>v = PROJECT 소스파일</strong> (v01, v02...), <strong>Rev = LIBRARY 배포본</strong> (Rev01, Rev02...) — 보통 다른 파일 형식 (.ai→.pdf)</li>
           <li><code className="fileGuideCode">_작업중</code> 표시는 <strong>PROJECT 안에서만</strong> 허용, LIBRARY에는 절대 불가</li>
           <li>타팀에서 받은 파일은 <code className="fileGuideCode">[수신]_</code> 접두사</li>
-          <li>LIBRARY 파일은 항상 완성본</li>
+          <li>LIBRARY 파일은 항상 완성본 (Rev 체계)</li>
+          <li>v→Rev 매핑은 Phase 2 업로드 도구에서 자동 추적 예정</li>
         </ul>
       </article>
     </div>
@@ -821,15 +822,14 @@ function WorkflowSection() {
         <div className="workflowSectionHeader">
           <div>
             <span className="workflowSectionEyebrow">Completion Checklist</span>
-            <h3>작업 완료 시 4단계 체크리스트</h3>
+            <h3>작업 완료 시 3단계 체크리스트</h3>
           </div>
         </div>
         <div className="workflowTimeline">
           {[
-            { n: '1', text: '프로젝트 내 10_최종납품/에 저장' },
-            { n: '2', text: '범용 배포본이면 → 03_LIBRARY/ 해당 카테고리에 복사' },
-            { n: '3', text: 'LIBRARY에 구버전 있으면 → _archive/로 이동' },
-            { n: '4', text: 'ASSET 소스가 업데이트되었으면 → ASSET도 갱신' },
+            { n: '1', text: '완성본을 03_LIBRARY/ 해당 카테고리에 Rev 번호로 올림' },
+            { n: '2', text: 'LIBRARY에 구버전 있으면 → _archive/로 이동' },
+            { n: '3', text: 'ASSET 소스가 업데이트되었으면 → ASSET도 갱신' },
           ].map((step) => (
             <article key={step.n} className="workflowStep" style={{ gridTemplateColumns: '40px 1fr' }}>
               <div className="workflowStepNumber" style={{ height: 40, fontSize: 14 }}>
