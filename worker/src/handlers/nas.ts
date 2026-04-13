@@ -32,35 +32,24 @@ async function synoFetch<T>(
   nasUrl: string,
   endpoint: string,
   params: Record<string, string>,
-  options?: { method?: string; formData?: FormData },
+  options?: { formData?: FormData },
 ): Promise<SynoResponse<T>> {
-  const method = options?.method ?? 'POST'
-  let url = `${nasUrl}/webapi/${endpoint}`
-  let body: BodyInit | undefined
+  // Synology API: always use GET with query params, except file upload (POST + formData)
+  const url = `${nasUrl}/webapi/${endpoint}`
 
   if (options?.formData) {
-    // For file upload, params go into formData
     const fd = options.formData
     for (const [k, v] of Object.entries(params)) {
       fd.append(k, v)
     }
-    body = fd
-  } else if (method === 'GET') {
-    const qs = new URLSearchParams(params).toString()
-    url = `${url}?${qs}`
-  } else {
-    body = new URLSearchParams(params).toString()
+    const res = await fetch(url, { method: 'POST', body: fd })
+    if (!res.ok) throw new Error(`nas_http_${res.status}`)
+    return (await res.json()) as SynoResponse<T>
   }
 
-  const headers: Record<string, string> = {}
-  if (!options?.formData && method !== 'GET') {
-    headers['Content-Type'] = 'application/x-www-form-urlencoded'
-  }
-
-  const res = await fetch(url, { method, headers, body })
-  if (!res.ok) {
-    throw new Error(`nas_http_${res.status}`)
-  }
+  const qs = new URLSearchParams(params).toString()
+  const res = await fetch(`${url}?${qs}`)
+  if (!res.ok) throw new Error(`nas_http_${res.status}`)
   return (await res.json()) as SynoResponse<T>
 }
 
@@ -176,7 +165,7 @@ export async function handleNasRoutes(
         version: '2',
         method: 'list',
         folder_path: folderPath,
-        additional: '["size","time"]',
+        additional: 'size,time',
         _sid: sid,
       })
 
