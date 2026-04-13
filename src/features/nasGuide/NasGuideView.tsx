@@ -55,7 +55,7 @@ const ROOT_COLORS: Record<string, (typeof C)[keyof typeof C]> = {
 const NAS_TREE: TreeNode[] = [
   dc('01_PROJECT', '작업 과정 (프로젝트별)', [
     // ── 행사/캠페인 ──
-    dc('DT-2603-001_CIS-Conference', '풀세트 행사 프로젝트', [
+    dc('IZ-2603-001_CIS-Conference', '풀세트 행사 프로젝트', [
       d('00_기획-문서', [
         dc('기획서', '타팀 수령 기획서', [fc('[수신]_CIS2026_기획서_마케팅팀.docx', '타팀에서 받은 파일')]),
         d('보고서-제안서', [f('IZEN_CIS2026_부스_제안서_v02.pptx')]),
@@ -98,17 +98,17 @@ const NAS_TREE: TreeNode[] = [
         dc('보정', '선별본을 색보정/리터치한 최종'),
       ]),
     ]),
-    dc('DT-2604-002_AEEDC-Dubai', '중간 규모', [
+    dc('IZ-2604-002_AEEDC-Dubai', '중간 규모', [
       d('00_기획-문서'),
       d('01_인쇄물', [d('리플렛'), d('배너-현수막')]),
       d('02_부스', [d('부스디자인'), d('부스그래픽')]),
       d('04_영상', [d('촬영원본'), d('편집-프로젝트'), d('최종본')]),
     ]),
-    dc('DT-2609-005_IDS-Cologne', '소규모', [
+    dc('IZ-2609-005_IDS-Cologne', '소규모', [
       d('01_인쇄물', [d('리플렛'), d('배너-현수막')]),
       d('02_부스', [d('부스디자인'), d('부스그래픽')]),
     ]),
-    dc('DT-2610-006_Russia-Dental-Expo', '러시아어 버전 포함', [
+    dc('IZ-2610-006_Russia-Dental-Expo', '러시아어 버전 포함', [
       d('01_인쇄물', [
         d('포스터', [f('IZEN_RusDentalExpo_포스터_RU_A1_v01.ai')]),
         d('리플렛', [f('IZEN_RusDentalExpo_리플렛_RU_A4_v01.ai'), f('IZEN_RusDentalExpo_리플렛_EN_A4_v01.ai')]),
@@ -116,14 +116,14 @@ const NAS_TREE: TreeNode[] = [
       d('02_부스'),
     ]),
     // ── 제품/콘텐츠 ──
-    dc('DT-2604-003_회사소개영상-v3수정', '영업팀 검수 → 자막 수정 → 최종본', [
+    dc('IZ-2604-003_회사소개영상-v3수정', '영업팀 검수 → 자막 수정 → 최종본', [
       d('00_기획-문서', [fc('[수신]_회사소개영상_검수의견_영업팀.docx', '영업팀 검수 docx')]),
       d('04_영상', [
         d('편집-프로젝트', [f('IZEN_회사소개영상-Full_v03.prproj')]),
         d('최종본', [f('IZEN_회사소개영상-Full_EN_v03.mp4'), f('IZEN_회사소개영상-Short_EN_v03.mp4'), f('IZEN_회사소개영상-Full_RU_v03.mp4')]),
       ]),
     ]),
-    dc('DT-2605-004_I-system-카달로그-리뉴얼', 'InDesign → 다국어 PDF', [
+    dc('IZ-2605-004_I-system-카달로그-리뉴얼', 'InDesign → 다국어 PDF', [
       d('01_인쇄물', [
         d('카달로그', [
           f('IZEN_I-system_카달로그_EN_v04.indd'),
@@ -132,11 +132,11 @@ const NAS_TREE: TreeNode[] = [
         ]),
       ]),
     ]),
-    dc('DT-2606-005_신제품-렌더링-연구소요청', '연구소 요청 → 3D → 납품', [
+    dc('IZ-2606-005_신제품-렌더링-연구소요청', '연구소 요청 → 3D → 납품', [
       d('00_기획-문서', [f('[수신]_신제품_렌더링요청_연구소.docx')]),
       d('03_디지털', [d('렌더링', [f('IZEN_신제품_렌더_정면_v01.png'), f('IZEN_신제품_렌더_측면_v01.png')])]),
     ]),
-    dc('DT-2607-006_제품-사용법영상-T-system', '스토리보드 → 3D → 편집', [
+    dc('IZ-2607-006_제품-사용법영상-T-system', '스토리보드 → 3D → 편집', [
       d('00_기획-문서', [f('IZEN_T-system_사용법영상_스토리보드_v01.pptx')]),
       d('04_영상', [
         d('3D-모션', [f('IZEN_T-system_사용법_3D_v02.c4d')]),
@@ -145,15 +145,15 @@ const NAS_TREE: TreeNode[] = [
       ]),
     ]),
     // ── 상시 프로젝트 ──
-    dc('DT-2601-010_SNS-정기콘텐츠', '상시 (매년 1월 생성)', [
+    dc('IZ-2601-010_SNS-정기콘텐츠', '상시 (매년 1월 생성)', [
       d('제품', [d('2026-03_I-system-신제품', [f('IZEN_SNS_제품_I-system-fixture_v2.png')]), d('2026-04_T-system-케이스')]),
       d('임상', [d('2026-03_Dr-Kim', [f('IZEN_SNS_임상_Dr-Kim-case_v1.png')])]),
       d('브랜딩'),
     ]),
-    dc('DT-2601-011_뉴스레터', '상시', [d('2026-03'), d('2026-04')]),
-    dc('DT-2601-012_홈페이지', '상시', [d('업데이트'), d('팝업')]),
-    dc('DT-2601-013_IFU', '상시'),
-    dc('DT-2601-014_회사소개영상', '상시 관리'),
+    dc('IZ-2601-011_뉴스레터', '상시', [d('2026-03'), d('2026-04')]),
+    dc('IZ-2601-012_홈페이지', '상시', [d('업데이트'), d('팝업')]),
+    dc('IZ-2601-013_IFU', '상시'),
+    dc('IZ-2601-014_회사소개영상', '상시 관리'),
   ]),
   dc('02_ASSET', '작업 재료 (소스)', [
     d('01_로고', [
@@ -233,7 +233,7 @@ const GDRIVE_TREE: TreeNode[] = [
 // ---------------------------------------------------------------------------
 
 const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof C; path: string }> = [
-  { situation: 'CIS 행사 포스터 작업중 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../01_인쇄물/포스터/' },
+  { situation: 'CIS 행사 포스터 작업중 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2603-001_.../01_인쇄물/포스터/' },
   { situation: 'CIS 포스터 완성 배포본 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/05_포스터/ (Rev01)' },
   { situation: 'IZEN 로고 AI, PNG', loc: 'ASSET', color: 'asset', path: '02_ASSET/01_로고/IZEN_CI/' },
   { situation: 'I-system 카달로그 최신 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/02_카달로그/I-system/' },
@@ -241,24 +241,24 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
   { situation: '월간 SNS 제품 콘텐츠 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-..._SNS-정기콘텐츠/제품/2026-04_제품명/' },
   { situation: 'Dr. Kim 임상 사진 (반복 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/10_임상/자사-케이스/' },
   { situation: '타사 임상 포스터 참고자료', loc: 'ASSET', color: 'asset', path: '02_ASSET/10_임상/레퍼런스/' },
-  { situation: 'AEEDC 부스 3D 모델링 C4D', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2604-002_.../02_부스/부스디자인/' },
-  { situation: '프로젝트 전용 제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../03_디지털/렌더링/' },
+  { situation: 'AEEDC 부스 3D 모델링 C4D', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2604-002_.../02_부스/부스디자인/' },
+  { situation: '프로젝트 전용 제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2603-001_.../03_디지털/렌더링/' },
   { situation: '제품 렌더링 범용 원본 (여러 곳 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/02_제품-렌더링/I-system/' },
-  { situation: '연구소 요청 신제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2606-005_.../03_디지털/렌더링/' },
-  { situation: '행사 촬영 RAW 영상 (MOV, MXF)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../04_영상/촬영원본/' },
-  { situation: '행사 보정 완료 사진', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../05_사진/보정-선별/' },
+  { situation: '연구소 요청 신제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2606-005_.../03_디지털/렌더링/' },
+  { situation: '행사 촬영 RAW 영상 (MOV, MXF)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2603-001_.../04_영상/촬영원본/' },
+  { situation: '행사 보정 완료 사진', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2603-001_.../05_사진/보정-선별/' },
   { situation: '회사소개영상 최종 배포본 MP4', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/01_회사소개/company-video/ (Rev)' },
   { situation: 'Pretendard 폰트 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/06_폰트/' },
   { situation: 'SNS 템플릿 PSD', loc: 'ASSET', color: 'asset', path: '02_ASSET/07_템플릿/' },
   { situation: 'I-system STEP 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/03_3D-소스/' },
   { situation: '브랜드 가이드라인 PDF', loc: 'ASSET', color: 'asset', path: '02_ASSET/05_브랜드-가이드/' },
   { situation: '카달로그 InDesign 마스터', loc: 'ASSET', color: 'asset', path: '02_ASSET/04_카달로그-마스터/' },
-  { situation: 'IFU 작업중 InDesign', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2601-013_IFU/' },
+  { situation: 'IFU 작업중 InDesign', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2601-013_IFU/' },
   { situation: 'IFU 최종 출력용 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/10_IFU/ (Rev)' },
-  { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2601-011_뉴스레터/2026-04/' },
-  { situation: '판촉물/굿즈 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../00_기획-문서/' },
-  { situation: '홈페이지 팝업 이미지', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2601-012_홈페이지/' },
-  { situation: 'LED 대기화면 영상 (행사용)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-2603-001_.../03_디지털/스크린/' },
+  { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2601-011_뉴스레터/2026-04/' },
+  { situation: '판촉물/굿즈 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2603-001_.../00_기획-문서/' },
+  { situation: '홈페이지 팝업 이미지', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2601-012_홈페이지/' },
+  { situation: 'LED 대기화면 영상 (행사용)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ-2603-001_.../03_디지털/스크린/' },
   { situation: '영상용 3D 모션 (C4D)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-.../04_영상/3D-모션/' },
   { situation: '2024년 이전 파일 전부', loc: 'ARCHIVE', color: 'archive', path: '99_ARCHIVE/2024_07_이전/' },
 ]
@@ -546,7 +546,7 @@ function StructureSection() {
           ))}
         </div>
         <p>
-          <strong>PROJECT</strong>는 프로젝트 코드(<code className="fileGuideCode">DT-YYMM-NNN_프로젝트명</code>)로 분류합니다.
+          <strong>PROJECT</strong>는 프로젝트 코드(<code className="fileGuideCode">IZ-YYMM-NNN_프로젝트명</code>)로 분류합니다.
           하위 폴더는 <strong>00~05 (6개)</strong>이며, 해당 없는 폴더는 만들지 않습니다.
           버전: PROJECT 소스파일은 <code className="fileGuideCode">v01, v02...</code>, LIBRARY 배포본은 <code className="fileGuideCode">Rev01, Rev02...</code>
         </p>
@@ -571,12 +571,12 @@ function StructureSection() {
         </div>
         <div className="fileGuideTree" style={{ whiteSpace: 'normal', fontFamily: 'inherit' }}>
           <div style={{ fontWeight: 700, fontSize: '1.1em', marginBottom: 8, fontFamily: "'Courier New', monospace" }}>
-            DT-YYMM-NNN_프로젝트명
+            IZ-YYMM-NNN_프로젝트명
           </div>
           <div className="workflowCheckpointGrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <div className="workflowCheckpoint">
-              <h4>DT</h4>
-              <p>Design Team</p>
+              <h4>IZ</h4>
+              <p>IZEN</p>
             </div>
             <div className="workflowCheckpoint">
               <h4>YYMM</h4>
@@ -805,7 +805,7 @@ function NamingSection() {
           </div>
         </div>
         <ul className="workflowList" style={{ fontSize: '0.88em' }}>
-          <li>프로젝트 코드(DT-YYMM-NNN)는 <strong>파일명에 포함하지 않음</strong> — 폴더가 이미 프로젝트별로 분리</li>
+          <li>프로젝트 코드(IZ-YYMM-NNN)는 <strong>파일명에 포함하지 않음</strong> — 폴더가 이미 프로젝트별로 분리</li>
           <li><strong>v = PROJECT 소스파일</strong> (v01, v02...), <strong>Rev = LIBRARY 배포본</strong> (Rev01, Rev02...) — 보통 다른 파일 형식 (.ai→.pdf)</li>
           <li><code className="fileGuideCode">_작업중</code> 표시는 <strong>PROJECT 안에서만</strong> 허용, LIBRARY에는 절대 불가</li>
           <li>타팀에서 받은 파일은 <code className="fileGuideCode">[수신]_</code> 접두사</li>

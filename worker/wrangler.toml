@@ -19,6 +19,8 @@ NOTION_SUBTITLE_VIDEO_DB_ID = "336c1cc7ec2781e9963cff125c7b1994"
 NOTION_SUBTITLE_REVISION_DB_ID = "336c1cc7ec2781d79f32c74120d95b7d"
 NOTION_VIDEO_MANUAL_DB_ID = "33bc1cc7ec2781548ed1ec44d5603dde"
 AUTH_DISABLED = "true"
+# Synology NAS File Station API
+SYNOLOGY_NAS_URL = "https://izensales.synology.me:62968"
 # PAGE_PASSWORD is required. Prefer setting it as a secret:
 # npx wrangler secret put PAGE_PASSWORD --config worker/wrangler.toml
 PAGE_PASSWORD = "izenjsk_62988"

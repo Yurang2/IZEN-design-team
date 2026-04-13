@@ -43,6 +43,7 @@ import {
   hasValidAccessIdentity,
   isAuthenticated,
 } from './auth'
+import { handleNasRoutes } from './handlers/nas'
 import {
   checklistAssignmentKey,
   checklistMatrixKey,
@@ -261,6 +262,13 @@ export default {
       })
       if (meetingHandled) return meetingHandled
     }
+
+    // NAS File Station routes
+    const nasHandled = await handleNasRoutes(request, path, env, {
+      json: (body, status) => json(body, status, origin),
+      ok: (body) => ok(body, origin),
+    })
+    if (nasHandled) return nasHandled
 
     if (request.method === 'POST' && path === '/event-graphics/video-thumbnail/render') {
       try {

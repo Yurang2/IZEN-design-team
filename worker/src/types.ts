@@ -81,6 +81,7 @@ export interface Env {
   GOOGLE_SERVICE_ACCOUNT_JSON?: string
   GOOGLE_CLOUD_PROJECT_ID?: string
   GOOGLE_CLOUD_LOCATION?: string
+  SYNOLOGY_NAS_URL?: string
 }
 
 export type FieldStatus = 'exact' | 'fallback' | 'missing' | 'mismatch'
