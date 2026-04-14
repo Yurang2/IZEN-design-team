@@ -1120,8 +1120,9 @@ function InlinePill({ value, options, onSave, bg, border, color }: {
   )
 }
 
-function IssueCard({ item, onSave }: { item: IssueItem; onSave: (id: string, patch: Partial<IssueItem>) => void }) {
+function IssueCard({ item, onSave, forceCollapsed }: { item: IssueItem; onSave: (id: string, patch: Partial<IssueItem>) => void; forceCollapsed?: boolean | null }) {
   const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => { if (forceCollapsed !== null && forceCollapsed !== undefined) setCollapsed(forceCollapsed) }, [forceCollapsed])
   const rc = RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
   const save = (field: keyof IssueItem, value: string) => onSave(item.id, { [field]: value })
   return (
@@ -1160,6 +1161,8 @@ function IssuesSection() {
   const [filterResolved, setFilterResolved] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [newItem, setNewItem] = useState<Partial<IssueItem>>({ resolved: '미결' })
+  const [allCollapsedSignal, setAllCollapsedSignal] = useState<boolean | null>(null)
+  const setAllCollapsed = (collapsed: boolean) => { setAllCollapsedSignal(collapsed); setTimeout(() => setAllCollapsedSignal(null), 100) }
 
   const [fetchError, setFetchError] = useState('')
   const fetchItems = useCallback(() => {
@@ -1226,7 +1229,8 @@ function IssuesSection() {
             <button type="button" onClick={() => setShowAdd(!showAdd)} style={{ padding: '5px 12px', fontSize: '0.82em' }}>
               {showAdd ? '취소' : '+ 이슈 추가'}
             </button>
-            <button type="button" className="secondary" onClick={fetchItems} style={{ padding: '5px 10px', fontSize: '0.82em' }}>새로고침</button>
+            <button type="button" className="secondary" onClick={() => setAllCollapsed(true)} style={{ padding: '5px 10px', fontSize: '0.82em' }}>전체 접기</button>
+            <button type="button" className="secondary" onClick={() => setAllCollapsed(false)} style={{ padding: '5px 10px', fontSize: '0.82em' }}>전체 펼치기</button>
           </div>
         </div>
       </article>
@@ -1259,7 +1263,7 @@ function IssuesSection() {
       {loading ? <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div> : null}
       {fetchError ? <div style={{ padding: 12, fontSize: '0.82em', color: 'var(--danger)', background: '#fef2f2', borderRadius: 8 }}>API 오류: {fetchError}</div> : null}
 
-      {filtered.map((item) => <IssueCard key={item.id} item={item} onSave={saveItem} />)}
+      {filtered.map((item) => <IssueCard key={item.id} item={item} onSave={saveItem} forceCollapsed={allCollapsedSignal} />)}
 
       {!loading && filtered.length === 0 ? (
         <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>해당하는 이슈가 없습니다</div>
