@@ -256,7 +256,7 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
   { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250901_뉴스레터/2026-04/' },
   { situation: '판촉물/굿즈 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../00_기획-문서/' },
   { situation: '홈페이지 팝업 이미지', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250023_홈페이지-팝업-신년이벤트/' },
-  { situation: '행사운영 에셋 (큐시트, 대기화면 등)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../03_디지털/행사운영/' },
+  { situation: 'LED 대기화면/오프닝 등 모션 작업', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/e_모션그래픽/ → 완성 후 03_디지털/행사운영/에 복사' },
   { situation: '모션그래픽 (오프닝, 브레이크 등)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/e_모션그래픽/' },
   { situation: '2024년 이전 파일 전부', loc: 'ARCHIVE', color: 'archive', path: '99_ARCHIVE/2024_07_이전/' },
 ]
