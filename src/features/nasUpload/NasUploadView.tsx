@@ -267,9 +267,22 @@ export function NasUploadView() {
   const fetchTasks = useCallback(async (assigneeName: string) => {
     setTasksLoading(true)
     try {
-      const res = await api<ListTasksResponse>('/tasks?pageSize=200')
+      // fetch all pages
+      const allTasks: TaskRecord[] = []
+      let cursor: string | undefined
+      let hasMore = true
+      let page = 0
+      while (hasMore && page < 30) {
+        const params = new URLSearchParams({ pageSize: '100' })
+        if (cursor) params.set('cursor', cursor)
+        const res = await api<ListTasksResponse>(`/tasks?${params.toString()}`)
+        allTasks.push(...res.tasks)
+        hasMore = res.hasMore
+        cursor = res.nextCursor
+        page++
+      }
       // exclude 완료/보관 only
-      const active = res.tasks.filter((t) =>
+      const active = allTasks.filter((t) =>
         !['완료', '보관'].some((s) => t.status.includes(s)),
       )
       // sort: my tasks first, then others
