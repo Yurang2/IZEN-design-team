@@ -195,6 +195,7 @@ export function NasUploadView() {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [tasksLoading, setTasksLoading] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null)
+  const [myTaskCount, setMyTaskCount] = useState(0)
 
   // file naming
   const [subfolder, setSubfolder] = useState('')
@@ -267,12 +268,15 @@ export function NasUploadView() {
     setTasksLoading(true)
     try {
       const res = await api<ListTasksResponse>('/tasks?pageSize=200')
-      // filter: assignee matches NAS account name + not completed
-      const mine = res.tasks.filter((t) =>
-        !['완료', '보류', '취소'].some((s) => t.status.includes(s)) &&
-        t.assignee.some((a) => a.includes(assigneeName)),
+      // exclude 완료/보관 only
+      const active = res.tasks.filter((t) =>
+        !['완료', '보관'].some((s) => t.status.includes(s)),
       )
-      setTasks(mine)
+      // sort: my tasks first, then others
+      const mine = active.filter((t) => t.assignee.some((a) => a.includes(assigneeName)))
+      const others = active.filter((t) => !t.assignee.some((a) => a.includes(assigneeName)))
+      setTasks([...mine, ...others])
+      setMyTaskCount(mine.length)
     } catch {
       setTasks([])
     } finally {
@@ -425,28 +429,40 @@ export function NasUploadView() {
       {/* ── Step 2: Task selection ── */}
       {step === 'task' ? (
         <div style={cardStyle}>
-          <h3 style={{ margin: '0 0 8px', fontSize: '0.95em' }}>{account}님의 진행중 업무</h3>
+          <h3 style={{ margin: '0 0 8px', fontSize: '0.95em' }}>업무 선택 — {account}님 담당 {myTaskCount}건</h3>
           <p style={{ fontSize: '0.82em', color: 'var(--text2)', margin: '0 0 12px' }}>
-            업무를 선택하면 프로젝트 폴더와 파일명이 자동 설정됩니다.
+            내 업무가 상단에 표시됩니다. 업무를 선택하면 경로와 파일명이 자동 설정됩니다.
           </p>
           {tasksLoading ? (
             <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>업무 불러오는 중...</div>
           ) : (
             <div style={{ display: 'grid', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
-              {tasks.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  className="secondary"
-                  style={{ textAlign: 'left', padding: '10px 12px', display: 'grid', gap: 2 }}
-                  onClick={() => selectTask(task)}
-                >
-                  <span style={{ fontWeight: 600, fontSize: '0.88em' }}>{task.taskName}</span>
-                  <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>
-                    {task.projectName} · {task.workType} · {task.status}
-                  </span>
-                </button>
-              ))}
+              {tasks.map((task, i) => {
+                const isMine = task.assignee.some((a) => a.includes(account))
+                return (
+                  <div key={task.id}>
+                    {i === myTaskCount && myTaskCount > 0 ? (
+                      <div style={{ fontSize: '0.75em', color: 'var(--muted)', padding: '8px 0 4px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
+                        다른 업무
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{
+                        textAlign: 'left', padding: '10px 12px', display: 'grid', gap: 2, width: '100%',
+                        borderLeft: isMine ? '3px solid var(--primary)' : undefined,
+                      }}
+                      onClick={() => selectTask(task)}
+                    >
+                      <span style={{ fontWeight: 600, fontSize: '0.88em' }}>{task.taskName}</span>
+                      <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>
+                        {task.projectName} · {task.workType} · {task.status} · {task.assignee.join(', ')}
+                      </span>
+                    </button>
+                  </div>
+                )
+              })}
               {tasks.length === 0 ? (
                 <div style={{ padding: 12, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>
                   진행중 업무가 없습니다
