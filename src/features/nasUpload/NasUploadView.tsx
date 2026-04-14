@@ -185,6 +185,119 @@ const previewStyle: React.CSSProperties = {
 }
 
 // ---------------------------------------------------------------------------
+// Upload path helper (Y/N wizard)
+// ---------------------------------------------------------------------------
+
+type HelperNode = {
+  question: string
+  yes: HelperNode | { mode: 'task' | 'free' | 'back'; path?: string; label: string }
+  no: HelperNode | { mode: 'task' | 'free' | 'back'; path?: string; label: string }
+}
+
+const HELPER_TREE: HelperNode = {
+  question: '이 파일은 내가(디자인팀이) 직접 만든 작업물인가요?',
+  yes: {
+    question: '이 작업물은 Notion에 등록된 업무와 관련 있나요?',
+    yes: { mode: 'task', label: '→ "업무 결과물" 모드로 업로드하세요' },
+    no: {
+      question: '현장에서 촬영/수집한 레퍼런스인가요?',
+      yes: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 06_현장수집/ 폴더에 넣으세요' },
+      no: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 알맞은 하위 폴더에 넣으세요' },
+    },
+  },
+  no: {
+    question: '타팀이나 외부에서 받은 파일인가요?',
+    yes: {
+      question: '특정 프로젝트와 관련 있나요?',
+      yes: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 00_기획-문서/ 에 [수신]_ 접두사를 붙여 넣으세요' },
+      no: { mode: 'free', path: '/02_ASSET', label: '→ 02_ASSET/ 해당 카테고리에 넣으세요' },
+    },
+    no: {
+      question: '여러 프로젝트에서 반복 사용하는 소스(로고, 폰트, 템플릿 등)인가요?',
+      yes: { mode: 'free', path: '/02_ASSET', label: '→ 02_ASSET/ 해당 카테고리에 넣으세요' },
+      no: { mode: 'back', label: '→ 잘 모르겠으면 팀장에게 문의하세요' },
+    },
+  },
+}
+
+function UploadHelper({ onResult, onBack }: {
+  onResult: (r: { mode: 'task' | 'free' | 'back'; path?: string }) => void
+  onBack: () => void
+}) {
+  const [path, setPath] = useState<Array<'yes' | 'no'>>([])
+
+  let current: HelperNode | { mode: string; path?: string; label: string } = HELPER_TREE
+  for (const p of path) {
+    if ('question' in current) current = p === 'yes' ? current.yes : current.no
+  }
+
+  const isResult = !('question' in current)
+
+  return (
+    <div style={{
+      background: 'var(--surface1)', border: '1px solid var(--border)', borderRadius: 14,
+      padding: 20, boxShadow: 'var(--shadow-sm)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <h3 style={{ margin: 0, fontSize: '0.95em' }}>어디에 넣을까요?</h3>
+        <button type="button" className="secondary mini" onClick={onBack}>닫기</button>
+      </div>
+
+      {/* Progress */}
+      {path.length > 0 ? (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
+          {path.map((p, i) => (
+            <span key={i} style={{
+              background: p === 'yes' ? '#dcfce7' : '#fef2f2',
+              color: p === 'yes' ? '#166534' : '#b91c1c',
+              border: `1px solid ${p === 'yes' ? '#22c55e' : '#fca5a5'}`,
+              borderRadius: 999, padding: '2px 8px', fontSize: '0.72em', cursor: 'pointer',
+            }} onClick={() => setPath(path.slice(0, i))}>
+              {p === 'yes' ? 'Y' : 'N'}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {isResult ? (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{
+            background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 8,
+            padding: '12px 16px', fontSize: '0.88em', color: '#1d4ed8', fontWeight: 600,
+          }}>
+            {(current as any).label}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(current as any).mode !== 'back' ? (
+              <button type="button" onClick={() => onResult(current as any)} style={{ fontSize: '0.82em', padding: '6px 14px' }}>
+                이동
+              </button>
+            ) : null}
+            <button type="button" className="secondary" onClick={() => setPath([])} style={{ fontSize: '0.82em', padding: '6px 14px' }}>
+              처음부터
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <p style={{ fontSize: '0.9em', fontWeight: 600, margin: 0 }}>{(current as HelperNode).question}</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={() => setPath([...path, 'yes'])}
+              style={{ padding: '8px 24px', fontSize: '0.88em', background: '#dcfce7', border: '1px solid #22c55e', color: '#166534', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+              네
+            </button>
+            <button type="button" onClick={() => setPath([...path, 'no'])}
+              style={{ padding: '8px 24px', fontSize: '0.88em', background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+              아니오
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -529,28 +642,35 @@ export function NasUploadView() {
       ) : null}
 
       {/* ── Step 1.5: Mode selection ── */}
-      {step === 'mode' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxWidth: 600 }}>
-          <button
-            type="button"
-            className="secondary"
-            style={{ padding: '24px 16px', display: 'grid', gap: 6, textAlign: 'center', borderRadius: 14 }}
-            onClick={() => { setStep('task'); fetchTasks(account) }}
-          >
-            <span style={{ fontSize: '1.5em' }}>📁</span>
-            <span style={{ fontWeight: 700, fontSize: '0.95em' }}>업무 결과물</span>
-            <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>파일명 자동 생성 + 업무 연동</span>
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            style={{ padding: '24px 16px', display: 'grid', gap: 6, textAlign: 'center', borderRadius: 14 }}
-            onClick={() => { setStep('free-browse'); freeList(freePath) }}
-          >
-            <span style={{ fontSize: '1.5em' }}>📄</span>
-            <span style={{ fontWeight: 700, fontSize: '0.95em' }}>기타 파일</span>
-            <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>수신 파일, 참고자료 등 (파일명 그대로)</span>
-          </button>
+      {step === 'mode' || step === 'helper' as string ? (
+        <div style={{ display: 'grid', gap: 12, maxWidth: 600 }}>
+          {step === 'mode' ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <button type="button" className="secondary" style={{ padding: '24px 16px', display: 'grid', gap: 6, textAlign: 'center', borderRadius: 14 }}
+                  onClick={() => { setStep('task'); fetchTasks(account) }}>
+                  <span style={{ fontSize: '1.5em' }}>📁</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.95em' }}>업무 결과물</span>
+                  <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>파일명 자동 생성 + 업무 연동</span>
+                </button>
+                <button type="button" className="secondary" style={{ padding: '24px 16px', display: 'grid', gap: 6, textAlign: 'center', borderRadius: 14 }}
+                  onClick={() => { setStep('free-browse'); freeList(freePath) }}>
+                  <span style={{ fontSize: '1.5em' }}>📄</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.95em' }}>기타 파일</span>
+                  <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>수신 파일, 참고자료 등 (파일명 그대로)</span>
+                </button>
+              </div>
+              <button type="button" className="secondary" style={{ padding: '12px 16px', fontSize: '0.85em', borderRadius: 10 }}
+                onClick={() => setStep('helper' as Step)}>
+                어디에 넣어야 할지 모르겠어요
+              </button>
+            </>
+          ) : null}
+          {(step as string) === 'helper' ? <UploadHelper onResult={(result) => {
+            if (result.mode === 'task') { setStep('task'); fetchTasks(account) }
+            else if (result.mode === 'free') { setFreePath(NAS_BASE + result.path); setStep('free-browse'); freeList(NAS_BASE + result.path) }
+            else setStep('mode')
+          }} onBack={() => setStep('mode')} /> : null}
         </div>
       ) : null}
 
