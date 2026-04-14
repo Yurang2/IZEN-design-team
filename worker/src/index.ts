@@ -270,6 +270,33 @@ export default {
     })
     if (nasHandled) return nasHandled
 
+    // NAS issues tracker
+    if (request.method === 'GET' && path === '/nas-issues') {
+      const dbId = env.NOTION_NAS_ISSUES_DB_ID
+      if (!dbId) return ok({ ok: true, items: [], cacheTtlMs }, origin)
+      const pages = await service.queryAll(dbId)
+      const items = pages.map((page: any) => {
+        const props = (page.properties ?? {}) as Record<string, any>
+        const getText = (p: any) => {
+          if (!p) return ''
+          if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
+          if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
+          if (p.type === 'select') return p.select?.name ?? ''
+          return ''
+        }
+        return {
+          id: page.id,
+          issue: getText(props['문제점']),
+          proposal: getText(props['제안내용']),
+          solution: getText(props['처리방법']),
+          area: getText(props['영역']),
+          source: getText(props['출처']),
+          resolved: getText(props['해결여부']),
+        }
+      })
+      return ok({ ok: true, items, cacheTtlMs }, origin)
+    }
+
     if (request.method === 'POST' && path === '/event-graphics/video-thumbnail/render') {
       try {
         const payload = parseVideoThumbnailRenderBody(await readJsonBody(request))

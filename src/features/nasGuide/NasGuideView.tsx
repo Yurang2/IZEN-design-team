@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { api } from '../../shared/api/client'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1028,12 +1029,165 @@ function GDriveSection() {
 // Tab definitions
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Section 6: 이슈 트래커
+// ---------------------------------------------------------------------------
+
+type IssueItem = {
+  id: string
+  issue: string
+  proposal: string
+  solution: string
+  area: string
+  source: string
+  resolved: string
+}
+
+const RESOLVED_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  '해결': { bg: '#dcfce7', text: '#166534', border: '#22c55e' },
+  '미결': { bg: '#fef2f2', text: '#b91c1c', border: '#fca5a5' },
+  '논의중': { bg: '#fff7ed', text: '#9a3412', border: '#f97316' },
+}
+
+function IssuesSection() {
+  const [items, setItems] = useState<IssueItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [filterArea, setFilterArea] = useState('')
+  const [filterResolved, setFilterResolved] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    api<{ ok: boolean; items: IssueItem[] }>('/nas-issues')
+      .then((res) => { if (res.ok) setItems(res.items) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const areas = useMemo(() => [...new Set(items.map((i) => i.area).filter(Boolean))].sort(), [items])
+  const filtered = useMemo(() => {
+    return items.filter((i) => {
+      if (filterArea && i.area !== filterArea) return false
+      if (filterResolved && i.resolved !== filterResolved) return false
+      return true
+    })
+  }, [items, filterArea, filterResolved])
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const i of items) c[i.resolved] = (c[i.resolved] || 0) + 1
+    return c
+  }, [items])
+
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      {/* Summary + Filters */}
+      <article className="workflowCard workflowCardWide">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {Object.entries(counts).map(([status, count]) => {
+              const c = RESOLVED_COLORS[status] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
+              return (
+                <span
+                  key={status}
+                  style={{
+                    background: c.bg, color: c.text, border: `1px solid ${c.border}`,
+                    borderRadius: 999, padding: '3px 10px', fontSize: '0.82em', fontWeight: 600,
+                    cursor: 'pointer', opacity: filterResolved && filterResolved !== status ? 0.4 : 1,
+                  }}
+                  onClick={() => setFilterResolved(filterResolved === status ? '' : status)}
+                >
+                  {status} {count}
+                </span>
+              )
+            })}
+          </div>
+          <select
+            style={{
+              background: 'var(--input-bg, var(--surface1))', border: '1px solid var(--border)',
+              borderRadius: 8, fontSize: '0.82em', padding: '5px 8px', color: 'var(--text1)',
+            }}
+            value={filterArea}
+            onChange={(e) => setFilterArea(e.target.value)}
+          >
+            <option value="">전체 영역</option>
+            {areas.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+      </article>
+
+      {loading ? (
+        <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div>
+      ) : null}
+
+      {/* Issue cards */}
+      {filtered.map((item) => {
+        const rc = RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
+        return (
+          <article
+            key={item.id}
+            className="workflowCard workflowCardWide"
+            style={{ borderLeft: `3px solid ${rc.border}` }}
+          >
+            {/* 1. 문제점 (제일 크게) */}
+            <h3 style={{ margin: 0, fontSize: '0.95em' }}>{item.issue}</h3>
+
+            {/* 2. 제안내용 */}
+            {item.proposal ? (
+              <div style={{ fontSize: '0.85em', color: 'var(--text2)', background: 'var(--surface2, #f5f7fb)', borderRadius: 8, padding: '8px 12px' }}>
+                {item.proposal}
+              </div>
+            ) : null}
+
+            {/* 3. 처리방법 */}
+            {item.solution ? (
+              <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>{item.solution}</p>
+            ) : null}
+
+            {/* 4~6. 메타 태그 */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {item.area ? (
+                <span style={{
+                  background: 'var(--bg-soft, #eef2f7)', border: '1px solid var(--border)',
+                  borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: 'var(--text2)',
+                }}>
+                  {item.area}
+                </span>
+              ) : null}
+              {item.source ? (
+                <span style={{
+                  background: '#dbeafe', border: '1px solid #93c5fd',
+                  borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: '#1d4ed8',
+                }}>
+                  {item.source}
+                </span>
+              ) : null}
+              <span style={{
+                background: rc.bg, border: `1px solid ${rc.border}`,
+                borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', fontWeight: 600, color: rc.text,
+              }}>
+                {item.resolved}
+              </span>
+            </div>
+          </article>
+        )
+      })}
+
+      {!loading && filtered.length === 0 ? (
+        <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>
+          해당하는 이슈가 없습니다
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 const TABS = [
   { id: 'structure', label: '폴더 구조', icon: '📁' },
   { id: 'decision', label: '어디에 넣나?', icon: '🔍' },
   { id: 'naming', label: '파일명 규칙', icon: '📝' },
   { id: 'workflow', label: '작업 흐름', icon: '🔄' },
   { id: 'gdrive', label: '구글 드라이브', icon: '☁️' },
+  { id: 'issues', label: '이슈 트래커', icon: '📋' },
 ] as const
 
 // ---------------------------------------------------------------------------
@@ -1092,6 +1246,7 @@ export function NasGuideView() {
         {activeTab === 2 ? <NamingSection /> : null}
         {activeTab === 3 ? <WorkflowSection /> : null}
         {activeTab === 4 ? <GDriveSection /> : null}
+        {activeTab === 5 ? <IssuesSection /> : null}
       </div>
     </section>
   )
