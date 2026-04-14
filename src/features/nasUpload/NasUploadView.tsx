@@ -190,48 +190,50 @@ const previewStyle: React.CSSProperties = {
 
 type HelperNode = {
   question: string
-  yes: HelperNode | { mode: 'task' | 'free' | 'back'; path?: string; label: string }
-  no: HelperNode | { mode: 'task' | 'free' | 'back'; path?: string; label: string }
+  yes: HelperNode | { mode: 'task' | 'free' | 'back'; path?: string; label: string; namingTip?: string }
+  no: HelperNode | { mode: 'task' | 'free' | 'back'; path?: string; label: string; namingTip?: string }
 }
 
 const HELPER_TREE: HelperNode = {
   question: '이 파일은 내가(디자인팀이) 직접 만든 작업물인가요?',
   yes: {
     question: '이 작업물은 Notion에 등록된 업무와 관련 있나요?',
-    yes: { mode: 'task', label: '→ "업무 결과물" 모드로 업로드하세요' },
+    yes: { mode: 'task', label: '→ "업무 결과물" 모드로 업로드하세요', namingTip: '파일명이 자동 생성됩니다' },
     no: {
       question: '현장에서 촬영/수집한 레퍼런스인가요?',
-      yes: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 06_현장수집/ 폴더에 넣으세요' },
-      no: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 알맞은 하위 폴더에 넣으세요' },
+      yes: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 06_현장수집/ 폴더에 넣으세요', namingTip: '파일명 그대로 업로드' },
+      no: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 알맞은 하위 폴더에 넣으세요', namingTip: '파일명 그대로 업로드' },
     },
   },
   no: {
     question: '타팀이나 외부에서 받은 파일인가요?',
     yes: {
-      question: '특정 프로젝트와 관련 있나요?',
-      yes: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 00_기획-문서/ 에 [수신]_ 접두사를 붙여 넣으세요' },
-      no: { mode: 'free', path: '/02_ASSET', label: '→ 02_ASSET/ 해당 카테고리에 넣으세요' },
+      question: '이 파일을 수정해서 돌려보내야 하나요?',
+      yes: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 00_기획-문서/ 에 넣으세요', namingTip: '회신 시 파일명 뒤에 _이름v01 을 붙이세요 (예: 기획서_{{name}}v01.docx)' },
+      no: { mode: 'free', path: '/01_PROJECT', label: '→ 해당 프로젝트의 00_기획-문서/ 에 원본 그대로 넣으세요', namingTip: '파일명 변경 없이 그대로 업로드' },
     },
     no: {
       question: '여러 프로젝트에서 반복 사용하는 소스(로고, 폰트, 템플릿 등)인가요?',
-      yes: { mode: 'free', path: '/02_ASSET', label: '→ 02_ASSET/ 해당 카테고리에 넣으세요' },
+      yes: { mode: 'free', path: '/02_ASSET', label: '→ 02_ASSET/ 해당 카테고리에 넣으세요', namingTip: '파일명 그대로 업로드' },
       no: { mode: 'back', label: '→ 잘 모르겠으면 팀장에게 문의하세요' },
     },
   },
 }
 
-function UploadHelper({ onResult, onBack }: {
+function UploadHelper({ onResult, onBack, accountName }: {
   onResult: (r: { mode: 'task' | 'free' | 'back'; path?: string }) => void
   onBack: () => void
+  accountName: string
 }) {
   const [path, setPath] = useState<Array<'yes' | 'no'>>([])
 
-  let current: HelperNode | { mode: string; path?: string; label: string } = HELPER_TREE
+  let current: HelperNode | { mode: string; path?: string; label: string; namingTip?: string } = HELPER_TREE
   for (const p of path) {
     if ('question' in current) current = p === 'yes' ? current.yes : current.no
   }
 
   const isResult = !('question' in current)
+  const namingTip = isResult ? (current as any).namingTip?.replace('{{name}}', accountName) : ''
 
   return (
     <div style={{
@@ -267,6 +269,14 @@ function UploadHelper({ onResult, onBack }: {
           }}>
             {(current as any).label}
           </div>
+          {namingTip ? (
+            <div style={{
+              background: 'var(--surface2, #f5f7fb)', border: '1px solid var(--border)', borderRadius: 8,
+              padding: '10px 14px', fontSize: '0.82em', color: 'var(--text2)',
+            }}>
+              <span style={{ fontWeight: 600 }}>파일명:</span> {namingTip}
+            </div>
+          ) : null}
           <div style={{ display: 'flex', gap: 6 }}>
             {(current as any).mode !== 'back' ? (
               <button type="button" onClick={() => onResult(current as any)} style={{ fontSize: '0.82em', padding: '6px 14px' }}>
@@ -666,7 +676,7 @@ export function NasUploadView() {
               </button>
             </>
           ) : null}
-          {(step as string) === 'helper' ? <UploadHelper onResult={(result) => {
+          {(step as string) === 'helper' ? <UploadHelper accountName={account} onResult={(result) => {
             if (result.mode === 'task') { setStep('task'); fetchTasks(account) }
             else if (result.mode === 'free') { setFreePath(NAS_BASE + result.path); setStep('free-browse'); freeList(NAS_BASE + result.path) }
             else setStep('mode')
