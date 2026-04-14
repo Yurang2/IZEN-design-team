@@ -249,7 +249,7 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
   { situation: 'SNS 템플릿 PSD', loc: 'ASSET', color: 'asset', path: '02_ASSET/07_템플릿/' },
   { situation: 'I-system STEP 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/03_3D-소스/' },
   { situation: '브랜드 가이드라인 PDF', loc: 'ASSET', color: 'asset', path: '02_ASSET/05_브랜드-가이드/' },
-  { situation: '카달로그 InDesign 마스터', loc: 'ASSET', color: 'asset', path: '02_ASSET/04_카달로그-마스터/' },
+  { situation: '카달로그 InDesign 작업파일', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250016_.../01_인쇄물/카달로그/' },
   { situation: 'IFU 작업중 InDesign', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250031_IFU-Rev개정/' },
   { situation: 'IFU 최종 출력용 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/10_IFU/ (Rev)' },
   { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250901_뉴스레터/2026-04/' },
@@ -669,7 +669,7 @@ function DecisionSection() {
           ))}
         </div>
         <p style={{ color: 'var(--muted)', fontSize: '0.82em' }}>
-          최종본은 <strong>PROJECT 10_최종납품/</strong>에 저장 + <strong>LIBRARY</strong>에도 복사합니다 (이중 보관).
+          완성본은 <strong>03_LIBRARY/</strong>에 Rev 번호로 올립니다. 납품 추적은 Notion DB + Google Drive에서 관리합니다.
         </p>
       </article>
 
@@ -802,7 +802,7 @@ function NamingSection() {
           </div>
         </div>
         <ul className="workflowList" style={{ fontSize: '0.88em' }}>
-          <li>프로젝트 코드(IZ-YYMM-NNN)는 <strong>파일명에 포함하지 않음</strong> — 폴더가 이미 프로젝트별로 분리</li>
+          <li>프로젝트 코드(IZYYNNNN)는 <strong>파일명에 포함하지 않음</strong> — 폴더가 이미 프로젝트별로 분리</li>
           <li><strong>v = PROJECT 소스파일</strong> (v01, v02...), <strong>Rev = LIBRARY 배포본</strong> (Rev01, Rev02...) — 보통 다른 파일 형식 (.ai→.pdf)</li>
           <li><code className="fileGuideCode">_작업중</code> 표시는 <strong>PROJECT 안에서만</strong> 허용, LIBRARY에는 절대 불가</li>
           <li>타팀에서 받은 파일은 <code className="fileGuideCode">[수신]_</code> 접두사</li>
