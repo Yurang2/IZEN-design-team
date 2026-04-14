@@ -63,7 +63,6 @@ const SUBFOLDER_OPTIONS = [
   { label: '  f_후기', value: '04_영상/f_후기' },
   { label: '05 사진', value: '05_사진' },
   { label: '  a_자체촬영', value: '05_사진/a_자체촬영' },
-  { label: '  b_수신/외주', value: '05_사진/b_수신/외주' },
   { label: '  b_수신/타팀', value: '05_사진/b_수신/타팀' },
   { label: '  c_선별', value: '05_사진/c_선별' },
   { label: '  d_보정', value: '05_사진/d_보정' },
