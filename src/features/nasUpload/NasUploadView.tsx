@@ -205,7 +205,7 @@ export function NasUploadView() {
   const [spec, setSpec] = useState('')
   const [versionType, setVersionType] = useState<'v' | 'Rev'>('v')
   const [versionNum, setVersionNum] = useState(1)
-  const [ext, setExt] = useState('.ai')
+  const [ext, setExt] = useState('')
 
   // NAS files in target folder
   const [targetFiles, setTargetFiles] = useState<NasFile[]>([])
