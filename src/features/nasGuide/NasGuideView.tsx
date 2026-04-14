@@ -1125,11 +1125,16 @@ function IssuesSection() {
   const [showAdd, setShowAdd] = useState(false)
   const [newItem, setNewItem] = useState<Partial<IssueItem>>({ resolved: '미결' })
 
+  const [fetchError, setFetchError] = useState('')
   const fetchItems = useCallback(() => {
     setLoading(true)
-    api<{ ok: boolean; items: IssueItem[] }>('/nas-issues')
-      .then((res) => { if (res.ok) setItems(res.items) })
-      .catch(() => {})
+    setFetchError('')
+    api<{ ok: boolean; items: IssueItem[]; error?: string }>('/nas-issues')
+      .then((res) => {
+        if (res.ok) setItems(res.items)
+        else setFetchError(res.error ?? 'unknown error')
+      })
+      .catch((err) => setFetchError(err instanceof Error ? err.message : 'fetch failed'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -1216,6 +1221,7 @@ function IssuesSection() {
       ) : null}
 
       {loading ? <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div> : null}
+      {fetchError ? <div style={{ padding: 12, fontSize: '0.82em', color: 'var(--danger)', background: '#fef2f2', borderRadius: 8 }}>API 오류: {fetchError}</div> : null}
 
       {filtered.map((item) => <IssueCard key={item.id} item={item} onSave={saveItem} />)}
 
