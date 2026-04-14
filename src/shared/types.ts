@@ -41,6 +41,7 @@ export type TaskRecord = {
   url: string
   projectKey: string
   projectName: string
+  projectSerialCode?: string
   projectSource: 'relation' | 'select' | 'unknown'
   requester: string[]
   workType: string

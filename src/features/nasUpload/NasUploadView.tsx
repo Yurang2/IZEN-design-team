@@ -222,9 +222,13 @@ export function NasUploadView() {
   // Computed
   // ---------------------------------------------------------------------------
 
-  const projectFolder = selectedTask
-    ? `01_PROJECT/${selectedTask.projectName || 'unknown'}`
-    : '01_PROJECT'
+  const hasSerialCode = !!selectedTask?.projectSerialCode
+  const projectFolderName = selectedTask
+    ? selectedTask.projectSerialCode
+      ? `${selectedTask.projectSerialCode}_${selectedTask.projectName.replace(/\s+/g, '-')}`
+      : selectedTask.projectName
+    : ''
+  const projectFolder = selectedTask ? `01_PROJECT/${projectFolderName}` : '01_PROJECT'
 
   const fullNasPath = `${NAS_BASE}/${projectFolder}${subfolder ? `/${subfolder}` : ''}`
 
@@ -491,16 +495,30 @@ export function NasUploadView() {
         <div style={{ display: 'grid', gap: 12 }}>
           {/* Selected task info */}
           {selectedTask ? (
-            <div style={{ ...cardStyle, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <span style={{ fontWeight: 700, fontSize: '0.88em' }}>{selectedTask.taskName}</span>
-                <span style={{ fontSize: '0.78em', color: 'var(--muted)', marginLeft: 8 }}>
-                  {selectedTask.projectName} · {selectedTask.workType}
-                </span>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '0.88em' }}>{selectedTask.taskName}</span>
+                  <span style={{ fontSize: '0.78em', color: 'var(--muted)', marginLeft: 8 }}>
+                    {selectedTask.projectName} · {selectedTask.workType}
+                  </span>
+                </div>
+                <button type="button" className="secondary mini" onClick={() => { setSelectedTask(null); setStep('task') }}>
+                  업무 변경
+                </button>
               </div>
-              <button type="button" className="secondary mini" onClick={() => { setSelectedTask(null); setStep('task') }}>
-                업무 변경
-              </button>
+              {!hasSerialCode ? (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px', borderRadius: 8, fontSize: '0.82em',
+                  background: '#fff7ed', border: '1px solid #f97316', color: '#9a3412',
+                }}>
+                  이 프로젝트에 일련번호가 없습니다. Notion Project DB에서 "{selectedTask.projectName}"의 "일련번호" 컬럼을 먼저 채워주세요. (예: IZ250001)
+                </div>
+              ) : (
+                <div style={{ marginTop: 6, fontSize: '0.78em', color: 'var(--text2)' }}>
+                  NAS 폴더: <code style={{ fontSize: '0.95em' }}>{projectFolderName}</code>
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -600,7 +618,7 @@ export function NasUploadView() {
               </div>
 
               {/* Upload button */}
-              <button type="button" onClick={nasUpload} disabled={uploading || !selectedFile || !contentName} style={{ width: '100%' }}>
+              <button type="button" onClick={nasUpload} disabled={uploading || !selectedFile || !contentName || !hasSerialCode} style={{ width: '100%' }}>
                 {uploading ? '업로드 중...' : `${generatedFilename} 업로드`}
               </button>
 

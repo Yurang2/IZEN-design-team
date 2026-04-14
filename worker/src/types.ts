@@ -142,6 +142,7 @@ export type ProjectRecord = {
   key: string
   bindingValue: string
   name: string
+  serialCode?: string
   eventDate?: string
   shippingDate?: string
   operationMode?: 'self' | 'dealer'
@@ -159,6 +160,7 @@ export type TaskRecord = {
   url: string
   projectKey: string
   projectName: string
+  projectSerialCode?: string
   projectSource: 'relation' | 'unknown'
   requester: string[]
   workType: string

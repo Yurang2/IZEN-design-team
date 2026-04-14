@@ -1744,6 +1744,7 @@ export class NotionWorkService {
               '행사 구분',
               'event category',
             ])
+        const serialCodeProp = pickPropertyByNames(props, ['일련번호', '프로젝트 코드', '프로젝트코드', 'serial', 'serial code', 'project code'])
         const titleProp = pickPropertyByNames(props, ['프로젝트명', '프로젝트 이름', '이름', 'name'])
         const eventDateProp = pickPropertyByNames(props, ['행사진행일', '행사 진행일', '진행일', 'event date'])
         const shippingDateProp = pickPropertyByNames(props, ['배송마감일', '배송 마감일', '배송일', '배송 일', '출고일', 'shipping date'])
@@ -1784,11 +1785,14 @@ export class NotionWorkService {
               ? cover.file?.url ?? undefined
               : pickProjectCoverFromProperties(props)
 
+        const serialCode = extractTextFromProperty(serialCodeProp) || undefined
+
         return {
           id: page.id,
           key: page.id,
           bindingValue: page.id,
           name,
+          serialCode,
           eventDate,
           shippingDate,
           operationMode,
@@ -3459,6 +3463,7 @@ export class NotionWorkService {
     schema: TaskSchema,
     projectNameMap: Record<string, string>,
     taskNameMap: Record<string, string> = {},
+    projectSerialCodeMap: Record<string, string> = {},
   ): TaskRecord {
     const props = (page.properties ?? {}) as AnyMap
 
@@ -3469,6 +3474,9 @@ export class NotionWorkService {
       ? projectNameMap[normalizeNotionId(relationProjectId)] ?? projectNameMap[relationProjectId] ?? relationProjectId
       : undefined
     const projectName = projectNameFromRelation || '[UNKNOWN]'
+    const projectSerialCode = relationProjectId
+      ? projectSerialCodeMap[normalizeNotionId(relationProjectId)] ?? projectSerialCodeMap[relationProjectId]
+      : undefined
 
     const projectSource: 'relation' | 'unknown' = projectNameFromRelation ? 'relation' : 'unknown'
 
@@ -3493,6 +3501,7 @@ export class NotionWorkService {
       url: page.url,
       projectKey,
       projectName,
+      projectSerialCode,
       projectSource,
       requester,
       workType,
@@ -3523,9 +3532,14 @@ export class NotionWorkService {
     ])
 
     const projectNameMap: Record<string, string> = {}
+    const projectSerialCodeMap: Record<string, string> = {}
     for (const project of projects) {
       projectNameMap[project.id] = project.name
       projectNameMap[normalizeNotionId(project.id)] = project.name
+      if (project.serialCode) {
+        projectSerialCodeMap[project.id] = project.serialCode
+        projectSerialCodeMap[normalizeNotionId(project.id)] = project.serialCode
+      }
     }
 
     const taskNameMap: Record<string, string> = {}
@@ -3536,7 +3550,7 @@ export class NotionWorkService {
       taskNameMap[normalizedId] = title
     }
 
-    const tasks = taskPages.map((page) => this.mapTaskPage(page, schema, projectNameMap, taskNameMap))
+    const tasks = taskPages.map((page) => this.mapTaskPage(page, schema, projectNameMap, taskNameMap, projectSerialCodeMap))
 
     return {
       projects,
@@ -3554,13 +3568,18 @@ export class NotionWorkService {
     ])
 
     const projectNameMap: Record<string, string> = {}
+    const projectSerialCodeMap: Record<string, string> = {}
     for (const project of projects) {
       projectNameMap[project.id] = project.name
       projectNameMap[normalizeNotionId(project.id)] = project.name
+      if (project.serialCode) {
+        projectSerialCodeMap[project.id] = project.serialCode
+        projectSerialCodeMap[normalizeNotionId(project.id)] = project.serialCode
+      }
     }
 
     return {
-      task: this.mapTaskPage(page, schema, projectNameMap),
+      task: this.mapTaskPage(page, schema, projectNameMap, undefined, projectSerialCodeMap),
       schema,
     }
   }
