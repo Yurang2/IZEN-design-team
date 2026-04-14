@@ -35,43 +35,48 @@ const DEFAULT_SUBFOLDER_MAP: Record<string, string> = {
   '사진': '05_사진',
 }
 
-const SUBFOLDER_OPTIONS = [
-  { label: '00 기획-문서', value: '00_기획-문서' },
-  { label: '01 인쇄물', value: '01_인쇄물' },
-  { label: '  포스터', value: '01_인쇄물/포스터' },
-  { label: '  리플렛', value: '01_인쇄물/리플렛' },
-  { label: '  브로슈어', value: '01_인쇄물/브로슈어' },
-  { label: '  카달로그', value: '01_인쇄물/카달로그' },
-  { label: '  배너-현수막', value: '01_인쇄물/배너-현수막' },
-  { label: '  certificate', value: '01_인쇄물/certificate' },
-  { label: '02 부스', value: '02_부스' },
-  { label: '  부스디자인', value: '02_부스/부스디자인' },
-  { label: '  부스그래픽', value: '02_부스/부스그래픽' },
-  { label: '03 디지털', value: '03_디지털' },
-  { label: '  SNS', value: '03_디지털/SNS' },
-  { label: '  PPT', value: '03_디지털/PPT' },
-  { label: '  행사운영', value: '03_디지털/행사운영' },
-  { label: '  렌더링', value: '03_디지털/렌더링' },
-  { label: '  홈페이지', value: '03_디지털/홈페이지' },
-  { label: '04 영상', value: '04_영상' },
-  { label: '  a_자체촬영', value: '04_영상/a_자체촬영' },
-  { label: '  b_수신/외주', value: '04_영상/b_수신/외주' },
-  { label: '  b_수신/타팀', value: '04_영상/b_수신/타팀' },
-  { label: '  c_티저', value: '04_영상/c_티저' },
-  { label: '  d_강연소개', value: '04_영상/d_강연소개' },
-  { label: '  e_모션그래픽', value: '04_영상/e_모션그래픽' },
-  { label: '  f_후기', value: '04_영상/f_후기' },
-  { label: '05 사진', value: '05_사진' },
-  { label: '  a_자체촬영', value: '05_사진/a_자체촬영' },
-  { label: '  b_수신/타팀', value: '05_사진/b_수신/타팀' },
-  { label: '  c_선별', value: '05_사진/c_선별' },
-  { label: '  d_보정', value: '05_사진/d_보정' },
-  { label: '  e_공유', value: '05_사진/e_공유' },
-  { label: '06 현장수집', value: '06_현장수집' },
-]
+type FolderTreeNode = { label: string; value: string; children?: FolderTreeNode[] }
 
-const BRANDS = ['IZEN', 'IAM', 'ZENEX', 'Cleanimplant', '']
-const LANGUAGES = ['', 'EN', 'RU', 'ZH', 'KO']
+const SUBFOLDER_TREE: FolderTreeNode[] = [
+  { label: '00_기획-문서', value: '00_기획-문서' },
+  { label: '01_인쇄물', value: '01_인쇄물', children: [
+    { label: '포스터', value: '01_인쇄물/포스터' },
+    { label: '리플렛', value: '01_인쇄물/리플렛' },
+    { label: '브로슈어', value: '01_인쇄물/브로슈어' },
+    { label: '카달로그', value: '01_인쇄물/카달로그' },
+    { label: '배너-현수막', value: '01_인쇄물/배너-현수막' },
+    { label: 'certificate', value: '01_인쇄물/certificate' },
+  ] },
+  { label: '02_부스', value: '02_부스', children: [
+    { label: '부스디자인', value: '02_부스/부스디자인' },
+    { label: '부스그래픽', value: '02_부스/부스그래픽' },
+  ] },
+  { label: '03_디지털', value: '03_디지털', children: [
+    { label: 'SNS', value: '03_디지털/SNS' },
+    { label: 'PPT', value: '03_디지털/PPT' },
+    { label: '행사운영', value: '03_디지털/행사운영' },
+    { label: '렌더링', value: '03_디지털/렌더링' },
+    { label: '홈페이지', value: '03_디지털/홈페이지' },
+  ] },
+  { label: '04_영상', value: '04_영상', children: [
+    { label: 'a_자체촬영', value: '04_영상/a_자체촬영' },
+    { label: 'b_수신/외주', value: '04_영상/b_수신/외주' },
+    { label: 'b_수신/타팀', value: '04_영상/b_수신/타팀' },
+    { label: 'c_티저', value: '04_영상/c_티저' },
+    { label: 'd_강연소개', value: '04_영상/d_강연소개' },
+    { label: 'e_모션그래픽', value: '04_영상/e_모션그래픽' },
+    { label: 'f_후기', value: '04_영상/f_후기' },
+  ] },
+  { label: '05_사진', value: '05_사진', children: [
+    { label: 'a_자체촬영', value: '05_사진/a_자체촬영' },
+    { label: 'b_수신/타팀', value: '05_사진/b_수신/타팀' },
+    { label: 'c_선별', value: '05_사진/c_선별' },
+    { label: 'd_보정', value: '05_사진/d_보정' },
+    { label: 'e_공유', value: '05_사진/e_공유' },
+  ] },
+  { label: '06_현장수집', value: '06_현장수집' },
+]
+const LANGUAGES = ['', 'EN', 'RU', 'ZH', 'KO', 'JP']
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,6 +107,48 @@ function suggestNextVersion(files: NasFile[], type: 'v' | 'Rev'): number {
   return max + 1
 }
 
+function FolderTreeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggle = (v: string) => setExpanded((prev) => { const next = new Set(prev); if (next.has(v)) next.delete(v); else next.add(v); return next })
+
+  function renderNode(node: FolderTreeNode, depth: number) {
+    const hasKids = !!node.children?.length
+    const isOpen = expanded.has(node.value)
+    const isSelected = value === node.value
+    return (
+      <div key={node.value}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '4px 8px', paddingLeft: depth * 16 + 8,
+            cursor: 'pointer', borderRadius: 4, fontSize: '0.82em',
+            background: isSelected ? 'var(--control-accent-bg, #eaf2ff)' : undefined,
+            fontWeight: isSelected ? 700 : 400,
+          }}
+          onClick={() => { onChange(node.value); if (hasKids) toggle(node.value) }}
+        >
+          {hasKids ? (
+            <span style={{ fontSize: 9, color: 'var(--muted)', width: 10, display: 'inline-block', transition: 'transform 0.15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+              onClick={(e) => { e.stopPropagation(); toggle(node.value) }}>▶</span>
+          ) : <span style={{ width: 10 }} />}
+          <span>📁</span>
+          <span>{node.label}</span>
+        </div>
+        {isOpen && hasKids ? node.children!.map((c) => renderNode(c, depth + 1)) : null}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      background: 'var(--surface2, var(--bg))', border: '1px solid var(--border)',
+      borderRadius: 8, padding: '4px 0', maxHeight: 240, overflowY: 'auto',
+    }}>
+      {SUBFOLDER_TREE.map((n) => renderNode(n, 0))}
+    </div>
+  )
+}
+
 function guessSubfolder(text: string, mappings: Record<string, string>): string {
   const lower = text.toLowerCase()
   for (const [keyword, folder] of Object.entries(mappings)) {
@@ -111,7 +158,6 @@ function guessSubfolder(text: string, mappings: Record<string, string>): string 
 }
 
 function buildFilename(parts: {
-  brand: string
   contentName: string
   lang: string
   spec: string
@@ -121,7 +167,6 @@ function buildFilename(parts: {
   ext: string
 }): string {
   const segs: string[] = []
-  if (parts.brand) segs.push(parts.brand)
   if (parts.contentName) segs.push(parts.contentName)
   if (parts.lang) segs.push(parts.lang)
   if (parts.spec) segs.push(parts.spec)
@@ -337,7 +382,6 @@ export function NasUploadView() {
 
   // file naming
   const [subfolder, setSubfolder] = useState('')
-  const [brand, setBrand] = useState('IZEN')
   const [contentName, setContentName] = useState('')
   const [lang, setLang] = useState('')
   const [spec, setSpec] = useState('')
@@ -383,7 +427,7 @@ export function NasUploadView() {
   const fullNasPath = `${NAS_BASE}/${projectFolder}${subfolder ? `/${subfolder}` : ''}`
 
   const isMulti = selectedFiles.length > 1
-  const generatedFilename = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, seq: isMulti ? (seqStart || 1) : undefined, ext })
+  const generatedFilename = buildFilename({ contentName, lang, spec, versionType, versionNum, seq: isMulti ? (seqStart || 1) : undefined, ext })
 
   // ---------------------------------------------------------------------------
   // API calls
@@ -493,7 +537,7 @@ export function NasUploadView() {
         const dotIdx = file.name.lastIndexOf('.')
         const fileExt = dotIdx > 0 ? file.name.substring(dotIdx) : ext
         const seqNum = selectedFiles.length > 1 ? (seqStart || 1) + i : undefined
-        const filename = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, seq: seqNum, ext: fileExt })
+        const filename = buildFilename({ contentName, lang, spec, versionType, versionNum, seq: seqNum, ext: fileExt })
 
         const fd = new FormData()
         fd.append('sid', sid)
@@ -544,7 +588,7 @@ export function NasUploadView() {
     } finally {
       setUploading(false)
     }
-  }, [selectedFiles, sid, fullNasPath, brand, contentName, lang, spec, versionType, versionNum, seqStart, ext, loadTargetFiles, selectedTask, uploadReason])
+  }, [selectedFiles, sid, fullNasPath, contentName, lang, spec, versionType, versionNum, seqStart, ext, loadTargetFiles, selectedTask, uploadReason])
 
   // (tasks are loaded when entering task step)
 
@@ -779,27 +823,14 @@ export function NasUploadView() {
               <div style={{ display: 'grid', gap: 8 }}>
                 <div>
                   <label style={labelStyle}>저장 위치 (하위 폴더)</label>
-                  <select style={selectStyle} value={subfolder} onChange={(e) => setSubfolder(e.target.value)}>
-                    <option value="">-- 선택 --</option>
-                    {SUBFOLDER_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                  <FolderTreeSelect value={subfolder} onChange={setSubfolder} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={labelStyle}>브랜드</label>
-                    <select style={selectStyle} value={brand} onChange={(e) => setBrand(e.target.value)}>
-                      {BRANDS.map((b) => <option key={b} value={b}>{b || '(없음)'}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>언어</label>
-                    <select style={selectStyle} value={lang} onChange={(e) => setLang(e.target.value)}>
-                      {LANGUAGES.map((l) => <option key={l} value={l}>{l || '(없음)'}</option>)}
-                    </select>
-                  </div>
+                <div>
+                  <label style={labelStyle}>언어</label>
+                  <select style={selectStyle} value={lang} onChange={(e) => setLang(e.target.value)}>
+                    {LANGUAGES.map((l) => <option key={l} value={l}>{l || '(없음)'}</option>)}
+                  </select>
                 </div>
 
                 <div>
@@ -828,12 +859,17 @@ export function NasUploadView() {
 
               {/* Preview */}
               <div style={{ marginTop: 12 }}>
-                <label style={labelStyle}>생성될 파일명</label>
-                <div style={previewStyle}>{generatedFilename}</div>
+                <label style={labelStyle}>업로드 경로</label>
+                <div style={{ ...previewStyle, fontSize: '0.75em', color: subfolder ? 'var(--text1)' : 'var(--danger)' }}>
+                  {fullNasPath}/
+                  {!subfolder ? <span style={{ display: 'block', marginTop: 4, fontSize: '0.9em' }}>⚠ 저장 위치를 선택하세요</span> : null}
+                </div>
               </div>
               <div style={{ marginTop: 6 }}>
-                <label style={labelStyle}>업로드 경로</label>
-                <div style={{ ...previewStyle, fontSize: '0.75em' }}>{fullNasPath}/</div>
+                <label style={labelStyle}>생성될 파일명</label>
+                <div style={{ ...previewStyle, color: contentName ? 'var(--text1)' : 'var(--muted)' }}>
+                  {contentName ? generatedFilename : '콘텐츠명을 입력하세요'}
+                </div>
               </div>
             </div>
 
@@ -880,7 +916,7 @@ export function NasUploadView() {
                       {selectedFiles.map((f, i) => {
                         const dotIdx = f.name.lastIndexOf('.')
                         const fileExt = dotIdx > 0 ? f.name.substring(dotIdx) : ext
-                        const name = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, seq: (seqStart || 1) + i, ext: fileExt })
+                        const name = buildFilename({ contentName, lang, spec, versionType, versionNum, seq: (seqStart || 1) + i, ext: fileExt })
                         return (
                           <div key={i} style={{ marginTop: 2 }}>
                             <span style={{ color: 'var(--muted)' }}>{f.name}</span> → <strong style={{ color: 'var(--primary)' }}>{name}</strong>
