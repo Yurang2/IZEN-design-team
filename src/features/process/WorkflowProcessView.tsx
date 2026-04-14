@@ -135,11 +135,10 @@ const TASK_PROCESSES: TaskProcess[] = [
     nasPath: '04_영상/',
     steps: [
       { number: '01', title: '소스 수급', detail: '자체 촬영 → a_자체촬영/. 외주/타팀 수신 → b_수신/(외주 or 타팀). 영업팀이 사진+영상 섞어 보내면 확장자 정렬해서 분류.' },
-      { number: '02', title: '편집 작업', detail: 'Premiere/After Effects 프로젝트 파일 → c_편집-프로젝트/. 소스를 여기서 편집.' },
-      { number: '03', title: '모션 작업 (해당시)', detail: '2D 모션 → d_2D-모션/. 3D 모션(C4D 등) → e_3D-모션/.' },
-      { number: '04', title: 'SNS 영상 (해당시)', detail: 'SNS용으로 별도 편집한 영상 → f_SNS-영상/.' },
-      { number: '05', title: '최종 렌더', detail: '완성된 영상 → g_최종본/. 외주 영상팀 완성본도 여기에 합류.' },
-      { number: '06', title: 'LIBRARY 등록', detail: '배포용 최종본은 03_LIBRARY/에 Rev 번호로 올림.' },
+      { number: '02', title: '영상 종류별 작업', detail: '각 종류 폴더에서 작업파일(.prproj, .aep)과 렌더(.mp4)를 함께 관리. c_티저/, d_강연소개/, e_모션그래픽/, f_후기/ 등.' },
+      { number: '03', title: '모션그래픽 (해당시)', detail: '오프닝, 브레이크 등 모션 작업 → e_모션그래픽/. 완성본은 03_디지털/행사운영/에도 복사.' },
+      { number: '04', title: '외주 완성본 합류', detail: '외주 영상팀 완성본은 해당 종류 폴더에 합류 (티저면 c_티저/, 후기면 f_후기/).' },
+      { number: '05', title: 'LIBRARY 등록', detail: '배포용 최종본은 03_LIBRARY/에 Rev 번호로 올림.' },
     ],
   },
   {
@@ -156,11 +155,11 @@ const TASK_PROCESSES: TaskProcess[] = [
   {
     title: '3D 프로세스',
     eyebrow: '3D / Motion Graphics',
-    nasPath: '02_부스/ 또는 04_영상/e_3D-모션/',
+    nasPath: '02_부스/ 또는 04_영상/e_모션그래픽/',
     steps: [
       { number: '01', title: '모델링/소스 준비', detail: '부스 3D → 02_부스/부스디자인/. 제품 렌더링(범용) → 02_ASSET/02_제품-렌더링/. 프로젝트 전용 → 03_디지털/렌더링/.' },
-      { number: '02', title: '렌더링/모션 작업', detail: 'C4D 등 작업 파일과 렌더 결과물을 같은 폴더에. 영상용 3D 모션 → 04_영상/e_3D-모션/.' },
-      { number: '03', title: '결과물 전달', detail: '렌더 이미지 → 해당 산출물 폴더. 모션 영상 → 04_영상/g_최종본/.' },
+      { number: '02', title: '렌더링/모션 작업', detail: 'C4D 등 작업 파일과 렌더 결과물을 같은 폴더에. 영상용 모션그래픽 → 04_영상/e_모션그래픽/.' },
+      { number: '03', title: '결과물 전달', detail: '렌더 이미지 → 해당 산출물 폴더. 모션 영상 → 해당 종류 폴더 (e_모션그래픽/ 등).' },
     ],
   },
   {
