@@ -30,7 +30,6 @@ export function parseTopView(value: string | null): TopView {
     value === 'geminiImageTest' ||
     value === 'mailTemplate' ||
     value === 'feedback' ||
-    value === 'fileGuide' ||
     value === 'nasGuide' ||
     value === 'nasUpload' ||
     value === 'subtitle' ||
@@ -111,7 +110,6 @@ export function toTopViewPath(view: TopView): string {
   if (view === 'photoGuide') return 'Photo Guide'
   if (view === 'equipment') return 'Equipment'
   if (view === 'feedback') return 'Feedback'
-  if (view === 'fileGuide') return 'File Guide'
   if (view === 'nasGuide') return 'NAS Folder Guide'
   if (view === 'nasUpload') return 'NAS Upload'
   if (view === 'subtitle') return 'Subtitle Script'
@@ -136,7 +134,6 @@ export function toTopViewTitle(view: TopView): string {
   if (view === 'photoGuide') return '촬영가이드'
   if (view === 'equipment') return '촬영장비'
   if (view === 'feedback') return '피드백'
-  if (view === 'fileGuide') return '파일/폴더 가이드'
   if (view === 'nasGuide') return 'NAS 폴더 구조 가이드'
   if (view === 'nasUpload') return 'NAS 파일 업로드'
   if (view === 'subtitle') return '자막 스크립트'

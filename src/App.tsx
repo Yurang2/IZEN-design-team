@@ -22,7 +22,6 @@ const SnsPostGeneratorView = lazy(() => import('./features/snsPost/SnsPostGenera
 const TaskDetailView = lazy(() => import('./features/taskDetail/TaskDetailView').then((m) => ({ default: m.TaskDetailView })))
 const TasksView = lazy(() => import('./features/tasks/TasksView').then((m) => ({ default: m.TasksView })))
 const WorkflowProcessView = lazy(() => import('./features/process/WorkflowProcessView').then((m) => ({ default: m.WorkflowProcessView })))
-const FileGuideView = lazy(() => import('./features/fileGuide/FileGuideView').then((m) => ({ default: m.FileGuideView })))
 const SubtitleView = lazy(() => import('./features/subtitle/SubtitleView').then((m) => ({ default: m.SubtitleView })))
 const VideoManagementView = lazy(() => import('./features/videoManagement/VideoManagementView').then((m) => ({ default: m.VideoManagementView })))
 const NasGuideView = lazy(() => import('./features/nasGuide/NasGuideView').then((m) => ({ default: m.NasGuideView })))
@@ -1418,7 +1417,6 @@ function App() {
         { view: 'workflowProcess', title: '업무진행 프로세스', label: '업무진행 프로세스', icon: 'list' },
         { view: 'nasGuide', title: 'NAS 폴더 구조 가이드', label: 'NAS 폴더 가이드', icon: 'list' },
         { view: 'nasUpload', title: 'NAS 파일 업로드', label: 'NAS 업로드', icon: 'plus' },
-        { view: 'fileGuide', title: '파일/폴더 가이드', label: '파일/폴더 가이드', icon: 'list' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
         { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list', test: true },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
@@ -2621,8 +2619,6 @@ function App() {
       {activeView === 'nasGuide' ? <NasGuideView /> : null}
 
       {activeView === 'nasUpload' ? <NasUploadView /> : null}
-
-      {activeView === 'fileGuide' ? <FileGuideView /> : null}
 
       {activeView === 'guide' ? (
         <section className="guideView" aria-label="서비스 사용법">

@@ -425,7 +425,6 @@ export type TopView =
   | 'geminiImageTest'
   | 'mailTemplate'
   | 'feedback'
-  | 'fileGuide'
   | 'subtitle'
   | 'videoManagement'
   | 'videoManual'
