@@ -2418,9 +2418,12 @@ function App() {
           <section className="buildUpdateBanner" aria-live="polite">
             <div className="buildUpdateBannerText">
               <strong>새 버전이 배포되었습니다.</strong>
-              <span>현재 열려 있는 화면은 최신이 아닐 수 있습니다. 왼쪽 보기바에서 새 버전 적용을 눌러 다시 열어 주세요.</span>
+              <span>현재 화면은 최신이 아닐 수 있습니다.</span>
               <small>배포 시각 {formatBuildTimestamp(latestAvailableBuild.builtAt)}</small>
             </div>
+            <button type="button" onClick={() => window.location.reload()} style={{ flexShrink: 0 }}>
+              새로고침
+            </button>
           </section>
         ) : null}
 
