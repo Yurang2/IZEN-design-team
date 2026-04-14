@@ -477,4 +477,5 @@ export type UpdateTaskInput = {
   urgent?: boolean | null
   issue?: string | null
   outputLink?: string | null
+  changeReason?: string | null
 }

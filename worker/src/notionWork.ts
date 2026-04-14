@@ -3696,6 +3696,24 @@ export class NotionWorkService {
       applyRichText(properties, schema.fields.issue, patch.issue)
     }
 
+    if (hasOwn(patch as Record<string, unknown>, 'changeReason')) {
+      // Find the '수정사유' field directly from the task's current properties
+      const page = await this.api.retrievePage(id)
+      const pageProps = (page.properties ?? {}) as AnyMap
+      const changeReasonProp = pickPropertyByNames(pageProps, ['수정사유', '수정 사유', 'change reason'])
+      if (changeReasonProp) {
+        const fieldName = Object.entries(pageProps).find(([, v]) => v === changeReasonProp)?.[0]
+        if (fieldName) {
+          const value = normalizeText(patch.changeReason ?? '') || null
+          if (value) {
+            properties[fieldName] = { rich_text: [{ text: { content: value } }] }
+          } else {
+            properties[fieldName] = { rich_text: [] }
+          }
+        }
+      }
+    }
+
     if (hasOwn(patch as Record<string, unknown>, 'outputLink')) {
       const field = schema.fields.outputLink
       if (isKnownField(field)) {

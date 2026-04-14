@@ -352,14 +352,18 @@ export function NasUploadView() {
         setStep('done')
         loadTargetFiles(fullNasPath)
 
-        // auto-fill outputLink in Notion task
+        // auto-fill outputLink + changeReason in Notion task
         if (selectedTask) {
           const nasLink = `${fullNasPath}/${generatedFilename}`
           const existing = selectedTask.outputLink
           const newLink = existing ? `${existing}\n${nasLink}` : nasLink
+          const patch: Record<string, unknown> = { outputLink: newLink }
+          if (uploadReason.trim()) {
+            patch.changeReason = uploadReason.trim()
+          }
           api(`/tasks/${encodeURIComponent(selectedTask.id)}`, {
             method: 'PATCH',
-            body: JSON.stringify({ outputLink: newLink }),
+            body: JSON.stringify(patch),
           }).catch(() => {})
         }
       } else if (res.error?.includes('already_exists')) {
