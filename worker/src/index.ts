@@ -273,7 +273,7 @@ export default {
     // NAS issues tracker
     if (path === '/nas-issues' || path.startsWith('/nas-issues/')) {
       const dbId = env.NOTION_NAS_ISSUES_DB_ID
-      if (!dbId) return ok({ ok: true, items: [], cacheTtlMs }, origin)
+      if (!dbId) return ok({ ok: true, items: [] }, origin)
 
       const notionHeaders = {
         'Authorization': `Bearer ${env.NOTION_TOKEN}`,
@@ -316,7 +316,7 @@ export default {
             resolved: getText(props['해결여부']),
           }
         })
-        return ok({ ok: true, items, cacheTtlMs }, origin)
+        return ok({ ok: true, items }, origin)
       }
 
       // POST /nas-issues — create new
