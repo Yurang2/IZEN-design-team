@@ -60,8 +60,10 @@ const SUBFOLDER_TREE: FolderTreeNode[] = [
   ] },
   { label: '04_영상', value: '04_영상', children: [
     { label: 'a_자체촬영', value: '04_영상/a_자체촬영' },
-    { label: 'b_수신/외주', value: '04_영상/b_수신/외주' },
-    { label: 'b_수신/타팀', value: '04_영상/b_수신/타팀' },
+    { label: 'b_수신', value: '04_영상/b_수신', children: [
+      { label: '외주', value: '04_영상/b_수신/외주' },
+      { label: '타팀', value: '04_영상/b_수신/타팀' },
+    ] },
     { label: 'c_티저', value: '04_영상/c_티저' },
     { label: 'd_강연소개', value: '04_영상/d_강연소개' },
     { label: 'e_모션그래픽', value: '04_영상/e_모션그래픽' },
@@ -69,7 +71,9 @@ const SUBFOLDER_TREE: FolderTreeNode[] = [
   ] },
   { label: '05_사진', value: '05_사진', children: [
     { label: 'a_자체촬영', value: '05_사진/a_자체촬영' },
-    { label: 'b_수신/타팀', value: '05_사진/b_수신/타팀' },
+    { label: 'b_수신', value: '05_사진/b_수신', children: [
+      { label: '타팀', value: '05_사진/b_수신/타팀' },
+    ] },
     { label: 'c_선별', value: '05_사진/c_선별' },
     { label: 'd_보정', value: '05_사진/d_보정' },
     { label: 'e_공유', value: '05_사진/e_공유' },
