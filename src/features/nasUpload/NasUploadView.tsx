@@ -223,7 +223,7 @@ export function NasUploadView() {
   // ---------------------------------------------------------------------------
 
   const projectFolder = selectedTask
-    ? `01_PROJECT/${selectedTask.projectKey || selectedTask.projectName || 'unknown'}`
+    ? `01_PROJECT/${selectedTask.projectName || 'unknown'}`
     : '01_PROJECT'
 
   const fullNasPath = `${NAS_BASE}/${projectFolder}${subfolder ? `/${subfolder}` : ''}`
