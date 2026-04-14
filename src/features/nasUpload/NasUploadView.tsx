@@ -45,6 +45,8 @@ const SUBFOLDER_MAP: Record<string, string> = {
   '모션': '04_영상/2D-모션',
   '3D': '04_영상/3D-모션',
   '사진': '05_사진',
+  '현장수집': '06_현장수집',
+  '레퍼런스': '06_현장수집',
 }
 
 const SUBFOLDER_OPTIONS = [
@@ -71,6 +73,7 @@ const SUBFOLDER_OPTIONS = [
   { label: '  자체촬영', value: '05_사진/자체촬영' },
   { label: '  선별', value: '05_사진/선별' },
   { label: '  보정', value: '05_사진/보정' },
+  { label: '06 현장수집', value: '06_현장수집' },
 ]
 
 const BRANDS = ['IZEN', 'IAM', 'ZENEX', 'Cleanimplant', '']

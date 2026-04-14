@@ -97,6 +97,7 @@ const NAS_TREE: TreeNode[] = [
         dc('선별', '자체촬영+수신에서 고른 사진'),
         dc('보정', '선별본을 색보정/리터치한 최종'),
       ]),
+      dc('06_현장수집', '타사 부스/제품 등 현장 레퍼런스 (사진·영상 구분 없이)'),
     ]),
     dc('IZ250002_AEEDC-Dubai-2026', '중간 규모', [
       d('00_기획-문서'),
@@ -171,7 +172,6 @@ const NAS_TREE: TreeNode[] = [
     d('07_제품사진-원본'),
     d('08_패키지'),
     d('09_임상', [dc('자사-케이스', '자사 임상 사진'), dc('타사-레퍼런스', '타사 임상 참고')]),
-    d('10_레퍼런스', [dc('부스', '타사 부스/전시회 사진'), dc('제품', '타사 제품 사진'), d('기타')]),
   ]),
   dc('03_LIBRARY', '완성 배포본 (항상 최신 Rev만)', [
     d('01_회사소개', [
@@ -544,7 +544,7 @@ function StructureSection() {
         </div>
         <p>
           <strong>PROJECT</strong>는 프로젝트 코드(<code className="fileGuideCode">IZYYNNNN_프로젝트명</code>)로 분류합니다.
-          하위 폴더는 <strong>00~05 (6개)</strong>이며, 해당 없는 폴더는 만들지 않습니다.
+          하위 폴더는 <strong>00~06 (7개)</strong>이며, 해당 없는 폴더는 만들지 않습니다.
           버전: PROJECT 소스파일은 <code className="fileGuideCode">v01, v02...</code>, LIBRARY 배포본은 <code className="fileGuideCode">Rev01, Rev02...</code>
         </p>
       </article>
