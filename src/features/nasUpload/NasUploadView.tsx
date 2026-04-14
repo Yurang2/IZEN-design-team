@@ -359,7 +359,9 @@ export function NasUploadView() {
           const newLink = existing ? `${existing}\n${nasLink}` : nasLink
           const patch: Record<string, unknown> = { outputLink: newLink }
           if (uploadReason.trim()) {
-            patch.changeReason = uploadReason.trim()
+            const timestamp = new Date().toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })
+            const entry = `[${timestamp} ${generatedFilename}] ${uploadReason.trim()}`
+            patch.changeReasonAppend = entry
           }
           api(`/tasks/${encodeURIComponent(selectedTask.id)}`, {
             method: 'PATCH',

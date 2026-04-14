@@ -478,4 +478,5 @@ export type UpdateTaskInput = {
   issue?: string | null
   outputLink?: string | null
   changeReason?: string | null
+  changeReasonAppend?: string | null
 }
