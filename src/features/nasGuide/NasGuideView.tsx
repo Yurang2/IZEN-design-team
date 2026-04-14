@@ -160,11 +160,22 @@ const NAS_TREE: TreeNode[] = [
       d('IAM', [f('IAM_LOGO_Black.png'), f('IAM_LOGO_White.png')]),
       d('ZENEX', [f('zenex_logo_bk.png'), f('zenex_logo.ai')]),
       d('Cleanimplant', [f('Cleanimplant_LOGO_Black.png')]),
+      dc('Dealer', '딜러 로고'),
     ]),
-    d('02_제품-렌더링', [
-      d('I-system', [f('IZEN_I-system_렌더_정면_v1.png')]),
-      d('T-system'),
-      d('R-system'),
+    dc('02_제품-렌더링', '기존 부품유형별 구조 유지 (D드라이브에서 이관)', [
+      d('01_zenex_fixture', [
+        d('01_multi', [d('I-System'), d('R-System'), d('T-System')]),
+        d('02_plus', [d('I-System'), d('R-System'), d('T-System')]),
+      ]),
+      d('02_cover_screw'),
+      d('03_healing_abutment'),
+      dc('04_abutment', '01~18 하위 부품별'),
+      d('05_zenex_kit'),
+      d('06_sinus_combination_kit'),
+      d('07_plazmax'),
+      dc('연출', '그래픽용 연출 이미지 — flat (하위 구조는 축적 후 결정)', [
+        f('ZMSN3008_정면01_v01.png'), f('ZMSN3008_측면01_v01.png'), f('ZMSN3008_식립01_v01.png'), f('전제품_배치01_v01.png'),
+      ]),
     ]),
     dc('03_3D-소스', 'STEP, STL 원본'),
     d('04_브랜드-가이드', [f('IZEN_IMPLANT_BRAND_GUIDELINES_EN.pdf')]),
@@ -173,6 +184,7 @@ const NAS_TREE: TreeNode[] = [
     d('07_제품사진-원본'),
     d('08_패키지'),
     d('09_임상', [dc('자사-케이스', '자사 임상 사진'), dc('타사-레퍼런스', '타사 임상 참고')]),
+    dc('연자', '연자 사진+프로필'),
   ]),
   dc('03_LIBRARY', '완성 배포본 (항상 최신 Rev만)', [
     d('01_회사소개', [
@@ -313,8 +325,18 @@ const NAMING_CATEGORIES: Array<{ cat: string; examples: string[] }> = [
     examples: ['IZEN_CIS2026_포스터_EN_v01_작업중.psd'],
   },
   {
-    cat: '타팀 수신',
-    examples: ['[수신]_CIS2026_기획서_마케팅팀.docx'],
+    cat: '타팀 수신 (파일명 변경 없이 원본 그대로)',
+    examples: ['카헤티 행사 기획서.docx', '카헤티 행사 기획서_조정훈v01.docx'],
+  },
+  {
+    cat: '제품 렌더링 연출 (코드명_특징NN_vNN)',
+    examples: [
+      'ZMSN3008_정면01_v01.png',
+      'ZMSN3008_측면01_v01.png',
+      'ZMSN3008_측면02_v01.png',
+      'ZMSN3008_식립01_v02.png',
+      '전제품_배치01_v01.png',
+    ],
   },
 ]
 
