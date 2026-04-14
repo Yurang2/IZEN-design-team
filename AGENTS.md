@@ -34,6 +34,12 @@
 - 사용자의 명시적 승인을 받기 전에는 파일 수정, 구현, 설정 변경, 기타 실제 작업을 시작하지 않는다.
 - 승인 후 작업 범위가 달라지면, 변경된 계획을 다시 설명하고 다시 승인받은 뒤 진행한다.
 
+## NAS (Synology) 정책
+- NAS에 대해 에이전트가 할 수 있는 행위는 **읽기(조회)와 추가(업로드, 폴더 생성)**뿐이다.
+- 덮어쓰기, 삭제, 이름 변경, 이동 등 기존 파일/폴더를 변경하는 일체의 행위를 금지한다.
+- NAS에 임의로 폴더나 파일을 생성하지 않는다. 사용자의 명시적 요청이 있을 때만 수행한다.
+- Worker 코드에서 `overwrite: 'false'`를 유지하며, 삭제/이름변경/이동 API는 구현하지 않는다.
+
 ## Verification
 - Primary verification command: `npm run build`
 - `npm run lint` currently includes legacy failures in the existing codebase; treat it carefully and distinguish new issues from pre-existing ones.
