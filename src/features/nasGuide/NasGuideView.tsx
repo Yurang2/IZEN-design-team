@@ -1049,13 +1049,83 @@ const RESOLVED_COLORS: Record<string, { bg: string; text: string; border: string
   '논의중': { bg: '#fff7ed', text: '#9a3412', border: '#f97316' },
 }
 
+const AREA_OPTIONS = ['00_기획-문서', '01_인쇄물', '02_부스', '03_디지털', '04_영상', '05_사진', '06_현장수집', 'ASSET', 'LIBRARY', '파일명', '프로젝트 코드', '전체 구조', '업로드 도구', '카달로그 관리', '구글 드라이브', '딜러 공유', '연구소 연계', '부스 그래픽', '3D/모션', '링크 관리']
+const SOURCE_OPTIONS = ['팀장 피드백', '팀원 피드백', '설계 과정']
+const RESOLVED_OPTIONS = ['해결', '미결', '논의중']
+
+const issueInputStyle: React.CSSProperties = {
+  background: 'var(--input-bg, var(--surface1))', border: '1px solid var(--border)',
+  borderRadius: 6, color: 'var(--text1)', fontSize: '0.82em', padding: '5px 8px', width: '100%', boxSizing: 'border-box',
+}
+const issueSelectStyle: React.CSSProperties = { ...issueInputStyle, width: 'auto' }
+
+function IssueCard({ item, onSave }: { item: IssueItem; onSave: (id: string, patch: Partial<IssueItem>) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(item)
+
+  const rc = RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
+
+  if (!editing) {
+    return (
+      <article className="workflowCard workflowCardWide" style={{ borderLeft: `3px solid ${rc.border}`, cursor: 'pointer' }} onClick={() => { setDraft(item); setEditing(true) }}>
+        <h3 style={{ margin: 0, fontSize: '0.95em' }}>{item.issue}</h3>
+        {item.proposal ? <div style={{ fontSize: '0.85em', color: 'var(--text2)', background: 'var(--surface2, #f5f7fb)', borderRadius: 8, padding: '8px 12px' }}>{item.proposal}</div> : null}
+        {item.solution ? <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>{item.solution}</p> : null}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {item.area ? <span style={{ background: 'var(--bg-soft, #eef2f7)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: 'var(--text2)' }}>{item.area}</span> : null}
+          {item.source ? <span style={{ background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: '#1d4ed8' }}>{item.source}</span> : null}
+          <span style={{ background: rc.bg, border: `1px solid ${rc.border}`, borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', fontWeight: 600, color: rc.text }}>{item.resolved}</span>
+        </div>
+      </article>
+    )
+  }
+
+  return (
+    <article className="workflowCard workflowCardWide" style={{ borderLeft: '3px solid var(--primary)' }}>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <div>
+          <label style={{ fontSize: '0.75em', fontWeight: 600, color: 'var(--text2)' }}>문제점</label>
+          <input style={issueInputStyle} value={draft.issue} onChange={(e) => setDraft({ ...draft, issue: e.target.value })} />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.75em', fontWeight: 600, color: 'var(--text2)' }}>제안내용</label>
+          <textarea style={{ ...issueInputStyle, minHeight: 50 }} value={draft.proposal} onChange={(e) => setDraft({ ...draft, proposal: e.target.value })} />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.75em', fontWeight: 600, color: 'var(--text2)' }}>처리방법</label>
+          <textarea style={{ ...issueInputStyle, minHeight: 50 }} value={draft.solution} onChange={(e) => setDraft({ ...draft, solution: e.target.value })} />
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <select style={issueSelectStyle} value={draft.area} onChange={(e) => setDraft({ ...draft, area: e.target.value })}>
+            <option value="">영역</option>
+            {AREA_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select style={issueSelectStyle} value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value })}>
+            <option value="">출처</option>
+            {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select style={issueSelectStyle} value={draft.resolved} onChange={(e) => setDraft({ ...draft, resolved: e.target.value })}>
+            {RESOLVED_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" onClick={() => { onSave(item.id, draft); setEditing(false) }} style={{ padding: '5px 14px', fontSize: '0.82em' }}>저장</button>
+          <button type="button" className="secondary" onClick={() => setEditing(false)} style={{ padding: '5px 14px', fontSize: '0.82em' }}>취소</button>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function IssuesSection() {
   const [items, setItems] = useState<IssueItem[]>([])
   const [loading, setLoading] = useState(false)
   const [filterArea, setFilterArea] = useState('')
   const [filterResolved, setFilterResolved] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+  const [newItem, setNewItem] = useState<Partial<IssueItem>>({ resolved: '미결' })
 
-  useEffect(() => {
+  const fetchItems = useCallback(() => {
     setLoading(true)
     api<{ ok: boolean; items: IssueItem[] }>('/nas-issues')
       .then((res) => { if (res.ok) setItems(res.items) })
@@ -1063,14 +1133,29 @@ function IssuesSection() {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => { fetchItems() }, [fetchItems])
+
+  const saveItem = useCallback(async (id: string, patch: Partial<IssueItem>) => {
+    await api(`/nas-issues/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }).catch(() => {})
+    setItems((prev) => prev.map((i) => i.id === id ? { ...i, ...patch } : i))
+  }, [])
+
+  const addItem = useCallback(async () => {
+    if (!newItem.issue?.trim()) return
+    const res = await api<{ ok: boolean; id?: string }>('/nas-issues', { method: 'POST', body: JSON.stringify(newItem) }).catch(() => null)
+    if (res?.ok) {
+      setShowAdd(false)
+      setNewItem({ resolved: '미결' })
+      fetchItems()
+    }
+  }, [newItem, fetchItems])
+
   const areas = useMemo(() => [...new Set(items.map((i) => i.area).filter(Boolean))].sort(), [items])
-  const filtered = useMemo(() => {
-    return items.filter((i) => {
-      if (filterArea && i.area !== filterArea) return false
-      if (filterResolved && i.resolved !== filterResolved) return false
-      return true
-    })
-  }, [items, filterArea, filterResolved])
+  const filtered = useMemo(() => items.filter((i) => {
+    if (filterArea && i.area !== filterArea) return false
+    if (filterResolved && i.resolved !== filterResolved) return false
+    return true
+  }), [items, filterArea, filterResolved])
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -1080,102 +1165,62 @@ function IssuesSection() {
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      {/* Summary + Filters */}
       <article className="workflowCard workflowCardWide">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {Object.entries(counts).map(([status, count]) => {
               const c = RESOLVED_COLORS[status] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
               return (
-                <span
-                  key={status}
-                  style={{
-                    background: c.bg, color: c.text, border: `1px solid ${c.border}`,
-                    borderRadius: 999, padding: '3px 10px', fontSize: '0.82em', fontWeight: 600,
-                    cursor: 'pointer', opacity: filterResolved && filterResolved !== status ? 0.4 : 1,
-                  }}
-                  onClick={() => setFilterResolved(filterResolved === status ? '' : status)}
-                >
+                <span key={status} style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 999, padding: '3px 10px', fontSize: '0.82em', fontWeight: 600, cursor: 'pointer', opacity: filterResolved && filterResolved !== status ? 0.4 : 1 }} onClick={() => setFilterResolved(filterResolved === status ? '' : status)}>
                   {status} {count}
                 </span>
               )
             })}
           </div>
-          <select
-            style={{
-              background: 'var(--input-bg, var(--surface1))', border: '1px solid var(--border)',
-              borderRadius: 8, fontSize: '0.82em', padding: '5px 8px', color: 'var(--text1)',
-            }}
-            value={filterArea}
-            onChange={(e) => setFilterArea(e.target.value)}
-          >
-            <option value="">전체 영역</option>
-            {areas.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select style={issueSelectStyle} value={filterArea} onChange={(e) => setFilterArea(e.target.value)}>
+              <option value="">전체 영역</option>
+              {areas.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <button type="button" onClick={() => setShowAdd(!showAdd)} style={{ padding: '5px 12px', fontSize: '0.82em' }}>
+              {showAdd ? '취소' : '+ 이슈 추가'}
+            </button>
+            <button type="button" className="secondary" onClick={fetchItems} style={{ padding: '5px 10px', fontSize: '0.82em' }}>새로고침</button>
+          </div>
         </div>
       </article>
 
-      {loading ? (
-        <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div>
+      {showAdd ? (
+        <article className="workflowCard workflowCardWide" style={{ borderLeft: '3px solid var(--primary)' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '0.88em' }}>새 이슈 추가</h3>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <input style={issueInputStyle} placeholder="문제점" value={newItem.issue ?? ''} onChange={(e) => setNewItem({ ...newItem, issue: e.target.value })} />
+            <textarea style={{ ...issueInputStyle, minHeight: 40 }} placeholder="제안내용" value={newItem.proposal ?? ''} onChange={(e) => setNewItem({ ...newItem, proposal: e.target.value })} />
+            <textarea style={{ ...issueInputStyle, minHeight: 40 }} placeholder="처리방법" value={newItem.solution ?? ''} onChange={(e) => setNewItem({ ...newItem, solution: e.target.value })} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <select style={issueSelectStyle} value={newItem.area ?? ''} onChange={(e) => setNewItem({ ...newItem, area: e.target.value })}>
+                <option value="">영역</option>
+                {AREA_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select style={issueSelectStyle} value={newItem.source ?? ''} onChange={(e) => setNewItem({ ...newItem, source: e.target.value })}>
+                <option value="">출처</option>
+                {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select style={issueSelectStyle} value={newItem.resolved ?? '미결'} onChange={(e) => setNewItem({ ...newItem, resolved: e.target.value })}>
+                {RESOLVED_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <button type="button" onClick={addItem} disabled={!newItem.issue?.trim()} style={{ width: 'fit-content', padding: '5px 20px', fontSize: '0.82em' }}>추가</button>
+          </div>
+        </article>
       ) : null}
 
-      {/* Issue cards */}
-      {filtered.map((item) => {
-        const rc = RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
-        return (
-          <article
-            key={item.id}
-            className="workflowCard workflowCardWide"
-            style={{ borderLeft: `3px solid ${rc.border}` }}
-          >
-            {/* 1. 문제점 (제일 크게) */}
-            <h3 style={{ margin: 0, fontSize: '0.95em' }}>{item.issue}</h3>
+      {loading ? <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div> : null}
 
-            {/* 2. 제안내용 */}
-            {item.proposal ? (
-              <div style={{ fontSize: '0.85em', color: 'var(--text2)', background: 'var(--surface2, #f5f7fb)', borderRadius: 8, padding: '8px 12px' }}>
-                {item.proposal}
-              </div>
-            ) : null}
-
-            {/* 3. 처리방법 */}
-            {item.solution ? (
-              <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>{item.solution}</p>
-            ) : null}
-
-            {/* 4~6. 메타 태그 */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {item.area ? (
-                <span style={{
-                  background: 'var(--bg-soft, #eef2f7)', border: '1px solid var(--border)',
-                  borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: 'var(--text2)',
-                }}>
-                  {item.area}
-                </span>
-              ) : null}
-              {item.source ? (
-                <span style={{
-                  background: '#dbeafe', border: '1px solid #93c5fd',
-                  borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: '#1d4ed8',
-                }}>
-                  {item.source}
-                </span>
-              ) : null}
-              <span style={{
-                background: rc.bg, border: `1px solid ${rc.border}`,
-                borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', fontWeight: 600, color: rc.text,
-              }}>
-                {item.resolved}
-              </span>
-            </div>
-          </article>
-        )
-      })}
+      {filtered.map((item) => <IssueCard key={item.id} item={item} onSave={saveItem} />)}
 
       {!loading && filtered.length === 0 ? (
-        <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>
-          해당하는 이슈가 없습니다
-        </div>
+        <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>해당하는 이슈가 없습니다</div>
       ) : null}
     </div>
   )

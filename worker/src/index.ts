@@ -271,30 +271,94 @@ export default {
     if (nasHandled) return nasHandled
 
     // NAS issues tracker
-    if (request.method === 'GET' && path === '/nas-issues') {
+    if (path === '/nas-issues' || path.startsWith('/nas-issues/')) {
       const dbId = env.NOTION_NAS_ISSUES_DB_ID
       if (!dbId) return ok({ ok: true, items: [], cacheTtlMs }, origin)
-      const pages = await service.queryAll(dbId)
-      const items = pages.map((page: any) => {
-        const props = (page.properties ?? {}) as Record<string, any>
-        const getText = (p: any) => {
-          if (!p) return ''
-          if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
-          if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
-          if (p.type === 'select') return p.select?.name ?? ''
-          return ''
+
+      const notionHeaders = {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      }
+
+      const getText = (p: any) => {
+        if (!p) return ''
+        if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'select') return p.select?.name ?? ''
+        return ''
+      }
+
+      // GET /nas-issues — list all
+      if (request.method === 'GET' && path === '/nas-issues') {
+        const allPages: any[] = []
+        let cursor: string | undefined
+        while (true) {
+          const body: any = { page_size: 100 }
+          if (cursor) body.start_cursor = cursor
+          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
+          })
+          const data: any = await res.json()
+          allPages.push(...(data.results ?? []))
+          if (!data.has_more) break
+          cursor = data.next_cursor
         }
-        return {
-          id: page.id,
-          issue: getText(props['문제점']),
-          proposal: getText(props['제안내용']),
-          solution: getText(props['처리방법']),
-          area: getText(props['영역']),
-          source: getText(props['출처']),
-          resolved: getText(props['해결여부']),
+        const items = allPages.map((page: any) => {
+          const props = (page.properties ?? {}) as Record<string, any>
+          return {
+            id: page.id,
+            issue: getText(props['문제점']),
+            proposal: getText(props['제안내용']),
+            solution: getText(props['처리방법']),
+            area: getText(props['영역']),
+            source: getText(props['출처']),
+            resolved: getText(props['해결여부']),
+          }
+        })
+        return ok({ ok: true, items, cacheTtlMs }, origin)
+      }
+
+      // POST /nas-issues — create new
+      if (request.method === 'POST' && path === '/nas-issues') {
+        const body = await readJsonBody(request)
+        const props: any = {
+          '문제점': { title: [{ text: { content: asString(body.issue) || '(제목 없음)' } }] },
         }
-      })
-      return ok({ ok: true, items, cacheTtlMs }, origin)
+        if (body.proposal) props['제안내용'] = { rich_text: [{ text: { content: asString(body.proposal) } }] }
+        if (body.solution) props['처리방법'] = { rich_text: [{ text: { content: asString(body.solution) } }] }
+        if (body.area) props['영역'] = { select: { name: asString(body.area) } }
+        if (body.source) props['출처'] = { select: { name: asString(body.source) } }
+        if (body.resolved) props['해결여부'] = { select: { name: asString(body.resolved) } }
+
+        const res = await fetch('https://api.notion.com/v1/pages', {
+          method: 'POST', headers: notionHeaders,
+          body: JSON.stringify({ parent: { database_id: dbId }, properties: props }),
+        })
+        const data: any = await res.json()
+        if (!data.id) return json({ ok: false, error: 'create_failed' }, 500, origin)
+        return ok({ ok: true, id: data.id }, origin)
+      }
+
+      // PATCH /nas-issues/:id — update
+      const issueMatch = path.match(/^\/nas-issues\/([^/]+)$/)
+      if (request.method === 'PATCH' && issueMatch) {
+        const pageId = issueMatch[1]
+        const body = await readJsonBody(request)
+        const props: any = {}
+        if (body.issue != null) props['문제점'] = { title: [{ text: { content: asString(body.issue) } }] }
+        if (body.proposal != null) props['제안내용'] = { rich_text: [{ text: { content: asString(body.proposal) } }] }
+        if (body.solution != null) props['처리방법'] = { rich_text: [{ text: { content: asString(body.solution) } }] }
+        if (body.area != null) props['영역'] = { select: { name: asString(body.area) } }
+        if (body.source != null) props['출처'] = { select: { name: asString(body.source) } }
+        if (body.resolved != null) props['해결여부'] = { select: { name: asString(body.resolved) } }
+
+        await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+          method: 'PATCH', headers: notionHeaders,
+          body: JSON.stringify({ properties: props }),
+        })
+        return ok({ ok: true }, origin)
+      }
     }
 
     if (request.method === 'POST' && path === '/event-graphics/video-thumbnail/render') {
