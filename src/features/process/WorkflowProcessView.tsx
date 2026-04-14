@@ -136,10 +136,12 @@ const TASK_PROCESSES: TaskProcess[] = [
     nasPath: '04_영상/',
     steps: [
       { number: '01', title: '소스 수급', detail: '자체 촬영 → a_자체촬영/. 외주/타팀 수신 → b_수신/(외주 or 타팀). 영업팀이 사진+영상 섞어 보내면 확장자 정렬해서 분류.' },
-      { number: '02', title: '영상 종류별 작업', detail: '각 종류 폴더에서 작업파일(.prproj, .aep)과 렌더(.mp4)를 함께 관리. c_티저/, d_강연소개/, e_모션그래픽/, f_후기/ 등.' },
-      { number: '03', title: '모션그래픽 (해당시)', detail: '오프닝, 브레이크 등 모션 작업 → e_모션그래픽/. 완성본은 03_디지털/행사운영/에도 복사.' },
-      { number: '04', title: '외주 완성본 합류', detail: '외주 영상팀 완성본은 해당 종류 폴더에 합류 (티저면 c_티저/, 후기면 f_후기/).' },
-      { number: '05', title: 'LIBRARY 등록', detail: '배포용 최종본은 03_LIBRARY/에 Rev 번호로 올림.' },
+      { number: '02', title: '영상 종류별 폴더 생성', detail: 'a,b만 고정. 나머지는 영상 종류별로 자유 생성 (후기영상/, 티저/, 모션그래픽/, 회사소개영상/ 등).' },
+      { number: '03', title: '작업 + 렌더', detail: '로컬에서 편집 후 NAS에 올리는 것: .prproj(.aep) + .mp4 + 귀속 폴더/. 바깥에 작업파일+렌더, 같은 이름 폴더 안에 썸네일+자막+스톡소스.' },
+      { number: '04', title: '귀속 소스 업로드', detail: '귀속 폴더 안에: 썸네일(v 관리), 자막(v 관리, 언어별), BGM(원본 파일명 예: Adobestock_NNN.wav), 스톡 영상(원본 파일명 예: Adobestock_NNN.mp4).' },
+      { number: '05', title: '버전 관리', detail: '렌더 직후 바로 "다른 이름으로 저장"으로 v 올림. 자막도 검수 피드백 반영 시 v 올림.' },
+      { number: '06', title: '모션그래픽 (해당시)', detail: '오프닝, 브레이크 등 → 모션그래픽/ 폴더. 완성본은 03_디지털/행사운영/에도 복사.' },
+      { number: '07', title: 'LIBRARY 등록', detail: '배포용 최종본은 03_LIBRARY/에 Rev 번호로 올림.' },
     ],
   },
   {
