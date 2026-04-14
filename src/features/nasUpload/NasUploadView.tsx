@@ -7,7 +7,7 @@ import type { TaskRecord } from '../../shared/types'
 // ---------------------------------------------------------------------------
 
 type NasFile = { name: string; path: string; isDir: boolean; size?: number; mtime?: number }
-type Step = 'login' | 'task' | 'configure' | 'upload' | 'done'
+type Step = 'login' | 'mode' | 'task' | 'configure' | 'upload' | 'done' | 'free-browse' | 'free-upload' | 'free-done'
 
 type ListTasksResponse = {
   tasks: TaskRecord[]
@@ -226,6 +226,17 @@ export function NasUploadView() {
   const [uploadResult, setUploadResult] = useState<{ ok: boolean; message: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // free upload mode
+  const [freePath, setFreePath] = useState(NAS_BASE + '/01_PROJECT')
+  const [freeFiles, setFreeFiles] = useState<NasFile[]>([])
+  const [freeLoading, setFreeLoading] = useState(false)
+  const [freeSelectedFile, setFreeSelectedFile] = useState<File | null>(null)
+  const [freeResult, setFreeResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [freeUploading, setFreeUploading] = useState(false)
+  const freeInputRef = useRef<HTMLInputElement>(null)
+  const [freeNewFolder, setFreeNewFolder] = useState('')
+  const [freeCreating, setFreeCreating] = useState(false)
+
   // ---------------------------------------------------------------------------
   // Computed
   // ---------------------------------------------------------------------------
@@ -257,8 +268,7 @@ export function NasUploadView() {
       })
       if (res.ok && res.sid) {
         setSid(res.sid)
-        setStep('task')
-        fetchTasks(account)
+        setStep('mode')
       } else {
         setLoginError(res.error === 'nas_login_failed_invalid_credentials' ? '아이디 또는 비밀번호가 틀렸습니다' : res.error ?? '로그인 실패')
       }
@@ -405,7 +415,59 @@ export function NasUploadView() {
     }
   }, [selectedFiles, sid, fullNasPath, brand, contentName, lang, spec, versionType, versionNum, seqStart, ext, loadTargetFiles, selectedTask, uploadReason])
 
-  // (tasks are loaded immediately after login via fetchTasks(account))
+  // (tasks are loaded when entering task step)
+
+  // free upload helpers
+  const freeList = useCallback(async (folderPath: string) => {
+    setFreeLoading(true)
+    try {
+      const res = await api<{ ok: boolean; files?: NasFile[] }>('/nas/list', {
+        method: 'POST', body: JSON.stringify({ sid, folderPath }),
+      })
+      if (res.ok && res.files) {
+        setFreeFiles(res.files.sort((a, b) => {
+          if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+          return a.name.localeCompare(b.name)
+        }))
+        setFreePath(folderPath)
+      }
+    } catch { /* */ }
+    finally { setFreeLoading(false) }
+  }, [sid])
+
+  const freeCreateFolder = useCallback(async () => {
+    if (!freeNewFolder.trim()) return
+    setFreeCreating(true)
+    await api('/nas/create-folder', { method: 'POST', body: JSON.stringify({ sid, folderPath: freePath, name: freeNewFolder.trim() }) }).catch(() => {})
+    setFreeNewFolder('')
+    await freeList(freePath)
+    setFreeCreating(false)
+  }, [sid, freePath, freeNewFolder, freeList])
+
+  const freeUpload = useCallback(async () => {
+    if (!freeSelectedFile) return
+    setFreeUploading(true)
+    setFreeResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('sid', sid)
+      fd.append('dest_folder_path', freePath)
+      fd.append('create_parents', 'false')
+      fd.append('file', freeSelectedFile, freeSelectedFile.name)
+      const res = await api<{ ok: boolean; filename?: string; error?: string }>('/nas/upload', { method: 'POST', body: fd })
+      if (res.ok) {
+        setFreeResult({ ok: true, message: `${freeSelectedFile.name} 업로드 완료` })
+        setStep('free-done')
+        freeList(freePath)
+      } else if (res.error?.includes('already_exists')) {
+        setFreeResult({ ok: false, message: `같은 이름의 파일이 이미 존재합니다.` })
+      } else {
+        setFreeResult({ ok: false, message: res.error ?? '업로드 실패' })
+      }
+    } catch (err) {
+      setFreeResult({ ok: false, message: err instanceof Error ? err.message : '실패' })
+    } finally { setFreeUploading(false) }
+  }, [freeSelectedFile, sid, freePath, freeList])
 
   // load target files when path changes
   useEffect(() => {
@@ -463,6 +525,32 @@ export function NasUploadView() {
               {loginLoading ? '로그인 중...' : '로그인'}
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {/* ── Step 1.5: Mode selection ── */}
+      {step === 'mode' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxWidth: 600 }}>
+          <button
+            type="button"
+            className="secondary"
+            style={{ padding: '24px 16px', display: 'grid', gap: 6, textAlign: 'center', borderRadius: 14 }}
+            onClick={() => { setStep('task'); fetchTasks(account) }}
+          >
+            <span style={{ fontSize: '1.5em' }}>📁</span>
+            <span style={{ fontWeight: 700, fontSize: '0.95em' }}>업무 결과물</span>
+            <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>파일명 자동 생성 + 업무 연동</span>
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            style={{ padding: '24px 16px', display: 'grid', gap: 6, textAlign: 'center', borderRadius: 14 }}
+            onClick={() => { setStep('free-browse'); freeList(freePath) }}
+          >
+            <span style={{ fontSize: '1.5em' }}>📄</span>
+            <span style={{ fontWeight: 700, fontSize: '0.95em' }}>기타 파일</span>
+            <span style={{ fontSize: '0.78em', color: 'var(--muted)' }}>수신 파일, 참고자료 등 (파일명 그대로)</span>
+          </button>
         </div>
       ) : null}
 
@@ -736,6 +824,91 @@ export function NasUploadView() {
                   ) : null}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Free upload mode ── */}
+      {step === 'free-browse' || step === 'free-upload' || step === 'free-done' ? (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {/* Back + breadcrumb */}
+          <div style={{ ...cardStyle, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button type="button" className="secondary mini" onClick={() => setStep('mode')}>← 뒤로</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.82em', flexWrap: 'wrap' }}>
+              <span style={{ cursor: 'pointer', color: 'var(--primary)', fontWeight: 600 }} onClick={() => freeList(NAS_BASE)}>Marketing</span>
+              {freePath.replace(NAS_BASE, '').split('/').filter(Boolean).map((part, i, arr) => {
+                const full = NAS_BASE + '/' + arr.slice(0, i + 1).join('/')
+                return (
+                  <span key={full} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ color: 'var(--muted)' }}>/</span>
+                    <span style={{ cursor: 'pointer', color: i === arr.length - 1 ? 'var(--text1)' : 'var(--primary)' }} onClick={() => freeList(full)}>{part}</span>
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {/* Left: folder browser */}
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <h3 style={{ margin: 0, fontSize: '0.88em' }}>폴더 탐색</h3>
+                <button type="button" className="secondary mini" onClick={() => freeList(freePath)} disabled={freeLoading}>새로고침</button>
+              </div>
+              {freeLoading ? (
+                <div style={{ padding: 16, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div>
+              ) : (
+                <div style={{ background: 'var(--surface2, var(--bg))', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 0', maxHeight: 300, overflowY: 'auto' }}>
+                  {freePath !== NAS_BASE ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', fontSize: '0.85em', cursor: 'pointer', color: 'var(--primary)', fontWeight: 600 }}
+                      onClick={() => freeList(freePath.substring(0, freePath.lastIndexOf('/')) || NAS_BASE)}>
+                      📁 ..
+                    </div>
+                  ) : null}
+                  {freeFiles.map((f) => (
+                    <div key={f.path || f.name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', fontSize: '0.85em', cursor: f.isDir ? 'pointer' : 'default', color: f.isDir ? 'var(--primary)' : 'var(--text1)' }}
+                      onClick={() => f.isDir && freeList(freePath + '/' + f.name)}>
+                      {f.isDir ? '📁' : '📄'} {f.name}
+                      {!f.isDir && f.size ? <span style={{ marginLeft: 'auto', fontSize: '0.78em', color: 'var(--muted)' }}>{formatBytes(f.size)}</span> : null}
+                    </div>
+                  ))}
+                  {freeFiles.length === 0 && !freeLoading ? <div style={{ padding: '12px', fontSize: '0.82em', color: 'var(--muted)', textAlign: 'center' }}>빈 폴더</div> : null}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                <input style={{ ...inputStyle, flex: 1 }} value={freeNewFolder} onChange={(e) => setFreeNewFolder(e.target.value)} placeholder="새 폴더 이름" onKeyDown={(e) => e.key === 'Enter' && freeCreateFolder()} />
+                <button type="button" className="secondary mini" onClick={freeCreateFolder} disabled={freeCreating || !freeNewFolder.trim()}>생성</button>
+              </div>
+            </div>
+
+            {/* Right: upload */}
+            <div style={cardStyle}>
+              <h3 style={{ margin: '0 0 8px', fontSize: '0.88em' }}>파일 업로드 (파일명 그대로)</h3>
+              <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '0 0 12px' }}>
+                현재 위치: <code style={{ fontSize: '0.9em' }}>{freePath.replace(NAS_BASE + '/', '')}</code>
+              </p>
+              <div style={{ marginBottom: 10 }}>
+                <input ref={freeInputRef} type="file" style={{ fontSize: '0.85em' }} onChange={(e) => { setFreeSelectedFile(e.target.files?.[0] ?? null); setFreeResult(null); if (e.target.files?.[0]) setStep('free-upload') }} />
+              </div>
+              {freeSelectedFile ? (
+                <div style={{ fontSize: '0.82em', color: 'var(--text2)', marginBottom: 8 }}>
+                  <strong>{freeSelectedFile.name}</strong> ({formatBytes(freeSelectedFile.size)})
+                </div>
+              ) : null}
+              <button type="button" onClick={freeUpload} disabled={freeUploading || !freeSelectedFile} style={{ width: '100%' }}>
+                {freeUploading ? '업로드 중...' : '업로드'}
+              </button>
+              {freeResult ? (
+                <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, fontSize: '0.85em', background: freeResult.ok ? '#dcfce7' : '#fef2f2', color: freeResult.ok ? '#166534' : '#b91c1c', border: `1px solid ${freeResult.ok ? '#22c55e' : '#fca5a5'}` }}>
+                  {freeResult.message}
+                </div>
+              ) : null}
+              {step === 'free-done' ? (
+                <button type="button" className="secondary" style={{ marginTop: 8, width: '100%' }} onClick={() => { setFreeSelectedFile(null); setFreeResult(null); setStep('free-browse'); if (freeInputRef.current) freeInputRef.current.value = '' }}>
+                  다른 파일 업로드
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
