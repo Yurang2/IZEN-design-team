@@ -123,6 +123,7 @@ function buildFilename(parts: {
   spec: string
   versionType: 'v' | 'Rev'
   versionNum: number
+  seq?: number
   ext: string
 }): string {
   const segs: string[] = []
@@ -134,6 +135,9 @@ function buildFilename(parts: {
     ? `v${String(parts.versionNum).padStart(2, '0')}`
     : `Rev${String(parts.versionNum).padStart(2, '0')}`
   segs.push(vStr)
+  if (parts.seq != null && parts.seq > 0) {
+    segs.push(String(parts.seq).padStart(2, '0'))
+  }
   return segs.join('_') + (parts.ext.startsWith('.') ? parts.ext : `.${parts.ext}`)
 }
 
@@ -214,8 +218,9 @@ export function NasUploadView() {
   const [targetFiles, setTargetFiles] = useState<NasFile[]>([])
   const [targetLoading, setTargetLoading] = useState(false)
 
-  // upload
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  // upload (multi-file)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [seqStart, setSeqStart] = useState(0) // 0 = single file (no seq), 1+ = carousel
   const [uploadReason, setUploadReason] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -235,7 +240,8 @@ export function NasUploadView() {
 
   const fullNasPath = `${NAS_BASE}/${projectFolder}${subfolder ? `/${subfolder}` : ''}`
 
-  const generatedFilename = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, ext })
+  const isMulti = selectedFiles.length > 1
+  const generatedFilename = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, seq: isMulti ? (seqStart || 1) : undefined, ext })
 
   // ---------------------------------------------------------------------------
   // API calls
@@ -328,7 +334,7 @@ export function NasUploadView() {
   }, [sid, versionType])
 
   const nasUpload = useCallback(async () => {
-    if (!selectedFile) return
+    if (selectedFiles.length === 0) return
     setUploading(true)
     setUploadResult(null)
     try {
@@ -338,50 +344,66 @@ export function NasUploadView() {
         body: JSON.stringify({ sid, folderPath: fullNasPath.substring(0, fullNasPath.lastIndexOf('/')), name: fullNasPath.substring(fullNasPath.lastIndexOf('/') + 1) }),
       }).catch(() => {})
 
-      const fd = new FormData()
-      fd.append('sid', sid)
-      fd.append('dest_folder_path', fullNasPath)
-      fd.append('create_parents', 'true')
-      // upload with generated filename, not original
-      fd.append('file', selectedFile, generatedFilename)
+      const uploadedNames: string[] = []
+      const errors: string[] = []
 
-      const res = await api<{ ok: boolean; filename?: string; error?: string }>('/nas/upload', {
-        method: 'POST',
-        body: fd,
-      })
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i]
+        const dotIdx = file.name.lastIndexOf('.')
+        const fileExt = dotIdx > 0 ? file.name.substring(dotIdx) : ext
+        const seqNum = selectedFiles.length > 1 ? (seqStart || 1) + i : undefined
+        const filename = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, seq: seqNum, ext: fileExt })
 
-      if (res.ok) {
-        setUploadResult({ ok: true, message: `${generatedFilename} 업로드 완료!` })
-        setStep('done')
-        loadTargetFiles(fullNasPath)
+        const fd = new FormData()
+        fd.append('sid', sid)
+        fd.append('dest_folder_path', fullNasPath)
+        fd.append('create_parents', 'true')
+        fd.append('file', file, filename)
 
-        // auto-fill outputLink + changeReason in Notion task
-        if (selectedTask) {
-          const nasLink = `${fullNasPath}/${generatedFilename}`
-          const existing = selectedTask.outputLink
-          const newLink = existing ? `${existing}\n${nasLink}` : nasLink
-          const patch: Record<string, unknown> = { outputLink: newLink }
-          if (uploadReason.trim()) {
-            const timestamp = new Date().toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })
-            const entry = `[${timestamp} ${generatedFilename}] ${uploadReason.trim()}`
-            patch.changeReasonAppend = entry
-          }
-          api(`/tasks/${encodeURIComponent(selectedTask.id)}`, {
-            method: 'PATCH',
-            body: JSON.stringify(patch),
-          }).catch(() => {})
+        const res = await api<{ ok: boolean; filename?: string; error?: string }>('/nas/upload', {
+          method: 'POST',
+          body: fd,
+        })
+
+        if (res.ok) {
+          uploadedNames.push(filename)
+        } else if (res.error?.includes('already_exists')) {
+          errors.push(`${filename} 이미 존재`)
+        } else {
+          errors.push(`${filename} 실패`)
         }
-      } else if (res.error?.includes('already_exists')) {
-        setUploadResult({ ok: false, message: `${generatedFilename} 이(가) 이미 존재합니다. 버전 번호를 올려주세요.` })
+      }
+
+      if (errors.length > 0) {
+        setUploadResult({ ok: false, message: `${uploadedNames.length}개 성공, ${errors.length}개 실패: ${errors.join(', ')}` })
       } else {
-        setUploadResult({ ok: false, message: res.error ?? '업로드 실패' })
+        setUploadResult({ ok: true, message: `${uploadedNames.length}개 파일 업로드 완료!` })
+        setStep('done')
+      }
+      loadTargetFiles(fullNasPath)
+
+      // auto-fill outputLink + changeReason in Notion task
+      if (selectedTask && uploadedNames.length > 0) {
+        const newLinks = uploadedNames.map((n) => `${fullNasPath}/${n}`).join('\n')
+        const existing = selectedTask.outputLink
+        const combined = existing ? `${existing}\n${newLinks}` : newLinks
+        const patch: Record<string, unknown> = { outputLink: combined }
+        if (uploadReason.trim()) {
+          const timestamp = new Date().toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })
+          const entry = `[${timestamp} ${uploadedNames[0]}${uploadedNames.length > 1 ? ` 외 ${uploadedNames.length - 1}건` : ''}] ${uploadReason.trim()}`
+          patch.changeReasonAppend = entry
+        }
+        api(`/tasks/${encodeURIComponent(selectedTask.id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(patch),
+        }).catch(() => {})
       }
     } catch (err) {
       setUploadResult({ ok: false, message: err instanceof Error ? err.message : '업로드 실패' })
     } finally {
       setUploading(false)
     }
-  }, [selectedFile, sid, fullNasPath, generatedFilename, loadTargetFiles])
+  }, [selectedFiles, sid, fullNasPath, brand, contentName, lang, spec, versionType, versionNum, seqStart, ext, loadTargetFiles, selectedTask, uploadReason])
 
   // (tasks are loaded immediately after login via fetchTasks(account))
 
@@ -402,15 +424,7 @@ export function NasUploadView() {
     setStep('configure')
   }
 
-  // auto-detect extension from file
-  function onFileSelect(file: File | null) {
-    setSelectedFile(file)
-    setUploadResult(null)
-    if (file) {
-      const dotIdx = file.name.lastIndexOf('.')
-      if (dotIdx > 0) setExt(file.name.substring(dotIdx))
-    }
-  }
+  // (file selection handled inline in input onChange)
 
   // ---------------------------------------------------------------------------
   // Render
@@ -601,22 +615,65 @@ export function NasUploadView() {
             <div style={cardStyle}>
               <h3 style={{ margin: '0 0 10px', fontSize: '0.88em' }}>파일 선택 & 업로드</h3>
 
-              {/* File input */}
+              {/* File input (multiple) */}
               <div style={{ marginBottom: 10 }}>
-                <label style={labelStyle}>파일 선택 (내용만 사용, 파일명은 왼쪽 설정대로)</label>
+                <label style={labelStyle}>파일 선택 (여러 개 가능 — 캐러셀 등)</label>
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   style={{ fontSize: '0.85em' }}
-                  onChange={(e) => onFileSelect(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    setSelectedFiles(files)
+                    setUploadResult(null)
+                    if (files.length > 1) setSeqStart(1)
+                    else setSeqStart(0)
+                    if (files.length > 0) {
+                      const f = files[0]
+                      const dotIdx = f.name.lastIndexOf('.')
+                      if (dotIdx > 0) setExt(f.name.substring(dotIdx))
+                      setStep('upload')
+                    }
+                  }}
                 />
               </div>
 
-              {selectedFile ? (
+              {selectedFiles.length > 0 ? (
                 <div style={{ fontSize: '0.82em', color: 'var(--text2)', marginBottom: 8 }}>
-                  원본: <strong>{selectedFile.name}</strong> ({formatBytes(selectedFile.size)})
-                  <br />
-                  업로드명: <strong style={{ color: 'var(--primary)' }}>{generatedFilename}</strong>
+                  {selectedFiles.length === 1 ? (
+                    <>
+                      원본: <strong>{selectedFiles[0].name}</strong> ({formatBytes(selectedFiles[0].size)})
+                      <br />
+                      업로드명: <strong style={{ color: 'var(--primary)' }}>{generatedFilename}</strong>
+                    </>
+                  ) : (
+                    <>
+                      <strong>{selectedFiles.length}개 파일 선택됨</strong>
+                      <br />
+                      {selectedFiles.map((f, i) => {
+                        const dotIdx = f.name.lastIndexOf('.')
+                        const fileExt = dotIdx > 0 ? f.name.substring(dotIdx) : ext
+                        const name = buildFilename({ brand, contentName, lang, spec, versionType, versionNum, seq: (seqStart || 1) + i, ext: fileExt })
+                        return (
+                          <div key={i} style={{ marginTop: 2 }}>
+                            <span style={{ color: 'var(--muted)' }}>{f.name}</span> → <strong style={{ color: 'var(--primary)' }}>{name}</strong>
+                          </div>
+                        )
+                      })}
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Sequence start (for multi-file) */}
+              {selectedFiles.length > 1 ? (
+                <div style={{ marginBottom: 10 }}>
+                  <label style={labelStyle}>순번 시작 번호</label>
+                  <input type="number" min={1} style={{ ...inputStyle, width: 80 }} value={seqStart || 1} onChange={(e) => setSeqStart(parseInt(e.target.value) || 1)} />
+                  <span style={{ fontSize: '0.78em', color: 'var(--muted)', marginLeft: 8 }}>
+                    → _{String(seqStart || 1).padStart(2, '0')}, _{String((seqStart || 1) + 1).padStart(2, '0')}, ...
+                  </span>
                 </div>
               ) : null}
 
@@ -627,8 +684,8 @@ export function NasUploadView() {
               </div>
 
               {/* Upload button */}
-              <button type="button" onClick={nasUpload} disabled={uploading || !selectedFile || !contentName || !hasSerialCode} style={{ width: '100%' }}>
-                {uploading ? '업로드 중...' : `${generatedFilename} 업로드`}
+              <button type="button" onClick={nasUpload} disabled={uploading || selectedFiles.length === 0 || !contentName || !hasSerialCode} style={{ width: '100%' }}>
+                {uploading ? '업로드 중...' : selectedFiles.length > 1 ? `${selectedFiles.length}개 파일 업로드` : `${generatedFilename} 업로드`}
               </button>
 
               {/* Result */}
@@ -645,7 +702,8 @@ export function NasUploadView() {
 
               {step === 'done' ? (
                 <button type="button" className="secondary" style={{ marginTop: 8, width: '100%' }} onClick={() => {
-                  setSelectedFile(null)
+                  setSelectedFiles([])
+                  setSeqStart(0)
                   setUploadResult(null)
                   setUploadReason('')
                   setStep('configure')
