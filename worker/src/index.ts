@@ -270,6 +270,45 @@ export default {
     })
     if (nasHandled) return nasHandled
 
+    // Path mapping rules
+    if (request.method === 'GET' && path === '/path-mapping') {
+      const dbId = env.NOTION_PATH_MAPPING_DB_ID
+      if (!dbId) return ok({ ok: true, mappings: [] }, origin)
+      const notionHeaders = {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      }
+      const allPages: any[] = []
+      let cursor: string | undefined
+      while (true) {
+        const body: any = { page_size: 100 }
+        if (cursor) body.start_cursor = cursor
+        const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+          method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
+        })
+        const data: any = await res.json()
+        allPages.push(...(data.results ?? []))
+        if (!data.has_more) break
+        cursor = data.next_cursor
+      }
+      const mappings = allPages.map((page: any) => {
+        const props = (page.properties ?? {}) as Record<string, any>
+        const getText = (p: any) => {
+          if (!p) return ''
+          if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
+          if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
+          return ''
+        }
+        return {
+          keyword: getText(props['키워드']),
+          path: getText(props['추천 경로']),
+          note: getText(props['비고']),
+        }
+      }).filter((m: any) => m.keyword && m.path)
+      return ok({ ok: true, mappings }, origin)
+    }
+
     // NAS issues tracker
     if (path === '/nas-issues' || path.startsWith('/nas-issues/')) {
       const dbId = env.NOTION_NAS_ISSUES_DB_ID

@@ -21,31 +21,18 @@ type ListTasksResponse = {
 
 const NAS_BASE = '/Izenimplant/Marketing'
 
-const SUBFOLDER_MAP: Record<string, string> = {
+// Fallback mapping (used until DB loads)
+const DEFAULT_SUBFOLDER_MAP: Record<string, string> = {
   '기획': '00_기획-문서',
-  '인쇄': '01_인쇄물',
-  '인쇄물': '01_인쇄물',
   '포스터': '01_인쇄물/포스터',
   '리플렛': '01_인쇄물/리플렛',
   '브로슈어': '01_인쇄물/브로슈어',
   '카달로그': '01_인쇄물/카달로그',
   '배너': '01_인쇄물/배너-현수막',
-  '현수막': '01_인쇄물/배너-현수막',
-  'certificate': '01_인쇄물/certificate',
   '부스': '02_부스',
-  '부스디자인': '02_부스/부스디자인',
-  '부스그래픽': '02_부스/부스그래픽',
-  '디지털': '03_디지털',
   'SNS': '03_디지털/SNS',
-  'PPT': '03_디지털/PPT',
-  '렌더링': '03_디지털/렌더링',
   '영상': '04_영상',
-  '편집': '04_영상/편집-프로젝트',
-  '모션': '04_영상/2D-모션',
-  '3D': '04_영상/3D-모션',
   '사진': '05_사진',
-  '현장수집': '06_현장수집',
-  '레퍼런스': '06_현장수집',
 }
 
 const SUBFOLDER_OPTIONS = [
@@ -116,9 +103,9 @@ function suggestNextVersion(files: NasFile[], type: 'v' | 'Rev'): number {
   return max + 1
 }
 
-function guessSubfolder(workType: string): string {
-  const lower = workType.toLowerCase()
-  for (const [keyword, folder] of Object.entries(SUBFOLDER_MAP)) {
+function guessSubfolder(text: string, mappings: Record<string, string>): string {
+  const lower = text.toLowerCase()
+  for (const [keyword, folder] of Object.entries(mappings)) {
     if (lower.includes(keyword.toLowerCase())) return folder
   }
   return '00_기획-문서'
@@ -321,6 +308,20 @@ function UploadHelper({ onResult, onBack, accountName }: {
 
 export function NasUploadView() {
   const [step, setStep] = useState<Step>('login')
+
+  // path mapping from Notion DB (loaded once)
+  const [subfolderMap, setSubfolderMap] = useState<Record<string, string>>(DEFAULT_SUBFOLDER_MAP)
+  useEffect(() => {
+    api<{ ok: boolean; mappings: Array<{ keyword: string; path: string }> }>('/path-mapping')
+      .then((res) => {
+        if (res.ok && res.mappings.length > 0) {
+          const map: Record<string, string> = {}
+          for (const m of res.mappings) map[m.keyword] = m.path
+          setSubfolderMap(map)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // auth
   const [sid, setSid] = useState('')
@@ -611,7 +612,7 @@ export function NasUploadView() {
   function selectTask(task: TaskRecord) {
     setSelectedTask(task)
     // guess subfolder from workType
-    setSubfolder(guessSubfolder(task.workType))
+    setSubfolder(guessSubfolder(task.workType, subfolderMap))
     // guess content name from task name
     setContentName(task.taskName.replace(/\s+/g, '-'))
     setStep('configure')
@@ -1027,7 +1028,21 @@ export function NasUploadView() {
                 현재 위치: <code style={{ fontSize: '0.9em' }}>{freePath.replace(NAS_BASE + '/', '')}</code>
               </p>
               <div style={{ marginBottom: 10 }}>
-                <input ref={freeInputRef} type="file" style={{ fontSize: '0.85em' }} onChange={(e) => { setFreeSelectedFile(e.target.files?.[0] ?? null); setFreeResult(null); if (e.target.files?.[0]) setStep('free-upload') }} />
+                <input ref={freeInputRef} type="file" style={{ fontSize: '0.85em' }} onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  setFreeSelectedFile(f)
+                  setFreeResult(null)
+                  if (f) {
+                    setStep('free-upload')
+                    // guess folder from filename
+                    const suggested = guessSubfolder(f.name, subfolderMap)
+                    if (suggested !== '00_기획-문서') {
+                      const basePath = freePath.includes('/01_PROJECT/') ? freePath.split('/').slice(0, 4).join('/') : freePath
+                      setFreePath(basePath + '/' + suggested)
+                      freeList(basePath + '/' + suggested)
+                    }
+                  }
+                }} />
               </div>
               {freeSelectedFile ? (
                 <div style={{ fontSize: '0.82em', color: 'var(--text2)', marginBottom: 8 }}>

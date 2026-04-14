@@ -82,6 +82,7 @@ export interface Env {
   GOOGLE_CLOUD_PROJECT_ID?: string
   GOOGLE_CLOUD_LOCATION?: string
   NOTION_NAS_ISSUES_DB_ID?: string
+  NOTION_PATH_MAPPING_DB_ID?: string
   SYNOLOGY_NAS_URL?: string
 }
 
