@@ -78,7 +78,9 @@ const NAS_TREE: TreeNode[] = [
       d('03_디지털', [
         dc('SNS', 'SNS용 이미지 (작업+업로드)'),
         d('PPT', [f('IZEN_CIS2026_발표자료_v01.pptx')]),
-        dc('스크린', 'LED/TV 대기화면', [f('IZEN_CIS2026_LED_대기화면_16x9_v01.mp4')]),
+        dc('행사운영', '행사장 운영 에셋 (이미지+영상+오디오+큐시트)', [
+          f('I01_graphic.png'), f('V01_graphic.mp4'), f('A01_Entrance_Audio.wav'), f('IZEN_Bangkok2026_큐시트.pdf'),
+        ]),
         dc('렌더링', '프로젝트 전용 제품 렌더링', [f('IZEN_CIS2026_제품_렌더_정면_v01.png')]),
         d('홈페이지'),
       ]),

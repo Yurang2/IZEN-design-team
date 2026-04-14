@@ -50,7 +50,7 @@ const SUBFOLDER_OPTIONS = [
   { label: '03 디지털', value: '03_디지털' },
   { label: '  SNS', value: '03_디지털/SNS' },
   { label: '  PPT', value: '03_디지털/PPT' },
-  { label: '  스크린', value: '03_디지털/스크린' },
+  { label: '  행사운영', value: '03_디지털/행사운영' },
   { label: '  렌더링', value: '03_디지털/렌더링' },
   { label: '  홈페이지', value: '03_디지털/홈페이지' },
   { label: '04 영상', value: '04_영상' },
