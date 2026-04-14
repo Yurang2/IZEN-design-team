@@ -1232,10 +1232,337 @@ function IssuesSection() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Section 7: 자동 저장 방식
+// ---------------------------------------------------------------------------
+
+const AUTO_SAVE_FLOW_STEPS = [
+  { n: '1', title: 'NAS 로그인', desc: 'NAS 계정(아이디/비밀번호)으로 로그인' },
+  { n: '2', title: '업무 목록 자동 조회', desc: '로그인한 NAS 아이디로 Notion 업무관리 DB에서 본인 담당 업무를 자동 조회 (완료/보관 제외)' },
+  { n: '3', title: '업무 선택', desc: '목록에서 업무를 클릭하면 아래 항목이 자동 세팅됨' },
+  { n: '4', title: '파일 선택 & 업로드', desc: '파일을 선택하면 확장자 자동 감지, 업로드 시 규칙에 맞는 파일명으로 NAS에 저장' },
+  { n: '5', title: 'Notion 자동 업데이트', desc: '업로드 완료 후 해당 업무의 산출물 링크 + 수정사유가 자동으로 기록됨' },
+]
+
+const AUTO_SAVE_PATH_PARTS = [
+  { part: '기본 경로', value: '/Izenimplant/Marketing', source: '고정값', auto: true },
+  { part: '프로젝트 폴더', value: '01_PROJECT/{일련번호}_{프로젝트명}', source: '업무 → 프로젝트 일련번호 + 프로젝트명', auto: true },
+  { part: '하위 폴더', value: '예: 01_인쇄물/포스터', source: '업무 유형(workType) 키워드로 자동 추론', auto: true },
+]
+
+const AUTO_SAVE_SUBFOLDER_ROWS: Array<{ keyword: string; folder: string; example: string }> = [
+  { keyword: '기획', folder: '00_기획-문서', example: '기획서 작성, 보고서' },
+  { keyword: '인쇄 / 인쇄물', folder: '01_인쇄물', example: '인쇄물 전반' },
+  { keyword: '포스터', folder: '01_인쇄물/포스터', example: 'CIS 포스터 디자인' },
+  { keyword: '리플렛', folder: '01_인쇄물/리플렛', example: '제품 리플렛' },
+  { keyword: '브로슈어', folder: '01_인쇄물/브로슈어', example: '브로슈어 제작' },
+  { keyword: '카달로그', folder: '01_인쇄물/카달로그', example: 'I-system 카달로그' },
+  { keyword: '배너 / 현수막', folder: '01_인쇄물/배너-현수막', example: '행사 배너' },
+  { keyword: 'certificate', folder: '01_인쇄물/certificate', example: 'certificate 디자인' },
+  { keyword: '부스', folder: '02_부스', example: '부스 디자인 전반' },
+  { keyword: '부스디자인', folder: '02_부스/부스디자인', example: '3D 부스 모델링' },
+  { keyword: '부스그래픽', folder: '02_부스/부스그래픽', example: '벽면 그래픽' },
+  { keyword: '디지털', folder: '03_디지털', example: '디지털 콘텐츠 전반' },
+  { keyword: 'SNS', folder: '03_디지털/SNS-이미지', example: 'SNS 이미지 제작' },
+  { keyword: 'PPT', folder: '03_디지털/PPT', example: '발표자료 디자인' },
+  { keyword: '렌더링', folder: '03_디지털/렌더링', example: '제품 렌더링' },
+  { keyword: '영상', folder: '04_영상', example: '영상 전반' },
+  { keyword: '촬영', folder: '04_영상/자체촬영', example: '자체 촬영 영상' },
+  { keyword: '편집', folder: '04_영상/편집-프로젝트', example: '영상 편집 프로젝트' },
+  { keyword: '모션', folder: '04_영상/2D-모션', example: '2D 모션그래픽' },
+  { keyword: '3D', folder: '04_영상/3D-모션', example: '3D 모션/애니메이션' },
+  { keyword: '사진', folder: '05_사진', example: '사진 촬영/보정' },
+  { keyword: '현장수집 / 레퍼런스', folder: '06_현장수집', example: '현장 수집 자료' },
+]
+
+const AUTO_SAVE_FILENAME_PARTS: Array<{ el: string; source: string; auto: string }> = [
+  { el: '브랜드', source: '사용자 선택 (드롭다운)', auto: '기본값: IZEN' },
+  { el: '콘텐츠명', source: '업무명(taskName)에서 자동 생성', auto: '공백 → 하이픈 변환' },
+  { el: '언어', source: '사용자 선택 (드롭다운)', auto: 'EN, RU, ZH, KO 또는 생략' },
+  { el: '규격', source: '사용자 입력', auto: '선택 사항' },
+  { el: '버전 타입', source: '사용자 선택', auto: 'v (내부용) 또는 Rev (배포용)' },
+  { el: '버전 번호', source: '폴더 내 기존 파일 스캔', auto: '최대값 + 1 자동 제안' },
+  { el: '시퀀스 번호', source: '파일 개수에서 자동 계산', auto: '2개 이상 시 01, 02, 03...' },
+  { el: '확장자', source: '선택한 파일에서 자동 감지', auto: '.ai, .psd, .mp4 등' },
+]
+
+const AUTO_SAVE_EXAMPLES: Array<{ task: string; workType: string; path: string; filename: string }> = [
+  { task: 'CIS 2026 포스터', workType: '포스터', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터/', filename: 'IZEN_CIS-2026-포스터_EN_A1_v01.ai' },
+  { task: 'CIS 2026 후기영상 편집', workType: '편집', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/04_영상/편집-프로젝트/', filename: 'IZEN_CIS-2026-후기영상-편집_v02.prproj' },
+  { task: 'I-system 카달로그 리뉴얼', workType: '카달로그', path: '/Izenimplant/Marketing/01_PROJECT/IZ250016_I-system-카달로그-리뉴얼/01_인쇄물/카달로그/', filename: 'IZEN_I-system-카달로그-리뉴얼_EN_v04.indd' },
+  { task: 'SNS 제품 콘텐츠', workType: 'SNS', path: '/Izenimplant/Marketing/01_PROJECT/IZ250900_SNS-정기콘텐츠/03_디지털/SNS-이미지/', filename: 'IZEN_SNS-제품-콘텐츠_v01.psd' },
+  { task: '신제품 렌더링', workType: '렌더링', path: '/Izenimplant/Marketing/01_PROJECT/IZ250017_신제품-렌더링-연구소요청/03_디지털/렌더링/', filename: 'IZEN_신제품-렌더링_v01.png' },
+  { task: '부스 벽면 그래픽', workType: '부스그래픽', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/02_부스/부스그래픽/', filename: 'IZEN_부스-벽면-그래픽_v01.ai' },
+]
+
+function AutoSaveSection() {
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      {/* 전체 흐름 */}
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">Upload Flow</span>
+            <h3>업로드 도구 전체 흐름</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>
+          업무관리(Notion)에서 선택한 업무 정보를 기반으로 저장 경로와 파일명이 자동으로 결정됩니다.
+        </p>
+        <div className="workflowTimeline">
+          {AUTO_SAVE_FLOW_STEPS.map((step) => (
+            <article key={step.n} className="workflowStep" style={{ gridTemplateColumns: '40px 1fr' }}>
+              <div className="workflowStepNumber" style={{ height: 40, fontSize: 14, background: C.project.bg, borderColor: C.project.border, color: C.project.text }}>
+                {step.n}
+              </div>
+              <div className="workflowStepBody">
+                <h4>{step.title}</h4>
+                <p>{step.desc}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </article>
+
+      {/* 저장 경로 결정 */}
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">Save Path</span>
+            <h3>저장 경로 자동 결정</h3>
+          </div>
+        </div>
+        <div className="fileGuideTree" style={{ textAlign: 'center', fontSize: '0.95em', lineHeight: 2 }}>
+          <code style={{ letterSpacing: 0.3 }}>
+            <span style={{ color: 'var(--muted)' }}>/Izenimplant/Marketing/</span>
+            <span style={{ color: C.project.text, fontWeight: 700 }}>01_PROJECT</span>
+            <span style={{ color: 'var(--muted)' }}>/</span>
+            <span style={{ color: '#b45309', fontWeight: 700 }}>{'{일련번호}_{프로젝트명}'}</span>
+            <span style={{ color: 'var(--muted)' }}>/</span>
+            <span style={{ color: '#7c3aed', fontWeight: 700 }}>{'{하위폴더}'}</span>
+            <span style={{ color: 'var(--muted)' }}>/</span>
+          </code>
+        </div>
+        <div className="guideTableWrap">
+          <table className="fileGuideTable">
+            <thead>
+              <tr>
+                <th>경로 구성</th>
+                <th>값</th>
+                <th>데이터 출처</th>
+              </tr>
+            </thead>
+            <tbody>
+              {AUTO_SAVE_PATH_PARTS.map((row) => (
+                <tr key={row.part}>
+                  <td style={{ fontWeight: 600 }}>{row.part}</td>
+                  <td><code className="fileGuideCode" style={{ fontSize: 11 }}>{row.value}</code></td>
+                  <td>
+                    <span style={{ fontSize: '0.85em' }}>{row.source}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ background: 'var(--surface2, #f5f7fb)', borderRadius: 8, padding: '10px 14px', fontSize: '0.82em', color: 'var(--text2)' }}>
+          <strong>프로젝트 폴더명 예시:</strong> 업무의 프로젝트가 일련번호 <code className="fileGuideCode">IZ250001</code>, 이름 <code className="fileGuideCode">CIS Conference 2026</code>이면
+          → <code className="fileGuideCode">IZ250001_CIS-Conference-2026</code> (공백은 하이픈으로 변환)
+        </div>
+      </article>
+
+      {/* 하위 폴더 자동 매핑 */}
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">Subfolder Mapping</span>
+            <h3>업무 유형 → 하위 폴더 자동 매핑</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>
+          업무관리의 <strong>업무 유형</strong>(workType)에 아래 키워드가 포함되어 있으면 해당 하위 폴더가 자동 선택됩니다.
+          매칭되는 키워드가 없으면 기본값 <code className="fileGuideCode">00_기획-문서</code>로 설정됩니다.
+          자동 추론 후 드롭다운에서 수동 변경도 가능합니다.
+        </p>
+        <div className="guideTableWrap" style={{ maxHeight: 480, overflow: 'auto' }}>
+          <table className="fileGuideTable">
+            <thead>
+              <tr>
+                <th>업무 유형 키워드</th>
+                <th>→ 자동 선택 폴더</th>
+                <th>예시 업무</th>
+              </tr>
+            </thead>
+            <tbody>
+              {AUTO_SAVE_SUBFOLDER_ROWS.map((row) => (
+                <tr key={row.keyword}>
+                  <td><code className="fileGuideCode" style={{ fontWeight: 600 }}>{row.keyword}</code></td>
+                  <td><code className="fileGuideCode" style={{ fontSize: 11 }}>{row.folder}</code></td>
+                  <td style={{ fontSize: '0.85em', color: 'var(--text2)' }}>{row.example}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', fontSize: '0.82em', color: '#854d0e' }}>
+          <strong>매칭 방식:</strong> 업무 유형 텍스트에 키워드가 <strong>포함</strong>되어 있으면 매칭됩니다 (대소문자 무시).
+          예: 업무 유형이 "CIS 포스터 디자인"이면 "포스터" 키워드에 매칭 → <code className="fileGuideCode">01_인쇄물/포스터</code>
+        </div>
+      </article>
+
+      {/* 파일명 자동 결정 */}
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">Filename</span>
+            <h3>파일명 자동 결정</h3>
+          </div>
+        </div>
+        <div className="fileGuideTree" style={{ textAlign: 'center', fontSize: '0.95em' }}>
+          <code style={{ letterSpacing: 0.3 }}>
+            <span style={{ color: '#b45309' }}>{'{브랜드}'}</span>
+            <span style={{ color: 'var(--muted)' }}>_</span>
+            <span style={{ color: '#7c3aed' }}>{'{콘텐츠명}'}</span>
+            <span style={{ color: 'var(--muted)' }}>_</span>
+            <span style={{ color: '#0369a1' }}>{'{언어}'}</span>
+            <span style={{ color: 'var(--muted)' }}>_</span>
+            <span style={{ color: '#0369a1' }}>{'{규격}'}</span>
+            <span style={{ color: 'var(--muted)' }}>_</span>
+            <span style={{ color: C.project.text }}>{'{v01}'}</span>
+            <span style={{ color: 'var(--muted)' }}>_</span>
+            <span style={{ color: '#9333ea' }}>{'{01}'}</span>
+            <span style={{ color: 'var(--muted)' }}>.{'{ext}'}</span>
+          </code>
+        </div>
+        <div className="guideTableWrap">
+          <table className="fileGuideTable">
+            <thead>
+              <tr>
+                <th>요소</th>
+                <th>데이터 출처</th>
+                <th>자동화 방식</th>
+              </tr>
+            </thead>
+            <tbody>
+              {AUTO_SAVE_FILENAME_PARTS.map((row) => (
+                <tr key={row.el}>
+                  <td style={{ fontWeight: 600 }}>{row.el}</td>
+                  <td style={{ fontSize: '0.85em' }}>{row.source}</td>
+                  <td style={{ fontSize: '0.85em', color: 'var(--text2)' }}>{row.auto}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="workflowCheckpointGrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.project.border}` }}>
+            <h4>버전 자동 제안</h4>
+            <p>대상 폴더의 기존 파일을 스캔하여 같은 버전 타입(v 또는 Rev)의 최대 번호를 찾고, +1한 값을 자동 제안합니다.</p>
+            <p style={{ fontSize: '0.82em', color: 'var(--muted)' }}>예: 폴더에 v01, v02가 있으면 → v03 제안</p>
+          </div>
+          <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.asset.border}` }}>
+            <h4>멀티파일 시퀀스</h4>
+            <p>파일을 2개 이상 선택하면 자동으로 시퀀스 번호(01, 02, 03...)가 붙습니다. 시작 번호는 변경 가능합니다.</p>
+            <p style={{ fontSize: '0.82em', color: 'var(--muted)' }}>예: 3개 선택 → _01, _02, _03</p>
+          </div>
+        </div>
+      </article>
+
+      {/* 실제 예시 */}
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">Examples</span>
+            <h3>업무별 자동 저장 예시</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>
+          아래는 업무를 선택했을 때 실제로 자동 세팅되는 경로와 파일명 예시입니다.
+        </p>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {AUTO_SAVE_EXAMPLES.map((ex) => (
+            <div
+              key={ex.task}
+              style={{
+                background: 'var(--surface2, #f5f7fb)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                display: 'grid',
+                gap: 6,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.88em' }}>{ex.task}</span>
+                <span style={{ background: C.project.bg, border: `1px solid ${C.project.border}`, borderRadius: 999, padding: '1px 8px', fontSize: '0.75em', color: C.project.text, fontWeight: 600 }}>
+                  {ex.workType}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.8em', fontFamily: "'Courier New', monospace" }}>
+                <div style={{ color: 'var(--muted)' }}>경로: <span style={{ color: 'var(--text1)' }}>{ex.path}</span></div>
+                <div style={{ color: 'var(--muted)' }}>파일: <span style={{ color: 'var(--text1)', fontWeight: 600 }}>{ex.filename}</span></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      {/* Notion 자동 연동 */}
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">Notion Sync</span>
+            <h3>업로드 후 Notion 자동 업데이트</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>
+          업로드가 완료되면 선택한 업무의 Notion 페이지에 아래 정보가 자동으로 기록됩니다.
+        </p>
+        <div className="workflowCheckpointGrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+          <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.project.border}` }}>
+            <h4>산출물 링크 (outputLink)</h4>
+            <p>업로드된 파일의 전체 NAS 경로가 자동으로 추가됩니다.</p>
+            <p style={{ fontSize: '0.82em', color: 'var(--muted)' }}>기존 링크가 있으면 아래에 누적 (줄바꿈)</p>
+            <div style={{ background: 'var(--surface1)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78em', fontFamily: "'Courier New', monospace" }}>
+              /Izenimplant/Marketing/01_PROJECT/IZ250001_.../01_인쇄물/포스터/IZEN_CIS2026_포스터_EN_v03.ai
+            </div>
+          </div>
+          <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.library.border}` }}>
+            <h4>수정사유 (changeReason)</h4>
+            <p>수정사유 입력란에 내용을 적으면 날짜+파일명과 함께 자동 기록됩니다.</p>
+            <p style={{ fontSize: '0.82em', color: 'var(--muted)' }}>기존 기록 유지, 새 줄로 누적 추가</p>
+            <div style={{ background: 'var(--surface1)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: '0.78em', fontFamily: "'Courier New', monospace" }}>
+              [04/14 IZEN_CIS2026_포스터_EN_v03.ai] 자막 오타 수정
+            </div>
+          </div>
+        </div>
+      </article>
+
+      {/* 주의사항 */}
+      <article className="workflowCard workflowCardWide" style={{ borderColor: '#f59e0b', borderStyle: 'dashed' }}>
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow" style={{ color: '#92400e' }}>Notes</span>
+            <h3>주의사항</h3>
+          </div>
+        </div>
+        <ul className="workflowList" style={{ fontSize: '0.88em' }}>
+          <li>프로젝트 <strong>일련번호가 없는</strong> 업무는 경고가 표시됩니다 — Notion에서 프로젝트 일련번호를 먼저 등록하세요</li>
+          <li>하위 폴더는 자동 추론 후 <strong>드롭다운에서 수동 변경</strong> 가능합니다</li>
+          <li>같은 이름의 파일이 이미 존재하면 <strong>덮어쓰기 없이 오류</strong>가 발생합니다 (버전 번호를 올려야 함)</li>
+          <li>상위 폴더가 NAS에 아직 없으면 <strong>자동 생성</strong>됩니다</li>
+          <li>파일명의 콘텐츠명, 언어, 규격 등은 자동 세팅 후 <strong>직접 수정 가능</strong>합니다</li>
+        </ul>
+      </article>
+    </div>
+  )
+}
+
 const TABS = [
   { id: 'structure', label: '폴더 구조', icon: '📁' },
   { id: 'decision', label: '어디에 넣나?', icon: '🔍' },
   { id: 'naming', label: '파일명 규칙', icon: '📝' },
+  { id: 'autosave', label: '자동 저장 방식', icon: '🤖' },
   { id: 'workflow', label: '작업 흐름', icon: '🔄' },
   { id: 'gdrive', label: '구글 드라이브', icon: '☁️' },
   { id: 'issues', label: '이슈 트래커', icon: '📋' },
@@ -1295,9 +1622,10 @@ export function NasGuideView() {
         {activeTab === 0 ? <StructureSection /> : null}
         {activeTab === 1 ? <DecisionSection /> : null}
         {activeTab === 2 ? <NamingSection /> : null}
-        {activeTab === 3 ? <WorkflowSection /> : null}
-        {activeTab === 4 ? <GDriveSection /> : null}
-        {activeTab === 5 ? <IssuesSection /> : null}
+        {activeTab === 3 ? <AutoSaveSection /> : null}
+        {activeTab === 4 ? <WorkflowSection /> : null}
+        {activeTab === 5 ? <GDriveSection /> : null}
+        {activeTab === 6 ? <IssuesSection /> : null}
       </div>
     </section>
   )
