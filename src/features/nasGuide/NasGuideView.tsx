@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { api } from '../../shared/api/client'
 
 // ---------------------------------------------------------------------------
@@ -1058,61 +1058,96 @@ const issueInputStyle: React.CSSProperties = {
   borderRadius: 6, color: 'var(--text1)', fontSize: '0.82em', padding: '5px 8px', width: '100%', boxSizing: 'border-box',
 }
 const issueSelectStyle: React.CSSProperties = { ...issueInputStyle, width: 'auto' }
+const pillBase: React.CSSProperties = {
+  borderRadius: 999, padding: '2px 8px', fontSize: '0.75em',
+  cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+}
 
-function IssueCard({ item, onSave }: { item: IssueItem; onSave: (id: string, patch: Partial<IssueItem>) => void }) {
+function InlineText({ value, onSave, placeholder, style }: { value: string; onSave: (v: string) => void; placeholder?: string; style?: React.CSSProperties }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(item)
-
-  const rc = RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
-
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => { setDraft(value) }, [value])
+  useEffect(() => { if (editing && ref.current) { ref.current.focus(); ref.current.select() } }, [editing])
   if (!editing) {
     return (
-      <article className="workflowCard workflowCardWide" style={{ borderLeft: `3px solid ${rc.border}`, cursor: 'pointer' }} onClick={() => { setDraft(item); setEditing(true) }}>
-        <h3 style={{ margin: 0, fontSize: '0.95em' }}>{item.issue}</h3>
-        {item.proposal ? <div style={{ fontSize: '0.85em', color: 'var(--text2)', background: 'var(--surface2, #f5f7fb)', borderRadius: 8, padding: '8px 12px' }}>{item.proposal}</div> : null}
-        {item.solution ? <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: 0 }}>{item.solution}</p> : null}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {item.area ? <span style={{ background: 'var(--bg-soft, #eef2f7)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: 'var(--text2)' }}>{item.area}</span> : null}
-          {item.source ? <span style={{ background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', color: '#1d4ed8' }}>{item.source}</span> : null}
-          <span style={{ background: rc.bg, border: `1px solid ${rc.border}`, borderRadius: 999, padding: '2px 8px', fontSize: '0.75em', fontWeight: 600, color: rc.text }}>{item.resolved}</span>
-        </div>
-      </article>
+      <div onClick={() => setEditing(true)} style={{ cursor: 'pointer', minHeight: 18, ...style }}>
+        {value || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>{placeholder ?? '클릭하여 입력'}</span>}
+      </div>
     )
   }
-
   return (
-    <article className="workflowCard workflowCardWide" style={{ borderLeft: '3px solid var(--primary)' }}>
-      <div style={{ display: 'grid', gap: 8 }}>
-        <div>
-          <label style={{ fontSize: '0.75em', fontWeight: 600, color: 'var(--text2)' }}>문제점</label>
-          <input style={issueInputStyle} value={draft.issue} onChange={(e) => setDraft({ ...draft, issue: e.target.value })} />
+    <textarea ref={ref} style={{ ...issueInputStyle, minHeight: 32, fontWeight: 'inherit', ...(style ?? {}) }} value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { setEditing(false); if (draft !== value) onSave(draft) }}
+      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setEditing(false); if (draft !== value) onSave(draft) } }}
+    />
+  )
+}
+
+function InlinePill({ value, options, onSave, bg, border, color }: {
+  value: string; options: string[]; onSave: (v: string) => void; bg: string; border: string; color: string
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block' }}>
+      <span style={{ ...pillBase, background: bg, border: `1px solid ${border}`, color }} onClick={() => setOpen(!open)}>
+        {value || '선택'}
+      </span>
+      {open ? (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10,
+          background: 'var(--surface1)', border: '1px solid var(--border)', borderRadius: 8,
+          boxShadow: 'var(--shadow-md)', padding: 4, minWidth: 120, maxHeight: 200, overflowY: 'auto',
+        }}>
+          {options.map((opt) => (
+            <div key={opt} style={{
+              padding: '5px 10px', fontSize: '0.78em', cursor: 'pointer', borderRadius: 4,
+              background: opt === value ? 'var(--bg-soft)' : undefined, fontWeight: opt === value ? 600 : 400,
+            }} onClick={() => { onSave(opt); setOpen(false) }}>{opt}</div>
+          ))}
         </div>
-        <div>
-          <label style={{ fontSize: '0.75em', fontWeight: 600, color: 'var(--text2)' }}>제안내용</label>
-          <textarea style={{ ...issueInputStyle, minHeight: 50 }} value={draft.proposal} onChange={(e) => setDraft({ ...draft, proposal: e.target.value })} />
-        </div>
-        <div>
-          <label style={{ fontSize: '0.75em', fontWeight: 600, color: 'var(--text2)' }}>처리방법</label>
-          <textarea style={{ ...issueInputStyle, minHeight: 50 }} value={draft.solution} onChange={(e) => setDraft({ ...draft, solution: e.target.value })} />
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <select style={issueSelectStyle} value={draft.area} onChange={(e) => setDraft({ ...draft, area: e.target.value })}>
-            <option value="">영역</option>
-            {AREA_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <select style={issueSelectStyle} value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value })}>
-            <option value="">출처</option>
-            {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select style={issueSelectStyle} value={draft.resolved} onChange={(e) => setDraft({ ...draft, resolved: e.target.value })}>
-            {RESOLVED_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" onClick={() => { onSave(item.id, draft); setEditing(false) }} style={{ padding: '5px 14px', fontSize: '0.82em' }}>저장</button>
-          <button type="button" className="secondary" onClick={() => setEditing(false)} style={{ padding: '5px 14px', fontSize: '0.82em' }}>취소</button>
-        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function IssueCard({ item, onSave }: { item: IssueItem; onSave: (id: string, patch: Partial<IssueItem>) => void }) {
+  const [collapsed, setCollapsed] = useState(false)
+  const rc = RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
+  const save = (field: keyof IssueItem, value: string) => onSave(item.id, { [field]: value })
+  return (
+    <article className="workflowCard workflowCardWide" style={{ borderLeft: `3px solid ${rc.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <InlineText value={item.issue} onSave={(v) => save('issue', v)} style={{ fontWeight: 700, fontSize: '0.95em', flex: 1 }} />
+        <span style={{ cursor: 'pointer', fontSize: '0.72em', color: 'var(--muted)', flexShrink: 0, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }} onClick={() => setCollapsed(!collapsed)}>
+          {collapsed ? '펼치기' : '접기'}
+        </span>
       </div>
+      {!collapsed ? (
+        <>
+          <div style={{ background: 'var(--surface2, #f5f7fb)', borderRadius: 8, padding: '8px 12px' }}>
+            <div style={{ fontSize: '0.7em', color: 'var(--muted)', marginBottom: 2 }}>제안내용</div>
+            <InlineText value={item.proposal} onSave={(v) => save('proposal', v)} placeholder="클릭하여 입력" style={{ fontSize: '0.85em', color: 'var(--text2)' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.7em', color: 'var(--muted)', marginBottom: 2 }}>처리방법</div>
+            <InlineText value={item.solution} onSave={(v) => save('solution', v)} placeholder="클릭하여 입력" style={{ fontSize: '0.85em', color: 'var(--text2)' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <InlinePill value={item.area} options={AREA_OPTIONS} onSave={(v) => save('area', v)} bg="var(--bg-soft, #eef2f7)" border="var(--border)" color="var(--text2)" />
+            <InlinePill value={item.source} options={SOURCE_OPTIONS} onSave={(v) => save('source', v)} bg="#dbeafe" border="#93c5fd" color="#1d4ed8" />
+            <InlinePill value={item.resolved} options={RESOLVED_OPTIONS} onSave={(v) => save('resolved', v)} bg={rc.bg} border={rc.border} color={rc.text} />
+          </div>
+        </>
+      ) : null}
     </article>
   )
 }
