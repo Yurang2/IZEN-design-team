@@ -25,6 +25,7 @@
 - Before large structural changes, inspect the existing code and preserve the current Cloudflare architecture.
 - Prefer improving existing screens over introducing parallel flows.
 - When changing shared contracts, sync the relevant TypeScript types and docs together.
+- When changing the NAS guide folder tree, always verify that `docs/nas-structure/*.md` and the hardcoded tree/examples in `NasGuideView.tsx` still match.
 - Do not add unrelated sample assets or commit contents from `files/` unless the user explicitly asks.
 - Temporary handoff note: keep mid-task progress updates short, and if a partial in-progress state must be saved, record the current status in `AGENTS.md` so the next turn can resume quickly.
 - Remove any temporary handoff note from `AGENTS.md` as soon as the referenced fix/work is completed.
