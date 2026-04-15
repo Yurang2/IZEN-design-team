@@ -52,6 +52,7 @@ const ROOT_COLORS: Record<string, (typeof C)[keyof typeof C]> = {
   '01_PROJECT': C.project,
   '02_ASSET': C.asset,
   '03_LIBRARY': C.library,
+  'Google Drive': C.gdrive,
   '99_ARCHIVE': C.archive,
   'IZEN Design (Google Drive)': C.gdrive,
 }

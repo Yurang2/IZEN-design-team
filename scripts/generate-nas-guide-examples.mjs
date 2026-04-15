@@ -106,6 +106,23 @@ function containsAny(record, keywords) {
   return keywords.some((keyword) => lowerPath.includes(keyword.toLowerCase()))
 }
 
+function isLegacyLibraryRecord(record) {
+  const root = record.folders[0]?.toLowerCase()
+  return root === '[izen implant]' || root === 'design'
+}
+
+function findClosestFolderCategory(record, categories) {
+  const normalizedFolders = record.folders.map((segment) => normalizeText(segment).toLowerCase()).reverse()
+  for (const category of categories) {
+    if (normalizedFolders.some((segment) => category.keywords.some((keyword) => segment.includes(keyword)))) {
+      return category
+    }
+  }
+
+  const normalizedName = normalizeText(record.sourceNameBase).toLowerCase()
+  return categories.find((category) => category.keywords.some((keyword) => normalizedName.includes(keyword))) ?? null
+}
+
 function extractYearMonth(record) {
   const text = `${record.sourcePath} ${record.sourceName}`
   const ymd = text.match(/(?:^|[^0-9])((?:20)?\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/)
@@ -164,6 +181,23 @@ function logoTargetPath(record) {
   return '02_ASSET/01_로고/IZEN_CI'
 }
 
+const PRINT_CATEGORIES = [
+  { keywords: ['leaflet', '전단지'], folder: '리플렛', prefix: 'IZEN_리플렛' },
+  { keywords: ['brochure', '브로슈어'], folder: '브로슈어', prefix: 'IZEN_브로슈어' },
+  { keywords: ['poster', '포스터'], folder: '포스터', prefix: 'IZEN_포스터' },
+  { keywords: ['banner', '배너', 'x-banner', 'x banner', 'signage', 'wallgraphic', 'wall graphic'], folder: '배너-현수막', prefix: 'IZEN_배너' },
+]
+
+const DISTRIBUTION_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg'])
+
+function resolvePrintCategory(record) {
+  return findClosestFolderCategory(record, PRINT_CATEGORIES)
+}
+
+function isDistributionFile(record) {
+  return DISTRIBUTION_EXTENSIONS.has(record.ext)
+}
+
 function renameIfNeeded(desiredName, record) {
   if (desiredName === record.sourceName) return { name: desiredName }
   return { name: desiredName, comment: `원본파일명: ${record.sourceName}` }
@@ -171,6 +205,11 @@ function renameIfNeeded(desiredName, record) {
 
 function preserveName(record) {
   return { name: record.sourceName }
+}
+
+function buildRevisionName(prefix, record, revision = '01') {
+  const stem = clampNameStem(slugifyForName(record.sourceNameBase))
+  return `${prefix}_${stem}_Rev${revision}${record.ext}`
 }
 
 function createUniqueNameTracker() {
@@ -301,29 +340,18 @@ function buildExampleBuckets() {
       }),
     },
     {
-      id: 'project-exhibition-print',
+      id: 'gdrive-legacy-print',
       limit: 90,
       match: (record) =>
-        containsAny(record, ['leaflet', 'brochure', 'poster', 'banner', 'exhibition']) &&
-        !containsAny(record, ['logo', 'sns', '2026 AEEDC']) &&
-        ['.ai', '.psd', '.psb', '.pdf', '.png', '.jpg', '.jpeg', '.indd'].includes(record.ext),
+        isLegacyLibraryRecord(record) &&
+        isDistributionFile(record) &&
+        !!resolvePrintCategory(record) &&
+        !containsAny(record, ['logo', 'sns', '2026 AEEDC']),
       map: (record) => {
-        let folder = '리플렛'
-        let prefix = 'IZEN_CIS-Conference-2026_리플렛'
-        if (containsAny(record, ['brochure'])) {
-          folder = '브로슈어'
-          prefix = 'IZEN_CIS-Conference-2026_브로슈어'
-        } else if (containsAny(record, ['poster'])) {
-          folder = '포스터'
-          prefix = 'IZEN_CIS-Conference-2026_포스터'
-        } else if (containsAny(record, ['banner', 'signage'])) {
-          folder = '배너-현수막'
-          prefix = 'IZEN_CIS-Conference-2026_배너'
-        }
-
+        const category = resolvePrintCategory(record) ?? PRINT_CATEGORIES[0]
         return {
-          path: `01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/${folder}`,
-          ...renameIfNeeded(buildRenamedName(prefix, record), record),
+          path: `Google Drive/인쇄물/${category.folder}`,
+          ...renameIfNeeded(buildRevisionName(category.prefix, record), record),
         }
       },
     },
@@ -453,6 +481,7 @@ function generateExamples(files) {
     for (const record of files) {
       if (examples.length >= 1000) break
       if (selectedPaths.has(record.sourcePath)) continue
+      if (isLegacyLibraryRecord(record) && resolvePrintCategory(record) && !isDistributionFile(record)) continue
       const fallbackPath = record.ext === '.step' || record.ext === '.stl' || record.ext === '.stp'
         ? `02_ASSET/03_3D-소스/${threeDSubfolder(record)}`
         : ['.png', '.jpg', '.jpeg', '.psd', '.psb', '.ai', '.pdf'].includes(record.ext)

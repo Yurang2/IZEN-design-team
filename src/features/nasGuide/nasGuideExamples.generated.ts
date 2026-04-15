@@ -64,7 +64,7 @@ export const GENERATED_NAS_GUIDE_EXAMPLE_META = {
     "actual": 15
   },
   {
-    "id": "project-exhibition-print",
+    "id": "gdrive-legacy-print",
     "requested": 90,
     "actual": 90
   },
@@ -112,546 +112,6 @@ export const GENERATED_NAS_GUIDE_EXAMPLE_META = {
 } as const
 
 export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_1-fixture-dp.ai",
-    "comment": "원본파일명: 1-_fixture_dp.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_2-kit-dp.ai",
-    "comment": "원본파일명: 2-_kit_dp.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_3-digital-wall-bg-resizeai.ai",
-    "comment": "원본파일명: 3-digital-wall-bg-resizeai.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_3-digital-wall-bg.ai",
-    "comment": "원본파일명: 3-digital-wall-bg.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_4-global-bigwall-resize.ai",
-    "comment": "원본파일명: 4-global_bigwall-resize.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_4-global-bigwall.ai",
-    "comment": "원본파일명: 4-global_bigwall.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_5-meetingroom.ai",
-    "comment": "원본파일명: 5-meetingroom.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-01-83x200cm-240711.png",
-    "comment": "원본파일명: [Philippines]banner_01_83x200cm_240711.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-02-83x200cm-240711.png",
-    "comment": "원본파일명: [Philippines]banner_02_83x200cm_240711.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-1-80-220.pdf",
-    "comment": "원본파일명: [izenimplant]banner_1_80-220.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-2-80-220.pdf",
-    "comment": "원본파일명: [izenimplant]banner_2_80-220.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-3-83-200.pdf",
-    "comment": "원본파일명: [izenimplant]banner_3_83-200.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-4-83-200.pdf",
-    "comment": "원본파일명: [izenimplant]banner_4_83-200.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-5-83-200.pdf",
-    "comment": "원본파일명: [izenimplant]banner_5_83-200.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-75x200cm-240711.ai",
-    "comment": "원본파일명: [malaysia]banner_75x200cm_240711.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-83x200cm-240711.ai",
-    "comment": "원본파일명: [Philippines]banner_83x200cm_240711.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-90x150cm-240405-1.ai",
-    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_1.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-90x150cm-240405-1.png",
-    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_1.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-90x150cm-240405-2.ai",
-    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_2.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-90x150cm-240405-2.png",
-    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_2.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-launching-01-75x200cm-240711.png",
-    "comment": "원본파일명: [malaysia]banner_launching_01_75x200cm_240711.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner-launching-02-75x200cm-240711.png",
-    "comment": "원본파일명: [malaysia]banner_launching_02_75x200cm_240711.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_banner2-60-180.pdf",
-    "comment": "원본파일명: [izenimplant]banner2_60-180.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_IAM-CIS-2024-mini-banner-BPM.ai",
-    "comment": "원본파일명: IAM CIS 2024 mini banner_BPM.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_IAM-CIS-2024-mini-banner-BPM.jpg",
-    "comment": "원본파일명: IAM CIS 2024 mini banner_BPM.jpg"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_IAM-CIS-2024-standing-banner-Suwon.ai",
-    "comment": "원본파일명: IAM CIS 2024 standing banner_Suwon.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_IAM-CIS-2024-standing-banner-Suwon.png",
-    "comment": "원본파일명: IAM CIS 2024 standing banner_Suwon.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_IAM-CIS-2024-standing-banner.ai",
-    "comment": "원본파일명: IAM CIS 2024 standing banner.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_IAM-CIS-2024-standing-banner.png",
-    "comment": "원본파일명: IAM CIS 2024 standing banner.png"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_Morocco-banner-최종-인쇄.pdf",
-    "comment": "원본파일명: Morocco banner 최종 인쇄.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_saudiarabia-wallgraphic-01.pdf",
-    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_01.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_saudiarabia-wallgraphic-02.pdf",
-    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_02.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_saudiarabia-wallgraphic-03.pdf",
-    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_03.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_Taiwan-graphic-2.ai",
-    "comment": "원본파일명: [izen]Taiwan graphic (2).ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_Taiwan-graphic-3.ai",
-    "comment": "원본파일명: [izen]Taiwan graphic (3).ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_Taiwan-graphic.ai",
-    "comment": "원본파일명: [izen]Taiwan graphic.ai"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/배너-현수막",
-    "name": "IZEN_CIS-Conference-2026_배너_X-banner5.pdf",
-    "comment": "원본파일명: [IZEN IMPLANT] X-banner5.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-16p-ZENEX-Compatibility-Chart-Competitors.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-16p-ZENEX Compatibility Chart(Competitors).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-24p-zenex-guide-kit-manual.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-24p-zenex guide kit manual.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-3p-sinus-combination-kit.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-3p-sinus combination kit.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-3p-ZENEX-Compatibility-Chart-Rev-00.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-3p-ZENEX Compatibility Chart (Rev.00).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-4p-PLAZMAX-IZEN-Implant.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-4p-PLAZMAX_IZEN Implant.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-Patient-Leaflet.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-Patient Leaflet.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-MULTI-I-system-leaflet-actual-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI-I-system leaflet(actual size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-MULTI-I-system-leaflet-Public-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI I system leaflet(Public size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-MULTI-R-system-leaflet-actual-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI R system leaflet(actual size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-MULTI-R-system-leaflet-Public-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI R system leaflet(Public size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-MULTI-T-system-leaflet-actual-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI T system leaflet(actual size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-MULTI-T-system-leaflet-Public-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI T system leaflet(Public size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-PLUS-I-system-leaflet-actual-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS I system leaflet(actual size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-PLUS-I-system-leaflet-Public-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS I system leaflet(Public size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-PLUS-R-system-leaflet-actual-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS R system leaflet(actual size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-PLUS-R-system-leaflet-Public-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS R system leaflet(Public size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-PLUS-T-system-leaflet-actual-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS T system leaflet(actual size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-6p-ZENEX-PLUS-T-system-leaflet-Public-size.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS T system leaflet(Public size).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-8p-I-system-brochure.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-8p-I-system brochure.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-8p-product-brochure.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-8p product brochure.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-8p-R-system-brochure.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-8p-R-system brochure.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_brochure-8p-T-system-brochure.pdf",
-    "comment": "원본파일명: [izenimplant]brochure-8p-T-system brochure.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_IZ-PMA-01-REV00-JAN-22.pdf",
-    "comment": "원본파일명: [Prosthetic Manual]IZ-PMA-01_REV00_(JAN_22).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_Prosthetic-Manual-IZ-PMA-02-REV01-2023-08.pdf",
-    "comment": "원본파일명: [FDA][Prosthetic Manual]IZ-PMA-02_REV01_(2023-08).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/브로슈어",
-    "name": "IZEN_CIS-Conference-2026_브로슈어_Инструкция-по-протезированию-1.pdf",
-    "comment": "원본파일명: Инструкция по протезированию (1).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-door-fixture.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_door_fixture.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-EASYSURGERY-KIT.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_EASYSURGERY KIT.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-fixture-dental-clinic.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_fixture(dental-clinic).pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-How-to-use-ZENEX-fixtrue-eng.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-eng.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-How-to-use-ZENEX-fixtrue-russian.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-russian.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-New-Product-Differentiation-Points.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_New Product Differentiation Points.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-SURGERY-KIT.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_SURGERY KIT.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-zenex-guide-kit.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex guide kit.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-zenex-I-system-fixture-features.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex I-system fixture_features.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-Zenex-Multi-Plus-Chameleon.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_Zenex Multi Plus Chameleon.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-ZENEX-multi-plus-R-System-Features.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_ZENEX multi_plus R-System Features.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-ZENEX-Multi-Plus-Space.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_ZENEX Multi Plus Space.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-zenex-R-system-fixture-features.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex R-system fixture_features.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_leaflet-zenex-T-system-fixture-features.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex T-system fixture_features.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-about-implant-en-ru.pdf",
-    "comment": "원본파일명: [izenimplant]poster-about implant_en+ru.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-apple.pdf",
-    "comment": "원본파일명: [izenimplant]poster_apple.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-brand-image-Birth-Of-Venus-frame.pdf",
-    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus-frame.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-brand-image-Birth-Of-Venus.pdf",
-    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-brand-image-illustration.pdf",
-    "comment": "원본파일명: [izenimplant]poster-brand image_illustration.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-color-blue-multi-fitxture.pdf",
-    "comment": "원본파일명: [izenimplant]poster-color_blue_multi_fitxture.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-color-mint-multi-plus-fixture.pdf",
-    "comment": "원본파일명: [izenimplant]poster-color_mint_multi plus_fixture.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-color-pink-plus-fixture.pdf",
-    "comment": "원본파일명: [izenimplant]poster-color_pink_plus_fixture.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-Colorline-fixture.pdf",
-    "comment": "원본파일명: [izenimplant]poster-Colorline_fixture.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-ITR-poster.pdf",
-    "comment": "원본파일명: [izenimplant]poster-ITR poster.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-light-Multi-Plus-Fixture.pdf",
-    "comment": "원본파일명: [izenimplant]poster-light_Multi,Plus Fixture.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-particleMulti-Plus-Fixture.pdf",
-    "comment": "원본파일명: [izenimplant]poster-particleMulti,Plus Fixture.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-product-1p-rendering.pdf",
-    "comment": "원본파일명: [izenimplant]poster_product_1p_rendering.pdf"
-  },
-  {
-    "bucket": "project-exhibition-print",
-    "path": "01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터",
-    "name": "IZEN_CIS-Conference-2026_포스터_poster-product.pdf",
-    "comment": "원본파일명: [izenimplant]poster_product.pdf"
-  },
   {
     "bucket": "project-company-video",
     "path": "01_PROJECT/IZ250015_회사소개영상-v3수정/04_영상/회사소개영상",
@@ -2557,6 +2017,36 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "asset-dealer-logo",
     "path": "02_ASSET/01_로고/Dealer",
+    "name": "DEALER_LOGO_banner-60x160xm-240711.ai",
+    "comment": "원본파일명: [Vietnam]banner_60x160xm_240711.ai"
+  },
+  {
+    "bucket": "asset-dealer-logo",
+    "path": "02_ASSET/01_로고/Dealer",
+    "name": "DEALER_LOGO_banner-75x200cm-240711.ai",
+    "comment": "원본파일명: [malaysia]banner_75x200cm_240711.ai"
+  },
+  {
+    "bucket": "asset-dealer-logo",
+    "path": "02_ASSET/01_로고/Dealer",
+    "name": "DEALER_LOGO_banner-83x200cm-240711.ai",
+    "comment": "원본파일명: [Philippines]banner_83x200cm_240711.ai"
+  },
+  {
+    "bucket": "asset-dealer-logo",
+    "path": "02_ASSET/01_로고/Dealer",
+    "name": "DEALER_LOGO_banner01-60x160xm-240711.png",
+    "comment": "원본파일명: [Vietnam]banner01_60x160xm_240711.png"
+  },
+  {
+    "bucket": "asset-dealer-logo",
+    "path": "02_ASSET/01_로고/Dealer",
+    "name": "DEALER_LOGO_banner02-60x160xm-240711.png",
+    "comment": "원본파일명: [Vietnam]banner02_60x160xm_240711.png"
+  },
+  {
+    "bucket": "asset-dealer-logo",
+    "path": "02_ASSET/01_로고/Dealer",
     "name": "DEALER_LOGO_IAM-Vietnam-2024-Spring-banner-1.ai",
     "comment": "원본파일명: IAM Vietnam 2024 Spring banner_1.ai"
   },
@@ -2593,38 +2083,8 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "asset-dealer-logo",
     "path": "02_ASSET/01_로고/Dealer",
-    "name": "DEALER_LOGO_vietnam-exhibition-graphic-back-01.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_back_01.png"
-  },
-  {
-    "bucket": "asset-dealer-logo",
-    "path": "02_ASSET/01_로고/Dealer",
-    "name": "DEALER_LOGO_vietnam-exhibition-graphic-back-02.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_back_02.png"
-  },
-  {
-    "bucket": "asset-dealer-logo",
-    "path": "02_ASSET/01_로고/Dealer",
-    "name": "DEALER_LOGO_vietnam-exhibition-graphic-back-03.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_back_03.png"
-  },
-  {
-    "bucket": "asset-dealer-logo",
-    "path": "02_ASSET/01_로고/Dealer",
     "name": "DEALER_LOGO_vietnam-exhibition-graphic-back.ai",
     "comment": "원본파일명: vietnam_exhibition_graphic_back.ai"
-  },
-  {
-    "bucket": "asset-dealer-logo",
-    "path": "02_ASSET/01_로고/Dealer",
-    "name": "DEALER_LOGO_vietnam-exhibition-graphic-front-01.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_front_01.png"
-  },
-  {
-    "bucket": "asset-dealer-logo",
-    "path": "02_ASSET/01_로고/Dealer",
-    "name": "DEALER_LOGO_vietnam-exhibition-graphic-front-02.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_front_02.png"
   },
   {
     "bucket": "asset-dealer-logo",
@@ -3318,14 +2778,86 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_banner-60x160xm-240711.ai",
-    "comment": "원본파일명: [Vietnam]banner_60x160xm_240711.ai"
+    "name": "IZEN_FALLBACK_디오-특장점-1.png",
+    "comment": "원본파일명: 디오 특장점 (1).png"
   },
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_banner-85x200mm-241120.ai",
-    "comment": "원본파일명: banner_85x200mm_241120.ai"
+    "name": "IZEN_FALLBACK_디오-특장점-2.png",
+    "comment": "원본파일명: 디오 특장점 (2).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_디오-특장점-3.png",
+    "comment": "원본파일명: 디오 특장점 (3).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_디오-특장점-4.png",
+    "comment": "원본파일명: 디오 특장점 (4).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_디오-특장점-5.png",
+    "comment": "원본파일명: 디오 특장점 (5).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-1.png",
+    "comment": "원본파일명: 메가젠-특장점 (1).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-2_02.png",
+    "comment": "원본파일명: 메가젠-특장점-2.png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-2.png",
+    "comment": "원본파일명: 메가젠-특장점 (2).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-3.png",
+    "comment": "원본파일명: 메가젠-특장점 (3).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-4.png",
+    "comment": "원본파일명: 메가젠-특장점 (4).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-5.png",
+    "comment": "원본파일명: 메가젠-특장점 (5).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-6.png",
+    "comment": "원본파일명: 메가젠-특장점 (6).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-7.png",
+    "comment": "원본파일명: 메가젠-특장점 (7).png"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_메가젠-특장점-8.png",
+    "comment": "원본파일명: 메가젠-특장점 (8).png"
   },
   {
     "bucket": "fallback",
@@ -3342,24 +2874,6 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_banner01-60x160xm-240711.png",
-    "comment": "원본파일명: [Vietnam]banner01_60x160xm_240711.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_banner02-60x160xm-240711.png",
-    "comment": "원본파일명: [Vietnam]banner02_60x160xm_240711.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_beyond-expectation.ai",
-    "comment": "원본파일명: [poster]_beyond expectation.ai"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
     "name": "IZEN_FALLBACK_beyond-expectation.png",
     "comment": "원본파일명: [poster]_beyond expectation.png"
   },
@@ -3372,62 +2886,14 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_bi-zenex.ai",
+    "name": "IZEN_FALLBACK_bi-zenex_03.ai",
     "comment": "원본파일명: [izenimplant]bi_zenex.ai"
   },
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-banner.pdf",
-    "comment": "원본파일명: [izenimplant]CDSMWM_banner.pdf"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-banner.png",
-    "comment": "원본파일명: [izenimplant]CDSMWM_banner.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-hanging.pdf",
-    "comment": "원본파일명: [izenimplant]CDSMWM_hanging.pdf"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-hangingbanner-multi.png",
-    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_multi.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-hangingbanner-plus.png",
-    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_plus.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-Wall.pdf",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.pdf"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-Wall.png",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-Wall2.pdf",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.pdf"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_CDSMWM-Wall2.png",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.png"
+    "name": "IZEN_FALLBACK_bi-zenex.ai",
+    "comment": "원본파일명: [izenimplant]bi_zenex.ai"
   },
   {
     "bucket": "fallback",
@@ -3474,8 +2940,20 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_ci-basic_03.ai",
+    "comment": "원본파일명: [izenimplant]ci_basic.ai"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
     "name": "IZEN_FALLBACK_ci-basic.ai",
     "comment": "원본파일명: [izenimplant]ci_basic.ai"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_ci-wide.ai",
+    "comment": "원본파일명: [izenimplant]ci_wide.ai"
   },
   {
     "bucket": "fallback",
@@ -3576,14 +3054,14 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_fixture-01.png",
-    "comment": "원본파일명: [poster]_fixture_01.png"
+    "name": "IZEN_FALLBACK_eng-product-section.psd",
+    "comment": "원본파일명: [izenimplant]eng_product section.psd"
   },
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_fixture-02.ai",
-    "comment": "원본파일명: [poster]_fixture_02.ai"
+    "name": "IZEN_FALLBACK_fixture-01.png",
+    "comment": "원본파일명: [poster]_fixture_01.png"
   },
   {
     "bucket": "fallback",
@@ -3594,20 +3072,8 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_fixture-03.ai",
-    "comment": "원본파일명: [poster]_fixture_03.ai"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
     "name": "IZEN_FALLBACK_fixture-03.png",
     "comment": "원본파일명: [poster]_fixture_03.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_fixture-multi.ai",
-    "comment": "원본파일명: [poster]_fixture_multi.ai"
   },
   {
     "bucket": "fallback",
@@ -3618,32 +3084,8 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_fixure-01.ai",
-    "comment": "원본파일명: [poster]_fixure_01.ai"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
     "name": "IZEN_FALLBACK_front-IZEN-ZENEX.jpg",
     "comment": "원본파일명: [izenimplant]front_IZEN,ZENEX.jpg"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_graphic-bg-01.psb",
-    "comment": "원본파일명: graphic_bg_01.psb"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_graphic-bg-02.psb",
-    "comment": "원본파일명: graphic_bg_02.psb"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_healthy-smile.ai",
-    "comment": "원본파일명: [poster]healthy smile.ai"
   },
   {
     "bucket": "fallback",
@@ -3666,8 +3108,26 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_KoreanFlag-slogan_02.ai",
+    "comment": "원본파일명: [izenimplant]KoreanFlag_slogan.ai"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_KoreanFlag-slogan_03.ai",
+    "comment": "원본파일명: [izenimplant]KoreanFlag_slogan.ai"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
     "name": "IZEN_FALLBACK_KoreanFlag-slogan.ai",
     "comment": "원본파일명: [izenimplant]KoreanFlag_slogan.ai"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_KoreanFlag.jpg",
+    "comment": "원본파일명: [izenimplant]KoreanFlag.jpg"
   },
   {
     "bucket": "fallback",
@@ -3690,14 +3150,20 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_new-beginning.ai",
-    "comment": "원본파일명: [poster]new beginning.ai"
+    "name": "IZEN_FALLBACK_new-beginning.png",
+    "comment": "원본파일명: [poster]new beginning.png"
   },
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_new-beginning.png",
-    "comment": "원본파일명: [poster]new beginning.png"
+    "name": "IZEN_FALLBACK_russia-cisection_02.ai",
+    "comment": "원본파일명: [izenimplant]russia_cisection.ai"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_russia-cisection_02.jpg",
+    "comment": "원본파일명: [izenimplant]russia_cisection.jpg"
   },
   {
     "bucket": "fallback",
@@ -3714,8 +3180,44 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_smile.ai",
-    "comment": "원본파일명: [poster]_smile.ai"
+    "name": "IZEN_FALLBACK_russia-cleanimplantsection2.jpg",
+    "comment": "원본파일명: [izenimplant]russia_cleanimplantsection2.jpg"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_russia-digitalsystemsection.jpg",
+    "comment": "원본파일명: [izenimplant]russia_digitalsystemsection.jpg"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_russia-dptable-ci.jpg",
+    "comment": "원본파일명: [izenimplant]russia_dptable_ci.jpg"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_russia-dptable-fiture.jpg",
+    "comment": "원본파일명: [izenimplant]russia_dptable_fiture.jpg"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_russia-dptable-kit.jpg",
+    "comment": "원본파일명: [izenimplant]russia_dptable_kit.jpg"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_russia-product-section.jpg",
+    "comment": "원본파일명: [izenimplant]russia_product section.jpg"
+  },
+  {
+    "bucket": "fallback",
+    "path": "02_ASSET/02_제품-렌더링/연출",
+    "name": "IZEN_FALLBACK_russia-zenex.psb",
+    "comment": "원본파일명: [izenimplant]russia_zenex.psb"
   },
   {
     "bucket": "fallback",
@@ -3726,50 +3228,8 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   {
     "bucket": "fallback",
     "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_Taiwan-graphic-2.ai",
-    "comment": "원본파일명: [izen]Taiwan graphic (2).ai"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_Taiwan-graphic-2.png",
-    "comment": "원본파일명: [izen]Taiwan graphic (2).png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_Taiwan-graphic-3.ai",
-    "comment": "원본파일명: [izen]Taiwan graphic (3).ai"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_Taiwan-graphic-3.png",
-    "comment": "원본파일명: [izen]Taiwan graphic (3).png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_Taiwan-graphic.ai",
-    "comment": "원본파일명: [izen]Taiwan graphic.ai"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_Taiwan-graphic.png",
-    "comment": "원본파일명: [izen]Taiwan graphic.png"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_vietnam-exhibition-graphic.psd",
-    "comment": "원본파일명: vietnam_exhibition_graphic.psd"
-  },
-  {
-    "bucket": "fallback",
-    "path": "02_ASSET/02_제품-렌더링/연출",
-    "name": "IZEN_FALLBACK_zenex-implant-system.ai",
-    "comment": "원본파일명: [poster]zenex implant system.ai"
+    "name": "IZEN_FALLBACK_tv-slogan.ai",
+    "comment": "원본파일명: [izenimplant]tv_slogan.ai"
   },
   {
     "bucket": "fallback",
@@ -5906,5 +5366,545 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
     "path": "02_ASSET/연자/Vietnam-Launching",
     "name": "Vietnam-Launching_Vietnam-Launching-Symposium-Ceti.png",
     "comment": "원본파일명: Vietnam Launching Symposium_Ceti.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-door-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_door_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-EASYSURGERY-KIT_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_EASYSURGERY KIT.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-fixture-dental-clinic_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_fixture(dental-clinic).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-How-to-use-ZENEX-fixtrue-eng_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-eng.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-How-to-use-ZENEX-fixtrue-russian_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-russian.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-New-Product-Differentiation-Points_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_New Product Differentiation Points.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-SURGERY-KIT_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_SURGERY KIT.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-guide-kit_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex guide kit.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-I-system-fixture-features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex I-system fixture_features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-Zenex-Multi-Plus-Chameleon_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_Zenex Multi Plus Chameleon.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-ZENEX-multi-plus-R-System-Features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_ZENEX multi_plus R-System Features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-ZENEX-Multi-Plus-Space_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_ZENEX Multi Plus Space.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-R-system-fixture-features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex R-system fixture_features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-T-system-fixture-features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex T-system fixture_features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-about-implant-en-ru_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-about implant_en+ru.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-apple_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster_apple.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-brand-image-Birth-Of-Venus_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-brand-image-Birth-Of-Venus-frame_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus-frame.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-brand-image-illustration_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-brand image_illustration.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-color-blue-multi-fitxture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-color_blue_multi_fitxture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-color-mint-multi-plus-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-color_mint_multi plus_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-color-pink-plus-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-color_pink_plus_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-Colorline-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-Colorline_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-ITR-poster_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-ITR poster.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-light-Multi-Plus-Fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-light_Multi,Plus Fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-particleMulti-Plus-Fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-particleMulti,Plus Fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-product_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster_product.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/리플렛",
+    "name": "IZEN_리플렛_poster-product-1p-rendering_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster_product_1p_rendering.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-01-83x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [Philippines]banner_01_83x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-02-83x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [Philippines]banner_02_83x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-1-80-220_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_1_80-220.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-2-80-220_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_2_80-220.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-3-83-200_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_3_83-200.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-4-83-200_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_4_83-200.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-5-83-200_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_5_83-200.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-90x150cm-240405-1_Rev01.png",
+    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_1.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-90x150cm-240405-2_Rev01.png",
+    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_2.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-launching-01-75x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [malaysia]banner_launching_01_75x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner-launching-02-75x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [malaysia]banner_launching_02_75x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_banner2-60-180_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner2_60-180.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-banner_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]CDSMWM_banner.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-banner_Rev01.png",
+    "comment": "원본파일명: [izenimplant]CDSMWM_banner.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-hanging_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]CDSMWM_hanging.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-hangingbanner-multi_Rev01.png",
+    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_multi.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-hangingbanner-plus_Rev01.png",
+    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_plus.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-Wall_Rev01.pdf",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-Wall_Rev01.png",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-Wall2_Rev01.pdf",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_CDSMWM-Wall2_Rev01.png",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_IAM-CIS-2024-mini-banner-BPM_Rev01.jpg",
+    "comment": "원본파일명: IAM CIS 2024 mini banner_BPM.jpg"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_IAM-CIS-2024-standing-banner_Rev01.png",
+    "comment": "원본파일명: IAM CIS 2024 standing banner.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_IAM-CIS-2024-standing-banner-Suwon_Rev01.png",
+    "comment": "원본파일명: IAM CIS 2024 standing banner_Suwon.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_Morocco-banner-최종-인쇄_Rev01.pdf",
+    "comment": "원본파일명: Morocco banner 최종 인쇄.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_saudiarabia-wallgraphic-01_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_01.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_saudiarabia-wallgraphic-02_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_02.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_saudiarabia-wallgraphic-03_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_03.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_Taiwan-graphic_Rev01.png",
+    "comment": "원본파일명: [izen]Taiwan graphic.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_Taiwan-graphic-2_Rev01.png",
+    "comment": "원본파일명: [izen]Taiwan graphic (2).png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_Taiwan-graphic-3_Rev01.png",
+    "comment": "원본파일명: [izen]Taiwan graphic (3).png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-back-01_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_back_01.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-back-02_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_back_02.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-back-03_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_back_03.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-front-01_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_front_01.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-front-02_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_front_02.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/배너-현수막",
+    "name": "IZEN_배너_X-banner5_Rev01.pdf",
+    "comment": "원본파일명: [IZEN IMPLANT] X-banner5.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-16p-ZENEX-Compatibility-Chart-Competitors_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-16p-ZENEX Compatibility Chart(Competitors).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-24p-zenex-guide-kit-manual_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-24p-zenex guide kit manual.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-3p-sinus-combination-kit_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-3p-sinus combination kit.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-3p-ZENEX-Compatibility-Chart-Rev-00_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-3p-ZENEX Compatibility Chart (Rev.00).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-4p-PLAZMAX-IZEN-Implant_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-4p-PLAZMAX_IZEN Implant.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-Patient-Leaflet_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-Patient Leaflet.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-I-system-leaflet-actual-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI-I-system leaflet(actual size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-I-system-leaflet-Public-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI I system leaflet(Public size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-R-system-leaflet-actual-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI R system leaflet(actual size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-R-system-leaflet-Public-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI R system leaflet(Public size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-T-system-leaflet-actual-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI T system leaflet(actual size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-T-system-leaflet-Public-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI T system leaflet(Public size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-I-system-leaflet-actual-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS I system leaflet(actual size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-I-system-leaflet-Public-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS I system leaflet(Public size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-R-system-leaflet-actual-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS R system leaflet(actual size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-R-system-leaflet-Public-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS R system leaflet(Public size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-T-system-leaflet-actual-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS T system leaflet(actual size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-T-system-leaflet-Public-size_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS T system leaflet(Public size).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-8p-I-system-brochure_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-8p-I-system brochure.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-8p-product-brochure_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-8p product brochure.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-8p-R-system-brochure_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-8p-R-system brochure.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_brochure-8p-T-system-brochure_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]brochure-8p-T-system brochure.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_IZ-PMA-01-REV00-JAN-22_Rev01.pdf",
+    "comment": "원본파일명: [Prosthetic Manual]IZ-PMA-01_REV00_(JAN_22).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_Prosthetic-Manual-IZ-PMA-02-REV01-2023-08_Rev01.pdf",
+    "comment": "원본파일명: [FDA][Prosthetic Manual]IZ-PMA-02_REV01_(2023-08).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/인쇄물/브로슈어",
+    "name": "IZEN_브로슈어_Инструкция-по-протезированию-1_Rev01.pdf",
+    "comment": "원본파일명: Инструкция по протезированию (1).pdf"
   }
 ]
