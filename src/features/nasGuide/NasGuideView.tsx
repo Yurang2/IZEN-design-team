@@ -116,7 +116,7 @@ const NAS_TREE: TreeNode[] = [
       d('00_기획-문서'),
       d('01_인쇄물', [d('리플렛'), d('배너-현수막')]),
       d('02_부스', [d('부스디자인'), d('부스그래픽')]),
-      d('04_영상', [d('a_자체촬영'), d('c_티저'), d('f_후기')]),
+      d('04_영상', [d('클립'), d('후기영상'), d('홍보영상')]),
     ]),
     dc('IZ250003_IDS-Cologne-2026', '소규모', [
       d('01_인쇄물', [d('리플렛'), d('배너-현수막')]),
@@ -133,7 +133,7 @@ const NAS_TREE: TreeNode[] = [
     dc('IZ250015_회사소개영상-v3수정', '영업팀 검수 → 자막 수정 → 최종본', [
       d('00_기획-문서', [fc('[수신]_회사소개영상_검수의견_영업팀.docx', '영업팀 검수 docx')]),
       d('04_영상', [
-        d('f_후기', [f('IZEN_회사소개영상-Full_v03.prproj'), f('IZEN_회사소개영상-Full_EN_v03.mp4'), f('IZEN_회사소개영상-Short_EN_v03.mp4')]),
+        d('회사소개영상', [f('IZEN_회사소개영상-Full_v03.prproj'), f('IZEN_회사소개영상-Full_EN_v03.mp4')]),
       ]),
     ]),
     dc('IZ250016_I-system-카달로그-리뉴얼', 'InDesign → 다국어 PDF', [
@@ -152,7 +152,7 @@ const NAS_TREE: TreeNode[] = [
     dc('IZ250018_제품-사용법영상-T-system', '스토리보드 → 3D → 편집', [
       d('00_기획-문서', [f('IZEN_T-system_사용법영상_스토리보드_v01.pptx')]),
       d('04_영상', [
-        d('e_모션그래픽', [f('IZEN_T-system_사용법_3D_v02.c4d'), f('IZEN_T-system_사용법영상-기본편_v02.prproj'), f('IZEN_T-system_사용법영상-기본편_v02.mp4')]),
+        d('제품영상', [f('IZEN_T-system_사용법_3D_v02.c4d'), f('IZEN_T-system_사용법영상-기본편_v02.prproj'), f('IZEN_T-system_사용법영상-기본편_v02.mp4')]),
       ]),
     ]),
     // ── 정기 (0900~0999) ──
@@ -264,7 +264,7 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
   { situation: '프로젝트 전용 제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../03_디지털/렌더링/' },
   { situation: '제품 렌더링 범용 원본 (여러 곳 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/02_제품-렌더링/I-system/' },
   { situation: '연구소 요청 신제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250017_.../03_디지털/렌더링/' },
-  { situation: '행사 촬영 RAW 영상 (MOV, MXF)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/촬영원본/' },
+  { situation: '행사 촬영 RAW 영상 (MOV, MXF)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/클립/자체촬영/' },
   { situation: '행사 보정 완료 사진', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../05_사진/보정-선별/' },
   { situation: '회사소개영상 최종 배포본 MP4', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/01_회사소개/company-video/ (Rev)' },
   { situation: 'Pretendard 폰트 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/06_폰트/' },
@@ -277,8 +277,8 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
   { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250901_뉴스레터/2026-04/' },
   { situation: '판촉물/굿즈 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../00_기획-문서/' },
   { situation: '홈페이지 팝업 이미지', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250023_홈페이지-팝업-신년이벤트/' },
-  { situation: 'LED 대기화면/오프닝 등 모션 작업', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/e_모션그래픽/ → 완성 후 03_디지털/행사운영/에 복사' },
-  { situation: '모션그래픽 (오프닝, 브레이크 등)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/e_모션그래픽/' },
+  { situation: 'LED 대기화면/오프닝 등 모션 작업', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/모션그래픽/ → 완성 후 03_디지털/행사운영/에 복사' },
+  { situation: '모션그래픽 (오프닝, 브레이크 등)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/모션그래픽/' },
   { situation: '2024년 이전 파일 전부', loc: 'ARCHIVE', color: 'archive', path: '99_ARCHIVE/2024_07_이전/' },
 ]
 
