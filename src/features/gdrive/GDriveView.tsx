@@ -91,7 +91,7 @@ export function GDriveView() {
   const [files, setFiles] = useState<GDriveFile[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [folderId, setFolderId] = useState('root')
+  const [, setFolderId] = useState('root')
   const [folderStack, setFolderStack] = useState<Array<{ id: string; name: string }>>([{ id: 'root', name: 'Google Drive' }])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
