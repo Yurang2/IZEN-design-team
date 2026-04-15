@@ -22,8 +22,9 @@ Google Drive
 ## 세부 구조
 - `01_회사소개`: `company-profile`, `company-video`
 - `02_카달로그`: `I-system`, `T-system`, `R-system`
+- `02_카달로그/I-system`: 최신본 + 내부 `_archive`
 - `08_영상`: `후기영상`, `홍보영상`, `브랜딩영상`, `모션그래픽`, `제품영상`, `회사소개영상`
-- `12__archive`: 구버전 Rev 보관
+- `12__archive`: `구버전` 하위에 Rev 구버전 보관
 
 ## 운영 규칙
 - Google Drive에는 완성 배포본만 둡니다

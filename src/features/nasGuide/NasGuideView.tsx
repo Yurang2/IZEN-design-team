@@ -162,6 +162,11 @@ const NAS_TREE: TreeNode[] = [
         d('제품영상', [f('IZEN_T-system_사용법_3D_v02.c4d'), f('IZEN_T-system_사용법영상-기본편_v02.prproj'), f('IZEN_T-system_사용법영상-기본편_v02.mp4')]),
       ]),
     ]),
+    dc('IZ250031_IFU-Rev개정', 'IFU 개정 → 최종 PDF 배포', [
+      d('01_인쇄물', [
+        d('IFU', [f('IZEN_I-system_IFU_EN_v02.indd'), f('IZEN_I-system_IFU_EN_v02.pdf')]),
+      ]),
+    ]),
     // ── 정기 (순번, 구분 없음) ──
     dc('IZ250900_SNS-정기콘텐츠', '정기 (매년 생성, 연말 아카이브)', [
       d('제품', [d('2025-03_I-system-신제품', [f('IZEN_SNS_제품_I-system-fixture_v02.png')]), d('2025-04_T-system-케이스')]),
@@ -243,35 +248,43 @@ const GDRIVE_TREE: TreeNode[] = [
 // Decision table data
 // ---------------------------------------------------------------------------
 
-const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof C; path: string }> = [
-  { situation: 'CIS 행사 포스터 작업중 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../01_인쇄물/포스터/' },
-  { situation: 'CIS 포스터 완성 배포본 PDF', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/05_포스터/ (Rev01)' },
-  { situation: 'IZEN 로고 AI, PNG', loc: 'ASSET', color: 'asset', path: '02_ASSET/01_로고/IZEN_CI/' },
-  { situation: 'I-system 카달로그 최신 PDF', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/02_카달로그/I-system/' },
-  { situation: '영업팀이 보내준 검수 docx', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-..._회사소개영상/00_기획-문서/' },
-  { situation: '월간 SNS 제품 콘텐츠 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-..._SNS-정기콘텐츠/제품/2026-04_제품명/' },
-  { situation: 'Dr. Kim 임상 사진 (반복 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/09_임상/자사-케이스/' },
-  { situation: '타사 임상 포스터 참고자료', loc: 'ASSET', color: 'asset', path: '02_ASSET/09_임상/레퍼런스/' },
-  { situation: 'AEEDC 부스 3D 모델링 C4D', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250002_.../02_부스/부스디자인/' },
-  { situation: '프로젝트 전용 제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../03_디지털/렌더링/' },
-  { situation: '제품 렌더링 범용 원본 (여러 곳 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/02_제품-렌더링/I-system/' },
-  { situation: '연구소 요청 신제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250017_.../03_디지털/렌더링/' },
-  { situation: '행사 촬영 RAW 영상 (MOV, MXF)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/클립/자체촬영/' },
-  { situation: '행사 보정 완료 사진', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../05_사진/보정-선별/' },
-  { situation: '회사소개영상 최종 배포본 MP4', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/01_회사소개/company-video/ (Rev)' },
-  { situation: 'Pretendard 폰트 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/06_폰트/' },
-  { situation: 'SNS 템플릿 PSD', loc: 'ASSET', color: 'asset', path: '02_ASSET/07_템플릿/' },
-  { situation: 'I-system STEP 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/03_3D-소스/' },
-  { situation: '브랜드 가이드라인 PDF', loc: 'ASSET', color: 'asset', path: '02_ASSET/05_브랜드-가이드/' },
-  { situation: '카달로그 InDesign 작업파일', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250016_.../01_인쇄물/카달로그/' },
-  { situation: 'IFU 작업중 InDesign', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250031_IFU-Rev개정/' },
-  { situation: 'IFU 최종 출력용 PDF', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/10_IFU/ (Rev)' },
-  { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250901_뉴스레터/2026-04/' },
-  { situation: '판촉물/굿즈 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../00_기획-문서/' },
-  { situation: '홈페이지 팝업 이미지', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250023_홈페이지-팝업-신년이벤트/' },
-  { situation: 'LED 대기화면/오프닝 등 모션 작업', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/모션그래픽/ → 완성 후 03_디지털/행사운영/에 복사' },
-  { situation: '모션그래픽 (오프닝, 브레이크 등)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/모션그래픽/' },
-  { situation: '2024년 이전 파일 전부', loc: 'ARCHIVE', color: 'archive', path: '99_ARCHIVE/2024_07_이전/' },
+const DECISION_ROWS: Array<{
+  situation: string
+  workLoc?: string
+  workColor?: keyof typeof C
+  workPath?: string
+  publishLoc?: string
+  publishColor?: keyof typeof C
+  publishPath?: string
+}> = [
+  { situation: 'CIS 행사 포스터 작업중 PSD', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../01_인쇄물/포스터/' },
+  { situation: 'CIS 포스터 완성 배포본 PDF', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../01_인쇄물/포스터/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/05_포스터/ (Rev01)' },
+  { situation: 'IZEN 로고 AI, PNG', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/01_로고/IZEN_CI/' },
+  { situation: 'I-system 카달로그 최신 PDF', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250016_.../01_인쇄물/카달로그/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/02_카달로그/I-system/' },
+  { situation: '영업팀이 보내준 검수 docx', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250015_회사소개영상-v3수정/00_기획-문서/' },
+  { situation: '월간 SNS 제품 콘텐츠 PSD', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250900_SNS-정기콘텐츠/제품/2025-03_I-system-신제품/' },
+  { situation: 'Dr. Kim 임상 사진 (반복 사용)', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/09_임상/자사-케이스/' },
+  { situation: '타사 임상 포스터 참고자료', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/09_임상/타사-레퍼런스/' },
+  { situation: 'AEEDC 부스 3D 모델링 C4D', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250002_.../02_부스/부스디자인/' },
+  { situation: '프로젝트 전용 제품 렌더링', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../03_디지털/렌더링/' },
+  { situation: '제품 렌더링 범용 원본 (여러 곳 사용)', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/02_제품-렌더링/연출/' },
+  { situation: '연구소 요청 신제품 렌더링', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250017_.../03_디지털/렌더링/' },
+  { situation: '행사 촬영 RAW 영상 (MOV, MXF)', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../04_영상/a_자체촬영/' },
+  { situation: '행사 보정 완료 사진', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../05_사진/c_보정/' },
+  { situation: '회사소개영상 최종 배포본 MP4', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250015_회사소개영상-v3수정/04_영상/회사소개영상/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/01_회사소개/company-video/ (Rev)' },
+  { situation: 'Pretendard 폰트 파일', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/06_폰트/' },
+  { situation: 'SNS 템플릿 PSD', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/07_템플릿/' },
+  { situation: 'I-system STEP 파일', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/03_3D-소스/' },
+  { situation: '브랜드 가이드라인 PDF', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/05_브랜드-가이드/' },
+  { situation: '카달로그 InDesign 작업파일', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250016_.../01_인쇄물/카달로그/' },
+  { situation: 'IFU 작업중 InDesign', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250031_IFU-Rev개정/01_인쇄물/IFU/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/10_IFU/ (최종 PDF 배포)' },
+  { situation: 'IFU 최종 출력용 PDF', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250031_IFU-Rev개정/01_인쇄물/IFU/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/10_IFU/ (Rev)' },
+  { situation: '뉴스레터 디자인 PSD', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250901_뉴스레터/2025-03/' },
+  { situation: '판촉물/굿즈 견적서', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../00_기획-문서/' },
+  { situation: '홈페이지 팝업 이미지', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ26XXXX_홈페이지팝업/03_디지털/홈페이지/' },
+  { situation: 'LED 대기화면/오프닝 등 모션 작업', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../04_영상/모션그래픽/ → 완성 후 03_디지털/행사운영/에 복사' },
+  { situation: '모션그래픽 (오프닝, 브레이크 등)', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../04_영상/모션그래픽/' },
+  { situation: '2024년 이전 파일 전부', workLoc: 'ARCHIVE', workColor: 'archive', workPath: '99_ARCHIVE/2024_07_이전/' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -923,13 +936,16 @@ function DecisionSection() {
             <h3>상황별 저장 위치</h3>
           </div>
         </div>
+        <p style={{ fontSize: '0.85em', color: 'var(--text2)', margin: '0 0 10px' }}>
+          최종 산출물은 <strong>PROJECT 보관본</strong>과 <strong>Google Drive 배포본</strong>이 함께 존재할 수 있습니다.
+        </p>
         <div className="guideTableWrap" style={{ maxHeight: 520, overflow: 'auto' }}>
           <table className="fileGuideTable">
             <thead>
               <tr>
                 <th>상황</th>
-                <th>위치</th>
-                <th>경로</th>
+                <th>작업 위치</th>
+                <th>최종 배포 위치</th>
               </tr>
             </thead>
             <tbody>
@@ -937,25 +953,56 @@ function DecisionSection() {
                 <tr key={row.situation}>
                   <td>{row.situation}</td>
                   <td>
-                    <span
-                      style={{
-                        background: C[row.color].bg,
-                        border: `1px solid ${C[row.color].border}`,
-                        borderRadius: 999,
-                        padding: '2px 8px',
-                        fontSize: '0.82em',
-                        fontWeight: 600,
-                        color: C[row.color].text,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {row.loc}
-                    </span>
+                    {row.workLoc && row.workColor && row.workPath ? (
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <span
+                          style={{
+                            width: 'fit-content',
+                            background: C[row.workColor].bg,
+                            border: `1px solid ${C[row.workColor].border}`,
+                            borderRadius: 999,
+                            padding: '2px 8px',
+                            fontSize: '0.82em',
+                            fontWeight: 600,
+                            color: C[row.workColor].text,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {row.workLoc}
+                        </span>
+                        <code className="fileGuideCode" style={{ fontSize: 11 }}>
+                          {row.workPath}
+                        </code>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>-</span>
+                    )}
                   </td>
                   <td>
-                    <code className="fileGuideCode" style={{ fontSize: 11 }}>
-                      {row.path}
-                    </code>
+                    {row.publishLoc && row.publishColor && row.publishPath ? (
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <span
+                          style={{
+                            width: 'fit-content',
+                            background: C[row.publishColor].bg,
+                            border: `1px solid ${C[row.publishColor].border}`,
+                            borderRadius: 999,
+                            padding: '2px 8px',
+                            fontSize: '0.82em',
+                            fontWeight: 600,
+                            color: C[row.publishColor].text,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {row.publishLoc}
+                        </span>
+                        <code className="fileGuideCode" style={{ fontSize: 11 }}>
+                          {row.publishPath}
+                        </code>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>-</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1589,7 +1636,7 @@ const AUTO_SAVE_SUBFOLDER_ROWS: Array<{ keyword: string; folder: string; example
   { keyword: 'PPT', folder: '03_디지털/PPT', example: '발표자료 디자인' },
   { keyword: '렌더링', folder: '03_디지털/렌더링', example: '제품 렌더링' },
   { keyword: '영상', folder: '04_영상', example: '영상 전반' },
-  { keyword: '촬영', folder: '04_영상/자체촬영', example: '자체 촬영 영상' },
+  { keyword: '촬영', folder: '04_영상/a_자체촬영', example: '자체 촬영 영상' },
   { keyword: '편집', folder: '04_영상', example: '영상 편집 (종류별 폴더에서 작업)' },
   { keyword: '모션', folder: '04_영상/모션그래픽', example: '모션그래픽 (오프닝, 브레이크 등)' },
   { keyword: '3D', folder: '04_영상/모션그래픽', example: '3D 모션/애니메이션' },
@@ -1609,12 +1656,12 @@ const AUTO_SAVE_FILENAME_PARTS: Array<{ el: string; source: string; auto: string
 ]
 
 const AUTO_SAVE_EXAMPLES: Array<{ task: string; workType: string; path: string; filename: string }> = [
-  { task: 'CIS 2026 포스터', workType: '포스터', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터/', filename: 'IZEN_CIS-2026-포스터_EN_A1_v01.ai' },
+  { task: 'CIS 2026 포스터', workType: '포스터', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터/', filename: 'IZEN_CIS2026_포스터_EN_A1_v01.ai' },
   { task: 'CIS 2026 후기영상 편집', workType: '편집', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/04_영상/후기영상/', filename: 'IZEN_CIS2026_후기_v02.prproj' },
   { task: 'I-system 카달로그 리뉴얼', workType: '카달로그', path: '/Izenimplant/Marketing/01_PROJECT/IZ250016_I-system-카달로그-리뉴얼/01_인쇄물/카달로그/', filename: 'IZEN_I-system-카달로그-리뉴얼_EN_v04.indd' },
-  { task: 'SNS 제품 콘텐츠', workType: 'SNS', path: '/Izenimplant/Marketing/01_PROJECT/IZ250900_SNS-정기콘텐츠/03_디지털/SNS/', filename: 'IZEN_SNS-제품-콘텐츠_v01.psd' },
+  { task: 'SNS 제품 콘텐츠', workType: 'SNS', path: '/Izenimplant/Marketing/01_PROJECT/IZ250900_SNS-정기콘텐츠/03_디지털/SNS/', filename: 'IZEN_SNS_제품_I-system-신제품_v01.psd' },
   { task: '신제품 렌더링', workType: '렌더링', path: '/Izenimplant/Marketing/01_PROJECT/IZ250017_신제품-렌더링-연구소요청/03_디지털/렌더링/', filename: 'IZEN_신제품-렌더링_v01.png' },
-  { task: '부스 벽면 그래픽', workType: '부스그래픽', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/02_부스/부스그래픽/', filename: 'IZEN_부스-벽면-그래픽_v01.ai' },
+  { task: '부스 벽면 그래픽', workType: '부스그래픽', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/02_부스/부스그래픽/', filename: 'IZEN_CIS2026_부스_벽면A_v01.ai' },
 ]
 
 function AutoSaveSection() {

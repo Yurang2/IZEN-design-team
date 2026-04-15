@@ -10,6 +10,7 @@
 ## 현재 기준
 - 기준 화면: `NAS 폴더 구조 가이드 > 폴더 구조`
 - 기준 트리: `NasGuideView.tsx`의 `NAS_TREE`, `GDRIVE_TREE`
+- 기준 보조설명: 같은 파일의 `DECISION_ROWS`, `AUTO_SAVE_SUBFOLDER_ROWS`, `AUTO_SAVE_EXAMPLES`
 - 기준 네이밍: 같은 파일의 `NAMING_ELEMENTS`, `NAMING_CATEGORIES`
 - 실제파일 예시: txt 복구 데이터로 생성된 `nasGuideExamples.generated.ts`
 
@@ -23,7 +24,7 @@
 1. 구조/규칙을 먼저 이 문서에 반영
 2. 그 다음 `NasGuideView.tsx`와 생성 규칙을 수정
 3. 관련 결정 배경이나 미결 사항은 Notion 이슈 트래커에 남김
-4. 수정 후 `docs/nas-structure/*.md`와 `NasGuideView.tsx` 하드코딩 트리가 서로 일치하는지 반드시 대조
+4. 수정 후 `docs/nas-structure/*.md`와 `NasGuideView.tsx`의 트리/결정표/자동저장 예시가 서로 일치하는지 반드시 대조
 
 ## 주의
 - `.tsx` 안의 샘플 파일명은 문서 규칙을 따라야 함
