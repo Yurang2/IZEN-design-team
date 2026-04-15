@@ -533,7 +533,7 @@ export function NasUploadView() {
       await api('/nas/create-folder', {
         method: 'POST',
         body: JSON.stringify({ sid, folderPath: fullNasPath.substring(0, fullNasPath.lastIndexOf('/')), name: fullNasPath.substring(fullNasPath.lastIndexOf('/') + 1) }),
-      }).catch(() => {})
+      })
 
       const uploadedNames: string[] = []
       const errors: string[] = []
