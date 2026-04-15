@@ -68,7 +68,9 @@ export function GDriveView() {
   const [files, setFiles] = useState<GDriveFile[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [folderStack, setFolderStack] = useState<Array<{ id: string; name: string }>>([{ id: '0AL-N2-VGLQRaUk9PVA', name: 'For Dealer' }])
+  const SHARED_DRIVE_ID = '0AL-N2-VGLQRaUk9PVA'
+  const ROOT_FOLDER_ID = '0AL-N2-VGLQRaUk9PVA'
+  const [folderStack, setFolderStack] = useState<Array<{ id: string; name: string }>>([{ id: ROOT_FOLDER_ID, name: 'For Dealer' }])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
   const [showNames, setShowNames] = useState(true)
@@ -80,7 +82,7 @@ export function GDriveView() {
     try {
       const res = await api<{ ok: boolean; files?: GDriveFile[]; error?: string }>('/gdrive/list', {
         method: 'POST',
-        body: JSON.stringify({ folderId: targetFolderId }),
+        body: JSON.stringify({ folderId: targetFolderId, driveId: SHARED_DRIVE_ID }),
       })
       if (res.ok && res.files) {
         setFiles(res.files.sort((a, b) => {

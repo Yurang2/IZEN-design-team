@@ -362,10 +362,15 @@ export default {
         try {
           const body = await readJsonBody(request)
           const folderId = asString(body.folderId) || 'root'
+          const driveId = asString(body.driveId) || ''
           const token = await getAccessToken()
           const q = `'${folderId}' in parents and trashed = false`
           const fields = 'files(id,name,mimeType,thumbnailLink,webViewLink,size,createdTime)'
-          const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=100&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`, {
+          let apiUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=100&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true`
+          if (driveId) {
+            apiUrl += `&corpora=drive&driveId=${driveId}`
+          }
+          const res = await fetch(apiUrl, {
             headers: { Authorization: `Bearer ${token}` },
           })
           const data: any = await res.json()
