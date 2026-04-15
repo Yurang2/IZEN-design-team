@@ -141,7 +141,7 @@ const TASK_PROCESSES: TaskProcess[] = [
       { number: '04', title: '귀속 소스 업로드', detail: '귀속 폴더 안에: 썸네일(v 관리), 자막(v 관리, 언어별), BGM(원본 파일명 예: Adobestock_NNN.wav), 스톡 영상(원본 파일명 예: Adobestock_NNN.mp4).' },
       { number: '05', title: '버전 관리', detail: '렌더 직후 바로 "다른 이름으로 저장"으로 v 올림. 자막도 검수 피드백 반영 시 v 올림.' },
       { number: '06', title: '모션그래픽 (해당시)', detail: '오프닝, 브레이크 등 → 모션그래픽/ 폴더. 완성본은 03_디지털/행사운영/에도 복사.' },
-      { number: '07', title: 'LIBRARY 등록', detail: '배포용 최종본은 03_LIBRARY/에 Rev 번호로 올림.' },
+      { number: '07', title: 'Google Drive 등록', detail: '배포용 최종본은 Google Drive에 Rev 번호로 올림.' },
     ],
   },
   {
@@ -152,7 +152,7 @@ const TASK_PROCESSES: TaskProcess[] = [
       { number: '01', title: '기획 참고자료 수집', detail: '레퍼런스 → 00_기획-문서/레퍼런스/. 타팀 수신 기획서 → 00_기획-문서/.' },
       { number: '02', title: '시안 작업 (v01~)', detail: '해당 산출물 폴더에서 v01로 시작. 포스터 → 01_인쇄물/포스터/, SNS → 03_디지털/SNS/.' },
       { number: '03', title: '피드백 반영 (v02, v03...)', detail: '수정할 때마다 v 번호 올림. 이전 버전도 같은 폴더에 보관.' },
-      { number: '04', title: '최종 승인 → LIBRARY', detail: '승인된 버전을 내보내기 → 03_LIBRARY/ 해당 카테고리에 Rev 번호로 올림.' },
+      { number: '04', title: '최종 승인 → Google Drive', detail: '승인된 버전을 내보내기 → Google Drive 해당 카테고리에 Rev 번호로 올림.' },
     ],
   },
   {

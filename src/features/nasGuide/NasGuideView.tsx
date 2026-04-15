@@ -195,29 +195,6 @@ const NAS_TREE: TreeNode[] = [
     d('09_임상', [dc('자사-케이스', '자사 임상 사진'), dc('타사-레퍼런스', '타사 임상 참고')]),
     dc('연자', '연자 사진+프로필'),
   ]),
-  dc('03_LIBRARY', '완성 배포본 (항상 최신 Rev만)', [
-    d('01_회사소개', [
-      dc('company-profile', 'PPT, PDF', [f('IZEN_회사소개서_EN_Rev02.pdf'), f('IZEN_회사소개서_EN_Rev02.pptx')]),
-      dc('company-video', '소개영상 최종본', [f('IZEN_회사소개영상-Full_EN_Rev01.mp4'), f('IZEN_회사소개영상-Short_EN_Rev01.mp4')]),
-    ]),
-    d('02_카달로그', [
-      d('I-system', [
-        fc('IZEN_I-system_카달로그_EN_Rev03.pdf', '← 최신 배포본'),
-        f('IZEN_I-system_카달로그_RU_Rev02.pdf'),
-        dc('_archive', '구버전', [f('IZEN_I-system_카달로그_EN_Rev02.pdf'), f('IZEN_I-system_카달로그_EN_Rev01.pdf')]),
-      ]),
-      d('T-system'),
-      d('R-system'),
-    ]),
-    d('03_브로슈어'),
-    d('04_리플렛'),
-    d('05_포스터'),
-    d('06_certificate'),
-    d('07_배너-사인물'),
-    d('08_영상', [d('후기영상'), d('홍보영상'), d('브랜딩영상'), d('모션그래픽'), d('제품영상'), d('회사소개영상')]),
-    d('09_패키지'),
-    d('10_IFU'),
-  ]),
   dc('99_ARCHIVE', '과거 파일 보존', [
     dc('2024_07_이전', '기존 462K 파일 그대로 보존 — 재분류 안 함'),
   ]),
@@ -253,9 +230,9 @@ const GDRIVE_TREE: TreeNode[] = [
 
 const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof C; path: string }> = [
   { situation: 'CIS 행사 포스터 작업중 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../01_인쇄물/포스터/' },
-  { situation: 'CIS 포스터 완성 배포본 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/05_포스터/ (Rev01)' },
+  { situation: 'CIS 포스터 완성 배포본 PDF', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/05_포스터/ (Rev01)' },
   { situation: 'IZEN 로고 AI, PNG', loc: 'ASSET', color: 'asset', path: '02_ASSET/01_로고/IZEN_CI/' },
-  { situation: 'I-system 카달로그 최신 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/02_카달로그/I-system/' },
+  { situation: 'I-system 카달로그 최신 PDF', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/02_카달로그/I-system/' },
   { situation: '영업팀이 보내준 검수 docx', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-..._회사소개영상/00_기획-문서/' },
   { situation: '월간 SNS 제품 콘텐츠 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/DT-..._SNS-정기콘텐츠/제품/2026-04_제품명/' },
   { situation: 'Dr. Kim 임상 사진 (반복 사용)', loc: 'ASSET', color: 'asset', path: '02_ASSET/09_임상/자사-케이스/' },
@@ -266,14 +243,14 @@ const DECISION_ROWS: Array<{ situation: string; loc: string; color: keyof typeof
   { situation: '연구소 요청 신제품 렌더링', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250017_.../03_디지털/렌더링/' },
   { situation: '행사 촬영 RAW 영상 (MOV, MXF)', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../04_영상/클립/자체촬영/' },
   { situation: '행사 보정 완료 사진', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../05_사진/보정-선별/' },
-  { situation: '회사소개영상 최종 배포본 MP4', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/01_회사소개/company-video/ (Rev)' },
+  { situation: '회사소개영상 최종 배포본 MP4', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/01_회사소개/company-video/ (Rev)' },
   { situation: 'Pretendard 폰트 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/06_폰트/' },
   { situation: 'SNS 템플릿 PSD', loc: 'ASSET', color: 'asset', path: '02_ASSET/07_템플릿/' },
   { situation: 'I-system STEP 파일', loc: 'ASSET', color: 'asset', path: '02_ASSET/03_3D-소스/' },
   { situation: '브랜드 가이드라인 PDF', loc: 'ASSET', color: 'asset', path: '02_ASSET/05_브랜드-가이드/' },
   { situation: '카달로그 InDesign 작업파일', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250016_.../01_인쇄물/카달로그/' },
   { situation: 'IFU 작업중 InDesign', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250031_IFU-Rev개정/' },
-  { situation: 'IFU 최종 출력용 PDF', loc: 'LIBRARY', color: 'library', path: '03_LIBRARY/10_IFU/ (Rev)' },
+  { situation: 'IFU 최종 출력용 PDF', loc: 'Google Drive', color: 'gdrive', path: 'Google Drive/10_IFU/ (Rev)' },
   { situation: '뉴스레터 디자인 PSD', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250901_뉴스레터/2026-04/' },
   { situation: '판촉물/굿즈 견적서', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250001_.../00_기획-문서/' },
   { situation: '홈페이지 팝업 이미지', loc: 'PROJECT', color: 'project', path: '01_PROJECT/IZ250023_홈페이지-팝업-신년이벤트/' },
@@ -293,7 +270,7 @@ const NAMING_ELEMENTS: Array<{ el: string; req: string; desc: string; ex: string
   { el: '언어', req: '다국어일 때만', desc: 'EN, RU, ZH, KO', ex: 'EN' },
   { el: '규격', req: '필요시만', desc: '인쇄: A3, A4 / 디지털: 1080x1080, 16x9', ex: 'A4' },
   { el: '버전 (v)', req: 'PROJECT 소스', desc: '내부 수정 버전: v01, v02, v03...', ex: 'v03' },
-  { el: '리비전 (Rev)', req: 'LIBRARY 배포본', desc: '외부 배포/인허가 갱신: Rev01, Rev02...', ex: 'Rev01' },
+  { el: '리비전 (Rev)', req: 'Google Drive 배포본', desc: '외부 배포/인허가 갱신: Rev01, Rev02...', ex: 'Rev01' },
 ]
 
 const NAMING_CATEGORIES: Array<{ cat: string; examples: string[] }> = [
@@ -314,7 +291,7 @@ const NAMING_CATEGORIES: Array<{ cat: string; examples: string[] }> = [
     ],
   },
   {
-    cat: 'LIBRARY 배포본 (Rev 체계)',
+    cat: 'Google Drive 배포본 (Rev 체계)',
     examples: [
       'IZEN_I-system_카달로그_EN_Rev03.pdf',
       'IZEN_회사소개영상-Full_EN_Rev01.mp4',
@@ -354,8 +331,8 @@ const NAMING_CATEGORIES: Array<{ cat: string; examples: string[] }> = [
 // ---------------------------------------------------------------------------
 
 const MIGRATION_MAP: Array<{ old: string; dest: string; note: string }> = [
-  { old: '[IZEN IMPLANT]', dest: '03_LIBRARY/', note: '최종 파일 보관용이었음 → LIBRARY로 통합' },
-  { old: 'design', dest: '03_LIBRARY/', note: '국가별 구조는 파일명 접미사(_EN, _RU)로 대체' },
+  { old: '[IZEN IMPLANT]', dest: 'Google Drive/', note: '최종 파일 보관용이었음 → LIBRARY로 통합' },
+  { old: 'design', dest: 'Google Drive/', note: '국가별 구조는 파일명 접미사(_EN, _RU)로 대체' },
   { old: '디자인팀 내부/2024_07 이전', dest: '99_ARCHIVE/', note: '이름만 변경, 재분류 안 함 (462K 파일, 6.4TB)' },
   { old: '디자인팀 내부/나머지', dest: '01_PROJECT/', note: '신규 작업부터 새 구조 적용' },
 ]
@@ -557,8 +534,8 @@ function StructureSection() {
           {[
             { label: '01_PROJECT', desc: '작업 과정', color: C.project },
             { label: '02_ASSET', desc: '작업 재료', color: C.asset },
-            { label: '03_LIBRARY', desc: '완성 배포본', color: C.library },
             { label: '99_ARCHIVE', desc: '과거 파일', color: C.archive },
+            { label: 'Google Drive', desc: '완성 배포본 (Library)', color: C.gdrive },
           ].map((item) => (
             <div
               key={item.label}
@@ -577,7 +554,7 @@ function StructureSection() {
         <p>
           <strong>PROJECT</strong>는 프로젝트 코드(<code className="fileGuideCode">IZYYNNNN_프로젝트명</code>)로 분류합니다.
           하위 폴더는 <strong>00~06 (7개)</strong>이며, 해당 없는 폴더는 만들지 않습니다.
-          버전: PROJECT 소스파일은 <code className="fileGuideCode">v01, v02...</code>, LIBRARY 배포본은 <code className="fileGuideCode">Rev01, Rev02...</code>
+          버전: PROJECT 소스파일은 <code className="fileGuideCode">v01, v02...</code>, Google Drive 배포본은 <code className="fileGuideCode">Rev01, Rev02...</code>
         </p>
       </article>
 
@@ -649,8 +626,8 @@ function DecisionSection() {
             },
             {
               q: 'Q2. 완성되어서 타팀·외부에 바로 줄 수 있는 최종본인가?',
-              yes: '03_LIBRARY',
-              color: C.library,
+              yes: 'Google Drive',
+              color: C.gdrive,
               no: '다음 질문 ↓',
             },
             {
@@ -701,7 +678,7 @@ function DecisionSection() {
           ))}
         </div>
         <p style={{ color: 'var(--muted)', fontSize: '0.82em' }}>
-          완성본은 <strong>03_LIBRARY/</strong>에 Rev 번호로 올립니다. 납품 추적은 Notion DB + Google Drive에서 관리합니다.
+          완성본은 <strong>Google Drive/</strong>에 Rev 번호로 올립니다. 납품 추적은 Notion DB + Google Drive에서 관리합니다.
         </p>
       </article>
 
@@ -835,10 +812,10 @@ function NamingSection() {
         </div>
         <ul className="workflowList" style={{ fontSize: '0.88em' }}>
           <li>프로젝트 코드(IZYYNNNN)는 <strong>파일명에 포함하지 않음</strong> — 폴더가 이미 프로젝트별로 분리</li>
-          <li><strong>v = PROJECT 소스파일</strong> (v01, v02...), <strong>Rev = LIBRARY 배포본</strong> (Rev01, Rev02...) — 보통 다른 파일 형식 (.ai→.pdf)</li>
-          <li><code className="fileGuideCode">_작업중</code> 표시는 <strong>PROJECT 안에서만</strong> 허용, LIBRARY에는 절대 불가</li>
+          <li><strong>v = PROJECT 소스파일</strong> (v01, v02...), <strong>Rev = Google Drive 배포본</strong> (Rev01, Rev02...) — 보통 다른 파일 형식 (.ai→.pdf)</li>
+          <li><code className="fileGuideCode">_작업중</code> 표시는 <strong>PROJECT 안에서만</strong> 허용, Google Drive에는 절대 불가</li>
           <li>타팀에서 받은 파일은 <strong>원본 파일명 그대로</strong> 업로드. 회신 시에만 <code className="fileGuideCode">_담당자v01</code> 붙임</li>
-          <li>LIBRARY 파일은 항상 완성본 (Rev 체계)</li>
+          <li>Google Drive 파일은 항상 완성본 (Rev 체계)</li>
           <li>v→Rev 매핑은 Phase 2 업로드 도구에서 자동 추적 예정</li>
         </ul>
       </article>
@@ -862,8 +839,8 @@ function WorkflowSection() {
         </div>
         <div className="workflowTimeline">
           {[
-            { n: '1', text: '완성본을 03_LIBRARY/ 해당 카테고리에 Rev 번호로 올림' },
-            { n: '2', text: 'LIBRARY에 구버전 있으면 → _archive/로 이동' },
+            { n: '1', text: '완성본을 Google Drive/ 해당 카테고리에 Rev 번호로 올림' },
+            { n: '2', text: 'Google Drive에 구버전 있으면 → _archive/로 이동' },
             { n: '3', text: 'ASSET 소스가 업데이트되었으면 → ASSET도 갱신' },
           ].map((step) => (
             <article key={step.n} className="workflowStep" style={{ gridTemplateColumns: '40px 1fr' }}>
@@ -935,7 +912,7 @@ function WorkflowSection() {
           </table>
         </div>
         <p style={{ fontSize: '0.82em', color: 'var(--muted)' }}>
-          [IZEN IMPLANT]과 design은 시기를 달리해서 만들어졌지만, 둘 다 최종 파일 보관 목적이었음 (팀장 확인 완료). 새 구조에서는 03_LIBRARY 하나로 통합.
+          [IZEN IMPLANT]과 design은 시기를 달리해서 만들어졌지만, 둘 다 최종 파일 보관 목적이었음 (팀장 확인 완료). 새 구조에서는 Google Drive가 Library 역할.
         </p>
       </article>
 
@@ -1039,7 +1016,7 @@ function GDriveSection() {
         </div>
         <div className="workflowCheckpointGrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
           <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.library.border}` }}>
-            <h4>NAS (03_LIBRARY)</h4>
+            <h4>Google Drive (Library)</h4>
             <p>유형별 정리 (카달로그, 영상 등). 원본 보관소.</p>
           </div>
           <div className="workflowCheckpoint" style={{ textAlign: 'center', border: 'none', background: 'none', padding: '12px 0' }}>
@@ -1653,7 +1630,7 @@ export function NasGuideView() {
           <h2>NAS 폴더 구조 가이드</h2>
           <p>
             "이 파일은 어디에 넣어야 하지?"를 바로 판단할 수 있는 가이드입니다.
-            <strong> PROJECT</strong>(작업 과정) · <strong>ASSET</strong>(재료) · <strong>LIBRARY</strong>(완성본) · <strong>ARCHIVE</strong>(과거 파일) 4축으로 정리합니다.
+            NAS: <strong>PROJECT</strong>(작업 과정) · <strong>ASSET</strong>(재료) · <strong>ARCHIVE</strong>(과거 파일) 3축 + <strong>Google Drive</strong>(완성 배포본)로 정리합니다.
           </p>
         </div>
       </header>
