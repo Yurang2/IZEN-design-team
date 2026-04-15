@@ -27,6 +27,7 @@ const VideoManagementView = lazy(() => import('./features/videoManagement/VideoM
 const NasGuideView = lazy(() => import('./features/nasGuide/NasGuideView').then((m) => ({ default: m.NasGuideView })))
 const NasUploadView = lazy(() => import('./features/nasUpload/NasUploadView').then((m) => ({ default: m.NasUploadView })))
 const NasExplorerView = lazy(() => import('./features/nasExplorer/NasExplorerView').then((m) => ({ default: m.NasExplorerView })))
+const GDriveView = lazy(() => import('./features/gdrive/GDriveView').then((m) => ({ default: m.GDriveView })))
 const VideoManualView = lazy(() => import('./features/videoManual/VideoManualView').then((m) => ({ default: m.VideoManualView })))
 const SubtitleSharePage = lazy(() => import('./features/subtitle/SubtitleSharePage').then((m) => ({ default: m.SubtitleSharePage })))
 import { api, USE_MOCK_DATA } from './shared/api/client'
@@ -1419,6 +1420,7 @@ function App() {
         { view: 'nasGuide', title: 'NAS 폴더 구조 가이드', label: 'NAS 폴더 가이드', icon: 'list' },
         { view: 'nasUpload', title: 'NAS 파일 업로드', label: 'NAS 업로드', icon: 'plus' },
         { view: 'nasExplorer', title: 'NAS 탐색기', label: 'NAS 탐색기', icon: 'search' },
+        { view: 'gdrive', title: '구글 드라이브', label: '구글 드라이브', icon: 'external' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
         { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list', test: true },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
@@ -2626,6 +2628,8 @@ function App() {
       {activeView === 'nasUpload' ? <NasUploadView /> : null}
 
       {activeView === 'nasExplorer' ? <NasExplorerView /> : null}
+
+      {activeView === 'gdrive' ? <GDriveView /> : null}
 
       {activeView === 'guide' ? (
         <section className="guideView" aria-label="서비스 사용법">

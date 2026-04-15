@@ -431,6 +431,7 @@ export type TopView =
   | 'nasGuide'
   | 'nasUpload'
   | 'nasExplorer'
+  | 'gdrive'
   | 'guide'
 
 export type ProjectSort = 'name_asc' | 'name_desc' | 'date_asc' | 'date_desc'

@@ -33,6 +33,7 @@ export function parseTopView(value: string | null): TopView {
     value === 'nasGuide' ||
     value === 'nasUpload' ||
     value === 'nasExplorer' ||
+    value === 'gdrive' ||
     value === 'subtitle' ||
     value === 'videoManagement' ||
     value === 'guide'
@@ -114,6 +115,7 @@ export function toTopViewPath(view: TopView): string {
   if (view === 'nasGuide') return 'NAS Folder Guide'
   if (view === 'nasUpload') return 'NAS Upload'
   if (view === 'nasExplorer') return 'NAS Explorer'
+  if (view === 'gdrive') return 'Google Drive'
   if (view === 'subtitle') return 'Subtitle Script'
   if (view === 'videoManagement') return 'Video Management'
   if (view === 'meetings') return 'Meetings'
@@ -139,6 +141,7 @@ export function toTopViewTitle(view: TopView): string {
   if (view === 'nasGuide') return 'NAS 폴더 구조 가이드'
   if (view === 'nasUpload') return 'NAS 파일 업로드'
   if (view === 'nasExplorer') return 'NAS 탐색기'
+  if (view === 'gdrive') return '구글 드라이브'
   if (view === 'subtitle') return '자막 스크립트'
   if (view === 'videoManagement') return '영상 관리'
   if (view === 'meetings') return '회의록'
