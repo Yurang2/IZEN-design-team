@@ -16,11 +16,9 @@ type GDriveFile = {
   createdTime?: string
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+type ThumbSize = 'small' | 'medium' | 'large'
 
-const API_BASE = '/api'
+const THUMB_SIZES: Record<ThumbSize, number> = { small: 120, medium: 200, large: 300 }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -37,12 +35,17 @@ function isImage(mimeType: string): boolean {
   return mimeType.startsWith('image/')
 }
 
-function isPdf(mimeType: string): boolean {
-  return mimeType === 'application/pdf'
-}
-
 function isVideo(mimeType: string): boolean {
   return mimeType.startsWith('video/')
+}
+
+function getThumbUrl(file: GDriveFile, size: number): string {
+  // Google Drive thumbnailLink에 크기 파라미터 추가
+  if (file.thumbnailLink) {
+    return file.thumbnailLink.replace(/=s\d+/, `=s${size}`)
+  }
+  // 폴백: Worker 프록시
+  return `/api/gdrive/thumbnail?fileId=${file.id}`
 }
 
 // ---------------------------------------------------------------------------
@@ -57,32 +60,6 @@ const cardStyle: React.CSSProperties = {
   boxShadow: 'var(--shadow-sm)',
 }
 
-const gridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-  gap: 10,
-}
-
-const thumbCardStyle: React.CSSProperties = {
-  background: 'var(--surface2, #f5f7fb)',
-  border: '1px solid var(--border)',
-  borderRadius: 10,
-  overflow: 'hidden',
-  cursor: 'pointer',
-}
-
-const thumbImgStyle: React.CSSProperties = {
-  width: '100%',
-  height: 140,
-  objectFit: 'cover',
-  background: '#e5e7eb',
-}
-
-const thumbInfoStyle: React.CSSProperties = {
-  padding: '8px 10px',
-  fontSize: '0.78em',
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -91,10 +68,11 @@ export function GDriveView() {
   const [files, setFiles] = useState<GDriveFile[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [, setFolderId] = useState('root')
   const [folderStack, setFolderStack] = useState<Array<{ id: string; name: string }>>([{ id: 'root', name: 'Google Drive' }])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
+  const [showNames, setShowNames] = useState(true)
+  const [thumbSize, setThumbSize] = useState<ThumbSize>('medium')
 
   const fetchFiles = useCallback(async (targetFolderId: string) => {
     setLoading(true)
@@ -105,12 +83,10 @@ export function GDriveView() {
         body: JSON.stringify({ folderId: targetFolderId }),
       })
       if (res.ok && res.files) {
-        const sorted = res.files.sort((a, b) => {
+        setFiles(res.files.sort((a, b) => {
           if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
           return a.name.localeCompare(b.name)
-        })
-        setFiles(sorted)
-        setFolderId(targetFolderId)
+        }))
       } else {
         setError(res.error ?? '파일을 불러올 수 없습니다')
       }
@@ -121,9 +97,7 @@ export function GDriveView() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchFiles('root')
-  }, [fetchFiles])
+  useEffect(() => { fetchFiles('root') }, [fetchFiles])
 
   function navigateToFolder(file: GDriveFile) {
     setFolderStack((prev) => [...prev, { id: file.id, name: file.name }])
@@ -138,14 +112,10 @@ export function GDriveView() {
     fetchFiles(target.id)
   }
 
-  const thumbnailUrl = (fileId: string) => `${API_BASE}/gdrive/thumbnail?fileId=${fileId}`
-
-  const filtered = search
-    ? files.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
-    : files
-
+  const filtered = search ? files.filter((f) => f.name.toLowerCase().includes(search.toLowerCase())) : files
   const folders = filtered.filter((f) => f.isDir)
   const items = filtered.filter((f) => !f.isDir)
+  const px = THUMB_SIZES[thumbSize]
 
   return (
     <section className="workflowView" aria-label="Google Drive">
@@ -157,7 +127,7 @@ export function GDriveView() {
         </div>
       </header>
 
-      {/* Breadcrumb + controls */}
+      {/* Controls */}
       <div style={{ ...cardStyle, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.82em', flexWrap: 'wrap' }}>
           {folderStack.map((folder, i) => (
@@ -172,15 +142,17 @@ export function GDriveView() {
             </span>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
-            style={{ background: 'var(--input-bg, var(--surface1))', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.82em', padding: '5px 8px', width: 160 }}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="파일명 검색..."
+            style={{ background: 'var(--input-bg, var(--surface1))', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.82em', padding: '5px 8px', width: 140 }}
+            value={search} onChange={(e) => setSearch(e.target.value)} placeholder="검색..."
           />
-          <button type="button" className={viewMode === 'grid' ? '' : 'secondary'} onClick={() => setViewMode('grid')} style={{ padding: '5px 10px', fontSize: '0.82em' }}>그리드</button>
-          <button type="button" className={viewMode === 'list' ? '' : 'secondary'} onClick={() => setViewMode('list')} style={{ padding: '5px 10px', fontSize: '0.82em' }}>목록</button>
+          <button type="button" className={viewMode === 'grid' ? '' : 'secondary'} onClick={() => setViewMode('grid')} style={{ padding: '4px 8px', fontSize: '0.78em' }}>그리드</button>
+          <button type="button" className={viewMode === 'list' ? '' : 'secondary'} onClick={() => setViewMode('list')} style={{ padding: '4px 8px', fontSize: '0.78em' }}>목록</button>
+          <button type="button" className={showNames ? 'secondary' : ''} onClick={() => setShowNames(!showNames)} style={{ padding: '4px 8px', fontSize: '0.78em' }}>{showNames ? '이름 숨기기' : '이름 보기'}</button>
+          <button type="button" className={thumbSize === 'small' ? '' : 'secondary'} onClick={() => setThumbSize('small')} style={{ padding: '4px 8px', fontSize: '0.78em' }}>S</button>
+          <button type="button" className={thumbSize === 'medium' ? '' : 'secondary'} onClick={() => setThumbSize('medium')} style={{ padding: '4px 8px', fontSize: '0.78em' }}>M</button>
+          <button type="button" className={thumbSize === 'large' ? '' : 'secondary'} onClick={() => setThumbSize('large')} style={{ padding: '4px 8px', fontSize: '0.78em' }}>L</button>
         </div>
       </div>
 
@@ -208,51 +180,71 @@ export function GDriveView() {
             </div>
           ) : null}
 
-          {/* Files */}
-          {items.length > 0 ? (
+          {/* Files — Grid */}
+          {items.length > 0 && viewMode === 'grid' ? (
             <div>
               <div style={{ fontSize: '0.78em', color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>파일 ({items.length}개)</div>
-              {viewMode === 'grid' ? (
-                <div style={gridStyle}>
-                  {items.map((f) => (
-                    <a key={f.id} href={f.webViewLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                      <div style={thumbCardStyle}>
-                        {isImage(f.mimeType) || isPdf(f.mimeType) ? (
-                          <img src={thumbnailUrl(f.id)} alt={f.name} style={thumbImgStyle} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                        ) : (
-                          <div style={{ ...thumbImgStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2em', color: 'var(--muted)' }}>
-                            {isVideo(f.mimeType) ? '🎬' : '📄'}
-                          </div>
-                        )}
-                        <div style={thumbInfoStyle}>
-                          <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                          <div style={{ color: 'var(--muted)', marginTop: 2 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${px}px, 1fr))`, gap: 10 }}>
+                {items.map((f) => (
+                  <a key={f.id} href={f.webViewLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ background: 'var(--surface2, #f5f7fb)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer' }}>
+                      {isImage(f.mimeType) || f.thumbnailLink ? (
+                        <img
+                          src={getThumbUrl(f, px * 2)}
+                          alt={f.name}
+                          style={{ width: '100%', height: px, objectFit: 'cover', background: '#e5e7eb', display: 'block' }}
+                          loading="lazy"
+                          onError={(e) => {
+                            const el = e.target as HTMLImageElement
+                            if (!el.dataset.retried) {
+                              el.dataset.retried = '1'
+                              el.src = `/api/gdrive/thumbnail?fileId=${f.id}`
+                            } else {
+                              el.style.display = 'none'
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div style={{ width: '100%', height: px, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2em', color: 'var(--muted)', background: '#e5e7eb' }}>
+                          {isVideo(f.mimeType) ? '🎬' : '📄'}
+                        </div>
+                      )}
+                      {showNames ? (
+                        <div style={{ padding: '6px 8px' }}>
+                          <div style={{ fontSize: '0.75em', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                          <div style={{ fontSize: '0.68em', color: 'var(--muted)', marginTop: 1 }}>
                             {f.size ? formatBytes(f.size) : ''}
                             {f.createdTime ? ` · ${new Date(f.createdTime).toLocaleDateString('ko-KR')}` : ''}
                           </div>
                         </div>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-                  {items.map((f) => (
-                    <a key={f.id} href={f.webViewLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: '0.85em' }}>
-                        <span>{isImage(f.mimeType) ? '🖼' : isVideo(f.mimeType) ? '🎬' : isPdf(f.mimeType) ? '📕' : '📄'}</span>
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                        <span style={{ fontSize: '0.82em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                          {f.size ? formatBytes(f.size) : ''}
-                        </span>
-                        <span style={{ fontSize: '0.78em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                          {f.createdTime ? new Date(f.createdTime).toLocaleDateString('ko-KR') : ''}
-                        </span>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              )}
+                      ) : null}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Files — List */}
+          {items.length > 0 && viewMode === 'list' ? (
+            <div>
+              <div style={{ fontSize: '0.78em', color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>파일 ({items.length}개)</div>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                {items.map((f) => (
+                  <a key={f.id} href={f.webViewLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: '0.85em' }}>
+                      {f.thumbnailLink ? (
+                        <img src={getThumbUrl(f, 60)} alt="" style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 4 }} loading="lazy" />
+                      ) : (
+                        <span>{isImage(f.mimeType) ? '🖼' : isVideo(f.mimeType) ? '🎬' : '📄'}</span>
+                      )}
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      <span style={{ fontSize: '0.82em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{f.size ? formatBytes(f.size) : ''}</span>
+                      <span style={{ fontSize: '0.78em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{f.createdTime ? new Date(f.createdTime).toLocaleDateString('ko-KR') : ''}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
             </div>
           ) : null}
 
