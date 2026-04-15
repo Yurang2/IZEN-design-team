@@ -157,6 +157,23 @@ function synoUploadErrorMessage(error?: SynoError): string {
   return map[code] ?? synoFileOperationErrorMessage(error)
 }
 
+function formatSynoErrorContext(error: SynoError | undefined, context?: Record<string, string | number | undefined>): string {
+  const parts: string[] = []
+  const code = error?.code
+  if (typeof code === 'number') parts.push(`code=${code}`)
+  const detailCode = error?.errors?.[0]?.code
+  if (typeof detailCode === 'number') parts.push(`detail=${detailCode}`)
+  const detailPath = error?.errors?.[0]?.path
+  if (detailPath) parts.push(`detailPath=${detailPath}`)
+  if (context) {
+    for (const [key, value] of Object.entries(context)) {
+      if (value == null || value === '') continue
+      parts.push(`${key}=${value}`)
+    }
+  }
+  return parts.length > 0 ? ` ${parts.join(' ')}` : ''
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
@@ -297,7 +314,12 @@ export async function handleNasRoutes(
         if (message.includes('already_exists')) {
           return respond.ok({ ok: true, alreadyExists: true })
         }
-        throw new Error(message)
+        throw new Error(
+          `${message}${formatSynoErrorContext(res.error, {
+            folderPath,
+            name,
+          })}`,
+        )
       }
 
       return respond.ok({ ok: true })
@@ -331,7 +353,13 @@ export async function handleNasRoutes(
         _sid: sid,
       })
       if (!permission.success) {
-        throw new Error(synoFileOperationErrorMessage(permission.error))
+        throw new Error(
+          `${synoFileOperationErrorMessage(permission.error)}${formatSynoErrorContext(permission.error, {
+            path: destPath,
+            filename: file.name,
+            size: file.size,
+          })}`,
+        )
       }
 
       // Build FormData for Synology
@@ -353,11 +381,13 @@ export async function handleNasRoutes(
       }, { formData: nasForm })
 
       if (!res.success) {
-        const message = synoUploadErrorMessage(res.error)
-        if (message === 'nas_file_operation_unknown_error') {
-          throw new Error(`nas_file_operation_unknown_error path=${destPath} filename=${file.name} size=${file.size}`)
-        }
-        throw new Error(message)
+        throw new Error(
+          `${synoUploadErrorMessage(res.error)}${formatSynoErrorContext(res.error, {
+            path: destPath,
+            filename: file.name,
+            size: file.size,
+          })}`,
+        )
       }
 
       return respond.ok({ ok: true, filename: file.name, destPath })

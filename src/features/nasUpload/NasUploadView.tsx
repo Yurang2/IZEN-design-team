@@ -185,6 +185,25 @@ function buildFilename(parts: {
   return segs.join('_') + (parts.ext.startsWith('.') ? parts.ext : `.${parts.ext}`)
 }
 
+function localizeNasError(message: string): string {
+  if (message.includes('nas_empty_file_not_allowed')) return '0바이트 파일은 업로드할 수 없습니다.'
+  if (message.includes('nas_file_already_exists')) return '같은 이름의 파일이 이미 존재합니다.'
+  if (message.includes('nas_illegal_name_or_path')) return '파일명 또는 경로 형식이 올바르지 않습니다.'
+  if (message.includes('nas_illegal_file_name')) return '허용되지 않는 파일명입니다.'
+  if (message.includes('nas_path_not_found')) return '대상 경로를 찾을 수 없습니다.'
+  if (message.includes('nas_read_only_file_system')) return '읽기 전용 경로에는 업로드할 수 없습니다.'
+  if (message.includes('nas_no_space_left_on_device')) return 'NAS 저장 공간이 부족합니다.'
+  if (message.includes('nas_disk_quota_exceeded')) return 'NAS 용량 한도를 초과했습니다.'
+  if (message.includes('nas_device_or_resource_busy')) return 'NAS가 현재 해당 경로를 사용 중입니다.'
+  if (message.includes('nas_system_busy')) return 'NAS가 현재 바쁩니다. 잠시 후 다시 시도해 주세요.'
+  if (message.includes('nas_operation_not_permitted')) return '해당 경로에 업로드 권한이 없습니다.'
+  if (message.includes('nas_permission_denied')) return '권한이 없습니다.'
+  if (message.includes('nas_sid_not_found') || message.includes('nas_session_expired')) return 'NAS 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.'
+  if (message.includes('nas_file_operation_unknown_error')) return `NAS 파일 작업 오류: ${message}`
+  if (message.includes('nas_')) return `NAS 오류: ${message}`
+  return message
+}
+
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
@@ -623,10 +642,17 @@ export function NasUploadView() {
   const freeCreateFolder = useCallback(async () => {
     if (!freeNewFolder.trim()) return
     setFreeCreating(true)
-    await api('/nas/create-folder', { method: 'POST', body: JSON.stringify({ sid, folderPath: freePath, name: freeNewFolder.trim() }) }).catch(() => {})
-    setFreeNewFolder('')
-    await freeList(freePath)
-    setFreeCreating(false)
+    setFreeResult(null)
+    try {
+      await api('/nas/create-folder', { method: 'POST', body: JSON.stringify({ sid, folderPath: freePath, name: freeNewFolder.trim() }) })
+      setFreeNewFolder('')
+      await freeList(freePath)
+      setFreeResult({ ok: true, message: '폴더를 생성했습니다.' })
+    } catch (err) {
+      setFreeResult({ ok: false, message: localizeNasError(err instanceof Error ? err.message : '폴더 생성에 실패했습니다.') })
+    } finally {
+      setFreeCreating(false)
+    }
   }, [sid, freePath, freeNewFolder, freeList])
 
   const freeUpload = useCallback(async () => {
@@ -972,7 +998,7 @@ export function NasUploadView() {
                   color: uploadResult.ok ? '#166534' : '#b91c1c',
                   border: `1px solid ${uploadResult.ok ? '#22c55e' : '#fca5a5'}`,
                 }}>
-                  {uploadResult.message}
+                  {uploadResult.ok ? uploadResult.message : localizeNasError(uploadResult.message)}
                 </div>
               ) : null}
 
@@ -1103,7 +1129,7 @@ export function NasUploadView() {
               </button>
               {freeResult ? (
                 <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, fontSize: '0.85em', background: freeResult.ok ? '#dcfce7' : '#fef2f2', color: freeResult.ok ? '#166534' : '#b91c1c', border: `1px solid ${freeResult.ok ? '#22c55e' : '#fca5a5'}` }}>
-                  {freeResult.message}
+                  {freeResult.ok ? freeResult.message : localizeNasError(freeResult.message)}
                 </div>
               ) : null}
               {step === 'free-done' ? (
