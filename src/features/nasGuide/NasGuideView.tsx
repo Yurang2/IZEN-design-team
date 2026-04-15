@@ -19,8 +19,10 @@ type TreeExample = {
   comment?: string
 }
 
-const EXAMPLE_FOLDER_NAME = '예시파일'
-const EXAMPLE_FOLDER_COMMENT = 'txt에서 자동 추출한 실제 파일 예시'
+const MANUAL_EXAMPLE_FOLDER_NAME = '예시파일'
+const MANUAL_EXAMPLE_FOLDER_COMMENT = '가이드에서 손으로 넣은 샘플 파일'
+const ACTUAL_FILE_FOLDER_NAME = '실제파일'
+const ACTUAL_FILE_FOLDER_COMMENT = 'txt에서 자동 추출한 실제 파일'
 
 // ---------------------------------------------------------------------------
 // Data helpers
@@ -378,8 +380,31 @@ function cloneTree(nodes: TreeNode[]): TreeNode[] {
   }))
 }
 
+function moveInlineFilesToExampleFolder(nodes: TreeNode[]): TreeNode[] {
+  return nodes.map((node) => {
+    if (!node.children?.length) return { ...node }
+
+    const folderChildren = moveInlineFilesToExampleFolder(node.children.filter((child) => !child.isFile))
+    const fileChildren = node.children.filter((child) => child.isFile)
+    const nextChildren = [...folderChildren]
+
+    if (fileChildren.length > 0) {
+      nextChildren.push({
+        name: MANUAL_EXAMPLE_FOLDER_NAME,
+        comment: MANUAL_EXAMPLE_FOLDER_COMMENT,
+        children: fileChildren.map((child) => ({ ...child })),
+      })
+    }
+
+    return {
+      ...node,
+      children: nextChildren,
+    }
+  })
+}
+
 function mergeExamplesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): TreeNode[] {
-  const tree = cloneTree(baseTree)
+  const tree = moveInlineFilesToExampleFolder(cloneTree(baseTree))
 
   for (const example of examples) {
     const segments = example.path.split('/').filter(Boolean)
@@ -396,9 +421,9 @@ function mergeExamplesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): T
       cursor = next.children
     }
 
-    let exampleFolder = cursor.find((node) => !node.isFile && node.name === EXAMPLE_FOLDER_NAME)
+    let exampleFolder = cursor.find((node) => !node.isFile && node.name === ACTUAL_FILE_FOLDER_NAME)
     if (!exampleFolder) {
-      exampleFolder = { name: EXAMPLE_FOLDER_NAME, comment: EXAMPLE_FOLDER_COMMENT, children: [] }
+      exampleFolder = { name: ACTUAL_FILE_FOLDER_NAME, comment: ACTUAL_FILE_FOLDER_COMMENT, children: [] }
       cursor.push(exampleFolder)
     }
     if (!exampleFolder.children) exampleFolder.children = []
@@ -625,8 +650,9 @@ function StructureSection({ treeData, exampleCount }: { treeData: TreeNode[]; ex
           </div>
         </div>
         <p style={{ fontSize: '0.82em', color: 'var(--text2)', marginTop: 0 }}>
-          현재 트리에는 legacy NAS txt에서 자동 분류한 <strong>실제 추출 예시 {exampleCount.toLocaleString()}개</strong>가 각 폴더 아래
-          <code className="fileGuideCode">예시파일</code> 폴더로 붙습니다. 파일명이 바뀐 예시는 <code className="fileGuideCode">원본파일명</code>이 같이 표시됩니다.
+          현재 트리에는 가이드 샘플은 <code className="fileGuideCode">예시파일</code>, legacy NAS txt에서 복구한
+          <strong>실제 파일 {exampleCount.toLocaleString()}개</strong>는 <code className="fileGuideCode">실제파일</code>로 분리됩니다.
+          파일명이 바뀐 실제 파일은 <code className="fileGuideCode">원본파일명</code>이 같이 표시됩니다.
         </p>
         <TreeViewer data={treeData} />
       </article>
@@ -1023,7 +1049,7 @@ function WorkflowSection() {
 // Section 5: 구글 드라이브
 // ---------------------------------------------------------------------------
 
-function GDriveSection() {
+function GDriveSection({ treeData }: { treeData: TreeNode[] }) {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <article className="workflowCard workflowCardWide">
@@ -1037,7 +1063,7 @@ function GDriveSection() {
           구글 드라이브는 완성 배포본 보관소이며, 예전 <strong>03_LIBRARY</strong> 폴더 체계를 그대로 복구해 사용합니다.
           최종본은 카테고리별 상위 폴더에 <strong>Rev</strong>로 올리고, 구버전은 <code className="fileGuideCode">_archive</code>로 내립니다.
         </p>
-        <TreeViewer data={GDRIVE_TREE} />
+        <TreeViewer data={treeData} />
       </article>
 
       <article className="workflowCard workflowCardWide">
@@ -1726,7 +1752,14 @@ const TABS = [
 export function NasGuideView() {
   const [activeTab, setActiveTab] = useState(0)
   const nasTreeWithExamples = useMemo(
-    () => mergeExamplesIntoTree(NAS_TREE, GENERATED_NAS_GUIDE_EXAMPLES),
+    () => mergeExamplesIntoTree([...NAS_TREE, ...GDRIVE_TREE], GENERATED_NAS_GUIDE_EXAMPLES),
+    [],
+  )
+  const googleDriveTreeWithTracks = useMemo(
+    () => mergeExamplesIntoTree(
+      GDRIVE_TREE,
+      GENERATED_NAS_GUIDE_EXAMPLES.filter((example) => example.path.startsWith('Google Drive/')),
+    ),
     [],
   )
 
@@ -1779,7 +1812,7 @@ export function NasGuideView() {
         {activeTab === 2 ? <NamingSection /> : null}
         {activeTab === 3 ? <AutoSaveSection /> : null}
         {activeTab === 4 ? <WorkflowSection /> : null}
-        {activeTab === 5 ? <GDriveSection /> : null}
+        {activeTab === 5 ? <GDriveSection treeData={googleDriveTreeWithTracks} /> : null}
         {activeTab === 6 ? <IssuesSection /> : null}
       </div>
     </section>
