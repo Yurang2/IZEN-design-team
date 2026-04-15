@@ -19,11 +19,6 @@ type TreeExample = {
   comment?: string
 }
 
-const MANUAL_EXAMPLE_FOLDER_NAME = '예시파일'
-const MANUAL_EXAMPLE_FOLDER_COMMENT = '가이드에서 손으로 넣은 샘플 파일'
-const ACTUAL_FILE_FOLDER_NAME = '실제파일'
-const ACTUAL_FILE_FOLDER_COMMENT = 'txt에서 자동 추출한 실제 파일'
-
 // ---------------------------------------------------------------------------
 // Data helpers
 // ---------------------------------------------------------------------------
@@ -380,31 +375,17 @@ function cloneTree(nodes: TreeNode[]): TreeNode[] {
   }))
 }
 
-function moveInlineFilesToExampleFolder(nodes: TreeNode[]): TreeNode[] {
+function stripFilesFromTree(nodes: TreeNode[]): TreeNode[] {
   return nodes.map((node) => {
-    if (!node.children?.length) return { ...node }
-
-    const folderChildren = moveInlineFilesToExampleFolder(node.children.filter((child) => !child.isFile))
-    const fileChildren = node.children.filter((child) => child.isFile)
-    const nextChildren = [...folderChildren]
-
-    if (fileChildren.length > 0) {
-      nextChildren.push({
-        name: MANUAL_EXAMPLE_FOLDER_NAME,
-        comment: MANUAL_EXAMPLE_FOLDER_COMMENT,
-        children: fileChildren.map((child) => ({ ...child })),
-      })
-    }
-
     return {
       ...node,
-      children: nextChildren,
+      children: node.children ? stripFilesFromTree(node.children.filter((child) => !child.isFile)) : undefined,
     }
   })
 }
 
-function mergeExamplesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): TreeNode[] {
-  const tree = moveInlineFilesToExampleFolder(cloneTree(baseTree))
+function mergeFilesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): TreeNode[] {
+  const tree = cloneTree(baseTree)
 
   for (const example of examples) {
     const segments = example.path.split('/').filter(Boolean)
@@ -421,16 +402,9 @@ function mergeExamplesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): T
       cursor = next.children
     }
 
-    let exampleFolder = cursor.find((node) => !node.isFile && node.name === ACTUAL_FILE_FOLDER_NAME)
-    if (!exampleFolder) {
-      exampleFolder = { name: ACTUAL_FILE_FOLDER_NAME, comment: ACTUAL_FILE_FOLDER_COMMENT, children: [] }
-      cursor.push(exampleFolder)
-    }
-    if (!exampleFolder.children) exampleFolder.children = []
-
-    const exists = exampleFolder.children.some((node) => node.isFile && node.name === example.name && node.comment === example.comment)
+    const exists = cursor.some((node) => node.isFile && node.name === example.name && node.comment === example.comment)
     if (!exists) {
-      exampleFolder.children.push({ name: example.name, comment: example.comment, isFile: true })
+      cursor.push({ name: example.name, comment: example.comment, isFile: true })
     }
   }
 
@@ -604,7 +578,18 @@ function TreeViewer({ data }: { data: TreeNode[] }) {
 // Section 1: 폴더 구조
 // ---------------------------------------------------------------------------
 
-function StructureSection({ treeData, exampleCount }: { treeData: TreeNode[]; exampleCount: number }) {
+function StructureSection({
+  exampleTreeData,
+  actualTreeData,
+  actualCount,
+}: {
+  exampleTreeData: TreeNode[]
+  actualTreeData: TreeNode[]
+  actualCount: number
+}) {
+  const [fileTrack, setFileTrack] = useState<'example' | 'actual'>('example')
+  const activeTree = fileTrack === 'example' ? exampleTreeData : actualTreeData
+
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <article className="workflowCard workflowCardWide">
@@ -649,12 +634,39 @@ function StructureSection({ treeData, exampleCount }: { treeData: TreeNode[]; ex
             <h3>폴더 트리 (클릭하여 열기/닫기)</h3>
           </div>
         </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          {[
+            { id: 'example' as const, label: '예시파일', desc: '가이드 샘플 파일명' },
+            { id: 'actual' as const, label: '실제파일', desc: `txt 복구 파일 ${actualCount.toLocaleString()}개` },
+          ].map((item) => {
+            const active = fileTrack === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={active ? '' : 'secondary'}
+                onClick={() => setFileTrack(item.id)}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: 8,
+                  fontSize: '0.82em',
+                  display: 'inline-flex',
+                  gap: 6,
+                  alignItems: 'center',
+                }}
+              >
+                <strong>{item.label}</strong>
+                <span style={{ opacity: 0.8 }}>{item.desc}</span>
+              </button>
+            )
+          })}
+        </div>
         <p style={{ fontSize: '0.82em', color: 'var(--text2)', marginTop: 0 }}>
-          현재 트리에는 가이드 샘플은 <code className="fileGuideCode">예시파일</code>, legacy NAS txt에서 복구한
-          <strong>실제 파일 {exampleCount.toLocaleString()}개</strong>는 <code className="fileGuideCode">실제파일</code>로 분리됩니다.
-          파일명이 바뀐 실제 파일은 <code className="fileGuideCode">원본파일명</code>이 같이 표시됩니다.
+          {fileTrack === 'example'
+            ? '예시파일 보기에서는 가이드에 손으로 넣은 샘플 파일명이 폴더 바로 아래에 표시됩니다.'
+            : '실제파일 보기에서는 legacy NAS txt에서 복구한 실제 파일이 폴더 바로 아래에 표시됩니다. 파일명이 바뀐 항목은 원본파일명도 함께 표시됩니다.'}
         </p>
-        <TreeViewer data={treeData} />
+        <TreeViewer key={fileTrack} data={activeTree} />
       </article>
 
       <article className="workflowCard workflowCardWide">
@@ -1049,7 +1061,7 @@ function WorkflowSection() {
 // Section 5: 구글 드라이브
 // ---------------------------------------------------------------------------
 
-function GDriveSection({ treeData }: { treeData: TreeNode[] }) {
+function GDriveSection() {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <article className="workflowCard workflowCardWide">
@@ -1063,7 +1075,7 @@ function GDriveSection({ treeData }: { treeData: TreeNode[] }) {
           구글 드라이브는 완성 배포본 보관소이며, 예전 <strong>03_LIBRARY</strong> 폴더 체계를 그대로 복구해 사용합니다.
           최종본은 카테고리별 상위 폴더에 <strong>Rev</strong>로 올리고, 구버전은 <code className="fileGuideCode">_archive</code>로 내립니다.
         </p>
-        <TreeViewer data={treeData} />
+        <TreeViewer data={GDRIVE_TREE} />
       </article>
 
       <article className="workflowCard workflowCardWide">
@@ -1751,16 +1763,13 @@ const TABS = [
 
 export function NasGuideView() {
   const [activeTab, setActiveTab] = useState(0)
-  const nasTreeWithExamples = useMemo(
-    () => mergeExamplesIntoTree([...NAS_TREE, ...GDRIVE_TREE], GENERATED_NAS_GUIDE_EXAMPLES),
+  const folderStructureTree = useMemo(
+    () => [...cloneTree(NAS_TREE), ...cloneTree(GDRIVE_TREE)],
     [],
   )
-  const googleDriveTreeWithTracks = useMemo(
-    () => mergeExamplesIntoTree(
-      GDRIVE_TREE,
-      GENERATED_NAS_GUIDE_EXAMPLES.filter((example) => example.path.startsWith('Google Drive/')),
-    ),
-    [],
+  const actualFileTree = useMemo(
+    () => mergeFilesIntoTree(stripFilesFromTree(folderStructureTree), GENERATED_NAS_GUIDE_EXAMPLES),
+    [folderStructureTree],
   )
 
   return (
@@ -1807,12 +1816,18 @@ export function NasGuideView() {
 
       {/* Tab content */}
       <div>
-        {activeTab === 0 ? <StructureSection treeData={nasTreeWithExamples} exampleCount={GENERATED_NAS_GUIDE_EXAMPLE_META.total} /> : null}
+        {activeTab === 0 ? (
+          <StructureSection
+            exampleTreeData={folderStructureTree}
+            actualTreeData={actualFileTree}
+            actualCount={GENERATED_NAS_GUIDE_EXAMPLE_META.total}
+          />
+        ) : null}
         {activeTab === 1 ? <DecisionSection /> : null}
         {activeTab === 2 ? <NamingSection /> : null}
         {activeTab === 3 ? <AutoSaveSection /> : null}
         {activeTab === 4 ? <WorkflowSection /> : null}
-        {activeTab === 5 ? <GDriveSection treeData={googleDriveTreeWithTracks} /> : null}
+        {activeTab === 5 ? <GDriveSection /> : null}
         {activeTab === 6 ? <IssuesSection /> : null}
       </div>
     </section>
