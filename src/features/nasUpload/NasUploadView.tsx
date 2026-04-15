@@ -76,9 +76,8 @@ const SUBFOLDER_TREE: FolderTreeNode[] = [
     { label: 'b_수신', value: '05_사진/b_수신', children: [
       { label: '타팀', value: '05_사진/b_수신/타팀' },
     ] },
-    { label: 'c_선별', value: '05_사진/c_선별' },
-    { label: 'd_보정', value: '05_사진/d_보정' },
-    { label: 'e_공유', value: '05_사진/e_공유' },
+    { label: 'c_보정', value: '05_사진/c_보정' },
+    { label: 'd_공유', value: '05_사진/d_공유' },
   ] },
   { label: '06_현장수집', value: '06_현장수집' },
 ]
