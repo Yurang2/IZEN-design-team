@@ -309,6 +309,110 @@ export default {
       return ok({ ok: true, mappings }, origin)
     }
 
+    // Google Drive OAuth + API
+    if (path.startsWith('/gdrive/')) {
+      const clientId = env.GOOGLE_DRIVE_CLIENT_ID
+      const clientSecret = env.GOOGLE_DRIVE_CLIENT_SECRET
+
+      // Step 1: Start OAuth flow
+      if (request.method === 'GET' && path === '/gdrive/auth') {
+        if (!clientId) return json({ ok: false, error: 'gdrive_not_configured' }, 501, origin)
+        const redirectUri = `${url.origin}/api/gdrive/callback`
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.readonly')}&access_type=offline&prompt=consent`
+        return ok({ ok: true, authUrl }, origin)
+      }
+
+      // Step 2: OAuth callback — exchange code for tokens
+      if (request.method === 'GET' && path === '/gdrive/callback') {
+        const code = url.searchParams.get('code')
+        if (!code) return json({ ok: false, error: 'no_code' }, 400, origin)
+        const redirectUri = `${url.origin}/api/gdrive/callback`
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ code, client_id: clientId!, client_secret: clientSecret!, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+        })
+        const tokenData: any = await tokenRes.json()
+        if (tokenData.refresh_token) {
+          return new Response(`<html><body><h2>인증 완료</h2><p>Refresh Token을 Cloudflare Worker 환경변수에 저장하세요:</p><pre>GOOGLE_DRIVE_REFRESH_TOKEN = ${tokenData.refresh_token}</pre><p>이 페이지를 닫아도 됩니다.</p></body></html>`, {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          })
+        }
+        return new Response(`<html><body><h2>오류</h2><pre>${JSON.stringify(tokenData, null, 2)}</pre></body></html>`, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
+      }
+
+      // Helper: get access token from refresh token
+      const getAccessToken = async () => {
+        const refreshToken = env.GOOGLE_DRIVE_REFRESH_TOKEN
+        if (!refreshToken || !clientId || !clientSecret) throw new Error('gdrive_not_configured')
+        const res = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ refresh_token: refreshToken, client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token' }),
+        })
+        const data: any = await res.json()
+        if (!data.access_token) throw new Error('gdrive_token_failed')
+        return data.access_token as string
+      }
+
+      // List files in folder
+      if (request.method === 'POST' && path === '/gdrive/list') {
+        try {
+          const body = await readJsonBody(request)
+          const folderId = asString(body.folderId) || 'root'
+          const token = await getAccessToken()
+          const q = `'${folderId}' in parents and trashed = false`
+          const fields = 'files(id,name,mimeType,thumbnailLink,webViewLink,size,createdTime)'
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=100&orderBy=name`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          const data: any = await res.json()
+          const files = (data.files ?? []).map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            isDir: f.mimeType === 'application/vnd.google-apps.folder',
+            mimeType: f.mimeType,
+            thumbnailLink: f.thumbnailLink,
+            webViewLink: f.webViewLink,
+            size: f.size ? parseInt(f.size) : undefined,
+            createdTime: f.createdTime,
+          }))
+          return ok({ ok: true, files }, origin)
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'gdrive_error'
+          return json({ ok: false, error: msg }, msg.includes('not_configured') ? 501 : 500, origin)
+        }
+      }
+
+      // Get thumbnail (proxy to avoid CORS)
+      if (request.method === 'GET' && path === '/gdrive/thumbnail') {
+        try {
+          const fileId = url.searchParams.get('fileId')
+          if (!fileId) return json({ ok: false, error: 'fileId_required' }, 400, origin)
+          const token = await getAccessToken()
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          const data: any = await res.json()
+          if (data.thumbnailLink) {
+            const imgRes = await fetch(data.thumbnailLink)
+            return new Response(imgRes.body, {
+              headers: {
+                'Content-Type': imgRes.headers.get('Content-Type') || 'image/png',
+                'Cache-Control': 'public, max-age=3600',
+                'Access-Control-Allow-Origin': origin || '*',
+              },
+            })
+          }
+          return json({ ok: false, error: 'no_thumbnail' }, 404, origin)
+        } catch {
+          return json({ ok: false, error: 'thumbnail_failed' }, 500, origin)
+        }
+      }
+    }
+
     // NAS issues tracker
     if (path === '/nas-issues' || path.startsWith('/nas-issues/')) {
       const dbId = env.NOTION_NAS_ISSUES_DB_ID

@@ -84,6 +84,9 @@ export interface Env {
   NOTION_NAS_ISSUES_DB_ID?: string
   NOTION_PATH_MAPPING_DB_ID?: string
   SYNOLOGY_NAS_URL?: string
+  GOOGLE_DRIVE_CLIENT_ID?: string
+  GOOGLE_DRIVE_CLIENT_SECRET?: string
+  GOOGLE_DRIVE_REFRESH_TOKEN?: string
 }
 
 export type FieldStatus = 'exact' | 'fallback' | 'missing' | 'mismatch'
