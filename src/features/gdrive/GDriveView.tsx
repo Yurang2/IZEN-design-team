@@ -170,9 +170,9 @@ export function GDriveView() {
           {folders.length > 0 ? (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: '0.78em', color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>폴더</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 8 }}>
                 {folders.map((f) => (
-                  <div key={f.id} onClick={() => navigateToFolder(f)} style={{
+                  <div key={f.id} onClick={() => navigateToFolder(f)} title={f.name} style={{
                     display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
                     background: 'var(--surface2, #f5f7fb)', border: '1px solid var(--border)', borderRadius: 8,
                     cursor: 'pointer', fontSize: '0.85em',
