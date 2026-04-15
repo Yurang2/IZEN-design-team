@@ -180,6 +180,7 @@ export async function handleNasRoutes(
       : message.includes('login_failed') ? 401
       : message.includes('sid_not_found') ? 401
       : message.includes('session_expired') ? 401
+      : message.includes('empty_file') ? 400
       : message.includes('invalid_') ? 400
       : message.includes('illegal_') ? 400
       : message.includes('permission_denied') ? 403
@@ -318,6 +319,7 @@ export async function handleNasRoutes(
       if (!sid) return respond.json({ ok: false, error: 'nas_sid_required' }, 400)
       if (!destPath) return respond.json({ ok: false, error: 'nas_path_required' }, 400)
       if (!file) return respond.json({ ok: false, error: 'nas_file_required' }, 400)
+      if (file.size <= 0) return respond.json({ ok: false, error: 'nas_empty_file_not_allowed' }, 400)
 
       const permission = await synoFetch(nasUrl, 'entry.cgi', {
         api: 'SYNO.FileStation.CheckPermission',

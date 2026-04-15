@@ -528,6 +528,11 @@ export function NasUploadView() {
     setUploading(true)
     setUploadResult(null)
     try {
+      const emptyFiles = selectedFiles.filter((file) => file.size <= 0)
+      if (emptyFiles.length > 0) {
+        throw new Error(`0바이트 파일은 업로드할 수 없습니다: ${emptyFiles.map((file) => file.name).join(', ')}`)
+      }
+
       // create parent folders if needed
       await api('/nas/create-folder', {
         method: 'POST',
@@ -629,6 +634,10 @@ export function NasUploadView() {
     setFreeUploading(true)
     setFreeResult(null)
     try {
+      if (freeSelectedFile.size <= 0) {
+        throw new Error(`0바이트 파일은 업로드할 수 없습니다: ${freeSelectedFile.name}`)
+      }
+
       const fd = new FormData()
       fd.append('sid', sid)
       fd.append('dest_folder_path', freePath)
