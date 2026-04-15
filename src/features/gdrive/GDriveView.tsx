@@ -89,6 +89,9 @@ export function GDriveView() {
           if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
           return a.name.localeCompare(b.name)
         }))
+        if (res.files.length === 0) {
+          setError(`폴더 ID: ${targetFolderId} — 파일 0개 (권한 또는 ID 확인 필요)`)
+        }
       } else {
         setError(res.error ?? '파일을 불러올 수 없습니다')
       }

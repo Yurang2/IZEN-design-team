@@ -374,6 +374,9 @@ export default {
             headers: { Authorization: `Bearer ${token}` },
           })
           const data: any = await res.json()
+          if (data.error) {
+            return json({ ok: false, error: `gdrive_api: ${data.error.message || JSON.stringify(data.error)}` }, 500, origin)
+          }
           const files = (data.files ?? []).map((f: any) => ({
             id: f.id,
             name: f.name,
