@@ -68,7 +68,7 @@ export function GDriveView() {
   const [files, setFiles] = useState<GDriveFile[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [folderStack, setFolderStack] = useState<Array<{ id: string; name: string }>>([{ id: 'root', name: 'Google Drive' }])
+  const [folderStack, setFolderStack] = useState<Array<{ id: string; name: string }>>([{ id: '0AL-N2-VGLQRaUk9PVA', name: 'For Dealer' }])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
   const [showNames, setShowNames] = useState(true)
@@ -97,7 +97,7 @@ export function GDriveView() {
     }
   }, [])
 
-  useEffect(() => { fetchFiles('root') }, [fetchFiles])
+  useEffect(() => { fetchFiles('0AL-N2-VGLQRaUk9PVA') }, [fetchFiles])
 
   function navigateToFolder(file: GDriveFile) {
     setFolderStack((prev) => [...prev, { id: file.id, name: file.name }])
