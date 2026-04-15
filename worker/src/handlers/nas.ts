@@ -47,7 +47,13 @@ async function synoFetch<T>(
       if (typeof v === 'string') fd.append(k, v)
       else fd.append(k, v, v.name)
     }
-    const res = await fetch(url, { method: 'POST', body: fd })
+    const sid = params._sid
+    const authedUrl = sid ? `${url}?_sid=${encodeURIComponent(sid)}` : url
+    const res = await fetch(authedUrl, {
+      method: 'POST',
+      headers: sid ? { Cookie: `id=${sid}` } : undefined,
+      body: fd,
+    })
     if (!res.ok) throw new Error(`nas_http_${res.status}`)
     return (await res.json()) as SynoResponse<T>
   }
@@ -72,6 +78,7 @@ function synoErrorMessage(code: number): string {
     105: 'nas_permission_denied',
     106: 'nas_session_expired',
     107: 'nas_session_interrupted',
+    119: 'nas_sid_not_found',
     400: 'nas_login_failed_invalid_credentials',
     401: 'nas_login_failed_account_disabled',
     402: 'nas_login_failed_permission_denied',
