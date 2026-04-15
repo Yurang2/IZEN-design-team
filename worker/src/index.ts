@@ -365,7 +365,7 @@ export default {
           const token = await getAccessToken()
           const q = `'${folderId}' in parents and trashed = false`
           const fields = 'files(id,name,mimeType,thumbnailLink,webViewLink,size,createdTime)'
-          const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=100&orderBy=name`, {
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=100&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`, {
             headers: { Authorization: `Bearer ${token}` },
           })
           const data: any = await res.json()
