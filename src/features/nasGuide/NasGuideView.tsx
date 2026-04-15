@@ -1049,6 +1049,7 @@ type IssueItem = {
   area: string
   source: string
   resolved: string
+  predecessorId: string
 }
 
 const RESOLVED_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -1127,10 +1128,14 @@ function InlinePill({ value, options, onSave, bg, border, color }: {
   )
 }
 
-function IssueCard({ item, onSave, forceCollapsed }: { item: IssueItem; onSave: (id: string, patch: Partial<IssueItem>) => void; forceCollapsed?: boolean | null }) {
+function IssueCard({ item, onSave, forceCollapsed, allItems }: { item: IssueItem; onSave: (id: string, patch: Partial<IssueItem>) => void; forceCollapsed?: boolean | null; allItems: IssueItem[] }) {
   const [collapsed, setCollapsed] = useState(false)
   useEffect(() => { if (forceCollapsed !== null && forceCollapsed !== undefined) setCollapsed(forceCollapsed) }, [forceCollapsed])
-  const rc = RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
+  const predecessor = item.predecessorId ? allItems.find((i) => i.id === item.predecessorId) : null
+  const isBlocked = predecessor && predecessor.resolved !== '해결'
+  const rc = isBlocked
+    ? { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af' }
+    : (RESOLVED_COLORS[item.resolved] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' })
   const save = (field: keyof IssueItem, value: string) => onSave(item.id, { [field]: value })
   return (
     <article className="workflowCard workflowCardWide" style={{ borderLeft: `3px solid ${rc.border}` }}>
@@ -1154,6 +1159,11 @@ function IssueCard({ item, onSave, forceCollapsed }: { item: IssueItem; onSave: 
             <InlinePill value={item.area} options={AREA_OPTIONS} onSave={(v) => save('area', v)} bg="var(--bg-soft, #eef2f7)" border="var(--border)" color="var(--text2)" />
             <InlinePill value={item.source} options={SOURCE_OPTIONS} onSave={(v) => save('source', v)} bg="#dbeafe" border="#93c5fd" color="#1d4ed8" />
             <InlinePill value={item.resolved} options={RESOLVED_OPTIONS} onSave={(v) => save('resolved', v)} bg={rc.bg} border={rc.border} color={rc.text} />
+            {isBlocked ? (
+              <span style={{ ...pillBase, background: '#f3f4f6', border: '1px solid #9ca3af', color: '#6b7280', fontWeight: 600 }}>
+                진행불가 — 선행: {predecessor?.issue?.substring(0, 20)}...
+              </span>
+            ) : null}
           </div>
         </>
       ) : null}
@@ -1270,7 +1280,7 @@ function IssuesSection() {
       {loading ? <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>불러오는 중...</div> : null}
       {fetchError ? <div style={{ padding: 12, fontSize: '0.82em', color: 'var(--danger)', background: '#fef2f2', borderRadius: 8 }}>API 오류: {fetchError}</div> : null}
 
-      {filtered.map((item) => <IssueCard key={item.id} item={item} onSave={saveItem} forceCollapsed={allCollapsedSignal} />)}
+      {filtered.map((item) => <IssueCard key={item.id} item={item} onSave={saveItem} forceCollapsed={allCollapsedSignal} allItems={items} />)}
 
       {!loading && filtered.length === 0 ? (
         <div style={{ padding: 20, textAlign: 'center', fontSize: '0.85em', color: 'var(--muted)' }}>해당하는 이슈가 없습니다</div>
