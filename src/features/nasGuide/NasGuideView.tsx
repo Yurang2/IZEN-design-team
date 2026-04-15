@@ -375,6 +375,139 @@ function cloneTree(nodes: TreeNode[]): TreeNode[] {
   }))
 }
 
+const PROJECT_PREFIX_MAP: Record<string, string> = {
+  'IZ250001_CIS-Conference-2026': 'IZEN_CIS2026',
+  'IZ250002_AEEDC-Dubai-2026': 'IZEN_AEEDC-Dubai-2026',
+  'IZ250003_IDS-Cologne-2026': 'IZEN_IDS-Cologne-2026',
+  'IZ250004_Russia-Dental-Expo-2026': 'IZEN_RusDentalExpo',
+  'IZ250015_회사소개영상-v3수정': 'IZEN_회사소개영상',
+  'IZ250016_I-system-카달로그-리뉴얼': 'IZEN_I-system_카달로그',
+  'IZ250017_신제품-렌더링-연구소요청': 'IZEN_신제품_렌더',
+  'IZ250018_제품-사용법영상-T-system': 'IZEN_T-system_사용법영상',
+  'IZ250900_SNS-정기콘텐츠': 'IZEN_SNS',
+  'IZ250901_뉴스레터': 'IZEN_뉴스레터',
+}
+
+const PROJECT_RAW_PREFIX_MAP: Record<string, string> = {
+  'IZ250001_CIS-Conference-2026': 'CIS2026',
+  'IZ250002_AEEDC-Dubai-2026': 'AEEDC2026',
+  'IZ250003_IDS-Cologne-2026': 'IDS2026',
+  'IZ250004_Russia-Dental-Expo-2026': 'RusDentalExpo2026',
+}
+
+function projectPrefix(projectFolder: string) {
+  return PROJECT_PREFIX_MAP[projectFolder] ?? `IZEN_${projectFolder.replace(/^IZ\d{6}_/, '')}`
+}
+
+function projectRawPrefix(projectFolder: string) {
+  return PROJECT_RAW_PREFIX_MAP[projectFolder] ?? projectPrefix(projectFolder).replace(/^IZEN_/, '')
+}
+
+function buildEmptyLeafExampleFiles(pathSegments: string[]): TreeNode[] {
+  const joined = pathSegments.join('/')
+  const root = pathSegments[0]
+
+  if (root === '01_PROJECT') {
+    const projectFolder = pathSegments[1]
+    const leaf = pathSegments[pathSegments.length - 1]
+    const prefix = projectPrefix(projectFolder)
+    const rawPrefix = projectRawPrefix(projectFolder)
+
+    if (joined.endsWith('/00_기획-문서/미팅')) return [f(`${prefix}_킥오프미팅_회의록_v01.docx`)]
+    if (joined.endsWith('/00_기획-문서')) return [f(`${prefix}_운영계획_v01.pptx`)]
+    if (leaf === '브로슈어') return [f(`${prefix}_브로슈어_EN_12p_v01.indd`)]
+    if (leaf === '리플렛') {
+      const lang = projectFolder.includes('Russia') ? 'RU' : 'EN'
+      return [f(`${prefix}_리플렛_${lang}_A4_v01.ai`)]
+    }
+    if (leaf === '배너-현수막') return [f(`${prefix}_배너_EN_v01.ai`)]
+    if (leaf === 'SNS') return [f(`${prefix}_SNS_1080x1350_v01.psd`)]
+    if (leaf === '홈페이지') return [f(`${prefix}_홈페이지-배너_1920x1080_v01.psd`)]
+    if (joined.endsWith('/04_영상/b_수신/외주')) return [f(`${rawPrefix}_aftermovie_draft.mov`)]
+    if (joined.endsWith('/04_영상/b_수신/타팀')) return [f(`sales_team_${rawPrefix}_reference.mp4`)]
+    if (joined.endsWith('/05_사진/a_자체촬영')) return [f('3N8A2815.JPG')]
+    if (joined.endsWith('/05_사진/b_수신/타팀')) return [f('IMG_4821.HEIC')]
+    if (joined.endsWith('/05_사진/c_보정')) return [f(`${prefix}_DAY1_보정_v01.jpg`)]
+    if (joined.endsWith('/05_사진/d_공유/DAY1')) return [f(`${prefix}_DAY1_공유_01.jpg`)]
+    if (joined.endsWith('/05_사진/d_공유/DAY2')) return [f(`${prefix}_DAY2_공유_01.jpg`)]
+    if (leaf === '06_현장수집') return [f('IMG_7012.JPG')]
+    if (leaf === '부스디자인') return [f(`IZEN_부스_${projectRawPrefix(projectFolder)}_v01.c4d`)]
+    if (leaf === '부스그래픽') return [f(`${prefix}_부스_벽면A_v01.ai`)]
+    if (leaf === '클립') return [f(`${rawPrefix}_DAY1_CAM-A_001.MXF`)]
+    if (leaf === '후기영상') return [f(`${prefix}_후기영상_16x9_v01.mp4`)]
+    if (leaf === '홍보영상') return [f(`${prefix}_홍보영상_16x9_v01.mp4`)]
+    if (leaf === '02_부스') return [f(`IZEN_부스_${projectRawPrefix(projectFolder)}_v01.c4d`)]
+    if (joined.endsWith('/제품/2025-04_T-system-케이스')) return [f('IZEN_SNS_제품_T-system-case_v01.png')]
+    if (joined.endsWith('/브랜딩')) return [f('IZEN_SNS_브랜딩_BI-story_v01.png')]
+    if (/01_PROJECT\/IZ250901_뉴스레터\/\d{4}-\d{2}$/.test(joined)) return [f(`${prefix}_${leaf}_v01.pptx`)]
+  }
+
+  if (root === '02_ASSET') {
+    if (joined.endsWith('/01_로고/Dealer')) return [f('NDENT_LOGO.ai')]
+    if (joined.includes('/02_제품-렌더링/01_zenex_fixture/01_multi/')) {
+      return [f(`MULTI_${pathSegments[pathSegments.length - 1]}_정면01_v01.png`)]
+    }
+    if (joined.includes('/02_제품-렌더링/01_zenex_fixture/02_plus/')) {
+      return [f(`PLUS_${pathSegments[pathSegments.length - 1]}_정면01_v01.png`)]
+    }
+    if (joined.endsWith('/02_cover_screw')) return [f('COVER-SCREW_정면01_v01.png')]
+    if (joined.endsWith('/03_healing_abutment')) return [f('HEALING-ABUTMENT_정면01_v01.png')]
+    if (joined.endsWith('/04_abutment')) return [f('ABUTMENT_정면01_v01.png')]
+    if (joined.endsWith('/05_zenex_kit')) return [f('ZENEX-KIT_구성01_v01.png')]
+    if (joined.endsWith('/06_sinus_combination_kit')) return [f('SINUS-COMBINATION-KIT_구성01_v01.png')]
+    if (joined.endsWith('/07_plazmax')) return [f('PLAZMAX_정면01_v01.png')]
+    if (joined.endsWith('/03_3D-소스')) return [f('CATRN70207_Rev00.STEP')]
+    if (joined.endsWith('/06_템플릿')) return [f('IZEN_SNS_템플릿_1080x1350_v01.psd')]
+    if (joined.endsWith('/07_제품사진-원본')) return [f('3N8A3001.JPG')]
+    if (joined.endsWith('/08_패키지')) return [f('IZEN_Taper-Kit_패키지_v01.ai')]
+    if (joined.endsWith('/09_임상/자사-케이스')) return [f('Dr-Kim_case-01.jpg')]
+    if (joined.endsWith('/09_임상/타사-레퍼런스')) return [f('Megagen_case-reference_01.jpg')]
+    if (joined.endsWith('/연자')) return [f('Dr-Kim_profile.png')]
+  }
+
+  if (root === '99_ARCHIVE') {
+    return [f('2024-06_CIS2024_포스터_최종.ai')]
+  }
+
+  if (root === 'Google Drive') {
+    if (joined.endsWith('/02_카달로그/T-system')) return [f('IZEN_T-system_카달로그_EN_Rev01.pdf')]
+    if (joined.endsWith('/02_카달로그/R-system')) return [f('IZEN_R-system_카달로그_EN_Rev01.pdf')]
+    if (joined.endsWith('/03_브로슈어')) return [f('IZEN_I-system_브로슈어_EN_Rev01.pdf')]
+    if (joined.endsWith('/04_리플렛')) return [f('IZEN_Taper-Kit_리플렛_EN_Rev01.pdf')]
+    if (joined.endsWith('/05_포스터')) return [f('IZEN_CIS2026_포스터_EN_A1_Rev01.pdf')]
+    if (joined.endsWith('/06_certificate')) return [f('IZEN_CIS2026_certificate_Rev01.pdf')]
+    if (joined.endsWith('/07_배너-사인물')) return [f('IZEN_AEEDC-Dubai-2026_배너_EN_Rev01.pdf')]
+    if (joined.endsWith('/08_영상/후기영상')) return [f('IZEN_CIS2026_후기영상_16x9_Rev01.mp4')]
+    if (joined.endsWith('/08_영상/홍보영상')) return [f('IZEN_AEEDC-Dubai-2026_홍보영상_16x9_Rev01.mp4')]
+    if (joined.endsWith('/08_영상/브랜딩영상')) return [f('IZEN_브랜딩영상_16x9_Rev01.mp4')]
+    if (joined.endsWith('/08_영상/모션그래픽')) return [f('IZEN_모션그래픽_16x9_Rev01.mp4')]
+    if (joined.endsWith('/08_영상/제품영상')) return [f('IZEN_I-system_제품영상_16x9_Rev01.mp4')]
+    if (joined.endsWith('/08_영상/회사소개영상')) return [f('IZEN_회사소개영상-Full_EN_Rev01.mp4')]
+    if (joined.endsWith('/09_패키지')) return [f('IZEN_Taper-Kit_패키지_Rev01.pdf')]
+    if (joined.endsWith('/10_IFU')) return [f('IZEN_I-system_IFU_EN_Rev01.pdf')]
+    if (joined.endsWith('/11_기타-배포본')) return [f('IZEN_제품비교표_EN_Rev01.pdf')]
+    if (joined.endsWith('/12__archive/구버전')) return [f('IZEN_회사소개서_EN_Rev01.pdf')]
+  }
+
+  return [f(`${pathSegments[pathSegments.length - 1]}_sample_v01.txt`)]
+}
+
+function fillEmptyLeafExampleFiles(nodes: TreeNode[], prefix: string[] = []): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.isFile) return { ...node }
+
+    const currentPath = [...prefix, node.name]
+    const children = node.children ? fillEmptyLeafExampleFiles(node.children, currentPath) : []
+    const hasFolders = children.some((child) => !child.isFile)
+    const hasFiles = children.some((child) => child.isFile)
+
+    return {
+      ...node,
+      children: !hasFolders && !hasFiles ? buildEmptyLeafExampleFiles(currentPath) : children,
+    }
+  })
+}
+
 function stripFilesFromTree(nodes: TreeNode[]): TreeNode[] {
   return nodes.map((node) => {
     return {
@@ -1764,7 +1897,7 @@ const TABS = [
 export function NasGuideView() {
   const [activeTab, setActiveTab] = useState(0)
   const folderStructureTree = useMemo(
-    () => [...cloneTree(NAS_TREE), ...cloneTree(GDRIVE_TREE)],
+    () => fillEmptyLeafExampleFiles([...cloneTree(NAS_TREE), ...cloneTree(GDRIVE_TREE)]),
     [],
   )
   const actualFileTree = useMemo(
