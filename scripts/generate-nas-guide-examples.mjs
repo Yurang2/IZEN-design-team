@@ -182,10 +182,10 @@ function logoTargetPath(record) {
 }
 
 const PRINT_CATEGORIES = [
-  { keywords: ['leaflet', '전단지'], folder: '리플렛', prefix: 'IZEN_리플렛' },
-  { keywords: ['brochure', '브로슈어'], folder: '브로슈어', prefix: 'IZEN_브로슈어' },
-  { keywords: ['poster', '포스터'], folder: '포스터', prefix: 'IZEN_포스터' },
-  { keywords: ['banner', '배너', 'x-banner', 'x banner', 'signage', 'wallgraphic', 'wall graphic'], folder: '배너-현수막', prefix: 'IZEN_배너' },
+  { keywords: ['leaflet', '전단지'], folder: '리플렛', googleDrivePath: '04_리플렛', prefix: 'IZEN_리플렛' },
+  { keywords: ['brochure', '브로슈어'], folder: '브로슈어', googleDrivePath: '03_브로슈어', prefix: 'IZEN_브로슈어' },
+  { keywords: ['poster', '포스터'], folder: '포스터', googleDrivePath: '05_포스터', prefix: 'IZEN_포스터' },
+  { keywords: ['banner', '배너', 'x-banner', 'x banner', 'signage', 'wallgraphic', 'wall graphic'], folder: '배너-현수막', googleDrivePath: '07_배너-사인물', prefix: 'IZEN_배너' },
 ]
 
 const DISTRIBUTION_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg'])
@@ -350,7 +350,7 @@ function buildExampleBuckets() {
       map: (record) => {
         const category = resolvePrintCategory(record) ?? PRINT_CATEGORIES[0]
         return {
-          path: `Google Drive/인쇄물/${category.folder}`,
+          path: `Google Drive/${category.googleDrivePath}`,
           ...renameIfNeeded(buildRevisionName(category.prefix, record), record),
         }
       },

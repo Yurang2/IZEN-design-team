@@ -19,6 +19,9 @@ type TreeExample = {
   comment?: string
 }
 
+const EXAMPLE_FOLDER_NAME = '예시파일'
+const EXAMPLE_FOLDER_COMMENT = 'txt에서 자동 추출한 실제 파일 예시'
+
 // ---------------------------------------------------------------------------
 // Data helpers
 // ---------------------------------------------------------------------------
@@ -212,22 +215,30 @@ const NAS_TREE: TreeNode[] = [
 // ---------------------------------------------------------------------------
 
 const GDRIVE_TREE: TreeNode[] = [
-  d('IZEN Design (Google Drive)', [
-    d('행사', [
-      d('2026_CIS-Conference', [dc('EN', '영문 인쇄물, 영상'), dc('RU', '러시아어'), dc('사진', '언어 무관')]),
-      d('2026_AEEDC-Dubai', [d('EN')]),
-      d('2026_Russia-Dental-Expo', [d('EN'), d('RU')]),
-      d('2026_IDS-Cologne', [d('EN')]),
+  d('Google Drive', [
+    d('01_회사소개', [
+      dc('company-profile', 'PPT, PDF', [f('IZEN_회사소개서_EN_Rev02.pdf'), f('IZEN_회사소개서_EN_Rev02.pptx')]),
+      dc('company-video', '소개영상 최종본', [f('IZEN_회사소개영상-Full_EN_Rev01.mp4'), f('IZEN_회사소개영상-Short_EN_Rev01.mp4')]),
     ]),
-    d('제품', [
-      d('I-system', [dc('EN', '카달로그, 브로슈어, 사용법영상'), d('RU'), d('ZH')]),
-      d('T-system', [d('EN'), d('RU')]),
-      d('R-system', [d('EN')]),
+    d('02_카달로그', [
+      d('I-system', [
+        fc('IZEN_I-system_카달로그_EN_Rev03.pdf', '← 최신 배포본'),
+        f('IZEN_I-system_카달로그_RU_Rev02.pdf'),
+        dc('_archive', '구버전', [f('IZEN_I-system_카달로그_EN_Rev02.pdf'), f('IZEN_I-system_카달로그_EN_Rev01.pdf')]),
+      ]),
+      d('T-system'),
+      d('R-system'),
     ]),
-    d('공통', [
-      d('회사소개', [dc('EN', '회사소개서, 소개영상'), d('RU'), d('ZH')]),
-      d('브랜드-가이드'),
-    ]),
+    d('03_브로슈어'),
+    d('04_리플렛'),
+    d('05_포스터'),
+    d('06_certificate'),
+    d('07_배너-사인물'),
+    d('08_영상', [d('후기영상'), d('홍보영상'), d('브랜딩영상'), d('모션그래픽'), d('제품영상'), d('회사소개영상')]),
+    d('09_패키지'),
+    d('10_IFU'),
+    d('11_기타-배포본'),
+    d('12__archive', [dc('구버전', 'Rev 하위 구버전 보관')]),
   ]),
 ]
 
@@ -385,9 +396,16 @@ function mergeExamplesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): T
       cursor = next.children
     }
 
-    const exists = cursor.some((node) => node.isFile && node.name === example.name && node.comment === example.comment)
+    let exampleFolder = cursor.find((node) => !node.isFile && node.name === EXAMPLE_FOLDER_NAME)
+    if (!exampleFolder) {
+      exampleFolder = { name: EXAMPLE_FOLDER_NAME, comment: EXAMPLE_FOLDER_COMMENT, children: [] }
+      cursor.push(exampleFolder)
+    }
+    if (!exampleFolder.children) exampleFolder.children = []
+
+    const exists = exampleFolder.children.some((node) => node.isFile && node.name === example.name && node.comment === example.comment)
     if (!exists) {
-      cursor.push({ name: example.name, comment: example.comment, isFile: true })
+      exampleFolder.children.push({ name: example.name, comment: example.comment, isFile: true })
     }
   }
 
@@ -607,8 +625,8 @@ function StructureSection({ treeData, exampleCount }: { treeData: TreeNode[]; ex
           </div>
         </div>
         <p style={{ fontSize: '0.82em', color: 'var(--text2)', marginTop: 0 }}>
-          현재 트리에는 legacy NAS txt에서 자동 분류한 <strong>예시 파일 {exampleCount.toLocaleString()}개</strong>가 폴더 아래에 직접 붙습니다.
-          파일명이 바뀐 예시는 <code className="fileGuideCode">원본파일명</code>이 같이 표시됩니다.
+          현재 트리에는 legacy NAS txt에서 자동 분류한 <strong>실제 추출 예시 {exampleCount.toLocaleString()}개</strong>가 각 폴더 아래
+          <code className="fileGuideCode">예시파일</code> 폴더로 붙습니다. 파일명이 바뀐 예시는 <code className="fileGuideCode">원본파일명</code>이 같이 표시됩니다.
         </p>
         <TreeViewer data={treeData} />
       </article>
@@ -1012,12 +1030,12 @@ function GDriveSection() {
         <div className="workflowSectionHeader">
           <div>
             <span className="workflowSectionEyebrow" style={{ color: C.gdrive.text }}>Google Drive Structure</span>
-            <h3>구글 드라이브 (딜러 공유용)</h3>
+            <h3>구글 드라이브 (옛 Library 구조)</h3>
           </div>
         </div>
         <p>
-          NAS는 내부 작업/보관용, 외부(딜러) 공유는 구글 드라이브.
-          카테고리 안에서 <strong>언어별 하위 폴더</strong>로 분리하여 인허가 혼선을 방지합니다.
+          구글 드라이브는 완성 배포본 보관소이며, 예전 <strong>03_LIBRARY</strong> 폴더 체계를 그대로 복구해 사용합니다.
+          최종본은 카테고리별 상위 폴더에 <strong>Rev</strong>로 올리고, 구버전은 <code className="fileGuideCode">_archive</code>로 내립니다.
         </p>
         <TreeViewer data={GDRIVE_TREE} />
       </article>
@@ -1031,10 +1049,10 @@ function GDriveSection() {
         </div>
         <div className="workflowTimeline">
           {[
-            { n: '1', text: '행사 자료 올릴 때: 해당 행사 폴더 한 곳만 가서, EN/RU 등 언어별로 나눠 넣으면 끝', sub: '여러 곳에 중복 업로드 안 함' },
-            { n: '2', text: '언어 폴더가 하위에 있으므로 다른 언어 카달로그가 섞일 수 없음', sub: '인허가 혼선 방지' },
-            { n: '3', text: '사진처럼 언어 무관한 파일은 언어 폴더 밖에 바로 배치', sub: '' },
-            { n: '4', text: '딜러 공유 시: 해당 행사의 해당 언어 폴더 링크만 전달', sub: '예: 러시아 딜러 → 행사/2026_CIS-Conference/RU/' },
+            { n: '1', text: '회사소개, 카달로그, 리플렛, 포스터처럼 배포 목적별 대분류를 유지', sub: '옛 03_LIBRARY 번호 체계 그대로 사용' },
+            { n: '2', text: '상위 폴더에는 항상 최신 Rev만 두고, 소스파일(v)은 넣지 않음', sub: '예: 04_리플렛/ 아래에는 PDF, PNG 등 최종본만' },
+            { n: '3', text: '같은 항목의 이전 배포본은 각 카테고리 내부 _archive로 이동', sub: '최신본 링크와 과거본 보관을 분리' },
+            { n: '4', text: '외부 공유는 필요한 카테고리 폴더 또는 파일 링크만 전달', sub: '예: Google Drive/04_리플렛/' },
           ].map((step) => (
             <article key={step.n} className="workflowStep" style={{ gridTemplateColumns: '40px 1fr' }}>
               <div
@@ -1060,9 +1078,9 @@ function GDriveSection() {
           </div>
         </div>
         <div className="workflowCheckpointGrid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.library.border}` }}>
-            <h4>Google Drive (Library)</h4>
-            <p>유형별 정리 (카달로그, 영상 등). 원본 보관소.</p>
+          <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.project.border}` }}>
+            <h4>NAS PROJECT</h4>
+            <p>작업중 소스, 수정본, 수신본은 NAS PROJECT에서 관리합니다.</p>
           </div>
           <div className="workflowCheckpoint" style={{ textAlign: 'center', border: 'none', background: 'none', padding: '12px 0' }}>
             <p style={{ fontSize: '1.5em' }}>→</p>
@@ -1070,7 +1088,7 @@ function GDriveSection() {
           </div>
           <div className="workflowCheckpoint" style={{ borderLeft: `3px solid ${C.gdrive.border}` }}>
             <h4>구글 드라이브</h4>
-            <p>용도별(행사/제품/공통) &gt; 언어별 정리. 외부 공유 창구.</p>
+            <p>옛 Library 카테고리 구조로 최종 배포본과 Rev 이력을 관리합니다.</p>
           </div>
         </div>
       </article>

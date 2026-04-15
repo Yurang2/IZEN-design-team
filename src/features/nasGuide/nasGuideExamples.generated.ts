@@ -5369,542 +5369,542 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-door-fixture_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_door_fixture.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-EASYSURGERY-KIT_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_EASYSURGERY KIT.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-fixture-dental-clinic_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_fixture(dental-clinic).pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-How-to-use-ZENEX-fixtrue-eng_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-eng.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-How-to-use-ZENEX-fixtrue-russian_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-russian.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-New-Product-Differentiation-Points_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_New Product Differentiation Points.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-SURGERY-KIT_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_SURGERY KIT.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-zenex-guide-kit_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex guide kit.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-zenex-I-system-fixture-features_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex I-system fixture_features.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-Zenex-Multi-Plus-Chameleon_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_Zenex Multi Plus Chameleon.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-ZENEX-multi-plus-R-System-Features_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_ZENEX multi_plus R-System Features.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-ZENEX-Multi-Plus-Space_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_ZENEX Multi Plus Space.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-zenex-R-system-fixture-features_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex R-system fixture_features.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_leaflet-zenex-T-system-fixture-features_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]leaflet_zenex T-system fixture_features.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-about-implant-en-ru_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-about implant_en+ru.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-apple_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster_apple.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-brand-image-Birth-Of-Venus_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-brand-image-Birth-Of-Venus-frame_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus-frame.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-brand-image-illustration_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-brand image_illustration.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-color-blue-multi-fitxture_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-color_blue_multi_fitxture.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-color-mint-multi-plus-fixture_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-color_mint_multi plus_fixture.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-color-pink-plus-fixture_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-color_pink_plus_fixture.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-Colorline-fixture_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-Colorline_fixture.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-ITR-poster_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-ITR poster.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-light-Multi-Plus-Fixture_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-light_Multi,Plus Fixture.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-particleMulti-Plus-Fixture_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster-particleMulti,Plus Fixture.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-product_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster_product.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/리플렛",
-    "name": "IZEN_리플렛_poster-product-1p-rendering_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]poster_product_1p_rendering.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-01-83x200cm-240711_Rev01.png",
-    "comment": "원본파일명: [Philippines]banner_01_83x200cm_240711.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-02-83x200cm-240711_Rev01.png",
-    "comment": "원본파일명: [Philippines]banner_02_83x200cm_240711.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-1-80-220_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]banner_1_80-220.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-2-80-220_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]banner_2_80-220.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-3-83-200_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]banner_3_83-200.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-4-83-200_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]banner_4_83-200.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-5-83-200_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]banner_5_83-200.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-90x150cm-240405-1_Rev01.png",
-    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_1.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-90x150cm-240405-2_Rev01.png",
-    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_2.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-launching-01-75x200cm-240711_Rev01.png",
-    "comment": "원본파일명: [malaysia]banner_launching_01_75x200cm_240711.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner-launching-02-75x200cm-240711_Rev01.png",
-    "comment": "원본파일명: [malaysia]banner_launching_02_75x200cm_240711.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_banner2-60-180_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]banner2_60-180.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-banner_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]CDSMWM_banner.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-banner_Rev01.png",
-    "comment": "원본파일명: [izenimplant]CDSMWM_banner.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-hanging_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]CDSMWM_hanging.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-hangingbanner-multi_Rev01.png",
-    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_multi.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-hangingbanner-plus_Rev01.png",
-    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_plus.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-Wall_Rev01.pdf",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-Wall_Rev01.png",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-Wall2_Rev01.pdf",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_CDSMWM-Wall2_Rev01.png",
-    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_IAM-CIS-2024-mini-banner-BPM_Rev01.jpg",
-    "comment": "원본파일명: IAM CIS 2024 mini banner_BPM.jpg"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_IAM-CIS-2024-standing-banner_Rev01.png",
-    "comment": "원본파일명: IAM CIS 2024 standing banner.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_IAM-CIS-2024-standing-banner-Suwon_Rev01.png",
-    "comment": "원본파일명: IAM CIS 2024 standing banner_Suwon.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_Morocco-banner-최종-인쇄_Rev01.pdf",
-    "comment": "원본파일명: Morocco banner 최종 인쇄.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_saudiarabia-wallgraphic-01_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_01.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_saudiarabia-wallgraphic-02_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_02.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_saudiarabia-wallgraphic-03_Rev01.pdf",
-    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_03.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_Taiwan-graphic_Rev01.png",
-    "comment": "원본파일명: [izen]Taiwan graphic.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_Taiwan-graphic-2_Rev01.png",
-    "comment": "원본파일명: [izen]Taiwan graphic (2).png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_Taiwan-graphic-3_Rev01.png",
-    "comment": "원본파일명: [izen]Taiwan graphic (3).png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_vietnam-exhibition-graphic-back-01_Rev01.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_back_01.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_vietnam-exhibition-graphic-back-02_Rev01.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_back_02.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_vietnam-exhibition-graphic-back-03_Rev01.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_back_03.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_vietnam-exhibition-graphic-front-01_Rev01.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_front_01.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_vietnam-exhibition-graphic-front-02_Rev01.png",
-    "comment": "원본파일명: vietnam_exhibition_graphic_front_02.png"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/배너-현수막",
-    "name": "IZEN_배너_X-banner5_Rev01.pdf",
-    "comment": "원본파일명: [IZEN IMPLANT] X-banner5.pdf"
-  },
-  {
-    "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-16p-ZENEX-Compatibility-Chart-Competitors_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-16p-ZENEX Compatibility Chart(Competitors).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-24p-zenex-guide-kit-manual_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-24p-zenex guide kit manual.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-3p-sinus-combination-kit_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-3p-sinus combination kit.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-3p-ZENEX-Compatibility-Chart-Rev-00_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-3p-ZENEX Compatibility Chart (Rev.00).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-4p-PLAZMAX-IZEN-Implant_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-4p-PLAZMAX_IZEN Implant.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-Patient-Leaflet_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-Patient Leaflet.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-I-system-leaflet-actual-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI-I-system leaflet(actual size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-I-system-leaflet-Public-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI I system leaflet(Public size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-R-system-leaflet-actual-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI R system leaflet(actual size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-R-system-leaflet-Public-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI R system leaflet(Public size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-T-system-leaflet-actual-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI T system leaflet(actual size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-MULTI-T-system-leaflet-Public-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX MULTI T system leaflet(Public size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-I-system-leaflet-actual-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS I system leaflet(actual size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-I-system-leaflet-Public-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS I system leaflet(Public size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-R-system-leaflet-actual-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS R system leaflet(actual size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-R-system-leaflet-Public-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS R system leaflet(Public size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-T-system-leaflet-actual-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS T system leaflet(actual size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-6p-ZENEX-PLUS-T-system-leaflet-Public-size_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-6p-ZENEX PLUS T system leaflet(Public size).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-8p-I-system-brochure_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-8p-I-system brochure.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-8p-product-brochure_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-8p product brochure.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-8p-R-system-brochure_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-8p-R-system brochure.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_brochure-8p-T-system-brochure_Rev01.pdf",
     "comment": "원본파일명: [izenimplant]brochure-8p-T-system brochure.pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_IZ-PMA-01-REV00-JAN-22_Rev01.pdf",
     "comment": "원본파일명: [Prosthetic Manual]IZ-PMA-01_REV00_(JAN_22).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_Prosthetic-Manual-IZ-PMA-02-REV01-2023-08_Rev01.pdf",
     "comment": "원본파일명: [FDA][Prosthetic Manual]IZ-PMA-02_REV01_(2023-08).pdf"
   },
   {
     "bucket": "gdrive-legacy-print",
-    "path": "Google Drive/인쇄물/브로슈어",
+    "path": "Google Drive/03_브로슈어",
     "name": "IZEN_브로슈어_Инструкция-по-протезированию-1_Rev01.pdf",
     "comment": "원본파일명: Инструкция по протезированию (1).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-door-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_door_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-EASYSURGERY-KIT_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_EASYSURGERY KIT.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-fixture-dental-clinic_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_fixture(dental-clinic).pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-How-to-use-ZENEX-fixtrue-eng_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-eng.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-How-to-use-ZENEX-fixtrue-russian_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet-How to use_ZENEX fixtrue-russian.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-New-Product-Differentiation-Points_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_New Product Differentiation Points.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-SURGERY-KIT_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_SURGERY KIT.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-guide-kit_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex guide kit.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-I-system-fixture-features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex I-system fixture_features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-Zenex-Multi-Plus-Chameleon_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_Zenex Multi Plus Chameleon.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-ZENEX-multi-plus-R-System-Features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_ZENEX multi_plus R-System Features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-ZENEX-Multi-Plus-Space_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_ZENEX Multi Plus Space.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-R-system-fixture-features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex R-system fixture_features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_leaflet-zenex-T-system-fixture-features_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]leaflet_zenex T-system fixture_features.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-about-implant-en-ru_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-about implant_en+ru.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-apple_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster_apple.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-brand-image-Birth-Of-Venus_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-brand-image-Birth-Of-Venus-frame_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-brand image_Birth Of Venus-frame.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-brand-image-illustration_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-brand image_illustration.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-color-blue-multi-fitxture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-color_blue_multi_fitxture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-color-mint-multi-plus-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-color_mint_multi plus_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-color-pink-plus-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-color_pink_plus_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-Colorline-fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-Colorline_fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-ITR-poster_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-ITR poster.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-light-Multi-Plus-Fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-light_Multi,Plus Fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-particleMulti-Plus-Fixture_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster-particleMulti,Plus Fixture.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-product_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster_product.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/04_리플렛",
+    "name": "IZEN_리플렛_poster-product-1p-rendering_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]poster_product_1p_rendering.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-01-83x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [Philippines]banner_01_83x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-02-83x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [Philippines]banner_02_83x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-1-80-220_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_1_80-220.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-2-80-220_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_2_80-220.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-3-83-200_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_3_83-200.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-4-83-200_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_4_83-200.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-5-83-200_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner_5_83-200.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-90x150cm-240405-1_Rev01.png",
+    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_1.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-90x150cm-240405-2_Rev01.png",
+    "comment": "원본파일명: [Morocco]banner_90x150cm_240405_2.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-launching-01-75x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [malaysia]banner_launching_01_75x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner-launching-02-75x200cm-240711_Rev01.png",
+    "comment": "원본파일명: [malaysia]banner_launching_02_75x200cm_240711.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_banner2-60-180_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]banner2_60-180.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-banner_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]CDSMWM_banner.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-banner_Rev01.png",
+    "comment": "원본파일명: [izenimplant]CDSMWM_banner.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-hanging_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]CDSMWM_hanging.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-hangingbanner-multi_Rev01.png",
+    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_multi.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-hangingbanner-plus_Rev01.png",
+    "comment": "원본파일명: [izenimplant]CDSMWM_hangingbanner_plus.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-Wall_Rev01.pdf",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-Wall_Rev01.png",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-Wall2_Rev01.pdf",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_CDSMWM-Wall2_Rev01.png",
+    "comment": "원본파일명: [izenimaplant]CDSMWM_Wall2.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_IAM-CIS-2024-mini-banner-BPM_Rev01.jpg",
+    "comment": "원본파일명: IAM CIS 2024 mini banner_BPM.jpg"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_IAM-CIS-2024-standing-banner_Rev01.png",
+    "comment": "원본파일명: IAM CIS 2024 standing banner.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_IAM-CIS-2024-standing-banner-Suwon_Rev01.png",
+    "comment": "원본파일명: IAM CIS 2024 standing banner_Suwon.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_Morocco-banner-최종-인쇄_Rev01.pdf",
+    "comment": "원본파일명: Morocco banner 최종 인쇄.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_saudiarabia-wallgraphic-01_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_01.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_saudiarabia-wallgraphic-02_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_02.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_saudiarabia-wallgraphic-03_Rev01.pdf",
+    "comment": "원본파일명: [izenimplant]saudiarabia_wallgraphic_03.pdf"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_Taiwan-graphic_Rev01.png",
+    "comment": "원본파일명: [izen]Taiwan graphic.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_Taiwan-graphic-2_Rev01.png",
+    "comment": "원본파일명: [izen]Taiwan graphic (2).png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_Taiwan-graphic-3_Rev01.png",
+    "comment": "원본파일명: [izen]Taiwan graphic (3).png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-back-01_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_back_01.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-back-02_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_back_02.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-back-03_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_back_03.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-front-01_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_front_01.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_vietnam-exhibition-graphic-front-02_Rev01.png",
+    "comment": "원본파일명: vietnam_exhibition_graphic_front_02.png"
+  },
+  {
+    "bucket": "gdrive-legacy-print",
+    "path": "Google Drive/07_배너-사인물",
+    "name": "IZEN_배너_X-banner5_Rev01.pdf",
+    "comment": "원본파일명: [IZEN IMPLANT] X-banner5.pdf"
   }
 ]
