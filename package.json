@@ -19,6 +19,7 @@
     "publish:web": "bash ./scripts/publish-web.sh",
     "extract:video-explorer-thumbnails": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\extract-video-explorer-thumbnails.ps1",
     "generate:event-graphics-draft": "node scripts/generate-event-graphics-timetable-draft.mjs && node scripts/rebuild-bangkok-event-graphics-operational-order.mjs && node scripts/augment-event-graphics-entrance-cues.mjs",
+    "generate:nas-guide-examples": "node scripts/generate-nas-guide-examples.mjs",
     "sync:event-graphics-masterfiles": "node scripts/sync-event-graphics-masterfile-assets.mjs",
     "sync:photo-guide-schema": "node scripts/sync-photo-guide-schema-direct.mjs",
     "sync:screening-video-schema": "node scripts/sync-screening-video-schema-direct.mjs",

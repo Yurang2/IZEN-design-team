@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { api } from '../../shared/api/client'
+import { GENERATED_NAS_GUIDE_EXAMPLES, GENERATED_NAS_GUIDE_EXAMPLE_META } from './nasGuideExamples.generated'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -10,6 +11,12 @@ type TreeNode = {
   comment?: string
   children?: TreeNode[]
   isFile?: boolean
+}
+
+type TreeExample = {
+  path: string
+  name: string
+  comment?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +359,40 @@ function collectPaths(nodes: TreeNode[], prefix: string): string[] {
   return out
 }
 
+function cloneTree(nodes: TreeNode[]): TreeNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    children: node.children ? cloneTree(node.children) : undefined,
+  }))
+}
+
+function mergeExamplesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): TreeNode[] {
+  const tree = cloneTree(baseTree)
+
+  for (const example of examples) {
+    const segments = example.path.split('/').filter(Boolean)
+    if (segments.length === 0) continue
+
+    let cursor = tree
+    for (const segment of segments) {
+      let next = cursor.find((node) => !node.isFile && node.name === segment)
+      if (!next) {
+        next = { name: segment, children: [] }
+        cursor.push(next)
+      }
+      if (!next.children) next.children = []
+      cursor = next.children
+    }
+
+    const exists = cursor.some((node) => node.isFile && node.name === example.name && node.comment === example.comment)
+    if (!exists) {
+      cursor.push({ name: example.name, comment: example.comment, isFile: true })
+    }
+  }
+
+  return tree
+}
+
 // ---------------------------------------------------------------------------
 // Tree item component
 // ---------------------------------------------------------------------------
@@ -519,7 +560,7 @@ function TreeViewer({ data }: { data: TreeNode[] }) {
 // Section 1: 폴더 구조
 // ---------------------------------------------------------------------------
 
-function StructureSection() {
+function StructureSection({ treeData, exampleCount }: { treeData: TreeNode[]; exampleCount: number }) {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <article className="workflowCard workflowCardWide">
@@ -564,7 +605,11 @@ function StructureSection() {
             <h3>폴더 트리 (클릭하여 열기/닫기)</h3>
           </div>
         </div>
-        <TreeViewer data={NAS_TREE} />
+        <p style={{ fontSize: '0.82em', color: 'var(--text2)', marginTop: 0 }}>
+          현재 트리에는 legacy NAS txt에서 자동 분류한 <strong>예시 파일 {exampleCount.toLocaleString()}개</strong>가 폴더 아래에 직접 붙습니다.
+          파일명이 바뀐 예시는 <code className="fileGuideCode">원본파일명</code>이 같이 표시됩니다.
+        </p>
+        <TreeViewer data={treeData} />
       </article>
 
       <article className="workflowCard workflowCardWide">
@@ -1661,6 +1706,10 @@ const TABS = [
 
 export function NasGuideView() {
   const [activeTab, setActiveTab] = useState(0)
+  const nasTreeWithExamples = useMemo(
+    () => mergeExamplesIntoTree(NAS_TREE, GENERATED_NAS_GUIDE_EXAMPLES),
+    [],
+  )
 
   return (
     <section className="workflowView" aria-label="NAS 폴더 구조 가이드">
@@ -1706,7 +1755,7 @@ export function NasGuideView() {
 
       {/* Tab content */}
       <div>
-        {activeTab === 0 ? <StructureSection /> : null}
+        {activeTab === 0 ? <StructureSection treeData={nasTreeWithExamples} exampleCount={GENERATED_NAS_GUIDE_EXAMPLE_META.total} /> : null}
         {activeTab === 1 ? <DecisionSection /> : null}
         {activeTab === 2 ? <NamingSection /> : null}
         {activeTab === 3 ? <AutoSaveSection /> : null}
