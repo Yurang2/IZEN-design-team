@@ -392,6 +392,10 @@ export default {
         if (body.area != null) props['영역'] = { select: { name: asString(body.area) } }
         if (body.source != null) props['출처'] = { select: { name: asString(body.source) } }
         if (body.resolved != null) props['해결여부'] = { select: { name: asString(body.resolved) } }
+        if (body.predecessorId != null) {
+          const pid = asString(body.predecessorId)
+          props['선행작업'] = pid ? { relation: [{ id: pid }] } : { relation: [] }
+        }
 
         await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
           method: 'PATCH', headers: notionHeaders,

@@ -1159,9 +1159,21 @@ function IssueCard({ item, onSave, forceCollapsed, allItems }: { item: IssueItem
             <InlinePill value={item.area} options={AREA_OPTIONS} onSave={(v) => save('area', v)} bg="var(--bg-soft, #eef2f7)" border="var(--border)" color="var(--text2)" />
             <InlinePill value={item.source} options={SOURCE_OPTIONS} onSave={(v) => save('source', v)} bg="#dbeafe" border="#93c5fd" color="#1d4ed8" />
             <InlinePill value={item.resolved} options={RESOLVED_OPTIONS} onSave={(v) => save('resolved', v)} bg={rc.bg} border={rc.border} color={rc.text} />
+            <InlinePill
+              value={predecessor ? predecessor.issue.substring(0, 25) : ''}
+              options={['(없음)', ...allItems.filter((i) => i.id !== item.id).map((i) => i.issue.substring(0, 30))]}
+              onSave={(v) => {
+                if (v === '(없음)') { onSave(item.id, { predecessorId: '' }); return }
+                const found = allItems.find((i) => i.issue.startsWith(v))
+                if (found) onSave(item.id, { predecessorId: found.id })
+              }}
+              bg={isBlocked ? '#fef2f2' : 'var(--bg-soft, #eef2f7)'}
+              border={isBlocked ? '#fca5a5' : 'var(--border)'}
+              color={isBlocked ? '#b91c1c' : 'var(--muted)'}
+            />
             {isBlocked ? (
               <span style={{ ...pillBase, background: '#f3f4f6', border: '1px solid #9ca3af', color: '#6b7280', fontWeight: 600 }}>
-                진행불가 — 선행: {predecessor?.issue?.substring(0, 20)}...
+                진행불가
               </span>
             ) : null}
           </div>
