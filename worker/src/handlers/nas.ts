@@ -319,12 +319,28 @@ export async function handleNasRoutes(
       if (!destPath) return respond.json({ ok: false, error: 'nas_path_required' }, 400)
       if (!file) return respond.json({ ok: false, error: 'nas_file_required' }, 400)
 
+      const permission = await synoFetch(nasUrl, 'entry.cgi', {
+        api: 'SYNO.FileStation.CheckPermission',
+        version: '3',
+        method: 'write',
+        path: destPath,
+        filename: file.name,
+        create_only: 'true',
+        _sid: sid,
+      })
+      if (!permission.success) {
+        throw new Error(synoFileOperationErrorMessage(permission.error))
+      }
+
       // Build FormData for Synology
+      const uploadFile = new File([await file.arrayBuffer()], file.name, {
+        type: file.type || 'application/octet-stream',
+      })
       const nasForm = new FormData()
       nasForm.append('path', destPath)
       nasForm.append('create_parents', createParents === 'true' ? 'true' : 'false')
       nasForm.append('overwrite', 'false')
-      nasForm.append('file', file, file.name)
+      nasForm.append('file', uploadFile, uploadFile.name)
 
       const res = await synoFetch(nasUrl, 'entry.cgi', {
         api: 'SYNO.FileStation.Upload',
@@ -335,7 +351,11 @@ export async function handleNasRoutes(
       }, { formData: nasForm })
 
       if (!res.success) {
-        throw new Error(synoUploadErrorMessage(res.error))
+        const message = synoUploadErrorMessage(res.error)
+        if (message === 'nas_file_operation_unknown_error') {
+          throw new Error(`nas_file_operation_unknown_error path=${destPath} filename=${file.name} size=${file.size}`)
+        }
+        throw new Error(message)
       }
 
       return respond.ok({ ok: true, filename: file.name, destPath })
