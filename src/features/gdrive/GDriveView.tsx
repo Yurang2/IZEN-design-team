@@ -180,19 +180,19 @@ export function GDriveView() {
             </div>
           ) : null}
 
-          {/* Files — Grid */}
+          {/* Files — Grid (masonry) */}
           {items.length > 0 && viewMode === 'grid' ? (
             <div>
               <div style={{ fontSize: '0.78em', color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>파일 ({items.length}개)</div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${px}px, 1fr))`, gap: 10 }}>
+              <div style={{ columnCount: Math.max(1, Math.floor(900 / px)), columnGap: 10 }}>
                 {items.map((f) => (
                   <a key={f.id} href={f.webViewLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ background: 'var(--surface2, #f5f7fb)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer' }}>
+                    <div style={{ background: 'var(--surface2, #f5f7fb)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', marginBottom: 10, breakInside: 'avoid' }}>
                       {isImage(f.mimeType) || f.thumbnailLink ? (
                         <img
                           src={getThumbUrl(f, px * 2)}
                           alt={f.name}
-                          style={{ width: '100%', height: px, objectFit: 'cover', background: '#e5e7eb', display: 'block' }}
+                          style={{ width: '100%', display: 'block', background: '#e5e7eb' }}
                           loading="lazy"
                           onError={(e) => {
                             const el = e.target as HTMLImageElement
