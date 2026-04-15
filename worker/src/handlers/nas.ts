@@ -41,21 +41,13 @@ async function synoFetch<T>(
   const url = `${nasUrl}/webapi/${endpoint}`
 
   if (options?.formData) {
-    const fd = new FormData()
-    for (const [k, v] of Object.entries(params)) {
-      fd.append(k, v)
-    }
-    // Synology upload expects metadata fields before the binary file part.
-    for (const [k, v] of options.formData.entries()) {
-      if (typeof v === 'string') fd.append(k, v)
-      else fd.append(k, v, v.name)
-    }
     const sid = params._sid
-    const authedUrl = sid ? `${url}?_sid=${encodeURIComponent(sid)}` : url
+    const qs = new URLSearchParams(params).toString()
+    const authedUrl = qs ? `${url}?${qs}` : url
     const res = await fetch(authedUrl, {
       method: 'POST',
       headers: sid ? { Cookie: `id=${sid}` } : undefined,
-      body: fd,
+      body: options.formData,
     })
     if (!res.ok) throw new Error(`nas_http_${res.status}`)
     return (await res.json()) as SynoResponse<T>
@@ -329,14 +321,15 @@ export async function handleNasRoutes(
 
       // Build FormData for Synology
       const nasForm = new FormData()
+      nasForm.append('path', destPath)
+      nasForm.append('create_parents', createParents === 'true' ? 'true' : 'false')
+      nasForm.append('overwrite', 'false')
       nasForm.append('file', file, file.name)
 
       const res = await synoFetch(nasUrl, 'entry.cgi', {
         api: 'SYNO.FileStation.Upload',
         version: '2',
         method: 'upload',
-        path: destPath,
-        create_parents: createParents === 'true' ? 'true' : 'false',
         overwrite: 'false', // NEVER overwrite — safety first
         _sid: sid,
       }, { formData: nasForm })
