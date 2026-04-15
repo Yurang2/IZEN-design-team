@@ -58,7 +58,7 @@ const NAS_TREE: TreeNode[] = [
     // ── 비정기 (0001~0899) ──
     dc('IZ250001_CIS-Conference-2026', '풀세트 행사 프로젝트', [
       d('00_기획-문서', [
-        dc('기획서', '타팀 수령 기획서', [fc('[수신]_CIS2026_기획서_마케팅팀.docx', '타팀에서 받은 파일')]),
+        dc('기획서', '타팀 수령 기획서', [fc('CIS2026_기획서_마케팅팀.docx', '원본 파일명 그대로')]),
         d('보고서-제안서', [f('IZEN_CIS2026_부스_제안서_v02.pptx')]),
         d('품의서-지출결의서', [fc('판촉물_견적서_기프트인포_v01.pdf', '판촉물 견적서도 여기에')]),
         d('미팅'),
@@ -131,7 +131,7 @@ const NAS_TREE: TreeNode[] = [
     ]),
     // ── 비정기 (제품/콘텐츠) ──
     dc('IZ250015_회사소개영상-v3수정', '영업팀 검수 → 자막 수정 → 최종본', [
-      d('00_기획-문서', [fc('[수신]_회사소개영상_검수의견_영업팀.docx', '영업팀 검수 docx')]),
+      d('00_기획-문서', [fc('회사소개영상_검수의견_영업팀.docx', '원본 파일명 그대로')]),
       d('04_영상', [
         d('회사소개영상', [f('IZEN_회사소개영상-Full_v03.prproj'), f('IZEN_회사소개영상-Full_EN_v03.mp4')]),
       ]),
@@ -146,7 +146,7 @@ const NAS_TREE: TreeNode[] = [
       ]),
     ]),
     dc('IZ250017_신제품-렌더링-연구소요청', '연구소 요청 → 3D → 납품', [
-      d('00_기획-문서', [f('[수신]_신제품_렌더링요청_연구소.docx')]),
+      d('00_기획-문서', [f('신제품_렌더링요청_연구소.docx')]),
       d('03_디지털', [d('렌더링', [f('IZEN_신제품_렌더_정면_v01.png'), f('IZEN_신제품_렌더_측면_v01.png')])]),
     ]),
     dc('IZ250018_제품-사용법영상-T-system', '스토리보드 → 3D → 편집', [
@@ -155,7 +155,7 @@ const NAS_TREE: TreeNode[] = [
         d('제품영상', [f('IZEN_T-system_사용법_3D_v02.c4d'), f('IZEN_T-system_사용법영상-기본편_v02.prproj'), f('IZEN_T-system_사용법영상-기본편_v02.mp4')]),
       ]),
     ]),
-    // ── 정기 (0900~0999) ──
+    // ── 정기 (순번, 구분 없음) ──
     dc('IZ250900_SNS-정기콘텐츠', '정기 (매년 생성, 연말 아카이브)', [
       d('제품', [d('2025-03_I-system-신제품', [f('IZEN_SNS_제품_I-system-fixture_v02.png')]), d('2025-04_T-system-케이스')]),
       d('임상', [d('2025-03_Dr-Kim', [f('IZEN_SNS_임상_Dr-Kim-case_v01.png')])]),
@@ -613,12 +613,12 @@ function StructureSection() {
             </div>
             <div className="workflowCheckpoint">
               <h4>NNNN</h4>
-              <p>0001~0899: 비정기<br />0900~0999: 정기</p>
+              <p>순번만 사용 (정기/비정기 구분 없음)</p>
             </div>
           </div>
         </div>
         <p>
-          <strong>정기 프로젝트</strong>(SNS 정기콘텐츠, 뉴스레터)만 0900번대. 나머지(홈페이지, IFU, 회사소개영상 등)는 수정 요청 올 때마다 비정기로 생성합니다.
+          정기/비정기 구분 없이 순번만 사용합니다. "정기" 속성은 Notion DB에서 관리합니다.
         </p>
       </article>
     </div>
@@ -837,7 +837,7 @@ function NamingSection() {
           <li>프로젝트 코드(IZYYNNNN)는 <strong>파일명에 포함하지 않음</strong> — 폴더가 이미 프로젝트별로 분리</li>
           <li><strong>v = PROJECT 소스파일</strong> (v01, v02...), <strong>Rev = LIBRARY 배포본</strong> (Rev01, Rev02...) — 보통 다른 파일 형식 (.ai→.pdf)</li>
           <li><code className="fileGuideCode">_작업중</code> 표시는 <strong>PROJECT 안에서만</strong> 허용, LIBRARY에는 절대 불가</li>
-          <li>타팀에서 받은 파일은 <code className="fileGuideCode">[수신]_</code> 접두사</li>
+          <li>타팀에서 받은 파일은 <strong>원본 파일명 그대로</strong> 업로드. 회신 시에만 <code className="fileGuideCode">_담당자v01</code> 붙임</li>
           <li>LIBRARY 파일은 항상 완성본 (Rev 체계)</li>
           <li>v→Rev 매핑은 Phase 2 업로드 도구에서 자동 추적 예정</li>
         </ul>
@@ -1333,14 +1333,14 @@ const AUTO_SAVE_SUBFOLDER_ROWS: Array<{ keyword: string; folder: string; example
   { keyword: '부스디자인', folder: '02_부스/부스디자인', example: '3D 부스 모델링' },
   { keyword: '부스그래픽', folder: '02_부스/부스그래픽', example: '벽면 그래픽' },
   { keyword: '디지털', folder: '03_디지털', example: '디지털 콘텐츠 전반' },
-  { keyword: 'SNS', folder: '03_디지털/SNS-이미지', example: 'SNS 이미지 제작' },
+  { keyword: 'SNS', folder: '03_디지털/SNS', example: 'SNS 이미지 제작' },
   { keyword: 'PPT', folder: '03_디지털/PPT', example: '발표자료 디자인' },
   { keyword: '렌더링', folder: '03_디지털/렌더링', example: '제품 렌더링' },
   { keyword: '영상', folder: '04_영상', example: '영상 전반' },
   { keyword: '촬영', folder: '04_영상/자체촬영', example: '자체 촬영 영상' },
-  { keyword: '편집', folder: '04_영상/편집-프로젝트', example: '영상 편집 프로젝트' },
-  { keyword: '모션', folder: '04_영상/2D-모션', example: '2D 모션그래픽' },
-  { keyword: '3D', folder: '04_영상/3D-모션', example: '3D 모션/애니메이션' },
+  { keyword: '편집', folder: '04_영상', example: '영상 편집 (종류별 폴더에서 작업)' },
+  { keyword: '모션', folder: '04_영상/모션그래픽', example: '모션그래픽 (오프닝, 브레이크 등)' },
+  { keyword: '3D', folder: '04_영상/모션그래픽', example: '3D 모션/애니메이션' },
   { keyword: '사진', folder: '05_사진', example: '사진 촬영/보정' },
   { keyword: '현장수집 / 레퍼런스', folder: '06_현장수집', example: '현장 수집 자료' },
 ]
@@ -1358,9 +1358,9 @@ const AUTO_SAVE_FILENAME_PARTS: Array<{ el: string; source: string; auto: string
 
 const AUTO_SAVE_EXAMPLES: Array<{ task: string; workType: string; path: string; filename: string }> = [
   { task: 'CIS 2026 포스터', workType: '포스터', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/01_인쇄물/포스터/', filename: 'IZEN_CIS-2026-포스터_EN_A1_v01.ai' },
-  { task: 'CIS 2026 후기영상 편집', workType: '편집', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/04_영상/편집-프로젝트/', filename: 'IZEN_CIS-2026-후기영상-편집_v02.prproj' },
+  { task: 'CIS 2026 후기영상 편집', workType: '편집', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/04_영상/후기영상/', filename: 'IZEN_CIS2026_후기_v02.prproj' },
   { task: 'I-system 카달로그 리뉴얼', workType: '카달로그', path: '/Izenimplant/Marketing/01_PROJECT/IZ250016_I-system-카달로그-리뉴얼/01_인쇄물/카달로그/', filename: 'IZEN_I-system-카달로그-리뉴얼_EN_v04.indd' },
-  { task: 'SNS 제품 콘텐츠', workType: 'SNS', path: '/Izenimplant/Marketing/01_PROJECT/IZ250900_SNS-정기콘텐츠/03_디지털/SNS-이미지/', filename: 'IZEN_SNS-제품-콘텐츠_v01.psd' },
+  { task: 'SNS 제품 콘텐츠', workType: 'SNS', path: '/Izenimplant/Marketing/01_PROJECT/IZ250900_SNS-정기콘텐츠/03_디지털/SNS/', filename: 'IZEN_SNS-제품-콘텐츠_v01.psd' },
   { task: '신제품 렌더링', workType: '렌더링', path: '/Izenimplant/Marketing/01_PROJECT/IZ250017_신제품-렌더링-연구소요청/03_디지털/렌더링/', filename: 'IZEN_신제품-렌더링_v01.png' },
   { task: '부스 벽면 그래픽', workType: '부스그래픽', path: '/Izenimplant/Marketing/01_PROJECT/IZ250001_CIS-Conference-2026/02_부스/부스그래픽/', filename: 'IZEN_부스-벽면-그래픽_v01.ai' },
 ]
