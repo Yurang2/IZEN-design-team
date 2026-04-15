@@ -1049,7 +1049,10 @@ type IssueItem = {
   source: string
   resolved: string
   predecessorId: string
+  createdAt: string
 }
+
+type SortOrder = 'newest' | 'oldest'
 
 const RESOLVED_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   '해결': { bg: '#dcfce7', text: '#166534', border: '#22c55e' },
@@ -1175,6 +1178,11 @@ function IssueCard({ item, onSave, forceCollapsed, allItems }: { item: IssueItem
                 진행불가
               </span>
             ) : null}
+            {item.createdAt ? (
+              <span style={{ fontSize: '0.7em', color: 'var(--muted)', marginLeft: 'auto' }}>
+                {new Date(item.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+              </span>
+            ) : null}
           </div>
         </>
       ) : null}
@@ -1188,6 +1196,7 @@ function IssuesSection() {
   const [filterArea, setFilterArea] = useState('')
   const [filterResolved, setFilterResolved] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest')
   const [newItem, setNewItem] = useState<Partial<IssueItem>>({ resolved: '미결' })
   const [allCollapsedSignal, setAllCollapsedSignal] = useState<boolean | null>(null)
   const setAllCollapsed = (collapsed: boolean) => { setAllCollapsedSignal(collapsed); setTimeout(() => setAllCollapsedSignal(null), 100) }
@@ -1223,11 +1232,19 @@ function IssuesSection() {
   }, [newItem, fetchItems])
 
   const areas = useMemo(() => [...new Set(items.map((i) => i.area).filter(Boolean))].sort(), [items])
-  const filtered = useMemo(() => items.filter((i) => {
-    if (filterArea && i.area !== filterArea) return false
-    if (filterResolved && i.resolved !== filterResolved) return false
-    return true
-  }), [items, filterArea, filterResolved])
+  const filtered = useMemo(() => {
+    const list = items.filter((i) => {
+      if (filterArea && i.area !== filterArea) return false
+      if (filterResolved && i.resolved !== filterResolved) return false
+      return true
+    })
+    list.sort((a, b) => {
+      const ta = new Date(a.createdAt).getTime() || 0
+      const tb = new Date(b.createdAt).getTime() || 0
+      return sortOrder === 'newest' ? tb - ta : ta - tb
+    })
+    return list
+  }, [items, filterArea, filterResolved, sortOrder])
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -1257,6 +1274,8 @@ function IssuesSection() {
             <button type="button" onClick={() => setShowAdd(!showAdd)} style={{ padding: '5px 12px', fontSize: '0.82em' }}>
               {showAdd ? '취소' : '+ 이슈 추가'}
             </button>
+            <button type="button" className={sortOrder === 'newest' ? '' : 'secondary'} onClick={() => setSortOrder('newest')} style={{ padding: '5px 10px', fontSize: '0.82em' }}>최신순</button>
+            <button type="button" className={sortOrder === 'oldest' ? '' : 'secondary'} onClick={() => setSortOrder('oldest')} style={{ padding: '5px 10px', fontSize: '0.82em' }}>오래된순</button>
             <button type="button" className="secondary" onClick={() => setAllCollapsed(true)} style={{ padding: '5px 10px', fontSize: '0.82em' }}>전체 접기</button>
             <button type="button" className="secondary" onClick={() => setAllCollapsed(false)} style={{ padding: '5px 10px', fontSize: '0.82em' }}>전체 펼치기</button>
           </div>

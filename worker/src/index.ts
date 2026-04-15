@@ -354,6 +354,7 @@ export default {
             source: getText(props['출처']),
             resolved: getText(props['해결여부']),
             predecessorId: (props['선행작업']?.relation ?? [])[0]?.id ?? '',
+            createdAt: page.created_time ?? '',
           }
         })
         return ok({ ok: true, items }, origin)
