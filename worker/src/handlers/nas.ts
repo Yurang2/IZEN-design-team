@@ -38,9 +38,14 @@ async function synoFetch<T>(
   const url = `${nasUrl}/webapi/${endpoint}`
 
   if (options?.formData) {
-    const fd = options.formData
+    const fd = new FormData()
     for (const [k, v] of Object.entries(params)) {
       fd.append(k, v)
+    }
+    // Synology upload expects metadata fields before the binary file part.
+    for (const [k, v] of options.formData.entries()) {
+      if (typeof v === 'string') fd.append(k, v)
+      else fd.append(k, v, v.name)
     }
     const res = await fetch(url, { method: 'POST', body: fd })
     if (!res.ok) throw new Error(`nas_http_${res.status}`)
@@ -59,6 +64,14 @@ async function synoFetch<T>(
 
 function synoErrorMessage(code: number): string {
   const map: Record<number, string> = {
+    100: 'nas_unknown_error',
+    101: 'nas_invalid_api_parameters',
+    102: 'nas_api_not_found',
+    103: 'nas_api_method_not_found',
+    104: 'nas_api_version_not_supported',
+    105: 'nas_permission_denied',
+    106: 'nas_session_expired',
+    107: 'nas_session_interrupted',
     400: 'nas_login_failed_invalid_credentials',
     401: 'nas_login_failed_account_disabled',
     402: 'nas_login_failed_permission_denied',
@@ -223,7 +236,7 @@ export async function handleNasRoutes(
 
       const formData = await request.formData()
       const sid = formData.get('sid') as string | null
-      const destPath = formData.get('dest_folder_path') as string | null
+      const destPath = asString(formData.get('dest_folder_path') ?? formData.get('path'))
       const file = formData.get('file') as File | null
       const createParents = formData.get('create_parents') as string | null
 
@@ -239,7 +252,7 @@ export async function handleNasRoutes(
         api: 'SYNO.FileStation.Upload',
         version: '2',
         method: 'upload',
-        dest_folder_path: destPath,
+        path: destPath,
         create_parents: createParents === 'true' ? 'true' : 'false',
         overwrite: 'false', // NEVER overwrite — safety first
         _sid: sid,
