@@ -590,6 +590,8 @@ function mergeFilesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): Tree
 // Tree item component
 // ---------------------------------------------------------------------------
 
+type HighlightRole = 'asset' | 'project' | 'gdrive'
+
 function TreeItem({
   node,
   path,
@@ -597,6 +599,7 @@ function TreeItem({
   open,
   toggle,
   rootName,
+  highlightedPaths,
 }: {
   node: TreeNode
   path: string
@@ -604,11 +607,14 @@ function TreeItem({
   open: Set<string>
   toggle: (p: string) => void
   rootName: string
+  highlightedPaths?: Map<string, HighlightRole> | null
 }) {
   const isOpen = open.has(path)
   const hasKids = !!node.children?.length
   const color = ROOT_COLORS[rootName]
   const isRoot = depth === 0
+  const highlightRole = highlightedPaths?.get(path) ?? null
+  const highlightColor = highlightRole ? C[highlightRole] : null
 
   return (
     <>
@@ -631,9 +637,14 @@ function TreeItem({
           borderRadius: 6,
           cursor: hasKids ? 'pointer' : 'default',
           userSelect: 'none',
-          background: isRoot && color ? color.bg : undefined,
-          borderLeft: isRoot && color ? `3px solid ${color.border}` : undefined,
-          fontWeight: isRoot ? 700 : 400,
+          background: isRoot && color ? color.bg : highlightColor ? highlightColor.bg : undefined,
+          borderLeft: isRoot && color
+            ? `3px solid ${color.border}`
+            : highlightColor
+              ? `3px solid ${highlightColor.border}`
+              : undefined,
+          boxShadow: highlightColor && !isRoot ? `inset 0 0 0 1px ${highlightColor.border}` : undefined,
+          fontWeight: isRoot || highlightColor ? 700 : 400,
           fontSize: '0.85em',
           lineHeight: 1.8,
         }}
@@ -657,7 +668,27 @@ function TreeItem({
           <span style={{ width: 10, flexShrink: 0 }} />
         )}
         <span style={{ flexShrink: 0 }}>{node.isFile ? '📄' : '📁'}</span>
-        <span style={{ color: isRoot && color ? color.text : 'var(--text1)' }}>{node.name}</span>
+        <span style={{ color: isRoot && color ? color.text : highlightColor ? highlightColor.text : 'var(--text1)' }}>
+          {node.name}
+        </span>
+        {highlightRole && !isRoot ? (
+          <span
+            style={{
+              fontSize: '0.7em',
+              fontWeight: 700,
+              padding: '1px 6px',
+              background: highlightColor!.border,
+              color: '#fff',
+              borderRadius: 3,
+              marginLeft: 4,
+              letterSpacing: 0.3,
+              textTransform: 'uppercase',
+              flexShrink: 0,
+            }}
+          >
+            {highlightRole === 'gdrive' ? 'PUB' : highlightRole === 'project' ? 'WORK' : 'ASSET'}
+          </span>
+        ) : null}
         {node.comment ? (
           <span style={{ fontSize: '0.82em', color: 'var(--muted)', marginLeft: 2, whiteSpace: 'nowrap' }}>
             ← {node.comment}
@@ -674,6 +705,7 @@ function TreeItem({
               open={open}
               toggle={toggle}
               rootName={rootName}
+              highlightedPaths={highlightedPaths}
             />
           ))
         : null}
@@ -685,10 +717,44 @@ function TreeItem({
 // Tree viewer
 // ---------------------------------------------------------------------------
 
-function TreeViewer({ data }: { data: TreeNode[] }) {
+function ancestorsOf(path: string): string[] {
+  const segments = path.split('/')
+  const out: string[] = []
+  for (let i = 1; i <= segments.length; i++) {
+    out.push(segments.slice(0, i).join('/'))
+  }
+  return out
+}
+
+function TreeViewer({
+  data,
+  highlightedPaths,
+}: {
+  data: TreeNode[]
+  highlightedPaths?: Map<string, HighlightRole> | null
+}) {
   const allPaths = useMemo(() => collectPaths(data, ''), [data])
-  const defaultOpen = useMemo(() => new Set(data.map((n) => n.name)), [data])
+  const defaultOpen = useMemo(() => {
+    const set = new Set(data.map((n) => n.name))
+    if (highlightedPaths) {
+      for (const path of highlightedPaths.keys()) {
+        for (const a of ancestorsOf(path)) set.add(a)
+      }
+    }
+    return set
+  }, [data, highlightedPaths])
   const [open, setOpen] = useState<Set<string>>(() => defaultOpen)
+
+  useEffect(() => {
+    if (!highlightedPaths || highlightedPaths.size === 0) return
+    setOpen((prev) => {
+      const next = new Set(prev)
+      for (const path of highlightedPaths.keys()) {
+        for (const a of ancestorsOf(path)) next.add(a)
+      }
+      return next
+    })
+  }, [highlightedPaths])
 
   const toggle = useCallback((p: string) => {
     setOpen((prev) => {
@@ -742,6 +808,7 @@ function TreeViewer({ data }: { data: TreeNode[] }) {
             open={open}
             toggle={toggle}
             rootName={node.name}
+            highlightedPaths={highlightedPaths}
           />
         ))}
       </div>
@@ -1354,7 +1421,51 @@ type TaskSchemaResponse = {
   }
 }
 
-function WorkManualsSection() {
+const SAMPLE_PROJECT_FOLDER = 'IZ250001_CIS-Conference-2026'
+
+function normalizeManualPath(raw: string): string[] {
+  // 여러 경로가 섞여 있는 경우 분리
+  const parts = raw
+    .split(/\n|(?:\s+or\s+)|(?:\s+또는\s+)/gi)
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const out: string[] = []
+  for (let part of parts) {
+    part = part.replace(/^GDrive\s+/i, 'Google Drive/')
+    // 괄호·중괄호·파이프 이후는 가변 토큰으로 보고 잘라냄 → 상위 폴더까지만 하이라이트
+    const cutIdx = part.search(/[{|(]/)
+    if (cutIdx >= 0) part = part.substring(0, cutIdx)
+    // 후행 슬래시 제거
+    part = part.replace(/\/+$/, '').trim()
+    if (!part) continue
+    // IZYYNNNN_... placeholder를 샘플 프로젝트로 치환
+    part = part.replace(/IZYYNNNN_[^/]*/g, SAMPLE_PROJECT_FOLDER)
+    if (
+      part.startsWith('01_PROJECT/') ||
+      part.startsWith('02_ASSET/') ||
+      part.startsWith('Google Drive/') ||
+      part.startsWith('99_ARCHIVE/')
+    ) {
+      out.push(part)
+    }
+  }
+  return out
+}
+
+function extractHighlightPaths(manual: WorkTypeManual): Map<string, HighlightRole> {
+  const map = new Map<string, HighlightRole>()
+  for (const a of manual.assets) {
+    for (const p of normalizeManualPath(a.path)) map.set(p, 'asset')
+  }
+  for (const p of normalizeManualPath(manual.workBasePath)) map.set(p, 'project')
+  if (manual.publish) {
+    for (const p of normalizeManualPath(manual.publish.path)) map.set(p, 'gdrive')
+  }
+  return map
+}
+
+function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
   const [notionOptions, setNotionOptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState('')
@@ -1546,7 +1657,7 @@ function WorkManualsSection() {
         {/* 우측 카드 */}
         <div style={{ display: 'grid', gap: 12 }}>
           {selectedItem ? (
-            <ManualDetail item={selectedItem} />
+            <ManualDetail item={selectedItem} folderTree={folderTree} />
           ) : (
             <article className="workflowCard workflowCardWide">
               <p style={{ color: 'var(--muted)', fontSize: '0.9em', margin: 0 }}>
@@ -1560,9 +1671,36 @@ function WorkManualsSection() {
   )
 }
 
-function ManualDetail({ item }: { item: { workType: string; manual?: WorkTypeManual; inNotion: boolean } }) {
+function HighlightLegend() {
+  return (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: '0.78em', color: 'var(--muted)' }}>
+      {[
+        { role: 'asset' as const, label: 'ASSET 꺼낼 소스' },
+        { role: 'project' as const, label: 'WORK 작업 위치' },
+        { role: 'gdrive' as const, label: 'PUB 배포 위치' },
+      ].map(({ role, label }) => {
+        const color = C[role]
+        return (
+          <span key={role} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ display: 'inline-block', width: 12, height: 12, background: color.bg, border: `2px solid ${color.border}`, borderRadius: 3 }} />
+            {label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function ManualDetail({
+  item,
+  folderTree,
+}: {
+  item: { workType: string; manual?: WorkTypeManual; inNotion: boolean }
+  folderTree: TreeNode[]
+}) {
   const { manual, workType, inNotion } = item
   const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
+  const highlightedPaths = useMemo(() => (manual ? extractHighlightPaths(manual) : null), [manual])
 
   if (!manual) {
     return (
@@ -1639,6 +1777,27 @@ function ManualDetail({ item }: { item: { workType: string; manual?: WorkTypeMan
           </div>
         ) : null}
       </article>
+
+      {/* 폴더트리 하이라이트 */}
+      {highlightedPaths && highlightedPaths.size > 0 ? (
+        <article className="workflowCard workflowCardWide">
+          <div className="workflowSectionHeader">
+            <div>
+              <span className="workflowSectionEyebrow">🔦 Folder Highlight</span>
+              <h3>이 업무가 쓰는 폴더</h3>
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <HighlightLegend />
+          </div>
+          <TreeViewer key={workType} data={folderTree} highlightedPaths={highlightedPaths} />
+          <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '8px 0 0' }}>
+            * PROJECT 하이라이트는 샘플 프로젝트(<code className="fileGuideCode">{SAMPLE_PROJECT_FOLDER}</code>)에
+            표시됩니다. 실제로는 <code className="fileGuideCode">IZYYNNNN_프로젝트명</code> 자리에 현재 프로젝트
+            폴더명이 들어갑니다.
+          </p>
+        </article>
+      ) : null}
 
       {/* Phase 1 */}
       <PhaseCard n="1" title="에셋에서 꺼낼 것" color={C.asset}>
@@ -2441,7 +2600,7 @@ export function NasGuideView() {
         {activeTab === 3 ? <AutoSaveSection /> : null}
         {activeTab === 4 ? <WorkflowSection /> : null}
         {activeTab === 5 ? <GDriveSection /> : null}
-        {activeTab === 6 ? <WorkManualsSection /> : null}
+        {activeTab === 6 ? <WorkManualsSection folderTree={folderStructureTree} /> : null}
         {activeTab === 7 ? <IssuesSection /> : null}
       </div>
     </section>
