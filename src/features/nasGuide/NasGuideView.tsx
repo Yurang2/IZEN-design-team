@@ -1,6 +1,13 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { api } from '../../shared/api/client'
 import { GENERATED_NAS_GUIDE_EXAMPLES, GENERATED_NAS_GUIDE_EXAMPLE_META } from './nasGuideExamples.generated'
+import {
+  WORK_MANUAL_CATEGORIES,
+  WORK_TYPE_MANUALS,
+  WORK_TYPE_MANUAL_MAP,
+  type WorkManualCategoryKey,
+  type WorkTypeManual,
+} from './workTypeManuals'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1337,11 +1344,414 @@ function GDriveSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Section 6: 업무별 매뉴얼
+// ---------------------------------------------------------------------------
+
+type TaskSchemaResponse = {
+  ok: boolean
+  schema?: {
+    fields?: Record<string, { options?: string[] } | undefined>
+  }
+}
+
+function WorkManualsSection() {
+  const [notionOptions, setNotionOptions] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    setFetchError('')
+    api<TaskSchemaResponse>('/tasks?pageSize=1')
+      .then((res) => {
+        const opts = res?.schema?.fields?.workType?.options ?? []
+        setNotionOptions(opts)
+        if (opts.length > 0 && !selected) {
+          const firstWithManual = opts.find((o) => WORK_TYPE_MANUAL_MAP[o])
+          setSelected(firstWithManual ?? opts[0])
+        }
+      })
+      .catch((err) => setFetchError(err instanceof Error ? err.message : 'fetch failed'))
+      .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const merged = useMemo(() => {
+    const fromNotion = new Set(notionOptions)
+    const fromManuals = new Set(WORK_TYPE_MANUALS.map((m) => m.workType))
+    const union = Array.from(new Set([...fromNotion, ...fromManuals]))
+    return union.map((workType) => {
+      const manual = WORK_TYPE_MANUAL_MAP[workType]
+      return {
+        workType,
+        manual,
+        inNotion: fromNotion.has(workType),
+        inManuals: fromManuals.has(workType),
+      }
+    })
+  }, [notionOptions])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return merged
+    return merged.filter((item) => item.workType.toLowerCase().includes(q))
+  }, [merged, search])
+
+  const grouped = useMemo(() => {
+    const groups: Record<WorkManualCategoryKey | '_', typeof merged> = {
+      A: [], B: [], C: [], D: [], E: [], F: [], G: [], H: [], I: [], _: [],
+    }
+    for (const item of filtered) {
+      const key = item.manual?.category ?? '_'
+      groups[key].push(item)
+    }
+    return groups
+  }, [filtered])
+
+  const selectedItem = selected ? merged.find((m) => m.workType === selected) : null
+
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">Per-Work-Type Manual</span>
+            <h3>업무별 A to Z 매뉴얼</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: '0.88em', color: 'var(--text2)', margin: '0 0 8px' }}>
+          Notion <strong>업무 DB</strong>의 <code className="fileGuideCode">업무구분</code> select 옵션을 실시간으로 불러와,
+          각 업무마다 <strong>꺼낼 에셋 / 작업 위치 / 산출물 / 배포 위치 / 주의사항</strong>을 단계별로 안내합니다.
+          Notion에 새 옵션이 추가되면 리스트에 즉시 반영됩니다.
+        </p>
+        {loading ? (
+          <div style={{ fontSize: '0.85em', color: 'var(--muted)' }}>업무구분 옵션을 불러오는 중...</div>
+        ) : null}
+        {fetchError ? (
+          <div style={{ padding: 10, fontSize: '0.82em', color: 'var(--danger)', background: '#fef2f2', borderRadius: 8 }}>
+            API 오류: {fetchError}
+          </div>
+        ) : null}
+      </article>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 300px) 1fr',
+          gap: 12,
+          alignItems: 'start',
+        }}
+      >
+        {/* 좌측 리스트 */}
+        <article className="workflowCard" style={{ padding: 12, position: 'sticky', top: 8, maxHeight: 'calc(100vh - 40px)', overflow: 'auto' }}>
+          <input
+            type="text"
+            placeholder="업무구분 검색..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '0.85em',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--surface1)',
+              color: 'var(--text1)',
+              marginBottom: 10,
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ display: 'grid', gap: 10 }}>
+            {(Object.keys(grouped) as Array<WorkManualCategoryKey | '_'>).map((key) => {
+              const items = grouped[key]
+              if (items.length === 0) return null
+              const cat = key === '_' ? null : WORK_MANUAL_CATEGORIES[key as WorkManualCategoryKey]
+              return (
+                <div key={key}>
+                  <div
+                    style={{
+                      fontSize: '0.72em',
+                      fontWeight: 700,
+                      letterSpacing: 0.5,
+                      padding: '3px 8px',
+                      background: cat?.bg ?? '#f3f4f6',
+                      color: cat?.text ?? '#6b7280',
+                      borderLeft: `3px solid ${cat?.border ?? '#9ca3af'}`,
+                      borderRadius: 4,
+                      marginBottom: 4,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {key === '_' ? '매뉴얼 미작성' : `[${key}] ${cat?.label}`} · {items.length}
+                  </div>
+                  <div style={{ display: 'grid', gap: 2 }}>
+                    {items.map((item) => {
+                      const active = selected === item.workType
+                      const hasManual = !!item.manual
+                      const isAmbiguous = item.manual?.ambiguous
+                      return (
+                        <button
+                          key={item.workType}
+                          type="button"
+                          onClick={() => setSelected(item.workType)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 6,
+                            padding: '6px 8px',
+                            borderRadius: 6,
+                            fontSize: '0.82em',
+                            textAlign: 'left',
+                            background: active ? cat?.bg ?? 'var(--surface2)' : 'transparent',
+                            border: active ? `1px solid ${cat?.border ?? 'var(--border)'}` : '1px solid transparent',
+                            color: active ? cat?.text ?? 'var(--text1)' : 'var(--text1)',
+                            fontWeight: active ? 600 : 400,
+                            cursor: 'pointer',
+                            boxShadow: 'none',
+                          }}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.workType}
+                          </span>
+                          <span style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                            {!item.inNotion ? (
+                              <span title="Notion 옵션 아님 (로컬 초안만)" style={{ fontSize: '0.7em', background: '#e5e7eb', color: '#6b7280', padding: '0 4px', borderRadius: 3 }}>
+                                local
+                              </span>
+                            ) : null}
+                            {!hasManual ? (
+                              <span title="매뉴얼 미작성" style={{ fontSize: '0.7em', background: '#fef3c7', color: '#92400e', padding: '0 4px', borderRadius: 3 }}>
+                                미작성
+                              </span>
+                            ) : null}
+                            {isAmbiguous ? (
+                              <span title="해석 확인 필요" style={{ fontSize: '0.7em', background: '#fef3c7', color: '#92400e', padding: '0 4px', borderRadius: 3 }}>
+                                ?
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </article>
+
+        {/* 우측 카드 */}
+        <div style={{ display: 'grid', gap: 12 }}>
+          {selectedItem ? (
+            <ManualDetail item={selectedItem} />
+          ) : (
+            <article className="workflowCard workflowCardWide">
+              <p style={{ color: 'var(--muted)', fontSize: '0.9em', margin: 0 }}>
+                좌측에서 업무구분을 선택하세요.
+              </p>
+            </article>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ManualDetail({ item }: { item: { workType: string; manual?: WorkTypeManual; inNotion: boolean } }) {
+  const { manual, workType, inNotion } = item
+  const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
+
+  if (!manual) {
+    return (
+      <article className="workflowCard workflowCardWide" style={{ borderLeft: '3px solid #f59e0b' }}>
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow" style={{ color: '#92400e' }}>Manual Missing</span>
+            <h3>{workType}</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: '0.9em', color: 'var(--text2)' }}>
+          이 업무구분은 <strong>Notion 업무 DB</strong>에 존재하지만, 아직 매뉴얼 초안이 작성되지 않았습니다.
+        </p>
+        <p style={{ fontSize: '0.85em', color: 'var(--muted)' }}>
+          관리자: <code className="fileGuideCode">src/features/nasGuide/workTypeManuals.ts</code>에 새 항목을 추가하세요.
+        </p>
+      </article>
+    )
+  }
+
+  return (
+    <>
+      {/* 헤더 */}
+      <article className="workflowCard workflowCardWide" style={{ borderLeft: cat ? `4px solid ${cat.border}` : undefined }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {cat ? (
+            <span
+              style={{
+                fontSize: '0.75em',
+                fontWeight: 700,
+                padding: '3px 10px',
+                background: cat.bg,
+                color: cat.text,
+                border: `1px solid ${cat.border}`,
+                borderRadius: 999,
+              }}
+            >
+              [{manual.category}] {cat.label}
+            </span>
+          ) : null}
+          {manual.ambiguous ? (
+            <span style={{ fontSize: '0.75em', fontWeight: 700, padding: '3px 10px', background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 999 }}>
+              해석 확인 필요
+            </span>
+          ) : null}
+          {!inNotion ? (
+            <span style={{ fontSize: '0.72em', padding: '2px 8px', background: '#e5e7eb', color: '#6b7280', borderRadius: 999 }}>
+              Notion에 없음 (로컬 초안)
+            </span>
+          ) : null}
+          {manual.adobeApps?.length ? (
+            <span style={{ fontSize: '0.72em', color: 'var(--muted)' }}>
+              🎨 {manual.adobeApps.join(', ')}
+            </span>
+          ) : null}
+        </div>
+        <h3 style={{ margin: '6px 0 4px' }}>{manual.workType}</h3>
+        {manual.description ? (
+          <p style={{ fontSize: '0.88em', color: 'var(--text2)', margin: 0 }}>{manual.description}</p>
+        ) : null}
+        {manual.ambiguityNote ? (
+          <div
+            style={{
+              marginTop: 8,
+              padding: '8px 10px',
+              background: '#fffbeb',
+              border: '1px dashed #f59e0b',
+              borderRadius: 6,
+              fontSize: '0.82em',
+              color: '#92400e',
+            }}
+          >
+            ⚠ {manual.ambiguityNote}
+          </div>
+        ) : null}
+      </article>
+
+      {/* Phase 1 */}
+      <PhaseCard n="1" title="에셋에서 꺼낼 것" color={C.asset}>
+        {manual.assets.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: '0.85em', margin: 0 }}>참조할 에셋 없음</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 6 }}>
+            {manual.assets.map((a, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.72em', fontWeight: 600, padding: '1px 6px', background: a.required === false ? '#f3f4f6' : C.asset.bg, color: a.required === false ? '#6b7280' : C.asset.text, border: `1px solid ${a.required === false ? '#d1d5db' : C.asset.border}`, borderRadius: 4, flexShrink: 0, marginTop: 1 }}>
+                  {a.required === false ? '선택' : '필수'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <code className="fileGuideCode" style={{ fontSize: 11 }}>{a.path}</code>
+                  <div style={{ fontSize: '0.82em' }}>{a.label}</div>
+                  {a.note ? <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>└ {a.note}</div> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </PhaseCard>
+
+      {/* Phase 2 */}
+      <PhaseCard n="2" title="프로젝트 폴더 위치" color={C.project}>
+        <code className="fileGuideCode" style={{ fontSize: 12, whiteSpace: 'pre-wrap', display: 'block', padding: '6px 10px', background: C.project.soft, borderRadius: 6 }}>
+          {manual.workBasePath}
+        </code>
+      </PhaseCard>
+
+      {/* Phase 3 */}
+      <PhaseCard n="3" title="작업 중 산출물" color={C.project}>
+        {manual.artifacts.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: '0.85em', margin: 0 }}>파일 생성 거의 없음</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 4 }}>
+            {manual.artifacts.map((a, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 1.3fr', gap: 10, alignItems: 'baseline', padding: '4px 0', borderBottom: i === manual.artifacts.length - 1 ? 'none' : '1px dashed var(--border)' }}>
+                <code className="fileGuideCode" style={{ fontSize: 11 }}>{a.filename}</code>
+                <div style={{ fontSize: '0.82em', color: 'var(--text2)' }}>{a.purpose}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </PhaseCard>
+
+      {/* Phase 4 */}
+      <PhaseCard n="4" title="최종 배포 (Google Drive)" color={C.gdrive}>
+        {manual.publish ? (
+          <div style={{ display: 'grid', gap: 6 }}>
+            <code className="fileGuideCode" style={{ fontSize: 12, padding: '6px 10px', background: C.gdrive.soft, borderRadius: 6 }}>
+              {manual.publish.path}
+            </code>
+            {manual.publish.filename ? (
+              <div style={{ fontSize: '0.82em' }}>
+                파일명 예시: <code className="fileGuideCode" style={{ fontSize: 11 }}>{manual.publish.filename}</code>
+              </div>
+            ) : null}
+            {manual.publish.note ? <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>└ {manual.publish.note}</div> : null}
+          </div>
+        ) : (
+          <p style={{ color: 'var(--muted)', fontSize: '0.85em', margin: 0 }}>배포 위치 없음 (내부용·운영용)</p>
+        )}
+      </PhaseCard>
+
+      {/* Phase 5 */}
+      {manual.cautions && manual.cautions.length > 0 ? (
+        <PhaseCard n="5" title="주의사항" color={{ bg: '#fffbeb', border: '#f59e0b', text: '#92400e', soft: '#fffbeb' }}>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.85em', display: 'grid', gap: 4 }}>
+            {manual.cautions.map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
+        </PhaseCard>
+      ) : null}
+    </>
+  )
+}
+
+function PhaseCard({ n, title, color, children }: { n: string; title: string; color: { bg: string; border: string; text: string; soft: string }; children: React.ReactNode }) {
+  return (
+    <article className="workflowCard workflowCardWide" style={{ borderLeft: `3px solid ${color.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 999,
+            background: color.bg,
+            color: color.text,
+            border: `1px solid ${color.border}`,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: '0.88em',
+          }}
+        >
+          {n}
+        </span>
+        <h4 style={{ margin: 0, fontSize: '0.95em' }}>{title}</h4>
+      </div>
+      {children}
+    </article>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Tab definitions
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Section 6: 이슈 트래커
+// Section 7: 이슈 트래커
 // ---------------------------------------------------------------------------
 
 type IssueItem = {
@@ -1956,6 +2366,7 @@ const TABS = [
   { id: 'autosave', label: '자동 저장 방식', icon: '🤖' },
   { id: 'workflow', label: '작업 흐름', icon: '🔄' },
   { id: 'gdrive', label: '구글 드라이브', icon: '☁️' },
+  { id: 'workManuals', label: '업무별 매뉴얼', icon: '📖' },
   { id: 'issues', label: '이슈 트래커', icon: '📋' },
 ] as const
 
@@ -2030,7 +2441,8 @@ export function NasGuideView() {
         {activeTab === 3 ? <AutoSaveSection /> : null}
         {activeTab === 4 ? <WorkflowSection /> : null}
         {activeTab === 5 ? <GDriveSection /> : null}
-        {activeTab === 6 ? <IssuesSection /> : null}
+        {activeTab === 6 ? <WorkManualsSection /> : null}
+        {activeTab === 7 ? <IssuesSection /> : null}
       </div>
     </section>
   )
