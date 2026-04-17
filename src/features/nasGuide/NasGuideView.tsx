@@ -1421,6 +1421,27 @@ type TaskSchemaResponse = {
   }
 }
 
+type WorkManualStatus = '확정' | '초안' | '보류'
+const WORK_MANUAL_STATUS_OPTIONS: WorkManualStatus[] = ['확정', '초안', '보류']
+
+type WorkManualStatusItem = {
+  id: string
+  workType: string
+  status: WorkManualStatus | string
+  category: string
+  fixedAt: string
+  note: string
+  updatedAt: string
+}
+
+type WorkManualStatusResponse = { ok: boolean; items: WorkManualStatusItem[] }
+
+const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
+  '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '✓' },
+  '초안': { bg: '#f3f4f6', text: '#4b5563', border: '#9ca3af', icon: '○' },
+  '보류': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '⏸' },
+}
+
 const SAMPLE_PROJECT_FOLDER = 'IZ250001_CIS-Conference-2026'
 
 function normalizeManualPath(raw: string): string[] {
@@ -1467,18 +1488,22 @@ function extractHighlightPaths(manual: WorkTypeManual): Map<string, HighlightRol
 
 function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
   const [notionOptions, setNotionOptions] = useState<string[]>([])
+  const [statusItems, setStatusItems] = useState<WorkManualStatusItem[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
+  const refreshAll = useCallback(() => {
     setLoading(true)
     setFetchError('')
-    api<TaskSchemaResponse>('/tasks?pageSize=1')
-      .then((res) => {
-        const opts = res?.schema?.fields?.workType?.options ?? []
+    Promise.all([
+      api<TaskSchemaResponse>('/tasks?pageSize=1').then((res) => res?.schema?.fields?.workType?.options ?? []),
+      api<WorkManualStatusResponse>('/work-manual-status').then((res) => res?.items ?? []).catch(() => []),
+    ])
+      .then(([opts, items]) => {
         setNotionOptions(opts)
+        setStatusItems(items)
         if (opts.length > 0 && !selected) {
           const firstWithManual = opts.find((o) => WORK_TYPE_MANUAL_MAP[o])
           setSelected(firstWithManual ?? opts[0])
@@ -1489,20 +1514,80 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    refreshAll()
+  }, [refreshAll])
+
+  const statusByWorkType = useMemo(() => {
+    const map = new Map<string, WorkManualStatusItem>()
+    for (const item of statusItems) {
+      if (item.workType) map.set(item.workType, item)
+    }
+    return map
+  }, [statusItems])
+
+  const updateStatus = useCallback(
+    async (workType: string, patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt' | 'note' | 'category'>>) => {
+      const existing = statusByWorkType.get(workType)
+      // optimistic update
+      setStatusItems((prev) => {
+        if (existing) {
+          return prev.map((i) => (i.workType === workType ? { ...i, ...patch } : i))
+        }
+        return [
+          ...prev,
+          {
+            id: `pending-${workType}`,
+            workType,
+            status: (patch.status as WorkManualStatus | undefined) ?? '초안',
+            category: patch.category ?? '',
+            fixedAt: patch.fixedAt ?? '',
+            note: patch.note ?? '',
+            updatedAt: new Date().toISOString(),
+          },
+        ]
+      })
+      try {
+        if (existing && !existing.id.startsWith('pending-')) {
+          await api(`/work-manual-status/${encodeURIComponent(existing.id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify(patch),
+          })
+        } else {
+          const manual = WORK_TYPE_MANUAL_MAP[workType]
+          const category = manual ? `${manual.category} ${WORK_MANUAL_CATEGORIES[manual.category].label}` : patch.category ?? ''
+          const res = await api<{ ok: boolean; id?: string }>('/work-manual-status', {
+            method: 'POST',
+            body: JSON.stringify({ workType, category, ...patch }),
+          })
+          if (res?.id) {
+            setStatusItems((prev) => prev.map((i) => (i.workType === workType ? { ...i, id: res.id! } : i)))
+          }
+        }
+      } catch (err) {
+        setFetchError(err instanceof Error ? err.message : 'update failed')
+        refreshAll()
+      }
+    },
+    [statusByWorkType, refreshAll],
+  )
+
   const merged = useMemo(() => {
     const fromNotion = new Set(notionOptions)
     const fromManuals = new Set(WORK_TYPE_MANUALS.map((m) => m.workType))
     const union = Array.from(new Set([...fromNotion, ...fromManuals]))
     return union.map((workType) => {
       const manual = WORK_TYPE_MANUAL_MAP[workType]
+      const status = statusByWorkType.get(workType)
       return {
         workType,
         manual,
         inNotion: fromNotion.has(workType),
         inManuals: fromManuals.has(workType),
+        statusItem: status,
       }
     })
-  }, [notionOptions])
+  }, [notionOptions, statusByWorkType])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -1602,6 +1687,8 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
                       const active = selected === item.workType
                       const hasManual = !!item.manual
                       const isAmbiguous = item.manual?.ambiguous
+                      const statusName = item.statusItem?.status ?? '초안'
+                      const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['초안']
                       return (
                         <button
                           key={item.workType}
@@ -1624,8 +1711,29 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
                             boxShadow: 'none',
                           }}
                         >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.workType}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                            <span
+                              title={`상태: ${statusName}`}
+                              style={{
+                                flexShrink: 0,
+                                width: 16,
+                                height: 16,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                borderRadius: 3,
+                                background: statusStyle.bg,
+                                color: statusStyle.text,
+                                border: `1px solid ${statusStyle.border}`,
+                              }}
+                            >
+                              {statusStyle.icon}
+                            </span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.workType}
+                            </span>
                           </span>
                           <span style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                             {!item.inNotion ? (
@@ -1657,7 +1765,11 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
         {/* 우측 카드 */}
         <div style={{ display: 'grid', gap: 12 }}>
           {selectedItem ? (
-            <ManualDetail item={selectedItem} folderTree={folderTree} />
+            <ManualDetail
+              item={selectedItem}
+              folderTree={folderTree}
+              onUpdateStatus={(patch) => updateStatus(selectedItem.workType, patch)}
+            />
           ) : (
             <article className="workflowCard workflowCardWide">
               <p style={{ color: 'var(--muted)', fontSize: '0.9em', margin: 0 }}>
@@ -1694,13 +1806,31 @@ function HighlightLegend() {
 function ManualDetail({
   item,
   folderTree,
+  onUpdateStatus,
 }: {
-  item: { workType: string; manual?: WorkTypeManual; inNotion: boolean }
+  item: { workType: string; manual?: WorkTypeManual; inNotion: boolean; statusItem?: WorkManualStatusItem }
   folderTree: TreeNode[]
+  onUpdateStatus: (patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt' | 'note'>>) => void
 }) {
-  const { manual, workType, inNotion } = item
+  const { manual, workType, inNotion, statusItem } = item
   const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
   const highlightedPaths = useMemo(() => (manual ? extractHighlightPaths(manual) : null), [manual])
+  const statusName = (statusItem?.status as WorkManualStatus | undefined) ?? '초안'
+  const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['초안']
+  const [noteDraft, setNoteDraft] = useState(statusItem?.note ?? '')
+  const [noteDirty, setNoteDirty] = useState(false)
+  useEffect(() => {
+    setNoteDraft(statusItem?.note ?? '')
+    setNoteDirty(false)
+  }, [statusItem?.id, statusItem?.note])
+
+  const onChangeStatus = (next: WorkManualStatus) => {
+    const patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt'>> = { status: next }
+    if (next === '확정' && !statusItem?.fixedAt) {
+      patch.fixedAt = new Date().toISOString().slice(0, 10)
+    }
+    onUpdateStatus(patch)
+  }
 
   if (!manual) {
     return (
@@ -1741,6 +1871,48 @@ function ManualDetail({
               [{manual.category}] {cat.label}
             </span>
           ) : null}
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: '0.78em',
+              fontWeight: 700,
+              padding: '2px 10px 2px 8px',
+              background: statusStyle.bg,
+              color: statusStyle.text,
+              border: `1px solid ${statusStyle.border}`,
+              borderRadius: 999,
+              cursor: 'pointer',
+            }}
+            title="상태 변경"
+          >
+            <span>{statusStyle.icon}</span>
+            <select
+              value={statusName}
+              onChange={(e) => onChangeStatus(e.target.value as WorkManualStatus)}
+              style={{
+                appearance: 'none',
+                border: 'none',
+                background: 'transparent',
+                color: 'inherit',
+                fontSize: 'inherit',
+                fontWeight: 'inherit',
+                padding: 0,
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              {WORK_MANUAL_STATUS_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </label>
+          {statusName === '확정' && statusItem?.fixedAt ? (
+            <span style={{ fontSize: '0.72em', color: 'var(--muted)' }}>확정일 {statusItem.fixedAt}</span>
+          ) : null}
           {manual.ambiguous ? (
             <span style={{ fontSize: '0.75em', fontWeight: 700, padding: '3px 10px', background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 999 }}>
               해석 확인 필요
@@ -1776,6 +1948,35 @@ function ManualDetail({
             ⚠ {manual.ambiguityNote}
           </div>
         ) : null}
+        <div style={{ marginTop: 10, display: 'grid', gap: 4 }}>
+          <label style={{ fontSize: '0.75em', color: 'var(--muted)', fontWeight: 600 }}>
+            확정 근거 / 메모
+          </label>
+          <textarea
+            value={noteDraft}
+            onChange={(e) => { setNoteDraft(e.target.value); setNoteDirty(true) }}
+            onBlur={() => {
+              if (noteDirty && noteDraft !== (statusItem?.note ?? '')) {
+                onUpdateStatus({ note: noteDraft })
+                setNoteDirty(false)
+              }
+            }}
+            placeholder="왜 이렇게 확정했는지 한 줄로 기록. 비워둬도 OK."
+            rows={2}
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '0.82em',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--surface1)',
+              color: 'var(--text1)',
+              boxSizing: 'border-box',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
       </article>
 
       {/* 폴더트리 하이라이트 */}

@@ -518,6 +518,100 @@ export default {
       }
     }
 
+    // Work manual status (per-workType: 확정/초안/보류 + 확정일 + 메모)
+    if (path === '/work-manual-status' || path.startsWith('/work-manual-status/')) {
+      const dbId = env.NOTION_WORK_MANUAL_STATUS_DB_ID
+      if (!dbId) return ok({ ok: true, items: [] }, origin)
+
+      const notionHeaders = {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      }
+
+      const getText = (p: any) => {
+        if (!p) return ''
+        if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'select') return p.select?.name ?? ''
+        if (p.type === 'date') return p.date?.start ?? ''
+        return ''
+      }
+
+      // GET /work-manual-status — list all
+      if (request.method === 'GET' && path === '/work-manual-status') {
+        const allPages: any[] = []
+        let cursor: string | undefined
+        while (true) {
+          const body: any = { page_size: 100 }
+          if (cursor) body.start_cursor = cursor
+          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
+          })
+          const data: any = await res.json()
+          allPages.push(...(data.results ?? []))
+          if (!data.has_more) break
+          cursor = data.next_cursor
+        }
+        const items = allPages.map((page: any) => {
+          const props = (page.properties ?? {}) as Record<string, any>
+          return {
+            id: page.id,
+            workType: getText(props['업무구분']),
+            status: getText(props['상태']) || '초안',
+            category: getText(props['카테고리']),
+            fixedAt: getText(props['확정일']),
+            note: getText(props['메모']),
+            updatedAt: page.last_edited_time ?? '',
+          }
+        })
+        return ok({ ok: true, items }, origin)
+      }
+
+      // POST /work-manual-status — create new (when a new workType appears in Notion and no row exists yet)
+      if (request.method === 'POST' && path === '/work-manual-status') {
+        const body = await readJsonBody(request)
+        const workType = asString(body.workType)
+        if (!workType) return json({ ok: false, error: 'workType_required' }, 400, origin)
+        const props: any = {
+          '업무구분': { title: [{ text: { content: workType } }] },
+          '상태': { select: { name: asString(body.status) || '초안' } },
+        }
+        if (body.category) props['카테고리'] = { select: { name: asString(body.category) } }
+        if (body.fixedAt) props['확정일'] = { date: { start: asString(body.fixedAt) } }
+        if (body.note) props['메모'] = { rich_text: [{ text: { content: asString(body.note) } }] }
+
+        const res = await fetch('https://api.notion.com/v1/pages', {
+          method: 'POST', headers: notionHeaders,
+          body: JSON.stringify({ parent: { database_id: dbId }, properties: props }),
+        })
+        const data: any = await res.json()
+        if (!data.id) return json({ ok: false, error: 'create_failed' }, 500, origin)
+        return ok({ ok: true, id: data.id }, origin)
+      }
+
+      // PATCH /work-manual-status/:id — update
+      const wmsMatch = path.match(/^\/work-manual-status\/([^/]+)$/)
+      if (request.method === 'PATCH' && wmsMatch) {
+        const pageId = wmsMatch[1]
+        const body = await readJsonBody(request)
+        const props: any = {}
+        if (body.status != null) props['상태'] = { select: { name: asString(body.status) } }
+        if (body.category != null) props['카테고리'] = { select: { name: asString(body.category) } }
+        if (body.fixedAt != null) {
+          const d = asString(body.fixedAt)
+          props['확정일'] = d ? { date: { start: d } } : { date: null }
+        }
+        if (body.note != null) props['메모'] = { rich_text: [{ text: { content: asString(body.note) } }] }
+
+        await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+          method: 'PATCH', headers: notionHeaders,
+          body: JSON.stringify({ properties: props }),
+        })
+        return ok({ ok: true }, origin)
+      }
+    }
+
     if (request.method === 'POST' && path === '/event-graphics/video-thumbnail/render') {
       try {
         const payload = parseVideoThumbnailRenderBody(await readJsonBody(request))
