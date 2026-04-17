@@ -558,7 +558,7 @@ export default {
           return {
             id: page.id,
             workType: getText(props['업무구분']),
-            status: getText(props['상태']) || '초안',
+            status: getText(props['상태']) || '미정',
             category: getText(props['카테고리']),
             fixedAt: getText(props['확정일']),
             note: getText(props['메모']),
@@ -575,7 +575,7 @@ export default {
         if (!workType) return json({ ok: false, error: 'workType_required' }, 400, origin)
         const props: any = {
           '업무구분': { title: [{ text: { content: workType } }] },
-          '상태': { select: { name: asString(body.status) || '초안' } },
+          '상태': { select: { name: asString(body.status) || '미정' } },
         }
         if (body.category) props['카테고리'] = { select: { name: asString(body.category) } }
         if (body.fixedAt) props['확정일'] = { date: { start: asString(body.fixedAt) } }

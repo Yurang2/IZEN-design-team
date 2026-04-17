@@ -592,11 +592,6 @@ function mergeFilesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): Tree
 
 type HighlightRole = 'asset' | 'project' | 'gdrive'
 
-const FOLDER_STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-  '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '🔒' },
-  '논의중': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '…' },
-  '미정': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '○' },
-}
 
 function TreeItem({
   node,
@@ -627,7 +622,7 @@ function TreeItem({
   const highlightColor = highlightRole ? C[highlightRole] : null
   const folderStatus = !node.isFile ? folderStatusMap?.get(path) : undefined
   const folderStatusName = folderStatus?.status ?? null
-  const folderStatusStyle = folderStatusName ? FOLDER_STATUS_STYLES[folderStatusName] : null
+  const folderStatusStyle = folderStatusName ? STATUS_STYLES[folderStatusName] : null
   const canToggleStatus = !node.isFile && !!onFolderStatusClick
 
   return (
@@ -1487,8 +1482,8 @@ type TaskSchemaResponse = {
   }
 }
 
-type WorkManualStatus = '확정' | '초안' | '보류'
-const WORK_MANUAL_STATUS_OPTIONS: WorkManualStatus[] = ['확정', '초안', '보류']
+type WorkManualStatus = '확정' | '논의중' | '미정'
+const WORK_MANUAL_STATUS_OPTIONS: WorkManualStatus[] = ['미정', '논의중', '확정']
 
 type WorkManualStatusItem = {
   id: string
@@ -1531,12 +1526,11 @@ export type ChangeHistoryItem = {
 
 export type ChangeHistoryResponse = { ok: boolean; items: ChangeHistoryItem[] }
 
+// Unified status styles for both folders and work manuals (3 states).
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-  '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '✓' },
-  '초안': { bg: '#f3f4f6', text: '#4b5563', border: '#9ca3af', icon: '○' },
-  '보류': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '⏸' },
-  '논의중': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '…' },
   '미정': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '○' },
+  '논의중': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '🟡' },
+  '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '🔒' },
 }
 
 function recordHistory(entry: {
@@ -1834,7 +1828,7 @@ function WorkManualsSection({
           {
             id: `pending-${workType}`,
             workType,
-            status: (patch.status as WorkManualStatus | undefined) ?? '초안',
+            status: (patch.status as WorkManualStatus | undefined) ?? '미정',
             category: patch.category ?? '',
             fixedAt: patch.fixedAt ?? '',
             note: patch.note ?? '',
@@ -1870,7 +1864,7 @@ function WorkManualsSection({
   const changeStatusWithReason = useCallback(
     async (workType: string, nextStatus: WorkManualStatus, reason: string) => {
       const existing = statusByWorkType.get(workType)
-      const before = (existing?.status as string) || '초안'
+      const before = (existing?.status as string) || '미정'
       if (before === nextStatus) return
       const patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt'>> = { status: nextStatus }
       if (nextStatus === '확정') {
@@ -2004,8 +1998,8 @@ function WorkManualsSection({
                       const active = selected === item.workType
                       const hasManual = !!item.manual
                       const isAmbiguous = item.manual?.ambiguous
-                      const statusName = item.statusItem?.status ?? '초안'
-                      const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['초안']
+                      const statusName = item.statusItem?.status ?? '미정'
+                      const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['미정']
                       return (
                         <button
                           key={item.workType}
@@ -2220,8 +2214,8 @@ function ManualDetail({
   const { manual, workType, inNotion, statusItem } = item
   const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
   const highlightedPaths = useMemo(() => (manual ? extractHighlightPaths(manual) : null), [manual])
-  const statusName = (statusItem?.status as WorkManualStatus | undefined) ?? '초안'
-  const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['초안']
+  const statusName = (statusItem?.status as WorkManualStatus | undefined) ?? '미정'
+  const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['미정']
   const isLocked = statusName === '확정'
   const [noteDraft, setNoteDraft] = useState(statusItem?.note ?? '')
   const [noteDirty, setNoteDirty] = useState(false)
@@ -3273,7 +3267,7 @@ export function NasGuideView() {
           target={folderPending?.path ?? ''}
           currentStatus={folderPending?.currentStatus ?? '미정'}
           statusOptions={['미정', '논의중', '확정']}
-          statusStyles={FOLDER_STATUS_STYLES}
+          statusStyles={STATUS_STYLES}
           lockedStatus="확정"
           historyTitle="이 폴더의 과거 변경"
           history={folderPending ? historyItems.filter((h) => h.target === folderPending.path) : []}

@@ -68,9 +68,9 @@ async function main() {
     '상태': {
       select: {
         options: [
+          { name: '미정', color: 'default' },
+          { name: '논의중', color: 'yellow' },
           { name: '확정', color: 'green' },
-          { name: '초안', color: 'default' },
-          { name: '보류', color: 'yellow' },
         ],
       },
     },
@@ -96,54 +96,54 @@ async function main() {
   // 초기 32건 — 모두 '초안'으로 시작. 사용자가 UI에서 '확정'으로 토글.
   const items = [
     // A 인쇄물
-    { workType: '포스터(1p)', category: 'A 인쇄물', status: '초안' },
-    { workType: '리플렛(1~4p)', category: 'A 인쇄물', status: '초안' },
-    { workType: '브로슈어(6~24p)', category: 'A 인쇄물', status: '초안' },
-    { workType: '카탈로그', category: 'A 인쇄물', status: '초안' },
-    { workType: '배너 & 현수막', category: 'A 인쇄물', status: '초안' },
-    { workType: 'certificate', category: 'A 인쇄물', status: '초안' },
-    { workType: '패키지', category: 'A 인쇄물', status: '초안' },
-    { workType: 'IFU', category: 'A 인쇄물', status: '초안' },
-    { workType: '키트중판', category: 'A 인쇄물', status: '초안' },
+    { workType: '포스터(1p)', category: 'A 인쇄물', status: '미정' },
+    { workType: '리플렛(1~4p)', category: 'A 인쇄물', status: '미정' },
+    { workType: '브로슈어(6~24p)', category: 'A 인쇄물', status: '미정' },
+    { workType: '카탈로그', category: 'A 인쇄물', status: '미정' },
+    { workType: '배너 & 현수막', category: 'A 인쇄물', status: '미정' },
+    { workType: 'certificate', category: 'A 인쇄물', status: '미정' },
+    { workType: '패키지', category: 'A 인쇄물', status: '미정' },
+    { workType: 'IFU', category: 'A 인쇄물', status: '미정' },
+    { workType: '키트중판', category: 'A 인쇄물', status: '미정' },
 
     // B 부스
-    { workType: '부스디자인', category: 'B 부스', status: '초안' },
-    { workType: '부스 그래픽 디자인', category: 'B 부스', status: '초안' },
-    { workType: '스크린', category: 'B 부스', status: '초안' },
+    { workType: '부스디자인', category: 'B 부스', status: '미정' },
+    { workType: '부스 그래픽 디자인', category: 'B 부스', status: '미정' },
+    { workType: '스크린', category: 'B 부스', status: '미정' },
 
     // C 디지털
-    { workType: 'PPT', category: 'C 디지털', status: '초안' },
-    { workType: 'SNS 홍보 이미지', category: 'C 디지털', status: '초안' },
-    { workType: 'SNS 업로드', category: 'C 디지털', status: '초안' },
-    { workType: '홈페이지 업데이트', category: 'C 디지털', status: '초안' },
-    { workType: '홈페이지 팝업', category: 'C 디지털', status: '초안' },
-    { workType: '뉴스레터', category: 'C 디지털', status: '초안' },
+    { workType: 'PPT', category: 'C 디지털', status: '미정' },
+    { workType: 'SNS 홍보 이미지', category: 'C 디지털', status: '미정' },
+    { workType: 'SNS 업로드', category: 'C 디지털', status: '미정' },
+    { workType: '홈페이지 업데이트', category: 'C 디지털', status: '미정' },
+    { workType: '홈페이지 팝업', category: 'C 디지털', status: '미정' },
+    { workType: '뉴스레터', category: 'C 디지털', status: '미정' },
 
     // D 영상
-    { workType: '영상 편집', category: 'D 영상', status: '초안' },
-    { workType: '2D 모션 영상', category: 'D 영상', status: '초안' },
-    { workType: '3D 모션 영상', category: 'D 영상', status: '초안' },
-    { workType: 'SNS 홍보 영상', category: 'D 영상', status: '초안' },
+    { workType: '영상 편집', category: 'D 영상', status: '미정' },
+    { workType: '2D 모션 영상', category: 'D 영상', status: '미정' },
+    { workType: '3D 모션 영상', category: 'D 영상', status: '미정' },
+    { workType: 'SNS 홍보 영상', category: 'D 영상', status: '미정' },
 
     // E 사진
-    { workType: '사진 및 영상 촬영', category: 'E 사진', status: '초안' },
-    { workType: '사진정리', category: 'E 사진', status: '초안' },
+    { workType: '사진 및 영상 촬영', category: 'E 사진', status: '미정' },
+    { workType: '사진정리', category: 'E 사진', status: '미정' },
 
     // F 3D·렌더링
-    { workType: '3D 렌더링', category: 'F 3D·렌더링', status: '초안' },
+    { workType: '3D 렌더링', category: 'F 3D·렌더링', status: '미정' },
 
     // G 패키지·굿즈
-    { workType: '판촉물&굿즈&선물', category: 'G 패키지·굿즈', status: '초안' },
-    { workType: '마케팅 마테리얼', category: 'G 패키지·굿즈', status: '초안' },
-    { workType: '마케팅 마테리얼 패킹', category: 'G 패키지·굿즈', status: '초안' },
+    { workType: '판촉물&굿즈&선물', category: 'G 패키지·굿즈', status: '미정' },
+    { workType: '마케팅 마테리얼', category: 'G 패키지·굿즈', status: '미정' },
+    { workType: '마케팅 마테리얼 패킹', category: 'G 패키지·굿즈', status: '미정' },
 
     // H 기획·문서
-    { workType: '미팅', category: 'H 기획·문서', status: '초안' },
-    { workType: '품의서&지출결의서', category: 'H 기획·문서', status: '초안' },
-    { workType: '보고서&제안서&서류작업', category: 'H 기획·문서', status: '초안' },
+    { workType: '미팅', category: 'H 기획·문서', status: '미정' },
+    { workType: '품의서&지출결의서', category: 'H 기획·문서', status: '미정' },
+    { workType: '보고서&제안서&서류작업', category: 'H 기획·문서', status: '미정' },
 
     // I 분류 보류
-    { workType: '이벤트', category: 'I 분류 보류', status: '초안' },
+    { workType: '이벤트', category: 'I 분류 보류', status: '미정' },
   ]
 
   console.log('\n--- 초기 32건 생성 (모두 초안) ---')
