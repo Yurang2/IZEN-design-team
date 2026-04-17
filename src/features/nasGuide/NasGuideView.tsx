@@ -201,11 +201,23 @@ const NAS_TREE: TreeNode[] = [
     dc('03_3D-소스', 'STEP, STL 원본'),
     d('04_브랜드-가이드', [f('IZEN_IMPLANT_BRAND_GUIDELINES_EN.pdf')]),
     d('05_폰트', [f('Pretendard.zip')]),
-    dc('06_템플릿', 'AI/PSD/INDD 템플릿'),
+    dc('06_템플릿', '용도별 서브분류 (AI/PSD/INDD/AEP/PPTX)', [
+      dc('01_SNS', '정사각/세로/가로 SNS 템플릿'),
+      dc('02_인쇄', 'A4/A3/명함/현수막 템플릿'),
+      dc('03_PPT', '발표자료 마스터'),
+      dc('04_영상', 'AE 인트로/아웃트로/자막 템플릿'),
+      dc('05_InDesign', '카달로그/IFU 마스터'),
+    ]),
     d('07_제품사진-원본'),
     d('08_패키지'),
     d('09_임상', [dc('자사-케이스', '자사 임상 사진'), dc('타사-레퍼런스', '타사 임상 참고')]),
-    dc('연자', '연자 사진+프로필'),
+    dc('10_연자', '연자 사진+프로필'),
+    dc('11_스톡-라이선스', '구매 스톡 원본 + 라이선스 증빙 (재사용 SSOT)', [
+      dc('01_이미지', 'Shutterstock/iStock 이미지'),
+      dc('02_영상', 'Adobe Stock/Envato 영상 클립'),
+      dc('03_오디오', 'BGM/효과음 (Adobe Stock, Artlist 등)'),
+      dc('04_모션', '.mogrt, AE 템플릿 (Envato 등)'),
+    ]),
   ]),
   dc('99_ARCHIVE', '과거 파일 보존', [
     dc('2024_07_이전', '기존 462K 파일 그대로 보존 — 재분류 안 함'),
@@ -272,10 +284,12 @@ const DECISION_ROWS: Array<{
   { situation: '행사 촬영 RAW 영상 (MOV, MXF)', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../04_영상/a_자체촬영/' },
   { situation: '행사 보정 완료 사진', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250001_.../05_사진/c_보정/' },
   { situation: '회사소개영상 최종 배포본 MP4', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250015_회사소개영상-v3수정/04_영상/회사소개영상/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/01_회사소개/company-video/ (Rev)' },
-  { situation: 'Pretendard 폰트 파일', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/06_폰트/' },
-  { situation: 'SNS 템플릿 PSD', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/07_템플릿/' },
+  { situation: 'Pretendard 폰트 파일', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/05_폰트/' },
+  { situation: 'SNS 템플릿 PSD', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/06_템플릿/01_SNS/' },
   { situation: 'I-system STEP 파일', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/03_3D-소스/' },
-  { situation: '브랜드 가이드라인 PDF', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/05_브랜드-가이드/' },
+  { situation: '브랜드 가이드라인 PDF', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/04_브랜드-가이드/' },
+  { situation: '구매한 Adobe Stock BGM', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/11_스톡-라이선스/03_오디오/' },
+  { situation: '연자 프로필 사진', workLoc: 'ASSET', workColor: 'asset', workPath: '02_ASSET/10_연자/' },
   { situation: '카달로그 InDesign 작업파일', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250016_.../01_인쇄물/카달로그/' },
   { situation: 'IFU 작업중 InDesign', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250031_IFU-Rev개정/01_인쇄물/IFU/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/10_IFU/ (최종 PDF 배포)' },
   { situation: 'IFU 최종 출력용 PDF', workLoc: 'PROJECT', workColor: 'project', workPath: '01_PROJECT/IZ250031_IFU-Rev개정/01_인쇄물/IFU/', publishLoc: 'Google Drive', publishColor: 'gdrive', publishPath: 'Google Drive/10_IFU/ (Rev)' },
@@ -470,12 +484,20 @@ function buildEmptyLeafExampleFiles(pathSegments: string[]): TreeNode[] {
     if (joined.endsWith('/06_sinus_combination_kit')) return [f('SINUS-COMBINATION-KIT_구성01_v01.png')]
     if (joined.endsWith('/07_plazmax')) return [f('PLAZMAX_정면01_v01.png')]
     if (joined.endsWith('/03_3D-소스')) return [f('CATRN70207_Rev00.STEP')]
-    if (joined.endsWith('/06_템플릿')) return [f('IZEN_SNS_템플릿_1080x1350_v01.psd')]
+    if (joined.endsWith('/06_템플릿/01_SNS')) return [f('IZEN_SNS_템플릿_1080x1350_v01.psd')]
+    if (joined.endsWith('/06_템플릿/02_인쇄')) return [f('IZEN_인쇄_템플릿_A4_v01.ai')]
+    if (joined.endsWith('/06_템플릿/03_PPT')) return [f('IZEN_발표자료_템플릿_16x9_v01.pptx')]
+    if (joined.endsWith('/06_템플릿/04_영상')) return [f('IZEN_영상_인트로_템플릿_16x9_v01.aep')]
+    if (joined.endsWith('/06_템플릿/05_InDesign')) return [f('IZEN_카달로그_마스터_v01.indt')]
     if (joined.endsWith('/07_제품사진-원본')) return [f('3N8A3001.JPG')]
     if (joined.endsWith('/08_패키지')) return [f('IZEN_Taper-Kit_패키지_v01.ai')]
     if (joined.endsWith('/09_임상/자사-케이스')) return [f('Dr-Kim_case-01.jpg')]
     if (joined.endsWith('/09_임상/타사-레퍼런스')) return [f('Megagen_case-reference_01.jpg')]
-    if (joined.endsWith('/연자')) return [f('Dr-Kim_profile.png')]
+    if (joined.endsWith('/10_연자')) return [f('Dr-Kim_profile.png')]
+    if (joined.endsWith('/11_스톡-라이선스/01_이미지')) return [f('Shutterstock_1234567_dental-clinic.jpg')]
+    if (joined.endsWith('/11_스톡-라이선스/02_영상')) return [f('Adobestock_2345678_lab-scene.mp4')]
+    if (joined.endsWith('/11_스톡-라이선스/03_오디오')) return [f('Adobestock_3456789_BGM-orchestral.wav')]
+    if (joined.endsWith('/11_스톡-라이선스/04_모션')) return [f('Envato_4567890_logo-reveal.mogrt')]
   }
 
   if (root === '99_ARCHIVE') {

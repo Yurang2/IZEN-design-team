@@ -431,7 +431,7 @@ function buildExampleBuckets() {
         containsAny(record, ['연자 사진', '연자', 'symposium']) &&
         ['.png', '.jpg', '.jpeg', '.psd', '.ai'].includes(record.ext),
       map: (record) => ({
-        path: `02_ASSET/연자/${speakerFolderName(record)}`,
+        path: `02_ASSET/10_연자/${speakerFolderName(record)}`,
         ...renameIfNeeded(buildRenamedName(speakerFolderName(record), record), record),
       }),
     },

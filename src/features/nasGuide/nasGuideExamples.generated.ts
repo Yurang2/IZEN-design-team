@@ -5279,91 +5279,91 @@ export const GENERATED_NAS_GUIDE_EXAMPLES: NasGuideGeneratedExample[] = [
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/1-연자",
+    "path": "02_ASSET/10_연자/1-연자",
     "name": "1-연자_연자-감사패-IAM.ai",
     "comment": "원본파일명: 연자 감사패 ⁮IAM.ai"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45063-0",
+    "path": "02_ASSET/10_연자/45063-0",
     "name": "45063-0_45063-0.jpg",
     "comment": "원본파일명: 45063_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45064-0",
+    "path": "02_ASSET/10_연자/45064-0",
     "name": "45064-0_45064-0.jpg",
     "comment": "원본파일명: 45064_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45065-0",
+    "path": "02_ASSET/10_연자/45065-0",
     "name": "45065-0_45065-0.jpg",
     "comment": "원본파일명: 45065_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45078-0",
+    "path": "02_ASSET/10_연자/45078-0",
     "name": "45078-0_45078-0.jpg",
     "comment": "원본파일명: 45078_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45079-0",
+    "path": "02_ASSET/10_연자/45079-0",
     "name": "45079-0_45079-0.jpg",
     "comment": "원본파일명: 45079_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45080-0",
+    "path": "02_ASSET/10_연자/45080-0",
     "name": "45080-0_45080-0.jpg",
     "comment": "원본파일명: 45080_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45081-0",
+    "path": "02_ASSET/10_연자/45081-0",
     "name": "45081-0_45081-0.jpg",
     "comment": "원본파일명: 45081_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45082-0",
+    "path": "02_ASSET/10_연자/45082-0",
     "name": "45082-0_45082-0.jpg",
     "comment": "원본파일명: 45082_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45083-0",
+    "path": "02_ASSET/10_연자/45083-0",
     "name": "45083-0_45083-0.jpg",
     "comment": "원본파일명: 45083_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45084-0",
+    "path": "02_ASSET/10_연자/45084-0",
     "name": "45084-0_45084-0.jpg",
     "comment": "원본파일명: 45084_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/45085-0",
+    "path": "02_ASSET/10_연자/45085-0",
     "name": "45085-0_45085-0.jpg",
     "comment": "원본파일명: 45085_0.jpg"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/Vietnam-Launching",
+    "path": "02_ASSET/10_연자/Vietnam-Launching",
     "name": "Vietnam-Launching_Vietnam-Launching-Symposium-Ceti-2.png",
     "comment": "원본파일명: Vietnam Launching Symposium_Ceti (2).png"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/Vietnam-Launching",
+    "path": "02_ASSET/10_연자/Vietnam-Launching",
     "name": "Vietnam-Launching_Vietnam-Launching-Symposium-Ceti-2024.ai",
     "comment": "원본파일명: Vietnam Launching Symposium_Ceti 2024.ai"
   },
   {
     "bucket": "asset-speaker",
-    "path": "02_ASSET/연자/Vietnam-Launching",
+    "path": "02_ASSET/10_연자/Vietnam-Launching",
     "name": "Vietnam-Launching_Vietnam-Launching-Symposium-Ceti.png",
     "comment": "원본파일명: Vietnam Launching Symposium_Ceti.png"
   },
