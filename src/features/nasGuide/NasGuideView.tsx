@@ -1561,16 +1561,58 @@ function recordHistory(entry: {
   }).catch(() => null)
 }
 
+function PastHistoryList({ items, title = '이전 변경 이력' }: { items: ChangeHistoryItem[]; title?: string }) {
+  if (items.length === 0) {
+    return (
+      <details>
+        <summary style={{ fontSize: '0.78em', color: 'var(--muted)', cursor: 'pointer' }}>
+          📜 {title} (없음)
+        </summary>
+      </details>
+    )
+  }
+  return (
+    <details open={items.length <= 3}>
+      <summary style={{ fontSize: '0.82em', fontWeight: 600, cursor: 'pointer' }}>
+        📜 {title} ({items.length}건)
+      </summary>
+      <div style={{ display: 'grid', gap: 6, marginTop: 6, maxHeight: 200, overflowY: 'auto', padding: '4px 2px' }}>
+        {items.map((h) => (
+          <div
+            key={h.id}
+            style={{
+              padding: '6px 8px',
+              borderRadius: 6,
+              background: 'var(--surface2, #f9fafb)',
+              borderLeft: '3px solid var(--border)',
+              fontSize: '0.8em',
+            }}
+          >
+            <div style={{ fontSize: '0.72em', color: 'var(--muted)', marginBottom: 2 }}>
+              {h.createdAt ? new Date(h.createdAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+              {' · '}
+              {h.action}
+            </div>
+            {h.reason ? <div style={{ color: 'var(--text2)' }}>💬 {h.reason}</div> : <div style={{ color: 'var(--muted)', fontStyle: 'italic' }}>사유 없음</div>}
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
 function FolderStatusReasonModal({
   open,
   folderPath,
   currentStatus,
+  history = [],
   onConfirm,
   onCancel,
 }: {
   open: boolean
   folderPath: string
   currentStatus: string
+  history?: ChangeHistoryItem[]
   onConfirm: (nextStatus: FolderStatus, reason: string) => void
   onCancel: () => void
 }) {
@@ -1651,6 +1693,7 @@ function FolderStatusReasonModal({
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) { e.preventDefault(); onConfirm(nextStatus, reason.trim()) } }}
         />
         {sameNote ? <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>{sameNote}</div> : null}
+        <PastHistoryList items={history} title="이 폴더의 과거 변경" />
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="secondary" onClick={onCancel} style={{ padding: '6px 14px', fontSize: '0.85em' }}>취소</button>
           <button
@@ -1677,6 +1720,8 @@ function ReasonPromptModal({
   title,
   description,
   placeholder,
+  history = [],
+  historyTitle,
   onConfirm,
   onCancel,
   confirmLabel = '확정',
@@ -1686,6 +1731,8 @@ function ReasonPromptModal({
   title: string
   description?: string
   placeholder?: string
+  history?: ChangeHistoryItem[]
+  historyTitle?: string
   onConfirm: (reason: string) => void
   onCancel: () => void
   confirmLabel?: string
@@ -1759,6 +1806,7 @@ function ReasonPromptModal({
         <div style={{ fontSize: '0.72em', color: 'var(--muted)' }}>
           Ctrl/⌘ + Enter 로 빠르게 저장
         </div>
+        <PastHistoryList items={history} title={historyTitle ?? '이전 변경 이력'} />
       </div>
     </div>
   )
@@ -2126,6 +2174,7 @@ function WorkManualsSection({
               onChangeStatusWithReason={changeStatusWithReason}
               folderStatusMap={folderStatusMap}
               onFolderStatusClick={onFolderStatusClick}
+              historyItems={historyItems}
             />
           ) : (
             <article className="workflowCard workflowCardWide">
@@ -2243,6 +2292,7 @@ function ManualDetail({
   onChangeStatusWithReason,
   folderStatusMap,
   onFolderStatusClick,
+  historyItems,
 }: {
   item: { workType: string; manual?: WorkTypeManual; inNotion: boolean; statusItem?: WorkManualStatusItem }
   folderTree: TreeNode[]
@@ -2250,6 +2300,7 @@ function ManualDetail({
   onChangeStatusWithReason: (workType: string, nextStatus: WorkManualStatus, reason: string) => Promise<void>
   folderStatusMap?: Map<string, FolderStatusItem> | null
   onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
+  historyItems: ChangeHistoryItem[]
 }) {
   const { manual, workType, inNotion, statusItem } = item
   const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
@@ -2297,6 +2348,8 @@ function ManualDetail({
         placeholder={pendingStatus === '확정' ? '이 매뉴얼을 확정하는 근거. 예: 팀 회의 합의' : '변경 사유를 한 줄로.'}
         confirmLabel={pendingStatus === '확정' ? '확정 + 이력 기록' : `${pendingStatus} + 이력 기록`}
         confirmColor={pendingStatus ? STATUS_STYLES[pendingStatus]?.border ?? '#22c55e' : '#22c55e'}
+        history={historyItems.filter((h) => h.target === workType)}
+        historyTitle={`이 업무의 과거 변경 (${workType})`}
         onCancel={() => setPendingStatus(null)}
         onConfirm={async (reason) => {
           if (pendingStatus) {
@@ -3305,6 +3358,7 @@ export function NasGuideView() {
           open={folderPending !== null}
           folderPath={folderPending?.path ?? ''}
           currentStatus={folderPending?.currentStatus ?? '미정'}
+          history={folderPending ? historyItems.filter((h) => h.target === folderPending.path) : []}
           onCancel={() => setFolderPending(null)}
           onConfirm={commitFolderStatus}
         />
