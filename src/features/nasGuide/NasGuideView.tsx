@@ -1759,16 +1759,17 @@ function ManualRefEditModal({
     setBusy(true)
     try {
       if (pendingAction === 'add') {
+        const templatePath = collapseProjectToTemplate(folderPath)
         await api('/work-manual-refs', {
           method: 'POST',
           body: JSON.stringify({
-            workType, path: folderPath, role: pendingRole, status: pendingStatus,
+            workType, path: templatePath, role: pendingRole, status: pendingStatus,
             ...(pendingStatus === '확정' ? { fixedAt: new Date().toISOString().slice(0, 10) } : {}),
             note: reason,
           }),
         })
         await recordHistory({
-          kind: '업무매뉴얼', target: `${workType} · ${pendingRole} · ${folderPath}`,
+          kind: '업무매뉴얼', target: `${workType} · ${pendingRole} · ${templatePath}`,
           action: `참조 추가 (${pendingStatus})`, before: '(없음)', after: pendingStatus, reason,
         })
       } else if (pendingAction === 'status' && pendingRefId) {
@@ -1853,21 +1854,18 @@ function ManualRefEditModal({
                 </div>
                 {ref ? (
                   <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                    {(['미정', '논의중', '확정'] as FolderStatus[]).filter((s) => s !== ref.status).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => startStatus(ref, s)}
-                        disabled={busy}
-                        style={{
-                          fontSize: '0.75em', padding: '3px 10px', borderRadius: 6,
-                          background: STATUS_STYLES[s]?.bg, color: STATUS_STYLES[s]?.text,
-                          border: `1px solid ${STATUS_STYLES[s]?.border}`, cursor: 'pointer', boxShadow: 'none',
-                        }}
-                      >
-                        {STATUS_STYLES[s]?.icon} {s}로 변경
-                      </button>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={() => startStatus(ref, ref.status === '확정' ? '논의중' : '확정')}
+                      disabled={busy}
+                      style={{
+                        fontSize: '0.75em', padding: '3px 10px', borderRadius: 6,
+                        background: 'var(--surface2)', color: 'var(--text1)',
+                        border: '1px solid var(--border)', cursor: 'pointer', boxShadow: 'none',
+                      }}
+                    >
+                      상태 변경…
+                    </button>
                     <button
                       type="button"
                       onClick={() => startDelete(ref)}
@@ -1893,7 +1891,7 @@ function ManualRefEditModal({
                         border: `1px solid ${style.border}`, cursor: 'pointer', boxShadow: 'none',
                       }}
                     >
-                      + {role} 참조로 추가 (논의중)
+                      + {role} 참조로 추가
                     </button>
                   </div>
                 )}
@@ -1906,10 +1904,43 @@ function ManualRefEditModal({
         {pendingAction ? (
           <div style={{ padding: 10, background: '#fffbeb', border: '1px dashed #f59e0b', borderRadius: 8, display: 'grid', gap: 8 }}>
             <div style={{ fontSize: '0.82em', fontWeight: 700, color: '#92400e' }}>
-              {pendingAction === 'add' && `➕ ${pendingRole} 참조 추가 (${pendingStatus})`}
-              {pendingAction === 'status' && `🔄 ${pendingRole} · ${pendingCurrentStatus} → ${pendingStatus}`}
+              {pendingAction === 'add' && `➕ ${pendingRole} 참조 추가`}
+              {pendingAction === 'status' && `🔄 ${pendingRole} · ${pendingCurrentStatus} → ?`}
               {pendingAction === 'delete' && `🗑 ${pendingRole} 참조 제거`}
             </div>
+            {pendingAction !== 'delete' ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['미정', '논의중', '확정'] as FolderStatus[]).map((s) => {
+                  const active = pendingStatus === s
+                  const st = STATUS_STYLES[s]
+                  const isSameAsCurrent = pendingAction === 'status' && s === pendingCurrentStatus
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={isSameAsCurrent}
+                      onClick={() => setPendingStatus(s)}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        fontSize: '0.82em',
+                        fontWeight: 700,
+                        background: active ? st?.bg : 'var(--surface1)',
+                        color: active ? st?.text : isSameAsCurrent ? 'var(--muted)' : 'var(--text1)',
+                        border: `2px solid ${active ? st?.border : 'transparent'}`,
+                        borderRadius: 6,
+                        cursor: isSameAsCurrent ? 'not-allowed' : 'pointer',
+                        opacity: isSameAsCurrent ? 0.4 : 1,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                      }}
+                    >
+                      <span>{st?.icon}</span>
+                      <span>{s}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -2079,6 +2110,16 @@ function StatusChangeReasonModal({
 
 const SAMPLE_PROJECT_FOLDER = 'IZ250001_CIS-Conference-2026'
 
+// refs DB는 경로를 "01_PROJECT/IZYYNNNN_.../..." 형태로 저장해
+// 어느 프로젝트에서든 공통 적용된다. 트리는 실제 샘플 프로젝트 폴더로
+// 렌더되므로 표시할 때 치환하고, 저장할 때는 다시 템플릿화한다.
+function expandProjectTemplate(templatePath: string): string {
+  return templatePath.replace(/IZYYNNNN_[^/]*/g, SAMPLE_PROJECT_FOLDER)
+}
+function collapseProjectToTemplate(concretePath: string): string {
+  return concretePath.replace(/IZ\d+_[^/]+/g, 'IZYYNNNN_...')
+}
+
 function normalizeManualPath(raw: string): string[] {
   // 여러 경로가 섞여 있는 경우 분리
   const parts = raw
@@ -2151,9 +2192,10 @@ function WorkManualsSection({
     const m = new Map<string, WorkManualRef[]>()
     for (const r of refs) {
       if (!r.path) continue
-      const arr = m.get(r.path) ?? []
+      const key = expandProjectTemplate(r.path)
+      const arr = m.get(key) ?? []
       arr.push(r)
-      m.set(r.path, arr)
+      m.set(key, arr)
     }
     return m
   }, [refs])
@@ -2611,7 +2653,7 @@ function ManualDetail({
     for (const r of refs) {
       if (r.status !== '확정') continue
       const key: HighlightRole | null = r.role === 'ASSET' ? 'asset' : r.role === 'WORK' ? 'project' : r.role === 'PUB' ? 'gdrive' : null
-      if (key && r.path) map.set(r.path, key)
+      if (key && r.path) map.set(expandProjectTemplate(r.path), key)
     }
     return map.size > 0 ? map : null
   }, [refs])
