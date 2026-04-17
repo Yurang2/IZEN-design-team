@@ -28,3 +28,33 @@
 - 외부 공유 중인 페이지의 전체 UI 변경은 타이밍 먼저 확인
 - Notion DB 생성 시 부모 페이지 `23ec1cc7-ec27-803a-9567-f6b5ebc7cb36` 사용
 - Worker 배포는 Cloudflare의 자동 배포가 감지(푸시→자동 빌드). 수동 `deploy:worker`는 특별 요청 시에만
+
+## 4. 데이터 저장소 분리 정책
+
+데이터는 **Notion**(사람이 편집)과 **Cloudflare D1**(대량·기계 쓰기)로 나눕니다.
+DB 스키마를 건드리거나 새 저장소를 추가할 때마다 이 섹션과 `AGENTS.md`의
+동일 섹션을 **같은 커밋에서 반드시 함께 업데이트**합니다.
+
+### 현재 Notion DB
+| DB | 역할 | env key |
+|---|---|---|
+| 프로젝트 | 프로젝트 목록 | `NOTION_PROJECT_DB_ID` |
+| 업무 (태스크) | 업무구분 select + 태스크 | `NOTION_TASK_DB_ID` |
+| 체크리스트 | 행사 체크리스트 | `NOTION_CHECKLIST_DB_ID` |
+| 이슈 트래커 | NAS 구조 논의 | `NOTION_NAS_ISSUES_DB_ID` |
+| 업무 매뉴얼 상태 | 업무구분별 확정/논의중/미정 | `NOTION_WORK_MANUAL_STATUS_DB_ID` |
+| 폴더 구조 상태 | 폴더별 확정/논의중/미정 | `NOTION_FOLDER_STATUS_DB_ID` |
+| 업무별 참조 폴더 | workType × path × role | `NOTION_WORK_MANUAL_REFS_DB_ID` |
+| 변경 이력 | append-only 감사 로그 (임시) | `NOTION_CHANGE_HISTORY_DB_ID` |
+| 기타 | 일정·상영·회의록·촬영가이드 등 | wrangler.toml 참조 |
+
+### 예정 Cloudflare D1 (병행 이관 대상)
+- 체크리스트 업로드 로그 (태스크 × 항목 × 파일)
+- 변경 이력 (Notion → D1 이관 예정)
+- 로컬 에이전트 이벤트 로그
+
+### 원칙
+1. 사람이 자주 수정하는 소스 → Notion
+2. 대량·append 위주 데이터 → D1
+3. 한 데이터는 한 저장소에만 (이중 저장 금지)
+4. DB/컬럼 추가·삭제·이동 시 이 섹션 + `AGENTS.md` 같은 커밋 업데이트
