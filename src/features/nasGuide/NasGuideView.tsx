@@ -190,7 +190,7 @@ const NAS_TREE: TreeNode[] = [
       d('Cleanimplant', [f('Cleanimplant_LOGO_Black.png')]),
       dc('Dealer', '딜러 로고'),
     ]),
-    dc('02_제품-렌더링', '기존 부품유형별 구조 유지 (D드라이브에서 이관)', [
+    d('02_제품-렌더링', [
       d('01_zenex_fixture', [
         d('01_multi', [d('I-System'), d('R-System'), d('T-System')]),
         d('02_plus', [d('I-System'), d('R-System'), d('T-System')]),
@@ -2568,15 +2568,103 @@ function WorkManualsSection({
               </p>
             </article>
           )}
-          <ChangeHistoryPanel items={historyItems} filterTarget={selected ?? undefined} />
+          <ChangeHistoryPanel items={historyItems} filterTarget={selected ?? undefined} onReload={onReloadHistory} />
         </div>
       </div>
     </div>
   )
 }
 
-function ChangeHistoryPanel({ items, filterTarget }: { items: ChangeHistoryItem[]; filterTarget?: string }) {
+function HistoryReasonEditModal({
+  item,
+  onCancel,
+  onSaved,
+}: {
+  item: ChangeHistoryItem | null
+  onCancel: () => void
+  onSaved: () => void
+}) {
+  const [newReason, setNewReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { if (item) { setNewReason(''); setBusy(false) } }, [item?.id])
+  if (!item) return null
+  const trimmed = newReason.trim()
+  const canSubmit = trimmed.length > 0 && trimmed !== item.reason && !busy
+  const submit = async () => {
+    if (!canSubmit) return
+    setBusy(true)
+    try {
+      await api('/change-history', {
+        method: 'POST',
+        body: JSON.stringify({
+          kind: item.kind || '업무매뉴얼',
+          target: item.target,
+          action: '사유 수정',
+          before: item.reason || '',
+          after: trimmed,
+          reason: '',
+          summary: `[${item.kind || '업무매뉴얼'}] ${item.target} · 사유 수정`,
+        }),
+      })
+      onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--surface1)', borderRadius: 12, padding: 20, maxWidth: 500, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', border: '1px solid var(--border)', display: 'grid', gap: 12 }}
+      >
+        <h3 style={{ margin: 0, fontSize: '1em' }}>이력 사유 수정</h3>
+        <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>
+          [{item.kind}] <code className="fileGuideCode" style={{ fontSize: 11 }}>{item.target}</code> · {item.action}
+        </div>
+        <div style={{ padding: '8px 10px', background: 'var(--surface2, #f9fafb)', borderRadius: 6, fontSize: '0.85em' }}>
+          <div style={{ fontSize: '0.72em', color: 'var(--muted)', marginBottom: 3 }}>기존 사유</div>
+          <div style={{ color: 'var(--text2)' }}>{item.reason || <i>(비어있음)</i>}</div>
+        </div>
+        <div style={{ display: 'grid', gap: 4 }}>
+          <label style={{ fontSize: '0.78em', fontWeight: 600 }}>새 사유 (필수)</label>
+          <textarea
+            value={newReason}
+            onChange={(e) => setNewReason(e.target.value)}
+            placeholder="기존 사유를 어떻게 보완할지 작성하세요."
+            rows={3}
+            style={{ padding: '8px 10px', fontSize: '0.88em', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-soft, var(--surface2))', color: 'var(--text1)', resize: 'vertical', fontFamily: 'inherit' }}
+          />
+        </div>
+        <p style={{ fontSize: '0.72em', color: 'var(--muted)', margin: 0 }}>
+          원본 이력은 그대로 유지되고, "사유 수정" 이력 row가 추가됩니다.
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="secondary" onClick={onCancel} disabled={busy} style={{ padding: '6px 14px', fontSize: '0.85em' }}>취소</button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSubmit}
+            style={{
+              padding: '6px 14px', fontSize: '0.85em', fontWeight: 600,
+              background: canSubmit ? '#22c55e' : 'var(--surface2)',
+              color: canSubmit ? '#fff' : 'var(--muted)',
+              border: 'none', borderRadius: 6, cursor: canSubmit ? 'pointer' : 'not-allowed',
+            }}
+          >
+            저장 + 새 이력으로 기록
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ChangeHistoryPanel({ items, filterTarget, onReload }: { items: ChangeHistoryItem[]; filterTarget?: string; onReload: () => void }) {
   const [showAll, setShowAll] = useState(false)
+  const [editingItem, setEditingItem] = useState<ChangeHistoryItem | null>(null)
   const filtered = useMemo(() => {
     if (!filterTarget || showAll) return items
     const related = items.filter((i) => i.target === filterTarget)
@@ -2586,6 +2674,11 @@ function ChangeHistoryPanel({ items, filterTarget }: { items: ChangeHistoryItem[
 
   return (
     <article className="workflowCard workflowCardWide">
+      <HistoryReasonEditModal
+        item={editingItem}
+        onCancel={() => setEditingItem(null)}
+        onSaved={() => { setEditingItem(null); onReload() }}
+      />
       <div className="workflowSectionHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <span className="workflowSectionEyebrow">🕒 Change Log</span>
@@ -2613,34 +2706,63 @@ function ChangeHistoryPanel({ items, filterTarget }: { items: ChangeHistoryItem[
         <div style={{ display: 'grid', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
           {filtered.slice(0, 50).map((h) => {
             const kindColor = h.kind === '폴더' ? '#3b82f6' : '#8b5cf6'
+            const isReasonEdit = h.action === '사유 수정'
+            const canEditReason = !!h.reason && !isReasonEdit
             return (
               <div
                 key={h.id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '72px 1fr',
+                  gridTemplateColumns: '72px 1fr auto',
                   gap: 8,
                   padding: '6px 8px',
                   borderRadius: 6,
-                  background: 'var(--surface2, #f9fafb)',
-                  borderLeft: `3px solid ${kindColor}`,
+                  background: isReasonEdit ? '#fffbeb' : 'var(--surface2, #f9fafb)',
+                  borderLeft: `3px solid ${isReasonEdit ? '#f59e0b' : kindColor}`,
                 }}
               >
                 <div style={{ fontSize: '0.7em', color: 'var(--muted)', paddingTop: 1 }}>
                   {h.createdAt ? new Date(h.createdAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
                 </div>
-                <div style={{ display: 'grid', gap: 2 }}>
+                <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
                   <div style={{ fontSize: '0.82em' }}>
-                    <span style={{ fontWeight: 700, color: kindColor }}>[{h.kind}]</span>{' '}
+                    <span style={{ fontWeight: 700, color: isReasonEdit ? '#92400e' : kindColor }}>[{h.kind}]</span>{' '}
                     <code className="fileGuideCode" style={{ fontSize: 11 }}>{h.target}</code>{' '}
                     <span style={{ color: 'var(--muted)' }}>· {h.action}</span>
                   </div>
-                  {h.reason ? (
+                  {isReasonEdit ? (
+                    <div style={{ fontSize: '0.78em', color: 'var(--text2)' }}>
+                      {h.before ? (
+                        <div style={{ textDecoration: 'line-through', opacity: 0.6 }}>💬 {h.before}</div>
+                      ) : null}
+                      {h.after ? <div>✏ {h.after}</div> : null}
+                    </div>
+                  ) : h.reason ? (
                     <div style={{ fontSize: '0.78em', color: 'var(--text2)' }}>
                       💬 {h.reason}
                     </div>
                   ) : null}
                 </div>
+                {canEditReason ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem(h)}
+                    title="사유 수정 (원본은 유지됩니다)"
+                    style={{
+                      fontSize: '0.72em',
+                      padding: '2px 8px',
+                      background: 'transparent',
+                      color: 'var(--muted)',
+                      border: '1px dashed var(--border)',
+                      borderRadius: 999,
+                      cursor: 'pointer',
+                      alignSelf: 'start',
+                      boxShadow: 'none',
+                    }}
+                  >
+                    ✏ 사유 수정
+                  </button>
+                ) : null}
               </div>
             )
           })}
