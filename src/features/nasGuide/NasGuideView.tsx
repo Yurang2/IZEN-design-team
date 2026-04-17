@@ -606,6 +606,7 @@ function TreeItem({
   onFolderStatusClick,
   manualRefsByPath,
   onManualRefClick,
+  descendantCountByPath,
 }: {
   node: TreeNode
   path: string
@@ -619,6 +620,7 @@ function TreeItem({
   onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
   manualRefsByPath?: Map<string, WorkManualRef[]> | null
   onManualRefClick?: (path: string) => void
+  descendantCountByPath?: Map<string, { confirmed: number; pending: number }> | null
 }) {
   const isOpen = open.has(path)
   const hasKids = !!node.children?.length
@@ -637,6 +639,8 @@ function TreeItem({
   const hasManualRefs = !!manualRefs && manualRefs.length > 0
   const confirmedRefs = hasManualRefs ? manualRefs!.filter((r) => r.status === '확정').length : 0
   const canEditRef = !node.isFile && !!onManualRefClick
+  const descCount = !node.isFile ? descendantCountByPath?.get(path) : undefined
+  const hasDescCount = !!descCount && (descCount.confirmed + descCount.pending) > 0
 
   return (
     <>
@@ -717,6 +721,33 @@ function TreeItem({
         {node.comment ? (
           <span style={{ fontSize: '0.82em', color: 'var(--muted)', marginLeft: 2, whiteSpace: 'nowrap' }}>
             ← {node.comment}
+          </span>
+        ) : null}
+        {hasDescCount ? (
+          <span
+            title={`하위에 확정 ${descCount!.confirmed}건, 미정+논의중 ${descCount!.pending}건`}
+            style={{
+              fontSize: '0.68em',
+              fontWeight: 700,
+              padding: '1px 6px',
+              borderRadius: 999,
+              border: '1px solid var(--border)',
+              background: 'var(--surface2, #f3f4f6)',
+              color: 'var(--text2)',
+              marginLeft: 4,
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {descCount!.confirmed > 0 ? (
+              <span style={{ color: '#166534' }}>✓{descCount!.confirmed}</span>
+            ) : null}
+            {descCount!.pending > 0 ? (
+              <span style={{ color: '#92400e' }}>○{descCount!.pending}</span>
+            ) : null}
           </span>
         ) : null}
         {canToggleStatus ? (
@@ -820,6 +851,7 @@ function TreeItem({
               onFolderStatusClick={onFolderStatusClick}
               manualRefsByPath={manualRefsByPath}
               onManualRefClick={onManualRefClick}
+              descendantCountByPath={descendantCountByPath}
             />
           ))
         : null}
@@ -848,6 +880,7 @@ function TreeViewer({
   onFolderStatusClick,
   manualRefsByPath,
   onManualRefClick,
+  descendantCountByPath,
 }: {
   data: TreeNode[]
   highlightedPaths?: Map<string, HighlightRole> | null
@@ -856,6 +889,7 @@ function TreeViewer({
   onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
   manualRefsByPath?: Map<string, WorkManualRef[]> | null
   onManualRefClick?: (path: string) => void
+  descendantCountByPath?: Map<string, { confirmed: number; pending: number }> | null
 }): React.ReactElement {
   const allPaths = useMemo(() => collectPaths(data, ''), [data])
   const defaultOpen = useMemo(() => {
@@ -936,10 +970,12 @@ function TreeViewer({
             toggle={toggle}
             rootName={node.name}
             highlightedPaths={highlightedPaths}
+            dimHighlightedPaths={dimHighlightedPaths}
             folderStatusMap={folderStatusMap}
             onFolderStatusClick={onFolderStatusClick}
             manualRefsByPath={manualRefsByPath}
             onManualRefClick={onManualRefClick}
+            descendantCountByPath={descendantCountByPath}
           />
         ))}
       </div>
@@ -2682,6 +2718,24 @@ function ManualDetail({
     return map.size > 0 ? map : null
   }, [refs])
 
+  const descendantCountByPath = useMemo(() => {
+    const map = new Map<string, { confirmed: number; pending: number }>()
+    for (const r of refs) {
+      if (!r.path) continue
+      const expanded = expandProjectTemplate(r.path)
+      const segs = expanded.split('/')
+      // ancestors only, not the path itself
+      for (let i = 1; i < segs.length; i++) {
+        const anc = segs.slice(0, i).join('/')
+        const cur = map.get(anc) ?? { confirmed: 0, pending: 0 }
+        if (r.status === '확정') cur.confirmed++
+        else cur.pending++
+        map.set(anc, cur)
+      }
+    }
+    return map.size > 0 ? map : null
+  }, [refs])
+
   const refsTotal = refs.length
   const refsConfirmed = useMemo(() => refs.filter((r) => r.status === '확정').length, [refs])
   const refsAllConfirmed = refsTotal > 0 && refsConfirmed === refsTotal
@@ -2915,6 +2969,7 @@ function ManualDetail({
           dimHighlightedPaths={dimHighlightedPaths}
           manualRefsByPath={refsByPath}
           onManualRefClick={onRefEditOpen}
+          descendantCountByPath={descendantCountByPath}
         />
         <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '8px 0 0' }}>
           * PROJECT 하이라이트는 샘플 프로젝트(<code className="fileGuideCode">{SAMPLE_PROJECT_FOLDER}</code>)에
