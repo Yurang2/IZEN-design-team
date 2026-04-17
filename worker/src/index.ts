@@ -612,6 +612,164 @@ export default {
       }
     }
 
+    // Folder status (per folder path: 미정/논의중/확정 + lock + 확정일 + 메모)
+    if (path === '/folder-status' || path.startsWith('/folder-status/')) {
+      const dbId = env.NOTION_FOLDER_STATUS_DB_ID
+      if (!dbId) return ok({ ok: true, items: [] }, origin)
+
+      const notionHeaders = {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      }
+
+      const getText = (p: any) => {
+        if (!p) return ''
+        if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'select') return p.select?.name ?? ''
+        if (p.type === 'date') return p.date?.start ?? ''
+        if (p.type === 'checkbox') return p.checkbox ? 'true' : 'false'
+        return ''
+      }
+
+      if (request.method === 'GET' && path === '/folder-status') {
+        const allPages: any[] = []
+        let cursor: string | undefined
+        while (true) {
+          const body: any = { page_size: 100 }
+          if (cursor) body.start_cursor = cursor
+          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
+          })
+          const data: any = await res.json()
+          allPages.push(...(data.results ?? []))
+          if (!data.has_more) break
+          cursor = data.next_cursor
+        }
+        const items = allPages.map((page: any) => {
+          const props = (page.properties ?? {}) as Record<string, any>
+          return {
+            id: page.id,
+            path: getText(props['경로']),
+            status: getText(props['상태']) || '미정',
+            locked: getText(props['잠금']) === 'true',
+            fixedAt: getText(props['확정일']),
+            note: getText(props['메모']),
+            updatedAt: page.last_edited_time ?? '',
+          }
+        })
+        return ok({ ok: true, items }, origin)
+      }
+
+      if (request.method === 'POST' && path === '/folder-status') {
+        const body = await readJsonBody(request)
+        const folderPath = asString(body.path)
+        if (!folderPath) return json({ ok: false, error: 'path_required' }, 400, origin)
+        const props: any = {
+          '경로': { title: [{ text: { content: folderPath } }] },
+          '상태': { select: { name: asString(body.status) || '미정' } },
+        }
+        if (typeof body.locked === 'boolean') props['잠금'] = { checkbox: body.locked }
+        if (body.fixedAt) props['확정일'] = { date: { start: asString(body.fixedAt) } }
+        if (body.note) props['메모'] = { rich_text: [{ text: { content: asString(body.note) } }] }
+
+        const res = await fetch('https://api.notion.com/v1/pages', {
+          method: 'POST', headers: notionHeaders,
+          body: JSON.stringify({ parent: { database_id: dbId }, properties: props }),
+        })
+        const data: any = await res.json()
+        if (!data.id) return json({ ok: false, error: 'create_failed' }, 500, origin)
+        return ok({ ok: true, id: data.id }, origin)
+      }
+
+      const folderMatch = path.match(/^\/folder-status\/([^/]+)$/)
+      if (request.method === 'PATCH' && folderMatch) {
+        const pageId = folderMatch[1]
+        const body = await readJsonBody(request)
+        const props: any = {}
+        if (body.status != null) props['상태'] = { select: { name: asString(body.status) } }
+        if (typeof body.locked === 'boolean') props['잠금'] = { checkbox: body.locked }
+        if (body.fixedAt != null) {
+          const d = asString(body.fixedAt)
+          props['확정일'] = d ? { date: { start: d } } : { date: null }
+        }
+        if (body.note != null) props['메모'] = { rich_text: [{ text: { content: asString(body.note) } }] }
+
+        await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+          method: 'PATCH', headers: notionHeaders,
+          body: JSON.stringify({ properties: props }),
+        })
+        return ok({ ok: true }, origin)
+      }
+    }
+
+    // Change history log (append-only)
+    if (path === '/change-history') {
+      const dbId = env.NOTION_CHANGE_HISTORY_DB_ID
+      if (!dbId) return ok({ ok: true, items: [] }, origin)
+
+      const notionHeaders = {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      }
+
+      const getText = (p: any) => {
+        if (!p) return ''
+        if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'select') return p.select?.name ?? ''
+        return ''
+      }
+
+      if (request.method === 'GET') {
+        const limit = Math.min(200, parseInt(asString(url.searchParams.get('limit')) || '50', 10) || 50)
+        const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+          method: 'POST', headers: notionHeaders,
+          body: JSON.stringify({ page_size: limit, sorts: [{ timestamp: 'created_time', direction: 'descending' }] }),
+        })
+        const data: any = await res.json()
+        const items = (data.results ?? []).map((page: any) => {
+          const props = (page.properties ?? {}) as Record<string, any>
+          return {
+            id: page.id,
+            summary: getText(props['요약']),
+            kind: getText(props['대상종류']),
+            target: getText(props['대상']),
+            action: getText(props['액션']),
+            before: getText(props['이전값']),
+            after: getText(props['새값']),
+            reason: getText(props['사유']),
+            createdAt: page.created_time ?? '',
+          }
+        })
+        return ok({ ok: true, items }, origin)
+      }
+
+      if (request.method === 'POST') {
+        const body = await readJsonBody(request)
+        const summary = asString(body.summary) || `${asString(body.kind)} · ${asString(body.target)}`
+        const props: any = {
+          '요약': { title: [{ text: { content: summary } }] },
+        }
+        if (body.kind) props['대상종류'] = { select: { name: asString(body.kind) } }
+        if (body.target) props['대상'] = { rich_text: [{ text: { content: asString(body.target) } }] }
+        if (body.action) props['액션'] = { select: { name: asString(body.action) } }
+        if (body.before != null) props['이전값'] = { rich_text: [{ text: { content: asString(body.before) } }] }
+        if (body.after != null) props['새값'] = { rich_text: [{ text: { content: asString(body.after) } }] }
+        if (body.reason) props['사유'] = { rich_text: [{ text: { content: asString(body.reason) } }] }
+
+        const res = await fetch('https://api.notion.com/v1/pages', {
+          method: 'POST', headers: notionHeaders,
+          body: JSON.stringify({ parent: { database_id: dbId }, properties: props }),
+        })
+        const data: any = await res.json()
+        if (!data.id) return json({ ok: false, error: 'history_create_failed' }, 500, origin)
+        return ok({ ok: true, id: data.id }, origin)
+      }
+    }
+
     if (request.method === 'POST' && path === '/event-graphics/video-thumbnail/render') {
       try {
         const payload = parseVideoThumbnailRenderBody(await readJsonBody(request))

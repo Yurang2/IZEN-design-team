@@ -1436,10 +1436,155 @@ type WorkManualStatusItem = {
 
 type WorkManualStatusResponse = { ok: boolean; items: WorkManualStatusItem[] }
 
+export type FolderStatus = '확정' | '논의중' | '미정'
+export const FOLDER_STATUS_OPTIONS: FolderStatus[] = ['미정', '논의중', '확정']
+
+export type FolderStatusItem = {
+  id: string
+  path: string
+  status: FolderStatus | string
+  locked: boolean
+  fixedAt: string
+  note: string
+  updatedAt: string
+}
+
+export type FolderStatusResponse = { ok: boolean; items: FolderStatusItem[] }
+
+export type ChangeHistoryItem = {
+  id: string
+  summary: string
+  kind: string
+  target: string
+  action: string
+  before: string
+  after: string
+  reason: string
+  createdAt: string
+}
+
+export type ChangeHistoryResponse = { ok: boolean; items: ChangeHistoryItem[] }
+
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
   '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '✓' },
   '초안': { bg: '#f3f4f6', text: '#4b5563', border: '#9ca3af', icon: '○' },
   '보류': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '⏸' },
+  '논의중': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '…' },
+  '미정': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '○' },
+}
+
+function recordHistory(entry: {
+  kind: '폴더' | '업무매뉴얼'
+  target: string
+  action: string
+  before?: string
+  after?: string
+  reason: string
+}) {
+  return api('/change-history', {
+    method: 'POST',
+    body: JSON.stringify({
+      summary: `[${entry.kind}] ${entry.target} · ${entry.action}`,
+      kind: entry.kind,
+      target: entry.target,
+      action: entry.action,
+      before: entry.before ?? '',
+      after: entry.after ?? '',
+      reason: entry.reason,
+    }),
+  }).catch(() => null)
+}
+
+function ReasonPromptModal({
+  open,
+  title,
+  description,
+  placeholder,
+  onConfirm,
+  onCancel,
+  confirmLabel = '확정',
+  confirmColor = '#22c55e',
+}: {
+  open: boolean
+  title: string
+  description?: string
+  placeholder?: string
+  onConfirm: (reason: string) => void
+  onCancel: () => void
+  confirmLabel?: string
+  confirmColor?: string
+}) {
+  const [reason, setReason] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (open) {
+      setReason('')
+      setTimeout(() => textareaRef.current?.focus(), 50)
+    }
+  }, [open])
+  if (!open) return null
+  const canSubmit = reason.trim().length > 0
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      }}
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--surface1)', borderRadius: 12, padding: 20, maxWidth: 460, width: '100%',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.25)', border: '1px solid var(--border)',
+          display: 'grid', gap: 10,
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: '1em' }}>{title}</h3>
+        {description ? <p style={{ margin: 0, fontSize: '0.85em', color: 'var(--text2)' }}>{description}</p> : null}
+        <textarea
+          ref={textareaRef}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={placeholder ?? '왜 이렇게 결정했는지 한 줄로 기록하세요. (필수)'}
+          rows={3}
+          style={{
+            padding: '8px 10px', fontSize: '0.88em',
+            borderRadius: 6, border: '1px solid var(--border)',
+            background: 'var(--surface-soft, var(--surface2))', color: 'var(--text1)',
+            resize: 'vertical', fontFamily: 'inherit',
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) {
+              e.preventDefault()
+              onConfirm(reason.trim())
+            }
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="secondary" onClick={onCancel} style={{ padding: '6px 14px', fontSize: '0.85em' }}>
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={() => canSubmit && onConfirm(reason.trim())}
+            disabled={!canSubmit}
+            style={{
+              padding: '6px 14px', fontSize: '0.85em', fontWeight: 600,
+              background: canSubmit ? confirmColor : 'var(--surface2)',
+              color: canSubmit ? '#fff' : 'var(--muted)',
+              border: 'none', borderRadius: 6, cursor: canSubmit ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+        <div style={{ fontSize: '0.72em', color: 'var(--muted)' }}>
+          Ctrl/⌘ + Enter 로 빠르게 저장
+        </div>
+      </div>
+    </div>
+  )
 }
 
 const SAMPLE_PROJECT_FOLDER = 'IZ250001_CIS-Conference-2026'
@@ -1570,6 +1715,28 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
       }
     },
     [statusByWorkType, refreshAll],
+  )
+
+  const changeStatusWithReason = useCallback(
+    async (workType: string, nextStatus: WorkManualStatus, reason: string) => {
+      const existing = statusByWorkType.get(workType)
+      const before = (existing?.status as string) || '초안'
+      if (before === nextStatus) return
+      const patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt'>> = { status: nextStatus }
+      if (nextStatus === '확정') {
+        patch.fixedAt = new Date().toISOString().slice(0, 10)
+      }
+      await updateStatus(workType, patch)
+      await recordHistory({
+        kind: '업무매뉴얼',
+        target: workType,
+        action: `${before}→${nextStatus}`,
+        before,
+        after: nextStatus,
+        reason,
+      })
+    },
+    [statusByWorkType, updateStatus],
   )
 
   const merged = useMemo(() => {
@@ -1769,6 +1936,7 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
               item={selectedItem}
               folderTree={folderTree}
               onUpdateStatus={(patch) => updateStatus(selectedItem.workType, patch)}
+              onChangeStatusWithReason={changeStatusWithReason}
             />
           ) : (
             <article className="workflowCard workflowCardWide">
@@ -1807,10 +1975,12 @@ function ManualDetail({
   item,
   folderTree,
   onUpdateStatus,
+  onChangeStatusWithReason,
 }: {
   item: { workType: string; manual?: WorkTypeManual; inNotion: boolean; statusItem?: WorkManualStatusItem }
   folderTree: TreeNode[]
   onUpdateStatus: (patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt' | 'note'>>) => void
+  onChangeStatusWithReason: (workType: string, nextStatus: WorkManualStatus, reason: string) => Promise<void>
 }) {
   const { manual, workType, inNotion, statusItem } = item
   const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
@@ -1819,17 +1989,15 @@ function ManualDetail({
   const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['초안']
   const [noteDraft, setNoteDraft] = useState(statusItem?.note ?? '')
   const [noteDirty, setNoteDirty] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<WorkManualStatus | null>(null)
   useEffect(() => {
     setNoteDraft(statusItem?.note ?? '')
     setNoteDirty(false)
   }, [statusItem?.id, statusItem?.note])
 
   const onChangeStatus = (next: WorkManualStatus) => {
-    const patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt'>> = { status: next }
-    if (next === '확정' && !statusItem?.fixedAt) {
-      patch.fixedAt = new Date().toISOString().slice(0, 10)
-    }
-    onUpdateStatus(patch)
+    if (next === statusName) return
+    setPendingStatus(next)
   }
 
   if (!manual) {
@@ -1853,6 +2021,21 @@ function ManualDetail({
 
   return (
     <>
+      <ReasonPromptModal
+        open={pendingStatus !== null}
+        title={`업무 매뉴얼 상태 변경 — ${workType}`}
+        description={pendingStatus ? `${statusName} → ${pendingStatus}. 변경 사유를 기록하면 이력에 남습니다.` : ''}
+        placeholder={pendingStatus === '확정' ? '이 매뉴얼을 확정하는 근거. 예: 팀 회의 합의' : '변경 사유를 한 줄로.'}
+        confirmLabel={pendingStatus === '확정' ? '확정 + 이력 기록' : `${pendingStatus} + 이력 기록`}
+        confirmColor={pendingStatus ? STATUS_STYLES[pendingStatus]?.border ?? '#22c55e' : '#22c55e'}
+        onCancel={() => setPendingStatus(null)}
+        onConfirm={async (reason) => {
+          if (pendingStatus) {
+            await onChangeStatusWithReason(workType, pendingStatus, reason)
+            setPendingStatus(null)
+          }
+        }}
+      />
       {/* 헤더 */}
       <article className="workflowCard workflowCardWide" style={{ borderLeft: cat ? `4px solid ${cat.border}` : undefined }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
