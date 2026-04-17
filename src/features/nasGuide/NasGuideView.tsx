@@ -1601,35 +1601,46 @@ function PastHistoryList({ items, title = '이전 변경 이력' }: { items: Cha
   )
 }
 
-function FolderStatusReasonModal({
+function StatusChangeReasonModal({
   open,
-  folderPath,
+  title,
+  target,
   currentStatus,
+  statusOptions,
+  statusStyles,
+  lockedStatus = '확정',
   history = [],
+  historyTitle,
   onConfirm,
   onCancel,
 }: {
   open: boolean
-  folderPath: string
+  title: string
+  target: string
   currentStatus: string
+  statusOptions: readonly string[]
+  statusStyles: Record<string, { bg: string; text: string; border: string; icon: string }>
+  lockedStatus?: string
   history?: ChangeHistoryItem[]
-  onConfirm: (nextStatus: FolderStatus, reason: string) => void
+  historyTitle?: string
+  onConfirm: (nextStatus: string, reason: string) => void
   onCancel: () => void
 }) {
-  const [nextStatus, setNextStatus] = useState<FolderStatus>('논의중')
+  const [nextStatus, setNextStatus] = useState<string>(statusOptions[0] ?? '')
   const [reason, setReason] = useState('')
   useEffect(() => {
     if (open) {
       setReason('')
-      const defaultNext: FolderStatus =
-        currentStatus === '확정' ? '논의중' : currentStatus === '논의중' ? '확정' : '논의중'
+      // 현재와 다른 첫 옵션을 기본값으로
+      const defaultNext = statusOptions.find((s) => s !== currentStatus) ?? statusOptions[0] ?? ''
       setNextStatus(defaultNext)
     }
-  }, [open, currentStatus])
+  }, [open, currentStatus, statusOptions])
   if (!open) return null
   const canSubmit = reason.trim().length > 0 && nextStatus !== currentStatus
   const sameNote = nextStatus === currentStatus ? '현재 상태와 동일합니다' : ''
-  const isUnlock = currentStatus === '확정' && nextStatus !== '확정'
+  const isUnlock = currentStatus === lockedStatus && nextStatus !== lockedStatus
+  const nextStyle = statusStyles[nextStatus]
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -1639,17 +1650,17 @@ function FolderStatusReasonModal({
         onClick={(e) => e.stopPropagation()}
         style={{ background: 'var(--surface1)', borderRadius: 12, padding: 20, maxWidth: 500, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', border: '1px solid var(--border)', display: 'grid', gap: 12 }}
       >
-        <h3 style={{ margin: 0, fontSize: '1em' }}>폴더 상태 변경</h3>
+        <h3 style={{ margin: 0, fontSize: '1em' }}>{title}</h3>
         <div style={{ fontSize: '0.8em', color: 'var(--muted)' }}>
-          <code className="fileGuideCode" style={{ fontSize: 11 }}>{folderPath}</code>
+          <code className="fileGuideCode" style={{ fontSize: 11 }}>{target}</code>
         </div>
         <div style={{ fontSize: '0.85em' }}>
           현재: <strong>{currentStatus}</strong>
-          {currentStatus === '확정' ? <span style={{ marginLeft: 6, color: '#166534' }}>🔒 잠김 (해제하려면 사유 필수)</span> : null}
+          {currentStatus === lockedStatus ? <span style={{ marginLeft: 6, color: '#166534' }}>🔒 잠김 (해제하려면 사유 필수)</span> : null}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {(['미정', '논의중', '확정'] as FolderStatus[]).map((opt) => {
-            const style = FOLDER_STATUS_STYLES[opt]
+          {statusOptions.map((opt) => {
+            const style = statusStyles[opt]
             const active = nextStatus === opt
             return (
               <button
@@ -1661,9 +1672,9 @@ function FolderStatusReasonModal({
                   padding: '8px 10px',
                   fontSize: '0.85em',
                   fontWeight: 700,
-                  background: active ? style.bg : 'var(--surface2)',
-                  color: active ? style.text : 'var(--muted)',
-                  border: `2px solid ${active ? style.border : 'transparent'}`,
+                  background: active ? style?.bg ?? 'var(--surface2)' : 'var(--surface2)',
+                  color: active ? style?.text ?? 'var(--text1)' : 'var(--muted)',
+                  border: `2px solid ${active ? style?.border ?? 'var(--border)' : 'transparent'}`,
                   borderRadius: 8,
                   cursor: 'pointer',
                   display: 'flex',
@@ -1672,7 +1683,7 @@ function FolderStatusReasonModal({
                   gap: 5,
                 }}
               >
-                <span>{style.icon}</span>
+                <span>{style?.icon ?? '○'}</span>
                 <span>{opt}</span>
               </button>
             )
@@ -1684,8 +1695,8 @@ function FolderStatusReasonModal({
           placeholder={
             isUnlock
               ? '잠금 해제 사유를 반드시 기록하세요. (필수)'
-              : nextStatus === '확정'
-                ? '이 폴더를 확정하는 근거. (필수)'
+              : nextStatus === lockedStatus
+                ? '확정하는 근거. (필수)'
                 : '변경 사유를 한 줄로. (필수)'
           }
           rows={3}
@@ -1693,7 +1704,7 @@ function FolderStatusReasonModal({
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) { e.preventDefault(); onConfirm(nextStatus, reason.trim()) } }}
         />
         {sameNote ? <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>{sameNote}</div> : null}
-        <PastHistoryList items={history} title="이 폴더의 과거 변경" />
+        <PastHistoryList items={history} title={historyTitle ?? '과거 변경 이력'} />
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="secondary" onClick={onCancel} style={{ padding: '6px 14px', fontSize: '0.85em' }}>취소</button>
           <button
@@ -1702,7 +1713,7 @@ function FolderStatusReasonModal({
             disabled={!canSubmit}
             style={{
               padding: '6px 14px', fontSize: '0.85em', fontWeight: 600,
-              background: canSubmit ? FOLDER_STATUS_STYLES[nextStatus]?.border ?? '#22c55e' : 'var(--surface2)',
+              background: canSubmit ? nextStyle?.border ?? '#22c55e' : 'var(--surface2)',
               color: canSubmit ? '#fff' : 'var(--muted)',
               border: 'none', borderRadius: 6, cursor: canSubmit ? 'pointer' : 'not-allowed',
             }}
@@ -1715,102 +1726,6 @@ function FolderStatusReasonModal({
   )
 }
 
-function ReasonPromptModal({
-  open,
-  title,
-  description,
-  placeholder,
-  history = [],
-  historyTitle,
-  onConfirm,
-  onCancel,
-  confirmLabel = '확정',
-  confirmColor = '#22c55e',
-}: {
-  open: boolean
-  title: string
-  description?: string
-  placeholder?: string
-  history?: ChangeHistoryItem[]
-  historyTitle?: string
-  onConfirm: (reason: string) => void
-  onCancel: () => void
-  confirmLabel?: string
-  confirmColor?: string
-}) {
-  const [reason, setReason] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => {
-    if (open) {
-      setReason('')
-      setTimeout(() => textareaRef.current?.focus(), 50)
-    }
-  }, [open])
-  if (!open) return null
-  const canSubmit = reason.trim().length > 0
-  return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-      }}
-      onClick={onCancel}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--surface1)', borderRadius: 12, padding: 20, maxWidth: 460, width: '100%',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.25)', border: '1px solid var(--border)',
-          display: 'grid', gap: 10,
-        }}
-      >
-        <h3 style={{ margin: 0, fontSize: '1em' }}>{title}</h3>
-        {description ? <p style={{ margin: 0, fontSize: '0.85em', color: 'var(--text2)' }}>{description}</p> : null}
-        <textarea
-          ref={textareaRef}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder={placeholder ?? '왜 이렇게 결정했는지 한 줄로 기록하세요. (필수)'}
-          rows={3}
-          style={{
-            padding: '8px 10px', fontSize: '0.88em',
-            borderRadius: 6, border: '1px solid var(--border)',
-            background: 'var(--surface-soft, var(--surface2))', color: 'var(--text1)',
-            resize: 'vertical', fontFamily: 'inherit',
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) {
-              e.preventDefault()
-              onConfirm(reason.trim())
-            }
-          }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" className="secondary" onClick={onCancel} style={{ padding: '6px 14px', fontSize: '0.85em' }}>
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={() => canSubmit && onConfirm(reason.trim())}
-            disabled={!canSubmit}
-            style={{
-              padding: '6px 14px', fontSize: '0.85em', fontWeight: 600,
-              background: canSubmit ? confirmColor : 'var(--surface2)',
-              color: canSubmit ? '#fff' : 'var(--muted)',
-              border: 'none', borderRadius: 6, cursor: canSubmit ? 'pointer' : 'not-allowed',
-            }}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-        <div style={{ fontSize: '0.72em', color: 'var(--muted)' }}>
-          Ctrl/⌘ + Enter 로 빠르게 저장
-        </div>
-        <PastHistoryList items={history} title={historyTitle ?? '이전 변경 이력'} />
-      </div>
-    </div>
-  )
-}
 
 const SAMPLE_PROJECT_FOLDER = 'IZ250001_CIS-Conference-2026'
 
@@ -2307,18 +2222,14 @@ function ManualDetail({
   const highlightedPaths = useMemo(() => (manual ? extractHighlightPaths(manual) : null), [manual])
   const statusName = (statusItem?.status as WorkManualStatus | undefined) ?? '초안'
   const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['초안']
+  const isLocked = statusName === '확정'
   const [noteDraft, setNoteDraft] = useState(statusItem?.note ?? '')
   const [noteDirty, setNoteDirty] = useState(false)
-  const [pendingStatus, setPendingStatus] = useState<WorkManualStatus | null>(null)
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
   useEffect(() => {
     setNoteDraft(statusItem?.note ?? '')
     setNoteDirty(false)
   }, [statusItem?.id, statusItem?.note])
-
-  const onChangeStatus = (next: WorkManualStatus) => {
-    if (next === statusName) return
-    setPendingStatus(next)
-  }
 
   if (!manual) {
     return (
@@ -2341,21 +2252,20 @@ function ManualDetail({
 
   return (
     <>
-      <ReasonPromptModal
-        open={pendingStatus !== null}
-        title={`업무 매뉴얼 상태 변경 — ${workType}`}
-        description={pendingStatus ? `${statusName} → ${pendingStatus}. 변경 사유를 기록하면 이력에 남습니다.` : ''}
-        placeholder={pendingStatus === '확정' ? '이 매뉴얼을 확정하는 근거. 예: 팀 회의 합의' : '변경 사유를 한 줄로.'}
-        confirmLabel={pendingStatus === '확정' ? '확정 + 이력 기록' : `${pendingStatus} + 이력 기록`}
-        confirmColor={pendingStatus ? STATUS_STYLES[pendingStatus]?.border ?? '#22c55e' : '#22c55e'}
+      <StatusChangeReasonModal
+        open={statusModalOpen}
+        title="업무 매뉴얼 상태 변경"
+        target={workType}
+        currentStatus={statusName}
+        statusOptions={WORK_MANUAL_STATUS_OPTIONS}
+        statusStyles={STATUS_STYLES}
+        lockedStatus="확정"
         history={historyItems.filter((h) => h.target === workType)}
         historyTitle={`이 업무의 과거 변경 (${workType})`}
-        onCancel={() => setPendingStatus(null)}
-        onConfirm={async (reason) => {
-          if (pendingStatus) {
-            await onChangeStatusWithReason(workType, pendingStatus, reason)
-            setPendingStatus(null)
-          }
+        onCancel={() => setStatusModalOpen(false)}
+        onConfirm={async (next, reason) => {
+          await onChangeStatusWithReason(workType, next as WorkManualStatus, reason)
+          setStatusModalOpen(false)
         }}
       />
       {/* 헤더 */}
@@ -2376,47 +2286,50 @@ function ManualDetail({
               [{manual.category}] {cat.label}
             </span>
           ) : null}
-          <label
+          <button
+            type="button"
+            onClick={() => setStatusModalOpen(true)}
+            title={isLocked ? `🔒 확정${statusItem?.fixedAt ? ` · ${statusItem.fixedAt}` : ''} (클릭하여 잠금해제)` : '상태 변경'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 5,
               fontSize: '0.78em',
               fontWeight: 700,
-              padding: '2px 10px 2px 8px',
+              padding: '3px 12px',
               background: statusStyle.bg,
               color: statusStyle.text,
               border: `1px solid ${statusStyle.border}`,
               borderRadius: 999,
               cursor: 'pointer',
+              boxShadow: 'none',
             }}
-            title="상태 변경"
           >
-            <span>{statusStyle.icon}</span>
-            <select
-              value={statusName}
-              onChange={(e) => onChangeStatus(e.target.value as WorkManualStatus)}
+            <span>{isLocked ? '🔒' : statusStyle.icon}</span>
+            <span>{statusName}</span>
+            {isLocked && statusItem?.fixedAt ? (
+              <span style={{ fontWeight: 400, opacity: 0.75, fontSize: '0.88em' }}>· {statusItem.fixedAt}</span>
+            ) : null}
+          </button>
+          {isLocked ? (
+            <button
+              type="button"
+              onClick={() => setStatusModalOpen(true)}
+              title="잠금해제 (사유 필수)"
               style={{
-                appearance: 'none',
-                border: 'none',
+                fontSize: '0.72em',
+                fontWeight: 600,
+                padding: '3px 10px',
                 background: 'transparent',
-                color: 'inherit',
-                fontSize: 'inherit',
-                fontWeight: 'inherit',
-                padding: 0,
+                color: 'var(--muted)',
+                border: '1px dashed var(--border)',
+                borderRadius: 999,
                 cursor: 'pointer',
-                outline: 'none',
+                boxShadow: 'none',
               }}
             >
-              {WORK_MANUAL_STATUS_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </label>
-          {statusName === '확정' && statusItem?.fixedAt ? (
-            <span style={{ fontSize: '0.72em', color: 'var(--muted)' }}>확정일 {statusItem.fixedAt}</span>
+              🔓 잠금해제
+            </button>
           ) : null}
           {manual.ambiguous ? (
             <span style={{ fontSize: '0.75em', fontWeight: 700, padding: '3px 10px', background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 999 }}>
@@ -3354,13 +3267,18 @@ export function NasGuideView() {
 
       {/* Tab content */}
       <div>
-        <FolderStatusReasonModal
+        <StatusChangeReasonModal
           open={folderPending !== null}
-          folderPath={folderPending?.path ?? ''}
+          title="폴더 상태 변경"
+          target={folderPending?.path ?? ''}
           currentStatus={folderPending?.currentStatus ?? '미정'}
+          statusOptions={['미정', '논의중', '확정']}
+          statusStyles={FOLDER_STATUS_STYLES}
+          lockedStatus="확정"
+          historyTitle="이 폴더의 과거 변경"
           history={folderPending ? historyItems.filter((h) => h.target === folderPending.path) : []}
           onCancel={() => setFolderPending(null)}
-          onConfirm={commitFolderStatus}
+          onConfirm={(next, reason) => commitFolderStatus(next as FolderStatus, reason)}
         />
         {activeTab === 0 ? (
           <StructureSection
