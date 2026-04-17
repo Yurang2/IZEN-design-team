@@ -601,6 +601,7 @@ function TreeItem({
   toggle,
   rootName,
   highlightedPaths,
+  dimHighlightedPaths,
   folderStatusMap,
   onFolderStatusClick,
   manualRefsByPath,
@@ -613,6 +614,7 @@ function TreeItem({
   toggle: (p: string) => void
   rootName: string
   highlightedPaths?: Map<string, HighlightRole> | null
+  dimHighlightedPaths?: Map<string, HighlightRole> | null
   folderStatusMap?: Map<string, FolderStatusItem> | null
   onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
   manualRefsByPath?: Map<string, WorkManualRef[]> | null
@@ -622,8 +624,11 @@ function TreeItem({
   const hasKids = !!node.children?.length
   const color = ROOT_COLORS[rootName]
   const isRoot = depth === 0
-  const highlightRole = highlightedPaths?.get(path) ?? null
+  const confirmedRole = highlightedPaths?.get(path) ?? null
+  const dimRole = !confirmedRole ? dimHighlightedPaths?.get(path) ?? null : null
+  const highlightRole = confirmedRole ?? dimRole
   const highlightColor = highlightRole ? C[highlightRole] : null
+  const isDim = !!dimRole && !confirmedRole
   const folderStatus = !node.isFile ? folderStatusMap?.get(path) : undefined
   const folderStatusName = folderStatus?.status ?? null
   const folderStatusStyle = folderStatusName ? STATUS_STYLES[folderStatusName] : null
@@ -654,14 +659,17 @@ function TreeItem({
           borderRadius: 6,
           cursor: hasKids ? 'pointer' : 'default',
           userSelect: 'none',
-          background: isRoot && color ? color.bg : highlightColor ? highlightColor.bg : undefined,
+          background: isRoot && color ? color.bg : highlightColor ? (isDim ? highlightColor.soft : highlightColor.bg) : undefined,
           borderLeft: isRoot && color
             ? `3px solid ${color.border}`
             : highlightColor
-              ? `3px solid ${highlightColor.border}`
+              ? isDim
+                ? `3px dashed ${highlightColor.border}`
+                : `3px solid ${highlightColor.border}`
               : undefined,
-          boxShadow: highlightColor && !isRoot ? `inset 0 0 0 1px ${highlightColor.border}` : undefined,
-          fontWeight: isRoot || highlightColor ? 700 : 400,
+          boxShadow: highlightColor && !isRoot && !isDim ? `inset 0 0 0 1px ${highlightColor.border}` : undefined,
+          fontWeight: isRoot || (highlightColor && !isDim) ? 700 : 400,
+          opacity: isDim ? 0.85 : 1,
           fontSize: '0.85em',
           lineHeight: 1.8,
         }}
@@ -807,6 +815,7 @@ function TreeItem({
               toggle={toggle}
               rootName={rootName}
               highlightedPaths={highlightedPaths}
+              dimHighlightedPaths={dimHighlightedPaths}
               folderStatusMap={folderStatusMap}
               onFolderStatusClick={onFolderStatusClick}
               manualRefsByPath={manualRefsByPath}
@@ -834,6 +843,7 @@ function ancestorsOf(path: string): string[] {
 function TreeViewer({
   data,
   highlightedPaths,
+  dimHighlightedPaths,
   folderStatusMap,
   onFolderStatusClick,
   manualRefsByPath,
@@ -841,6 +851,7 @@ function TreeViewer({
 }: {
   data: TreeNode[]
   highlightedPaths?: Map<string, HighlightRole> | null
+  dimHighlightedPaths?: Map<string, HighlightRole> | null
   folderStatusMap?: Map<string, FolderStatusItem> | null
   onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
   manualRefsByPath?: Map<string, WorkManualRef[]> | null
@@ -859,15 +870,18 @@ function TreeViewer({
   const [open, setOpen] = useState<Set<string>>(() => defaultOpen)
 
   useEffect(() => {
-    if (!highlightedPaths || highlightedPaths.size === 0) return
+    const keys: string[] = []
+    if (highlightedPaths) keys.push(...highlightedPaths.keys())
+    if (dimHighlightedPaths) keys.push(...dimHighlightedPaths.keys())
+    if (keys.length === 0) return
     setOpen((prev) => {
       const next = new Set(prev)
-      for (const path of highlightedPaths.keys()) {
+      for (const path of keys) {
         for (const a of ancestorsOf(path)) next.add(a)
       }
       return next
     })
-  }, [highlightedPaths])
+  }, [highlightedPaths, dimHighlightedPaths])
 
   const toggle = useCallback((p: string) => {
     setOpen((prev) => {
@@ -2658,6 +2672,16 @@ function ManualDetail({
     return map.size > 0 ? map : null
   }, [refs])
 
+  const dimHighlightedPaths = useMemo(() => {
+    const map = new Map<string, HighlightRole>()
+    for (const r of refs) {
+      if (r.status !== '논의중') continue
+      const key: HighlightRole | null = r.role === 'ASSET' ? 'asset' : r.role === 'WORK' ? 'project' : r.role === 'PUB' ? 'gdrive' : null
+      if (key && r.path) map.set(expandProjectTemplate(r.path), key)
+    }
+    return map.size > 0 ? map : null
+  }, [refs])
+
   const refsTotal = refs.length
   const refsConfirmed = useMemo(() => refs.filter((r) => r.status === '확정').length, [refs])
   const refsAllConfirmed = refsTotal > 0 && refsConfirmed === refsTotal
@@ -2697,7 +2721,11 @@ function ManualDetail({
     <>
       <StatusChangeReasonModal
         open={statusModalOpen}
-        title={canConfirmManual ? '업무 매뉴얼 상태 변경' : `업무 매뉴얼 상태 변경 (참조 ${refsConfirmed}/${refsTotal} 확정됨 — 전부 확정 전에는 매뉴얼 확정 불가)`}
+        title={
+          canConfirmManual
+            ? '업무 매뉴얼 상태 변경'
+            : `업무 매뉴얼 상태 변경 · 참조 폴더 ${refsConfirmed}/${refsTotal} 확정 (나머지 ${refsTotal - refsConfirmed}개도 확정해야 매뉴얼 확정 가능)`
+        }
         target={workType}
         currentStatus={statusName}
         statusOptions={canConfirmManual ? WORK_MANUAL_STATUS_OPTIONS : WORK_MANUAL_STATUS_OPTIONS.filter((s) => s !== '확정')}
@@ -2884,6 +2912,7 @@ function ManualDetail({
           key={workType}
           data={folderTree}
           highlightedPaths={highlightedPaths}
+          dimHighlightedPaths={dimHighlightedPaths}
           manualRefsByPath={refsByPath}
           onManualRefClick={onRefEditOpen}
         />
