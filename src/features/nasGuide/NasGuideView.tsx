@@ -592,6 +592,12 @@ function mergeFilesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): Tree
 
 type HighlightRole = 'asset' | 'project' | 'gdrive'
 
+const FOLDER_STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
+  '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '🔒' },
+  '논의중': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '…' },
+  '미정': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '○' },
+}
+
 function TreeItem({
   node,
   path,
@@ -600,6 +606,8 @@ function TreeItem({
   toggle,
   rootName,
   highlightedPaths,
+  folderStatusMap,
+  onFolderStatusClick,
 }: {
   node: TreeNode
   path: string
@@ -608,6 +616,8 @@ function TreeItem({
   toggle: (p: string) => void
   rootName: string
   highlightedPaths?: Map<string, HighlightRole> | null
+  folderStatusMap?: Map<string, FolderStatusItem> | null
+  onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
 }) {
   const isOpen = open.has(path)
   const hasKids = !!node.children?.length
@@ -615,6 +625,10 @@ function TreeItem({
   const isRoot = depth === 0
   const highlightRole = highlightedPaths?.get(path) ?? null
   const highlightColor = highlightRole ? C[highlightRole] : null
+  const folderStatus = !node.isFile ? folderStatusMap?.get(path) : undefined
+  const folderStatusName = folderStatus?.status ?? null
+  const folderStatusStyle = folderStatusName ? FOLDER_STATUS_STYLES[folderStatusName] : null
+  const canToggleStatus = !node.isFile && !!onFolderStatusClick
 
   return (
     <>
@@ -694,6 +708,41 @@ function TreeItem({
             ← {node.comment}
           </span>
         ) : null}
+        {canToggleStatus ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onFolderStatusClick?.(path, folderStatusName ?? '미정', folderStatus?.id)
+            }}
+            title={
+              folderStatusName === '확정'
+                ? `🔒 확정${folderStatus?.fixedAt ? ` · ${folderStatus.fixedAt}` : ''} (클릭하여 잠금해제 요청)`
+                : folderStatusName === '논의중'
+                  ? '… 논의중 (클릭하여 상태 변경)'
+                  : '○ 미정 (클릭하여 상태 설정)'
+            }
+            style={{
+              marginLeft: 'auto',
+              flexShrink: 0,
+              fontSize: '0.7em',
+              fontWeight: 700,
+              padding: '1px 8px',
+              borderRadius: 999,
+              border: `1px solid ${folderStatusStyle?.border ?? '#d1d5db'}`,
+              background: folderStatusStyle?.bg ?? 'transparent',
+              color: folderStatusStyle?.text ?? 'var(--muted)',
+              cursor: 'pointer',
+              boxShadow: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+            }}
+          >
+            <span>{folderStatusStyle?.icon ?? '○'}</span>
+            <span>{folderStatusName ?? '미정'}</span>
+          </button>
+        ) : null}
       </div>
       {isOpen && hasKids
         ? node.children!.map((child, i) => (
@@ -706,6 +755,8 @@ function TreeItem({
               toggle={toggle}
               rootName={rootName}
               highlightedPaths={highlightedPaths}
+              folderStatusMap={folderStatusMap}
+              onFolderStatusClick={onFolderStatusClick}
             />
           ))
         : null}
@@ -729,9 +780,13 @@ function ancestorsOf(path: string): string[] {
 function TreeViewer({
   data,
   highlightedPaths,
+  folderStatusMap,
+  onFolderStatusClick,
 }: {
   data: TreeNode[]
   highlightedPaths?: Map<string, HighlightRole> | null
+  folderStatusMap?: Map<string, FolderStatusItem> | null
+  onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
 }) {
   const allPaths = useMemo(() => collectPaths(data, ''), [data])
   const defaultOpen = useMemo(() => {
@@ -809,6 +864,8 @@ function TreeViewer({
             toggle={toggle}
             rootName={node.name}
             highlightedPaths={highlightedPaths}
+            folderStatusMap={folderStatusMap}
+            onFolderStatusClick={onFolderStatusClick}
           />
         ))}
       </div>
@@ -824,10 +881,14 @@ function StructureSection({
   exampleTreeData,
   actualTreeData,
   actualCount,
+  folderStatusMap,
+  onFolderStatusClick,
 }: {
   exampleTreeData: TreeNode[]
   actualTreeData: TreeNode[]
   actualCount: number
+  folderStatusMap?: Map<string, FolderStatusItem> | null
+  onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
 }) {
   const [fileTrack, setFileTrack] = useState<'example' | 'actual'>('example')
   const activeTree = fileTrack === 'example' ? exampleTreeData : actualTreeData
@@ -908,7 +969,12 @@ function StructureSection({
             ? '예시파일 보기에서는 가이드에 손으로 넣은 샘플 파일명이 폴더 바로 아래에 표시됩니다.'
             : '실제파일 보기에서는 legacy NAS txt에서 복구한 실제 파일이 폴더 바로 아래에 표시됩니다. 파일명이 바뀐 항목은 원본파일명도 함께 표시됩니다.'}
         </p>
-        <TreeViewer key={fileTrack} data={activeTree} />
+        <TreeViewer
+          key={fileTrack}
+          data={activeTree}
+          folderStatusMap={folderStatusMap ?? undefined}
+          onFolderStatusClick={onFolderStatusClick}
+        />
       </article>
 
       <article className="workflowCard workflowCardWide">
@@ -1495,6 +1561,117 @@ function recordHistory(entry: {
   }).catch(() => null)
 }
 
+function FolderStatusReasonModal({
+  open,
+  folderPath,
+  currentStatus,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  folderPath: string
+  currentStatus: string
+  onConfirm: (nextStatus: FolderStatus, reason: string) => void
+  onCancel: () => void
+}) {
+  const [nextStatus, setNextStatus] = useState<FolderStatus>('논의중')
+  const [reason, setReason] = useState('')
+  useEffect(() => {
+    if (open) {
+      setReason('')
+      const defaultNext: FolderStatus =
+        currentStatus === '확정' ? '논의중' : currentStatus === '논의중' ? '확정' : '논의중'
+      setNextStatus(defaultNext)
+    }
+  }, [open, currentStatus])
+  if (!open) return null
+  const canSubmit = reason.trim().length > 0 && nextStatus !== currentStatus
+  const sameNote = nextStatus === currentStatus ? '현재 상태와 동일합니다' : ''
+  const isUnlock = currentStatus === '확정' && nextStatus !== '확정'
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--surface1)', borderRadius: 12, padding: 20, maxWidth: 500, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', border: '1px solid var(--border)', display: 'grid', gap: 12 }}
+      >
+        <h3 style={{ margin: 0, fontSize: '1em' }}>폴더 상태 변경</h3>
+        <div style={{ fontSize: '0.8em', color: 'var(--muted)' }}>
+          <code className="fileGuideCode" style={{ fontSize: 11 }}>{folderPath}</code>
+        </div>
+        <div style={{ fontSize: '0.85em' }}>
+          현재: <strong>{currentStatus}</strong>
+          {currentStatus === '확정' ? <span style={{ marginLeft: 6, color: '#166534' }}>🔒 잠김 (해제하려면 사유 필수)</span> : null}
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {(['미정', '논의중', '확정'] as FolderStatus[]).map((opt) => {
+            const style = FOLDER_STATUS_STYLES[opt]
+            const active = nextStatus === opt
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setNextStatus(opt)}
+                style={{
+                  flex: 1,
+                  padding: '8px 10px',
+                  fontSize: '0.85em',
+                  fontWeight: 700,
+                  background: active ? style.bg : 'var(--surface2)',
+                  color: active ? style.text : 'var(--muted)',
+                  border: `2px solid ${active ? style.border : 'transparent'}`,
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 5,
+                }}
+              >
+                <span>{style.icon}</span>
+                <span>{opt}</span>
+              </button>
+            )
+          })}
+        </div>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={
+            isUnlock
+              ? '잠금 해제 사유를 반드시 기록하세요. (필수)'
+              : nextStatus === '확정'
+                ? '이 폴더를 확정하는 근거. (필수)'
+                : '변경 사유를 한 줄로. (필수)'
+          }
+          rows={3}
+          style={{ padding: '8px 10px', fontSize: '0.88em', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-soft, var(--surface2))', color: 'var(--text1)', resize: 'vertical', fontFamily: 'inherit' }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) { e.preventDefault(); onConfirm(nextStatus, reason.trim()) } }}
+        />
+        {sameNote ? <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>{sameNote}</div> : null}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="secondary" onClick={onCancel} style={{ padding: '6px 14px', fontSize: '0.85em' }}>취소</button>
+          <button
+            type="button"
+            onClick={() => canSubmit && onConfirm(nextStatus, reason.trim())}
+            disabled={!canSubmit}
+            style={{
+              padding: '6px 14px', fontSize: '0.85em', fontWeight: 600,
+              background: canSubmit ? FOLDER_STATUS_STYLES[nextStatus]?.border ?? '#22c55e' : 'var(--surface2)',
+              color: canSubmit ? '#fff' : 'var(--muted)',
+              border: 'none', borderRadius: 6, cursor: canSubmit ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {isUnlock ? '🔓 잠금해제 + 이력 기록' : `${nextStatus} + 이력 기록`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ReasonPromptModal({
   open,
   title,
@@ -1631,7 +1808,17 @@ function extractHighlightPaths(manual: WorkTypeManual): Map<string, HighlightRol
   return map
 }
 
-function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
+function WorkManualsSection({
+  folderTree,
+  folderStatusMap,
+  onFolderStatusClick,
+  historyItems,
+}: {
+  folderTree: TreeNode[]
+  folderStatusMap?: Map<string, FolderStatusItem> | null
+  onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
+  historyItems: ChangeHistoryItem[]
+}) {
   const [notionOptions, setNotionOptions] = useState<string[]>([])
   const [statusItems, setStatusItems] = useState<WorkManualStatusItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -1937,6 +2124,8 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
               folderTree={folderTree}
               onUpdateStatus={(patch) => updateStatus(selectedItem.workType, patch)}
               onChangeStatusWithReason={changeStatusWithReason}
+              folderStatusMap={folderStatusMap}
+              onFolderStatusClick={onFolderStatusClick}
             />
           ) : (
             <article className="workflowCard workflowCardWide">
@@ -1945,9 +2134,85 @@ function WorkManualsSection({ folderTree }: { folderTree: TreeNode[] }) {
               </p>
             </article>
           )}
+          <ChangeHistoryPanel items={historyItems} filterTarget={selected ?? undefined} />
         </div>
       </div>
     </div>
+  )
+}
+
+function ChangeHistoryPanel({ items, filterTarget }: { items: ChangeHistoryItem[]; filterTarget?: string }) {
+  const [showAll, setShowAll] = useState(false)
+  const filtered = useMemo(() => {
+    if (!filterTarget || showAll) return items
+    const related = items.filter((i) => i.target === filterTarget)
+    return related.length > 0 ? related : items
+  }, [items, filterTarget, showAll])
+  const scoped = filterTarget && !showAll && filtered.some((i) => i.target === filterTarget)
+
+  return (
+    <article className="workflowCard workflowCardWide">
+      <div className="workflowSectionHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <span className="workflowSectionEyebrow">🕒 Change Log</span>
+          <h3>변경 이력</h3>
+        </div>
+        {filterTarget ? (
+          <button
+            type="button"
+            className="secondary mini"
+            onClick={() => setShowAll((v) => !v)}
+            style={{ fontSize: '0.78em' }}
+          >
+            {showAll ? `"${filterTarget}"만 보기` : '전체 보기'}
+          </button>
+        ) : null}
+      </div>
+      {scoped ? (
+        <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '0 0 8px' }}>
+          현재 업무(<strong>{filterTarget}</strong>)에 해당하는 이력만 표시 중
+        </p>
+      ) : null}
+      {filtered.length === 0 ? (
+        <p style={{ color: 'var(--muted)', fontSize: '0.85em', margin: 0 }}>아직 기록된 변경 내역이 없습니다.</p>
+      ) : (
+        <div style={{ display: 'grid', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
+          {filtered.slice(0, 50).map((h) => {
+            const kindColor = h.kind === '폴더' ? '#3b82f6' : '#8b5cf6'
+            return (
+              <div
+                key={h.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '72px 1fr',
+                  gap: 8,
+                  padding: '6px 8px',
+                  borderRadius: 6,
+                  background: 'var(--surface2, #f9fafb)',
+                  borderLeft: `3px solid ${kindColor}`,
+                }}
+              >
+                <div style={{ fontSize: '0.7em', color: 'var(--muted)', paddingTop: 1 }}>
+                  {h.createdAt ? new Date(h.createdAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                </div>
+                <div style={{ display: 'grid', gap: 2 }}>
+                  <div style={{ fontSize: '0.82em' }}>
+                    <span style={{ fontWeight: 700, color: kindColor }}>[{h.kind}]</span>{' '}
+                    <code className="fileGuideCode" style={{ fontSize: 11 }}>{h.target}</code>{' '}
+                    <span style={{ color: 'var(--muted)' }}>· {h.action}</span>
+                  </div>
+                  {h.reason ? (
+                    <div style={{ fontSize: '0.78em', color: 'var(--text2)' }}>
+                      💬 {h.reason}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </article>
   )
 }
 
@@ -1976,11 +2241,15 @@ function ManualDetail({
   folderTree,
   onUpdateStatus,
   onChangeStatusWithReason,
+  folderStatusMap,
+  onFolderStatusClick,
 }: {
   item: { workType: string; manual?: WorkTypeManual; inNotion: boolean; statusItem?: WorkManualStatusItem }
   folderTree: TreeNode[]
   onUpdateStatus: (patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt' | 'note'>>) => void
   onChangeStatusWithReason: (workType: string, nextStatus: WorkManualStatus, reason: string) => Promise<void>
+  folderStatusMap?: Map<string, FolderStatusItem> | null
+  onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
 }) {
   const { manual, workType, inNotion, statusItem } = item
   const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
@@ -2174,7 +2443,13 @@ function ManualDetail({
           <div style={{ marginBottom: 8 }}>
             <HighlightLegend />
           </div>
-          <TreeViewer key={workType} data={folderTree} highlightedPaths={highlightedPaths} />
+          <TreeViewer
+            key={workType}
+            data={folderTree}
+            highlightedPaths={highlightedPaths}
+            folderStatusMap={folderStatusMap ?? undefined}
+            onFolderStatusClick={onFolderStatusClick}
+          />
           <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '8px 0 0' }}>
             * PROJECT 하이라이트는 샘플 프로젝트(<code className="fileGuideCode">{SAMPLE_PROJECT_FOLDER}</code>)에
             표시됩니다. 실제로는 <code className="fileGuideCode">IZYYNNNN_프로젝트명</code> 자리에 현재 프로젝트
@@ -2928,6 +3203,60 @@ export function NasGuideView() {
     [folderStructureTree],
   )
 
+  // Folder status + history (shared across tabs)
+  const [folderStatusItems, setFolderStatusItems] = useState<FolderStatusItem[]>([])
+  const [historyItems, setHistoryItems] = useState<ChangeHistoryItem[]>([])
+  const [historyVersion, setHistoryVersion] = useState(0)
+  const [folderPending, setFolderPending] = useState<{ path: string; currentStatus: string; id?: string } | null>(null)
+
+  const loadFolderStatus = useCallback(() => {
+    api<FolderStatusResponse>('/folder-status')
+      .then((res) => setFolderStatusItems(res?.items ?? []))
+      .catch(() => {})
+  }, [])
+
+  const loadHistory = useCallback(() => {
+    api<ChangeHistoryResponse>('/change-history?limit=50')
+      .then((res) => setHistoryItems(res?.items ?? []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { loadFolderStatus() }, [loadFolderStatus])
+  useEffect(() => { loadHistory() }, [loadHistory, historyVersion])
+
+  const folderStatusMap = useMemo(() => {
+    const m = new Map<string, FolderStatusItem>()
+    for (const item of folderStatusItems) m.set(item.path, item)
+    return m
+  }, [folderStatusItems])
+
+  const onFolderStatusClick = useCallback((p: string, currentStatus: string, id?: string) => {
+    setFolderPending({ path: p, currentStatus, id })
+  }, [])
+
+  const commitFolderStatus = useCallback(async (nextStatus: FolderStatus, reason: string) => {
+    if (!folderPending) return
+    const { path: folderPath, currentStatus, id } = folderPending
+    const locked = nextStatus === '확정'
+    const patch: any = { status: nextStatus, locked }
+    if (nextStatus === '확정') patch.fixedAt = new Date().toISOString().slice(0, 10)
+    try {
+      if (id) {
+        await api(`/folder-status/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
+      } else {
+        await api('/folder-status', { method: 'POST', body: JSON.stringify({ path: folderPath, ...patch }) })
+      }
+      await recordHistory({
+        kind: '폴더', target: folderPath, action: `${currentStatus}→${nextStatus}`,
+        before: currentStatus, after: nextStatus, reason,
+      })
+      loadFolderStatus()
+      setHistoryVersion((v) => v + 1)
+    } finally {
+      setFolderPending(null)
+    }
+  }, [folderPending, loadFolderStatus])
+
   return (
     <section className="workflowView" aria-label="NAS 폴더 구조 가이드">
       <header className="workflowHero">
@@ -2972,11 +3301,20 @@ export function NasGuideView() {
 
       {/* Tab content */}
       <div>
+        <FolderStatusReasonModal
+          open={folderPending !== null}
+          folderPath={folderPending?.path ?? ''}
+          currentStatus={folderPending?.currentStatus ?? '미정'}
+          onCancel={() => setFolderPending(null)}
+          onConfirm={commitFolderStatus}
+        />
         {activeTab === 0 ? (
           <StructureSection
             exampleTreeData={folderStructureTree}
             actualTreeData={actualFileTree}
             actualCount={GENERATED_NAS_GUIDE_EXAMPLE_META.total}
+            folderStatusMap={folderStatusMap}
+            onFolderStatusClick={onFolderStatusClick}
           />
         ) : null}
         {activeTab === 1 ? <DecisionSection /> : null}
@@ -2984,7 +3322,14 @@ export function NasGuideView() {
         {activeTab === 3 ? <AutoSaveSection /> : null}
         {activeTab === 4 ? <WorkflowSection /> : null}
         {activeTab === 5 ? <GDriveSection /> : null}
-        {activeTab === 6 ? <WorkManualsSection folderTree={folderStructureTree} /> : null}
+        {activeTab === 6 ? (
+          <WorkManualsSection
+            folderTree={folderStructureTree}
+            folderStatusMap={folderStatusMap}
+            onFolderStatusClick={onFolderStatusClick}
+            historyItems={historyItems}
+          />
+        ) : null}
         {activeTab === 7 ? <IssuesSection /> : null}
       </div>
     </section>
