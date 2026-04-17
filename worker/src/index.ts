@@ -704,6 +704,123 @@ export default {
       }
     }
 
+    // Work manual refs (업무별 참조 폴더: 1 row = workType × path × role × status)
+    if (path === '/work-manual-refs' || path.startsWith('/work-manual-refs/')) {
+      const dbId = env.NOTION_WORK_MANUAL_REFS_DB_ID
+      if (!dbId) return ok({ ok: true, items: [] }, origin)
+
+      const notionHeaders = {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      }
+
+      const getText = (p: any) => {
+        if (!p) return ''
+        if (p.type === 'title') return (p.title ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
+        if (p.type === 'select') return p.select?.name ?? ''
+        if (p.type === 'date') return p.date?.start ?? ''
+        if (p.type === 'checkbox') return p.checkbox ? 'true' : 'false'
+        return ''
+      }
+
+      if (request.method === 'GET' && path === '/work-manual-refs') {
+        const workTypeFilter = asString(url.searchParams.get('workType'))
+        const allPages: any[] = []
+        let cursor: string | undefined
+        while (true) {
+          const body: any = { page_size: 100 }
+          if (cursor) body.start_cursor = cursor
+          if (workTypeFilter) {
+            body.filter = { property: '업무구분', rich_text: { equals: workTypeFilter } }
+          }
+          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
+          })
+          const data: any = await res.json()
+          allPages.push(...(data.results ?? []))
+          if (!data.has_more) break
+          cursor = data.next_cursor
+        }
+        const items = allPages.map((page: any) => {
+          const props = (page.properties ?? {}) as Record<string, any>
+          return {
+            id: page.id,
+            workType: getText(props['업무구분']),
+            path: getText(props['경로']),
+            label: getText(props['라벨']),
+            role: getText(props['역할']),
+            status: getText(props['상태']) || '미정',
+            required: getText(props['필수']) === 'true',
+            fixedAt: getText(props['확정일']),
+            note: getText(props['메모']),
+            updatedAt: page.last_edited_time ?? '',
+          }
+        })
+        return ok({ ok: true, items }, origin)
+      }
+
+      if (request.method === 'POST' && path === '/work-manual-refs') {
+        const body = await readJsonBody(request)
+        const workType = asString(body.workType)
+        const folderPath = asString(body.path)
+        const role = asString(body.role)
+        if (!workType || !folderPath || !role) {
+          return json({ ok: false, error: 'workType, path, role are required' }, 400, origin)
+        }
+        const summary = `${workType} · ${role} · ${folderPath}`
+        const props: any = {
+          '요약': { title: [{ text: { content: summary } }] },
+          '업무구분': { rich_text: [{ text: { content: workType } }] },
+          '경로': { rich_text: [{ text: { content: folderPath } }] },
+          '역할': { select: { name: role } },
+          '상태': { select: { name: asString(body.status) || '미정' } },
+        }
+        if (body.label) props['라벨'] = { rich_text: [{ text: { content: asString(body.label) } }] }
+        if (typeof body.required === 'boolean') props['필수'] = { checkbox: body.required }
+        if (body.fixedAt) props['확정일'] = { date: { start: asString(body.fixedAt) } }
+        if (body.note) props['메모'] = { rich_text: [{ text: { content: asString(body.note) } }] }
+
+        const res = await fetch('https://api.notion.com/v1/pages', {
+          method: 'POST', headers: notionHeaders,
+          body: JSON.stringify({ parent: { database_id: dbId }, properties: props }),
+        })
+        const data: any = await res.json()
+        if (!data.id) return json({ ok: false, error: 'create_failed' }, 500, origin)
+        return ok({ ok: true, id: data.id }, origin)
+      }
+
+      const refMatch = path.match(/^\/work-manual-refs\/([^/]+)$/)
+      if (refMatch && (request.method === 'PATCH' || request.method === 'DELETE')) {
+        const pageId = refMatch[1]
+        if (request.method === 'DELETE') {
+          await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+            method: 'PATCH', headers: notionHeaders,
+            body: JSON.stringify({ archived: true }),
+          })
+          return ok({ ok: true }, origin)
+        }
+        const body = await readJsonBody(request)
+        const props: any = {}
+        if (body.status != null) props['상태'] = { select: { name: asString(body.status) } }
+        if (body.role != null) props['역할'] = { select: { name: asString(body.role) } }
+        if (body.label != null) props['라벨'] = { rich_text: [{ text: { content: asString(body.label) } }] }
+        if (typeof body.required === 'boolean') props['필수'] = { checkbox: body.required }
+        if (body.fixedAt != null) {
+          const d = asString(body.fixedAt)
+          props['확정일'] = d ? { date: { start: d } } : { date: null }
+        }
+        if (body.note != null) props['메모'] = { rich_text: [{ text: { content: asString(body.note) } }] }
+
+        await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+          method: 'PATCH', headers: notionHeaders,
+          body: JSON.stringify({ properties: props }),
+        })
+        return ok({ ok: true }, origin)
+      }
+    }
+
     // Change history log (append-only)
     if (path === '/change-history') {
       const dbId = env.NOTION_CHANGE_HISTORY_DB_ID

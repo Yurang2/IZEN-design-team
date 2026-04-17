@@ -603,6 +603,8 @@ function TreeItem({
   highlightedPaths,
   folderStatusMap,
   onFolderStatusClick,
+  manualRefsByPath,
+  onManualRefClick,
 }: {
   node: TreeNode
   path: string
@@ -613,6 +615,8 @@ function TreeItem({
   highlightedPaths?: Map<string, HighlightRole> | null
   folderStatusMap?: Map<string, FolderStatusItem> | null
   onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
+  manualRefsByPath?: Map<string, WorkManualRef[]> | null
+  onManualRefClick?: (path: string) => void
 }) {
   const isOpen = open.has(path)
   const hasKids = !!node.children?.length
@@ -624,6 +628,10 @@ function TreeItem({
   const folderStatusName = folderStatus?.status ?? null
   const folderStatusStyle = folderStatusName ? STATUS_STYLES[folderStatusName] : null
   const canToggleStatus = !node.isFile && !!onFolderStatusClick
+  const manualRefs = !node.isFile ? manualRefsByPath?.get(path) : undefined
+  const hasManualRefs = !!manualRefs && manualRefs.length > 0
+  const confirmedRefs = hasManualRefs ? manualRefs!.filter((r) => r.status === '확정').length : 0
+  const canEditRef = !node.isFile && !!onManualRefClick
 
   return (
     <>
@@ -714,7 +722,7 @@ function TreeItem({
               folderStatusName === '확정'
                 ? `🔒 확정${folderStatus?.fixedAt ? ` · ${folderStatus.fixedAt}` : ''} (클릭하여 잠금해제 요청)`
                 : folderStatusName === '논의중'
-                  ? '… 논의중 (클릭하여 상태 변경)'
+                  ? '🟡 논의중 (클릭하여 상태 변경)'
                   : '○ 미정 (클릭하여 상태 설정)'
             }
             style={{
@@ -737,6 +745,55 @@ function TreeItem({
             <span>{folderStatusStyle?.icon ?? '○'}</span>
             <span>{folderStatusName ?? '미정'}</span>
           </button>
+        ) : canEditRef ? (
+          (() => {
+            const primaryRefRole = hasManualRefs ? (manualRefs![0].role as string) : null
+            const refColor = primaryRefRole ? REF_ROLE_STYLES[primaryRefRole] : null
+            const allConfirmed = hasManualRefs && confirmedRefs === manualRefs!.length
+            return (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onManualRefClick?.(path) }}
+                title={
+                  hasManualRefs
+                    ? `📌 이 업무가 참조 · ${confirmedRefs}/${manualRefs!.length} 확정 (클릭하여 편집)`
+                    : '+ 이 업무의 참조 폴더로 추가'
+                }
+                style={{
+                  marginLeft: 'auto',
+                  flexShrink: 0,
+                  fontSize: '0.7em',
+                  fontWeight: 700,
+                  padding: '1px 8px',
+                  borderRadius: 999,
+                  border: `1px solid ${refColor?.border ?? 'var(--border)'}`,
+                  background: hasManualRefs ? refColor?.bg ?? 'var(--surface2)' : 'transparent',
+                  color: hasManualRefs ? refColor?.text ?? 'var(--text1)' : 'var(--muted)',
+                  cursor: 'pointer',
+                  boxShadow: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  opacity: hasManualRefs ? 1 : 0.6,
+                }}
+              >
+                {hasManualRefs ? (
+                  <>
+                    <span>{allConfirmed ? '🔒' : '📌'}</span>
+                    <span>
+                      {manualRefs!.map((r) => r.role).filter((v, i, arr) => arr.indexOf(v) === i).join('·')}
+                      {' '}{confirmedRefs}/{manualRefs!.length}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>+</span>
+                    <span>참조</span>
+                  </>
+                )}
+              </button>
+            )
+          })()
         ) : null}
       </div>
       {isOpen && hasKids
@@ -752,6 +809,8 @@ function TreeItem({
               highlightedPaths={highlightedPaths}
               folderStatusMap={folderStatusMap}
               onFolderStatusClick={onFolderStatusClick}
+              manualRefsByPath={manualRefsByPath}
+              onManualRefClick={onManualRefClick}
             />
           ))
         : null}
@@ -777,12 +836,16 @@ function TreeViewer({
   highlightedPaths,
   folderStatusMap,
   onFolderStatusClick,
+  manualRefsByPath,
+  onManualRefClick,
 }: {
   data: TreeNode[]
   highlightedPaths?: Map<string, HighlightRole> | null
   folderStatusMap?: Map<string, FolderStatusItem> | null
   onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
-}) {
+  manualRefsByPath?: Map<string, WorkManualRef[]> | null
+  onManualRefClick?: (path: string) => void
+}): React.ReactElement {
   const allPaths = useMemo(() => collectPaths(data, ''), [data])
   const defaultOpen = useMemo(() => {
     const set = new Set(data.map((n) => n.name))
@@ -861,6 +924,8 @@ function TreeViewer({
             highlightedPaths={highlightedPaths}
             folderStatusMap={folderStatusMap}
             onFolderStatusClick={onFolderStatusClick}
+            manualRefsByPath={manualRefsByPath}
+            onManualRefClick={onManualRefClick}
           />
         ))}
       </div>
@@ -1526,6 +1591,29 @@ export type ChangeHistoryItem = {
 
 export type ChangeHistoryResponse = { ok: boolean; items: ChangeHistoryItem[] }
 
+export type WorkManualRefRole = 'ASSET' | 'WORK' | 'PUB'
+
+export type WorkManualRef = {
+  id: string
+  workType: string
+  path: string
+  label: string
+  role: WorkManualRefRole | string
+  status: FolderStatus | string
+  required: boolean
+  fixedAt: string
+  note: string
+  updatedAt: string
+}
+
+export type WorkManualRefsResponse = { ok: boolean; items: WorkManualRef[] }
+
+const REF_ROLE_STYLES: Record<string, { bg: string; border: string; text: string; soft: string }> = {
+  ASSET: C.asset,
+  WORK: C.project,
+  PUB: C.gdrive,
+}
+
 // Unified status styles for both folders and work manuals (3 states).
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
   '미정': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '○' },
@@ -1592,6 +1680,274 @@ function PastHistoryList({ items, title = '이전 변경 이력' }: { items: Cha
         ))}
       </div>
     </details>
+  )
+}
+
+function ManualRefEditModal({
+  open,
+  workType,
+  folderPath,
+  refsHere,
+  onClose,
+  onChanged,
+}: {
+  open: boolean
+  workType: string
+  folderPath: string
+  refsHere: WorkManualRef[]
+  onClose: () => void
+  onChanged: () => void
+}) {
+  const [pendingRole, setPendingRole] = useState<WorkManualRefRole | null>(null)
+  const [pendingAction, setPendingAction] = useState<'add' | 'status' | 'delete' | null>(null)
+  const [pendingStatus, setPendingStatus] = useState<FolderStatus>('논의중')
+  const [pendingRefId, setPendingRefId] = useState<string | null>(null)
+  const [pendingCurrentStatus, setPendingCurrentStatus] = useState<string>('')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setPendingRole(null)
+      setPendingAction(null)
+      setPendingStatus('논의중')
+      setPendingRefId(null)
+      setPendingCurrentStatus('')
+      setReason('')
+      setBusy(false)
+    }
+  }, [open])
+  if (!open) return null
+
+  const needsReason = pendingAction !== null
+  const canSubmit = needsReason && reason.trim().length > 0 && !busy
+
+  const startAdd = (role: WorkManualRefRole) => {
+    setPendingAction('add')
+    setPendingRole(role)
+    setPendingStatus('논의중')
+    setPendingRefId(null)
+    setPendingCurrentStatus('(없음)')
+    setReason('')
+  }
+  const startStatus = (ref: WorkManualRef, nextStatus: FolderStatus) => {
+    setPendingAction('status')
+    setPendingRole(ref.role as WorkManualRefRole)
+    setPendingStatus(nextStatus)
+    setPendingRefId(ref.id)
+    setPendingCurrentStatus(String(ref.status))
+    setReason('')
+  }
+  const startDelete = (ref: WorkManualRef) => {
+    setPendingAction('delete')
+    setPendingRole(ref.role as WorkManualRefRole)
+    setPendingStatus('미정')
+    setPendingRefId(ref.id)
+    setPendingCurrentStatus(String(ref.status))
+    setReason('')
+  }
+  const cancelAction = () => {
+    setPendingAction(null)
+    setPendingRole(null)
+    setPendingRefId(null)
+    setPendingCurrentStatus('')
+    setReason('')
+  }
+
+  const submit = async () => {
+    if (!canSubmit || !pendingAction || !pendingRole) return
+    setBusy(true)
+    try {
+      if (pendingAction === 'add') {
+        await api('/work-manual-refs', {
+          method: 'POST',
+          body: JSON.stringify({
+            workType, path: folderPath, role: pendingRole, status: pendingStatus,
+            ...(pendingStatus === '확정' ? { fixedAt: new Date().toISOString().slice(0, 10) } : {}),
+            note: reason,
+          }),
+        })
+        await recordHistory({
+          kind: '업무매뉴얼', target: `${workType} · ${pendingRole} · ${folderPath}`,
+          action: `참조 추가 (${pendingStatus})`, before: '(없음)', after: pendingStatus, reason,
+        })
+      } else if (pendingAction === 'status' && pendingRefId) {
+        await api(`/work-manual-refs/${encodeURIComponent(pendingRefId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: pendingStatus,
+            ...(pendingStatus === '확정' ? { fixedAt: new Date().toISOString().slice(0, 10) } : {}),
+          }),
+        })
+        await recordHistory({
+          kind: '업무매뉴얼', target: `${workType} · ${pendingRole} · ${folderPath}`,
+          action: `${pendingCurrentStatus}→${pendingStatus}`,
+          before: pendingCurrentStatus, after: pendingStatus, reason,
+        })
+      } else if (pendingAction === 'delete' && pendingRefId) {
+        await api(`/work-manual-refs/${encodeURIComponent(pendingRefId)}`, { method: 'DELETE' })
+        await recordHistory({
+          kind: '업무매뉴얼', target: `${workType} · ${pendingRole} · ${folderPath}`,
+          action: '참조 제거', before: pendingCurrentStatus, after: '(제거됨)', reason,
+        })
+      }
+      cancelAction()
+      onChanged()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--surface1)', borderRadius: 12, padding: 20, maxWidth: 560, width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', border: '1px solid var(--border)', display: 'grid', gap: 12 }}
+      >
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1em' }}>이 업무가 이 폴더를 참조하나요?</h3>
+          <div style={{ fontSize: '0.78em', color: 'var(--muted)', marginTop: 4 }}>
+            업무: <strong>{workType}</strong>
+          </div>
+          <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>
+            폴더: <code className="fileGuideCode" style={{ fontSize: 11 }}>{folderPath}</code>
+          </div>
+        </div>
+
+        {/* 역할별 현재 참조 */}
+        <div style={{ display: 'grid', gap: 8 }}>
+          {(['ASSET', 'WORK', 'PUB'] as WorkManualRefRole[]).map((role) => {
+            const ref = refsHere.find((r) => r.role === role)
+            const style = REF_ROLE_STYLES[role]
+            return (
+              <div
+                key={role}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  border: `1px solid ${ref ? style.border : 'var(--border)'}`,
+                  background: ref ? style.bg : 'var(--surface2)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontWeight: 700, color: ref ? style.text : 'var(--muted)', fontSize: '0.88em' }}>
+                    {role}{role === 'ASSET' ? ' (꺼낼 소스)' : role === 'WORK' ? ' (작업 위치)' : ' (최종 배포)'}
+                  </div>
+                  {ref ? (
+                    <span
+                      style={{
+                        fontSize: '0.75em', fontWeight: 700, padding: '1px 8px', borderRadius: 999,
+                        background: STATUS_STYLES[String(ref.status)]?.bg ?? '#f3f4f6',
+                        color: STATUS_STYLES[String(ref.status)]?.text ?? '#4b5563',
+                        border: `1px solid ${STATUS_STYLES[String(ref.status)]?.border ?? '#d1d5db'}`,
+                      }}
+                    >
+                      {STATUS_STYLES[String(ref.status)]?.icon ?? '○'} {String(ref.status)}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.75em', color: 'var(--muted)' }}>참조 없음</span>
+                  )}
+                </div>
+                {ref ? (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    {(['미정', '논의중', '확정'] as FolderStatus[]).filter((s) => s !== ref.status).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => startStatus(ref, s)}
+                        disabled={busy}
+                        style={{
+                          fontSize: '0.75em', padding: '3px 10px', borderRadius: 6,
+                          background: STATUS_STYLES[s]?.bg, color: STATUS_STYLES[s]?.text,
+                          border: `1px solid ${STATUS_STYLES[s]?.border}`, cursor: 'pointer', boxShadow: 'none',
+                        }}
+                      >
+                        {STATUS_STYLES[s]?.icon} {s}로 변경
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => startDelete(ref)}
+                      disabled={busy}
+                      style={{
+                        fontSize: '0.75em', padding: '3px 10px', borderRadius: 6,
+                        background: 'transparent', color: '#b91c1c',
+                        border: '1px solid #fca5a5', cursor: 'pointer', boxShadow: 'none',
+                      }}
+                    >
+                      🗑 참조 제거
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => startAdd(role)}
+                      disabled={busy}
+                      style={{
+                        fontSize: '0.78em', padding: '4px 10px', borderRadius: 6,
+                        background: style.bg, color: style.text,
+                        border: `1px solid ${style.border}`, cursor: 'pointer', boxShadow: 'none',
+                      }}
+                    >
+                      + {role} 참조로 추가 (논의중)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* 진행 중 액션 + 사유 입력 */}
+        {pendingAction ? (
+          <div style={{ padding: 10, background: '#fffbeb', border: '1px dashed #f59e0b', borderRadius: 8, display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: '0.82em', fontWeight: 700, color: '#92400e' }}>
+              {pendingAction === 'add' && `➕ ${pendingRole} 참조 추가 (${pendingStatus})`}
+              {pendingAction === 'status' && `🔄 ${pendingRole} · ${pendingCurrentStatus} → ${pendingStatus}`}
+              {pendingAction === 'delete' && `🗑 ${pendingRole} 참조 제거`}
+            </div>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="사유를 한 줄로 기록하세요. (필수)"
+              rows={2}
+              style={{ padding: '8px 10px', fontSize: '0.85em', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', resize: 'vertical', fontFamily: 'inherit' }}
+            />
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+              <button type="button" className="secondary" onClick={cancelAction} disabled={busy} style={{ padding: '4px 12px', fontSize: '0.82em' }}>
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={!canSubmit}
+                style={{
+                  padding: '4px 14px', fontSize: '0.82em', fontWeight: 700,
+                  background: canSubmit ? '#22c55e' : 'var(--surface2)', color: canSubmit ? '#fff' : 'var(--muted)',
+                  border: 'none', borderRadius: 6, cursor: canSubmit ? 'pointer' : 'not-allowed',
+                }}
+              >
+                저장 + 이력 기록
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: '0.75em', color: 'var(--muted)' }}>
+            위 역할 중 원하는 액션을 누르면 사유 입력 후 저장됩니다.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button type="button" className="secondary" onClick={onClose} style={{ padding: '6px 14px', fontSize: '0.85em' }}>
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1753,7 +2109,7 @@ function normalizeManualPath(raw: string): string[] {
   return out
 }
 
-function extractHighlightPaths(manual: WorkTypeManual): Map<string, HighlightRole> {
+export function extractHighlightPaths(manual: WorkTypeManual): Map<string, HighlightRole> {
   const map = new Map<string, HighlightRole>()
   for (const a of manual.assets) {
     for (const p of normalizeManualPath(a.path)) map.set(p, 'asset')
@@ -1767,14 +2123,12 @@ function extractHighlightPaths(manual: WorkTypeManual): Map<string, HighlightRol
 
 function WorkManualsSection({
   folderTree,
-  folderStatusMap,
-  onFolderStatusClick,
   historyItems,
+  onReloadHistory,
 }: {
   folderTree: TreeNode[]
-  folderStatusMap?: Map<string, FolderStatusItem> | null
-  onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
   historyItems: ChangeHistoryItem[]
+  onReloadHistory: () => void
 }) {
   const [notionOptions, setNotionOptions] = useState<string[]>([])
   const [statusItems, setStatusItems] = useState<WorkManualStatusItem[]>([])
@@ -1782,6 +2136,32 @@ function WorkManualsSection({
   const [fetchError, setFetchError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [refs, setRefs] = useState<WorkManualRef[]>([])
+  const [refsVersion, setRefsVersion] = useState(0)
+  const [refEditPath, setRefEditPath] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!selected) { setRefs([]); return }
+    api<WorkManualRefsResponse>(`/work-manual-refs?workType=${encodeURIComponent(selected)}`)
+      .then((res) => setRefs(res?.items ?? []))
+      .catch(() => setRefs([]))
+  }, [selected, refsVersion])
+
+  const refsByPath = useMemo(() => {
+    const m = new Map<string, WorkManualRef[]>()
+    for (const r of refs) {
+      if (!r.path) continue
+      const arr = m.get(r.path) ?? []
+      arr.push(r)
+      m.set(r.path, arr)
+    }
+    return m
+  }, [refs])
+
+  const refsReloadAfter = useCallback(() => {
+    setRefsVersion((v) => v + 1)
+    onReloadHistory()
+  }, [onReloadHistory])
 
   const refreshAll = useCallback(() => {
     setLoading(true)
@@ -2081,9 +2461,13 @@ function WorkManualsSection({
               folderTree={folderTree}
               onUpdateStatus={(patch) => updateStatus(selectedItem.workType, patch)}
               onChangeStatusWithReason={changeStatusWithReason}
-              folderStatusMap={folderStatusMap}
-              onFolderStatusClick={onFolderStatusClick}
               historyItems={historyItems}
+              refs={refs}
+              refsByPath={refsByPath}
+              onRefEditOpen={(p) => setRefEditPath(p)}
+              refEditPath={refEditPath}
+              onRefEditClose={() => setRefEditPath(null)}
+              onRefsChanged={refsReloadAfter}
             />
           ) : (
             <article className="workflowCard workflowCardWide">
@@ -2199,27 +2583,50 @@ function ManualDetail({
   folderTree,
   onUpdateStatus,
   onChangeStatusWithReason,
-  folderStatusMap,
-  onFolderStatusClick,
   historyItems,
+  refs,
+  refsByPath,
+  onRefEditOpen,
+  refEditPath,
+  onRefEditClose,
+  onRefsChanged,
 }: {
   item: { workType: string; manual?: WorkTypeManual; inNotion: boolean; statusItem?: WorkManualStatusItem }
   folderTree: TreeNode[]
   onUpdateStatus: (patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt' | 'note'>>) => void
   onChangeStatusWithReason: (workType: string, nextStatus: WorkManualStatus, reason: string) => Promise<void>
-  folderStatusMap?: Map<string, FolderStatusItem> | null
-  onFolderStatusClick?: (path: string, currentStatus: string, id?: string) => void
   historyItems: ChangeHistoryItem[]
+  refs: WorkManualRef[]
+  refsByPath: Map<string, WorkManualRef[]>
+  onRefEditOpen: (path: string) => void
+  refEditPath: string | null
+  onRefEditClose: () => void
+  onRefsChanged: () => void
 }) {
   const { manual, workType, inNotion, statusItem } = item
   const cat = manual ? WORK_MANUAL_CATEGORIES[manual.category] : null
-  const highlightedPaths = useMemo(() => (manual ? extractHighlightPaths(manual) : null), [manual])
+  // Highlight is DB-driven: confirmed refs glow (color) in the tree.
+  const highlightedPaths = useMemo(() => {
+    const map = new Map<string, HighlightRole>()
+    for (const r of refs) {
+      if (r.status !== '확정') continue
+      const key: HighlightRole | null = r.role === 'ASSET' ? 'asset' : r.role === 'WORK' ? 'project' : r.role === 'PUB' ? 'gdrive' : null
+      if (key && r.path) map.set(r.path, key)
+    }
+    return map.size > 0 ? map : null
+  }, [refs])
+
+  const refsTotal = refs.length
+  const refsConfirmed = useMemo(() => refs.filter((r) => r.status === '확정').length, [refs])
+  const refsAllConfirmed = refsTotal > 0 && refsConfirmed === refsTotal
+
   const statusName = (statusItem?.status as WorkManualStatus | undefined) ?? '미정'
   const statusStyle = STATUS_STYLES[statusName] ?? STATUS_STYLES['미정']
   const isLocked = statusName === '확정'
   const [noteDraft, setNoteDraft] = useState(statusItem?.note ?? '')
   const [noteDirty, setNoteDirty] = useState(false)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const canConfirmManual = refsAllConfirmed
   useEffect(() => {
     setNoteDraft(statusItem?.note ?? '')
     setNoteDirty(false)
@@ -2248,10 +2655,10 @@ function ManualDetail({
     <>
       <StatusChangeReasonModal
         open={statusModalOpen}
-        title="업무 매뉴얼 상태 변경"
+        title={canConfirmManual ? '업무 매뉴얼 상태 변경' : `업무 매뉴얼 상태 변경 (참조 ${refsConfirmed}/${refsTotal} 확정됨 — 전부 확정 전에는 매뉴얼 확정 불가)`}
         target={workType}
         currentStatus={statusName}
-        statusOptions={WORK_MANUAL_STATUS_OPTIONS}
+        statusOptions={canConfirmManual ? WORK_MANUAL_STATUS_OPTIONS : WORK_MANUAL_STATUS_OPTIONS.filter((s) => s !== '확정')}
         statusStyles={STATUS_STYLES}
         lockedStatus="확정"
         history={historyItems.filter((h) => h.target === workType)}
@@ -2261,6 +2668,14 @@ function ManualDetail({
           await onChangeStatusWithReason(workType, next as WorkManualStatus, reason)
           setStatusModalOpen(false)
         }}
+      />
+      <ManualRefEditModal
+        open={refEditPath !== null}
+        workType={workType}
+        folderPath={refEditPath ?? ''}
+        refsHere={refEditPath ? refsByPath.get(refEditPath) ?? [] : []}
+        onClose={onRefEditClose}
+        onChanged={onRefsChanged}
       />
       {/* 헤더 */}
       <article className="workflowCard workflowCardWide" style={{ borderLeft: cat ? `4px solid ${cat.border}` : undefined }}>
@@ -2324,6 +2739,22 @@ function ManualDetail({
             >
               🔓 잠금해제
             </button>
+          ) : null}
+          {refsTotal > 0 ? (
+            <span
+              title={refsAllConfirmed ? '모든 참조 폴더 확정됨' : '매뉴얼 확정 전 참조 폴더 모두 확정 필요'}
+              style={{
+                fontSize: '0.72em',
+                fontWeight: 700,
+                padding: '3px 10px',
+                background: refsAllConfirmed ? '#dcfce7' : '#fef3c7',
+                color: refsAllConfirmed ? '#166534' : '#92400e',
+                border: `1px solid ${refsAllConfirmed ? '#22c55e' : '#f59e0b'}`,
+                borderRadius: 999,
+              }}
+            >
+              참조 {refsConfirmed}/{refsTotal} 확정
+            </span>
           ) : null}
           {manual.ambiguous ? (
             <span style={{ fontSize: '0.75em', fontWeight: 700, padding: '3px 10px', background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 999 }}>
@@ -2407,8 +2838,8 @@ function ManualDetail({
             key={workType}
             data={folderTree}
             highlightedPaths={highlightedPaths}
-            folderStatusMap={folderStatusMap ?? undefined}
-            onFolderStatusClick={onFolderStatusClick}
+            manualRefsByPath={refsByPath}
+            onManualRefClick={onRefEditOpen}
           />
           <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '8px 0 0' }}>
             * PROJECT 하이라이트는 샘플 프로젝트(<code className="fileGuideCode">{SAMPLE_PROJECT_FOLDER}</code>)에
@@ -3291,9 +3722,8 @@ export function NasGuideView() {
         {activeTab === 6 ? (
           <WorkManualsSection
             folderTree={folderStructureTree}
-            folderStatusMap={folderStatusMap}
-            onFolderStatusClick={onFolderStatusClick}
             historyItems={historyItems}
+            onReloadHistory={() => setHistoryVersion((v) => v + 1)}
           />
         ) : null}
         {activeTab === 7 ? <IssuesSection /> : null}
