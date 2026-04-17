@@ -2822,32 +2822,35 @@ function ManualDetail({
         </div>
       </article>
 
-      {/* 폴더트리 하이라이트 */}
-      {highlightedPaths && highlightedPaths.size > 0 ? (
-        <article className="workflowCard workflowCardWide">
-          <div className="workflowSectionHeader">
-            <div>
-              <span className="workflowSectionEyebrow">🔦 Folder Highlight</span>
-              <h3>이 업무가 쓰는 폴더</h3>
-            </div>
+      {/* 폴더트리 + 참조 편집 */}
+      <article className="workflowCard workflowCardWide">
+        <div className="workflowSectionHeader">
+          <div>
+            <span className="workflowSectionEyebrow">🔦 Folder Highlight</span>
+            <h3>이 업무가 쓰는 폴더</h3>
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <HighlightLegend />
-          </div>
-          <TreeViewer
-            key={workType}
-            data={folderTree}
-            highlightedPaths={highlightedPaths}
-            manualRefsByPath={refsByPath}
-            onManualRefClick={onRefEditOpen}
-          />
-          <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '8px 0 0' }}>
-            * PROJECT 하이라이트는 샘플 프로젝트(<code className="fileGuideCode">{SAMPLE_PROJECT_FOLDER}</code>)에
-            표시됩니다. 실제로는 <code className="fileGuideCode">IZYYNNNN_프로젝트명</code> 자리에 현재 프로젝트
-            폴더명이 들어갑니다.
-          </p>
-        </article>
-      ) : null}
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <HighlightLegend />
+        </div>
+        <p style={{ fontSize: '0.82em', color: 'var(--text2)', margin: '0 0 8px' }}>
+          폴더 옆 배지를 클릭해 <strong>이 업무의 참조 폴더</strong>를 추가/확정할 수 있습니다.
+          확정(🔒)된 참조만 역할 색으로 "불이 들어옵니다". 현재
+          <strong> {refsConfirmed}/{refsTotal} 확정</strong>.
+        </p>
+        <TreeViewer
+          key={workType}
+          data={folderTree}
+          highlightedPaths={highlightedPaths}
+          manualRefsByPath={refsByPath}
+          onManualRefClick={onRefEditOpen}
+        />
+        <p style={{ fontSize: '0.78em', color: 'var(--muted)', margin: '8px 0 0' }}>
+          * PROJECT 하이라이트는 샘플 프로젝트(<code className="fileGuideCode">{SAMPLE_PROJECT_FOLDER}</code>)에
+          표시됩니다. 실제로는 <code className="fileGuideCode">IZYYNNNN_프로젝트명</code> 자리에 현재 프로젝트
+          폴더명이 들어갑니다.
+        </p>
+      </article>
 
       {/* Phase 1 */}
       <PhaseCard n="1" title="에셋에서 꺼낼 것" color={C.asset}>
