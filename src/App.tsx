@@ -2466,12 +2466,15 @@ function App() {
         <DashboardView
           tasks={tasks}
           projects={projects}
+          checklistRows={checklistRows}
+          selectedChecklistProject={selectedChecklistProject}
           lastSyncedAt={lastSyncedAt}
           onOpenView={setActiveView}
           onOpenTask={(taskId) => navigate(`/task/${encodeURIComponent(taskId)}`)}
           onCopyReportSummary={copyText}
           formatDateLabel={formatDateLabel}
           joinOrDash={joinOrDash}
+          toStatusTone={toStatusTone}
         />
       ) : null}
 

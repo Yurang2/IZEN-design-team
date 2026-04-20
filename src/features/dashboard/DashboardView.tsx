@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
-import type { ProjectRecord, TaskRecord } from '../../shared/types'
-import { Button } from '../../shared/ui'
+import { useMemo } from 'react'
+import type { ChecklistAssignmentStatus, ProjectRecord, TaskRecord } from '../../shared/types'
+import { Badge, Button } from '../../shared/ui'
 
 type DashboardTopView =
   | 'dashboard'
@@ -16,26 +16,46 @@ type DashboardTopView =
   | 'snsPost'
   | 'mailTemplate'
   | 'guide'
+type FocusBucketTone = 'red' | 'blue' | 'green' | 'gray'
+
+type DashboardChecklistRow = {
+  item: {
+    id: string
+    productName: string
+    workCategory: string
+  }
+  assignmentStatus: ChecklistAssignmentStatus
+  assignedTaskId?: string
+  computedDueDate?: string
+}
 
 type DashboardViewProps = {
   tasks: TaskRecord[]
   projects: ProjectRecord[]
+  checklistRows: DashboardChecklistRow[]
+  selectedChecklistProject?: ProjectRecord
   lastSyncedAt: string
   onOpenView: (view: DashboardTopView) => void
   onOpenTask: (taskId: string) => void
   onCopyReportSummary: (text: string) => Promise<void>
   formatDateLabel: (value: string) => string
   joinOrDash: (values: string[]) => string
+  toStatusTone: (status: string | undefined) => 'gray' | 'red' | 'blue' | 'green'
 }
 
-type RiskTag = '지연' | '오늘마감' | '긴급' | '미지정'
-type FilterTag = '전체' | RiskTag
+type FocusBucket = {
+  key: string
+  label: string
+  helper: string
+  tone: FocusBucketTone
+  totalCount: number
+  tasks: TaskRecord[]
+}
 
-const RISK_TAGS: readonly RiskTag[] = ['지연', '오늘마감', '긴급', '미지정']
-const FILTER_TABS: readonly FilterTag[] = ['전체', ...RISK_TAGS]
-
-type DdayTone = 'red' | 'amber' | 'muted'
-type DdayInfo = { label: string; tone: DdayTone }
+type UpcomingProjectItem = {
+  project: ProjectRecord
+  activeTaskCount: number
+}
 
 function normalizeStatus(status: string | undefined): string {
   return (status ?? '').replace(/\s+/g, '')
@@ -88,377 +108,487 @@ function isDueWithinWeek(task: TaskRecord, today: Date): boolean {
   return days >= 0 && days <= 7
 }
 
-function getRiskTag(task: TaskRecord, today: Date, todayIso: string): RiskTag | null {
+function riskLabelForTask(task: TaskRecord, today: Date, todayIso: string): string {
   if (isDelayedTask(task, today)) return '지연'
-  if (isDueToday(task, todayIso)) return '오늘마감'
+  if (isDueToday(task, todayIso)) return '오늘 마감'
   if (task.urgent) return '긴급'
-  if (task.assignee.length === 0) return '미지정'
-  return null
+  if (task.assignee.length === 0) return '담당 미지정'
+  return '확인 필요'
 }
 
-function computeDday(eventDateIso: string | undefined, today: Date): DdayInfo | null {
-  const target = parseIsoDate(eventDateIso)
-  if (!target) return null
-  const diff = diffDays(today, target)
-  if (diff < 0) return { label: `D+${Math.abs(diff)}`, tone: 'red' }
-  if (diff === 0) return { label: 'D-DAY', tone: 'red' }
-  if (diff <= 7) return { label: `D-${diff}`, tone: 'red' }
-  if (diff <= 30) return { label: `D-${diff}`, tone: 'amber' }
-  return { label: `D-${diff}`, tone: 'muted' }
+function projectMetaLabel(project: ProjectRecord): string {
+  const bits = [project.projectType, project.eventCategory].filter(Boolean)
+  return bits.length > 0 ? bits.join(' / ') : '기본 정보 없음'
 }
 
-function riskToneClass(tag: RiskTag): string {
-  switch (tag) {
-    case '지연':
-      return 'tone-red'
-    case '오늘마감':
-      return 'tone-amber'
-    case '긴급':
-      return 'tone-yellow'
-    case '미지정':
-      return 'tone-violet'
+function compareTaskPriority(a: TaskRecord, b: TaskRecord, today: Date, todayIso: string): number {
+  const score = (task: TaskRecord) => {
+    if (isDelayedTask(task, today)) return 0
+    if (isDueToday(task, todayIso)) return 1
+    if (task.urgent) return 2
+    if (task.assignee.length === 0) return 3
+    return 4
   }
-}
 
-function compareTaskPriority(a: TaskRecord, b: TaskRecord): number {
+  const scoreDiff = score(a) - score(b)
+  if (scoreDiff !== 0) return scoreDiff
+
   const dueDiff = (a.dueDate ?? '9999-12-31').localeCompare(b.dueDate ?? '9999-12-31')
   if (dueDiff !== 0) return dueDiff
+
   return a.taskName.localeCompare(b.taskName, 'ko')
 }
 
-type TaggedTask = { task: TaskRecord; tag: RiskTag }
+function uniqueTaskList(tasks: TaskRecord[], today: Date, todayIso: string, limit: number): TaskRecord[] {
+  return Array.from(new Map(tasks.map((task) => [task.id, task])).values())
+    .sort((a, b) => compareTaskPriority(a, b, today, todayIso))
+    .slice(0, limit)
+}
 
-type TaskGroup = {
-  key: string
-  name: string
-  project: ProjectRecord | null
-  dday: DdayInfo | null
-  tasks: TaggedTask[]
+function formatTaskDueLabel(task: TaskRecord, formatDateLabel: (value: string) => string): string {
+  return task.dueDate ? formatDateLabel(task.dueDate) : '미정'
 }
 
 export function DashboardView({
   tasks,
   projects,
+  checklistRows,
+  selectedChecklistProject,
   lastSyncedAt,
   onOpenView,
   onOpenTask,
   onCopyReportSummary,
   formatDateLabel,
   joinOrDash,
+  toStatusTone,
 }: DashboardViewProps) {
   const today = useMemo(() => parseIsoDate(toIsoDate(new Date())) ?? new Date(), [])
   const todayIso = toIsoDate(today)
 
-  const [activeTag, setActiveTag] = useState<FilterTag>('전체')
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
-
-  const summary = useMemo(() => {
-    const activeTasks = tasks.filter((t) => !isInactiveTask(t))
-    const delayed = activeTasks.filter((t) => isDelayedTask(t, today))
-    const todayDue = activeTasks.filter((t) => isDueToday(t, todayIso))
-    const urgent = activeTasks.filter((t) => Boolean(t.urgent))
-    const unassigned = activeTasks.filter((t) => t.assignee.length === 0)
-    const weekDue = activeTasks.filter((t) => isDueWithinWeek(t, today))
-    const completedThisWeek = tasks.filter((t) => {
-      if (!isCompletedTask(t) || !t.actualEndDate) return false
-      const completedAt = parseIsoDate(t.actualEndDate)
+  const dashboardSummary = useMemo(() => {
+    const activeTasks = tasks.filter((task) => !isInactiveTask(task))
+    const delayedTasks = activeTasks.filter((task) => isDelayedTask(task, today)).sort((a, b) => compareTaskPriority(a, b, today, todayIso))
+    const todayDueTasks = activeTasks.filter((task) => isDueToday(task, todayIso)).sort((a, b) => compareTaskPriority(a, b, today, todayIso))
+    const weekDueTasks = activeTasks.filter((task) => isDueWithinWeek(task, today)).sort((a, b) => compareTaskPriority(a, b, today, todayIso))
+    const unassignedTasks = activeTasks.filter((task) => task.assignee.length === 0).sort((a, b) => compareTaskPriority(a, b, today, todayIso))
+    const urgentTasks = activeTasks.filter((task) => Boolean(task.urgent)).sort((a, b) => compareTaskPriority(a, b, today, todayIso))
+    const completedThisWeek = tasks.filter((task) => {
+      if (!isCompletedTask(task) || !task.actualEndDate) return false
+      const completedAt = parseIsoDate(task.actualEndDate)
       if (!completedAt) return false
       const days = diffDays(completedAt, today)
       return days >= 0 && days <= 7
     })
-    const weeklyEfficiencyPct =
-      weekDue.length > 0 ? Math.round((completedThisWeek.length / weekDue.length) * 100) : 0
 
-    const upcomingProjects = projects
-      .filter((p) => {
-        const ed = parseIsoDate(p.eventDate)
-        return Boolean(ed && ed.getTime() >= today.getTime())
-      })
-      .sort((a, b) => (a.eventDate ?? '9999-12-31').localeCompare(b.eventDate ?? '9999-12-31'))
+    const priorityTasks = uniqueTaskList([...delayedTasks, ...todayDueTasks, ...urgentTasks, ...unassignedTasks], today, todayIso, 8)
 
     const activeTasksByProjectName = new Map<string, number>()
-    for (const t of activeTasks) {
-      const name = t.projectName.trim()
-      if (!name) continue
-      activeTasksByProjectName.set(name, (activeTasksByProjectName.get(name) ?? 0) + 1)
+    for (const task of activeTasks) {
+      const projectName = task.projectName.trim()
+      if (!projectName) continue
+      activeTasksByProjectName.set(projectName, (activeTasksByProjectName.get(projectName) ?? 0) + 1)
     }
+
+    const upcomingProjects: UpcomingProjectItem[] = projects
+      .filter((project) => {
+        if (!project.eventDate) return false
+        const eventDate = parseIsoDate(project.eventDate)
+        return Boolean(eventDate && eventDate.getTime() >= today.getTime())
+      })
+      .sort((a, b) => (a.eventDate ?? '9999-12-31').localeCompare(b.eventDate ?? '9999-12-31'))
+      .slice(0, 6)
+      .map((project) => ({
+        project,
+        activeTaskCount: activeTasksByProjectName.get(project.name) ?? 0,
+      }))
+
+    const checklistUnassigned = checklistRows
+      .filter((row) => row.assignmentStatus === 'unassigned')
+      .sort((a, b) => (a.computedDueDate ?? '9999-12-31').localeCompare(b.computedDueDate ?? '9999-12-31'))
+    const checklistAssigned = checklistRows.filter((row) => row.assignmentStatus === 'assigned')
+    const checklistFocusRows = checklistUnassigned.slice(0, 6)
+
+    const focusBuckets: FocusBucket[] = [
+      {
+        key: 'delayed',
+        label: '지연',
+        helper: delayedTasks.length > 4 ? `먼저 정리해야 하는 업무 · 추가 ${delayedTasks.length - 4}건 요약` : '먼저 정리해야 하는 업무',
+        tone: 'red',
+        totalCount: delayedTasks.length,
+        tasks: delayedTasks.slice(0, 4),
+      },
+      {
+        key: 'todayDue',
+        label: '오늘 마감',
+        helper: '오늘 안에 닫아야 하는 업무',
+        tone: 'blue',
+        totalCount: todayDueTasks.length,
+        tasks: todayDueTasks.slice(0, 4),
+      },
+      {
+        key: 'urgent',
+        label: '긴급',
+        helper: '별도 긴급 표시가 붙은 업무',
+        tone: 'green',
+        totalCount: urgentTasks.length,
+        tasks: urgentTasks.slice(0, 4),
+      },
+      {
+        key: 'unassigned',
+        label: '담당 미지정',
+        helper: '바로 담당자를 붙여야 하는 업무',
+        tone: 'gray',
+        totalCount: unassignedTasks.length,
+        tasks: unassignedTasks.slice(0, 4),
+      },
+    ]
+
+    const checklistCoveragePct =
+      checklistRows.length > 0 ? Math.round((checklistAssigned.length / checklistRows.length) * 100) : 0
+
+    const weeklyEfficiencyPct =
+      weekDueTasks.length > 0 ? Math.round((completedThisWeek.length / weekDueTasks.length) * 100) : 0
+
+    const weekdayTaskCounts = (() => {
+      const days = ['월', '화', '수', '목', '금'] as const
+      const dayOfWeek = today.getUTCDay()
+      const monday = new Date(today)
+      monday.setUTCDate(today.getUTCDate() - ((dayOfWeek + 6) % 7))
+      return days.map((label, i) => {
+        const d = new Date(monday)
+        d.setUTCDate(monday.getUTCDate() + i)
+        const iso = toIsoDate(d)
+        const count = activeTasks.filter((t) => t.dueDate === iso).length
+        return { label, count }
+      })
+    })()
 
     return {
       activeTasks,
-      delayed,
-      todayDue,
-      urgent,
-      unassigned,
-      weekDue,
+      delayedTasks,
+      todayDueTasks,
+      weekDueTasks,
+      unassignedTasks,
+      urgentTasks,
       completedThisWeek,
-      weeklyEfficiencyPct,
+      priorityTasks,
       upcomingProjects,
-      activeTasksByProjectName,
+      checklistUnassigned,
+      checklistAssigned,
+      checklistFocusRows,
+      focusBuckets,
+      checklistCoveragePct,
+      weeklyEfficiencyPct,
+      weekdayTaskCounts,
     }
-  }, [projects, tasks, today, todayIso])
-
-  const taggedTasks = useMemo<TaggedTask[]>(() => {
-    return summary.activeTasks
-      .map((task) => ({ task, tag: getRiskTag(task, today, todayIso) }))
-      .filter((item): item is TaggedTask => item.tag !== null)
-  }, [summary.activeTasks, today, todayIso])
-
-  const tagCounts = useMemo<Record<FilterTag, number>>(() => {
-    const counts: Record<FilterTag, number> = {
-      전체: taggedTasks.length,
-      지연: 0,
-      오늘마감: 0,
-      긴급: 0,
-      미지정: 0,
-    }
-    for (const { tag } of taggedTasks) counts[tag] += 1
-    return counts
-  }, [taggedTasks])
-
-  const filteredTasks = useMemo<TaggedTask[]>(() => {
-    return activeTag === '전체' ? taggedTasks : taggedTasks.filter((item) => item.tag === activeTag)
-  }, [activeTag, taggedTasks])
-
-  const taskGroups = useMemo<TaskGroup[]>(() => {
-    const projectByName = new Map(projects.map((p) => [p.name, p] as const))
-    const groupMap = new Map<string, TaskGroup>()
-    for (const item of filteredTasks) {
-      const rawName = item.task.projectName.trim()
-      const key = rawName || '기타'
-      let bucket = groupMap.get(key)
-      if (!bucket) {
-        const project = rawName ? projectByName.get(rawName) ?? null : null
-        bucket = {
-          key,
-          name: key,
-          project,
-          dday: project ? computeDday(project.eventDate, today) : null,
-          tasks: [],
-        }
-        groupMap.set(key, bucket)
-      }
-      bucket.tasks.push(item)
-    }
-    for (const group of groupMap.values()) {
-      group.tasks.sort((a, b) => compareTaskPriority(a.task, b.task))
-    }
-    return Array.from(groupMap.values()).sort((a, b) => {
-      const ad = a.project?.eventDate ?? '9999-12-31'
-      const bd = b.project?.eventDate ?? '9999-12-31'
-      const cmp = ad.localeCompare(bd)
-      if (cmp !== 0) return cmp
-      return a.name.localeCompare(b.name, 'ko')
-    })
-  }, [filteredTasks, projects, today])
+  }, [checklistRows, projects, tasks, today, todayIso])
 
   const reportSummary = useMemo(() => {
-    const dateLabel = formatDateLabel(todayIso)
-    const headline = `활성 업무 ${summary.activeTasks.length}건 · 지연 ${summary.delayed.length}건 · 오늘 마감 ${summary.todayDue.length}건 · 미할당 ${summary.unassigned.length}건`
-    const weekLine = `이번 주 완료 ${summary.completedThisWeek.length}건 / 마감 ${summary.weekDue.length}건 · 주간 완료율 ${summary.weeklyEfficiencyPct}%`
+    const headline = `${formatDateLabel(todayIso)} 기준 활성 업무 ${dashboardSummary.activeTasks.length}건, 오늘 마감 ${dashboardSummary.todayDueTasks.length}건, 지연 ${dashboardSummary.delayedTasks.length}건, 체크리스트 미할당 ${dashboardSummary.checklistUnassigned.length}건입니다.`
     const projectLine =
-      summary.upcomingProjects.length > 0
-        ? `주요 일정: ${summary.upcomingProjects
-            .slice(0, 4)
-            .map((p) => {
-              const dd = computeDday(p.eventDate, today)
-              return `${p.name}(${formatDateLabel(p.eventDate ?? '')}${dd ? ` ${dd.label}` : ''})`
-            })
-            .join(', ')}`
-        : '주요 일정: 예정 없음'
-    return `[DESIGN TEAM 운영 현황] ${dateLabel}\n${headline}\n${weekLine}\n${projectLine}`
-  }, [formatDateLabel, summary, today, todayIso])
-
-  const toggleGroup = (key: string) => setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+      dashboardSummary.upcomingProjects.length > 0
+        ? `이번 주 주요 일정은 ${dashboardSummary.upcomingProjects
+            .slice(0, 3)
+            .map(({ project }) => `${project.name}(${formatDateLabel(project.eventDate ?? '')})`)
+            .join(', ')}입니다.`
+        : '이번 주 예정된 프로젝트 일정은 아직 없습니다.'
+    const riskLine =
+      dashboardSummary.priorityTasks.length > 0
+        ? `우선 확인 업무는 ${dashboardSummary.priorityTasks
+            .slice(0, 3)
+            .map((task) => `${task.taskName}(${riskLabelForTask(task, today, todayIso)})`)
+            .join(', ')}입니다.`
+        : '즉시 확인이 필요한 업무는 현재 없습니다.'
+    return [headline, projectLine, riskLine].join(' ')
+  }, [
+    dashboardSummary.activeTasks.length,
+    dashboardSummary.checklistUnassigned.length,
+    dashboardSummary.delayedTasks.length,
+    dashboardSummary.priorityTasks,
+    dashboardSummary.todayDueTasks.length,
+    dashboardSummary.upcomingProjects,
+    formatDateLabel,
+    today,
+    todayIso,
+  ])
 
   return (
     <section className="dashboardView" aria-label="팀 운영 대시보드">
       <header className="dashboardHeader">
         <div className="dashboardHeaderMain">
-          <span className="dashboardEyebrow">Design Team</span>
-          <h2>팀 운영 대시보드</h2>
+          <span className="dashboardEyebrow">Team Home</span>
+          <h2>오늘 운영 현황</h2>
+          <p>업무 우선순위, 이번 주 일정, 체크리스트 리스크를 한 화면에서 바로 확인할 수 있게 정리했습니다.</p>
         </div>
         <div className="dashboardHeaderMeta">
           <span className="dashboardHeaderChip">마지막 동기화 {lastSyncedAt || '-'}</span>
-          <Button type="button" onClick={() => onOpenView('tasks')}>
-            업무 열기
-          </Button>
+          <div className="dashboardHeaderActions">
+            <Button type="button" onClick={() => onOpenView('tasks')}>
+              업무 열기
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => onOpenView('projects')}>
+              프로젝트 보기
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => void onCopyReportSummary(reportSummary)}>
+              보고 복사
+            </Button>
+          </div>
         </div>
       </header>
 
-      <section className="dashboardStatStrip" aria-label="핵심 지표">
-        <StatCell label="활성 업무" value={summary.activeTasks.length} tone="plain" />
-        <StatCell label="지연" value={summary.delayed.length} tone="red" />
-        <StatCell label="오늘 마감" value={summary.todayDue.length} tone="amber" />
-        <StatCell label="미할당" value={summary.unassigned.length} tone="green" />
-      </section>
-
       <div className="dashboardPrimaryGrid">
-        <article className="dashboardCard dashboardTasksPanel">
-          <div className="dashboardTasksHeader">
-            <div className="dashboardTasksHeaderTitle">
-              <h3>지금 처리할 일</h3>
-              <span className="dashboardTasksCount">{filteredTasks.length}건</span>
-            </div>
-            <Button type="button" variant="secondary" size="mini" onClick={() => onOpenView('tasks')}>
-              전체 업무
-            </Button>
-          </div>
-          <div className="dashboardFilterTabs" role="tablist" aria-label="업무 필터">
-            {FILTER_TABS.map((tag) => {
-              const isActive = activeTag === tag
-              const count = tagCounts[tag]
-              const toneCls = tag === '전체' ? 'tone-plain' : riskToneClass(tag)
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`dashboardFilterTab ${toneCls}${isActive ? ' is-active' : ''}`}
-                  onClick={() => setActiveTag(tag)}
-                >
-                  <span>{tag}</span>
-                  {count > 0 && <span className="dashboardFilterTabCount">{count}</span>}
-                </button>
-              )
-            })}
-          </div>
+        <div className="dashboardMainColumn">
+          <section className="dashboardMetricStrip" aria-label="핵심 지표">
+            <article className="dashboardMetricCard">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /></svg>
+              </span>
+              <span className="dashboardMetricLabel">활성 업무</span>
+              <strong>{dashboardSummary.activeTasks.length}</strong>
+              <small>오늘 진행 중인 전체 업무</small>
+            </article>
+            <article className="dashboardMetricCard tone-red">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+              </span>
+              <span className="dashboardMetricLabel">지연 업무</span>
+              <strong>{dashboardSummary.delayedTasks.length}</strong>
+              <small>완료, 보류, 보관 제외</small>
+            </article>
+            <article className="dashboardMetricCard tone-blue">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+              </span>
+              <span className="dashboardMetricLabel">오늘 마감</span>
+              <strong>{dashboardSummary.todayDueTasks.length}</strong>
+              <small>{formatDateLabel(todayIso)} 기준</small>
+            </article>
+            <article className="dashboardMetricCard tone-amber">
+              <span className="dashboardMetricIcon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+              </span>
+              <span className="dashboardMetricLabel">체크리스트 미할당</span>
+              <strong>{dashboardSummary.checklistUnassigned.length}</strong>
+              <small>{selectedChecklistProject ? `${selectedChecklistProject.name} 기준` : '선택 행사 기준'}</small>
+            </article>
+          </section>
 
-          <div className="dashboardTasksGroups">
-            {taskGroups.length === 0 ? (
-              <p className="dashboardEmptyState">해당하는 업무가 없습니다.</p>
-            ) : (
-              taskGroups.map((group) => {
-                const isCollapsed = Boolean(collapsedGroups[group.key])
-                return (
-                  <div key={group.key} className="dashboardTaskGroup">
-                    <button
-                      type="button"
-                      className="dashboardTaskGroupHeader"
-                      aria-expanded={!isCollapsed}
-                      onClick={() => toggleGroup(group.key)}
-                    >
-                      {group.dday ? (
-                        <span className={`dashboardDdayPill tone-${group.dday.tone}`}>{group.dday.label}</span>
-                      ) : (
-                        <span className="dashboardDdayPill tone-muted">일정 미정</span>
-                      )}
-                      <span className="dashboardTaskGroupName">{group.name}</span>
-                      <span className="dashboardTaskGroupCount">{group.tasks.length}건</span>
-                      <span
-                        className={`dashboardTaskGroupChevron${isCollapsed ? ' is-collapsed' : ''}`}
-                        aria-hidden="true"
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </span>
-                    </button>
-                    {!isCollapsed && (
-                      <div className="dashboardTaskList">
-                        {group.tasks.map(({ task, tag }) => (
-                          <button
-                            key={task.id}
-                            type="button"
-                            className="dashboardTaskRow"
-                            onClick={() => onOpenTask(task.id)}
-                          >
-                            <span className="dashboardTaskName">{task.taskName}</span>
-                            {task.assignee.length > 0 ? (
-                              <span className="dashboardTaskAssignee">{joinOrDash(task.assignee)}</span>
-                            ) : (
-                              <span className="dashboardTaskAssignee is-missing">미지정</span>
-                            )}
-                            <span className={`dashboardRiskTag ${riskToneClass(tag)}`}>{tag}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </article>
-
-        <aside className="dashboardSidebar">
-          <div className="dashboardWeekChips" aria-label="이번 주 완료 지표">
-            <span>
-              이번 주 완료 <strong>{summary.completedThisWeek.length}</strong>
-            </span>
-            <span className="dashboardWeekSeparator" aria-hidden="true">
-              ·
-            </span>
-            <span>
-              주간 완료율 <strong>{summary.weeklyEfficiencyPct}%</strong>
-            </span>
-          </div>
-
-          <article className="dashboardCard dashboardProjectsRail">
-            <div className="dashboardSectionHeader compact">
-              <h3>프로젝트 일정</h3>
-              <Button type="button" variant="secondary" size="mini" onClick={() => onOpenView('projects')}>
-                전체
+          <article className="dashboardCard dashboardFocusBoard">
+            <div className="dashboardSectionHeader">
+              <div>
+                <span className="dashboardSectionEyebrow">Today Focus</span>
+                <h3>한눈에 보는 우선순위 보드</h3>
+                <p>Asana처럼 지금 바로 봐야 하는 일만 묶어서 보여줍니다.</p>
+              </div>
+              <Button type="button" variant="secondary" size="mini" onClick={() => onOpenView('tasks')}>
+                전체 업무
               </Button>
             </div>
-            {summary.upcomingProjects.length > 0 ? (
-              <div className="dashboardProjectsList">
-                {summary.upcomingProjects.slice(0, 6).map((project) => {
-                  const dd = computeDday(project.eventDate, today)
-                  const taskCount = summary.activeTasksByProjectName.get(project.name) ?? 0
-                  return (
-                    <div key={project.id} className="dashboardProjectRow">
-                      <div className="dashboardProjectRowMain">
-                        <span className="dashboardProjectRowName">{project.name}</span>
-                        <span className="dashboardProjectRowMeta">
-                          활성 {taskCount}건 · {project.eventDate ? formatDateLabel(project.eventDate) : '-'}
-                        </span>
-                      </div>
-                      {dd && <span className={`dashboardProjectRowDday tone-${dd.tone}`}>{dd.label}</span>}
+
+            <div className="dashboardFocusGrid">
+              {dashboardSummary.focusBuckets.map((bucket) => (
+                <article key={bucket.key} className={`dashboardFocusLane tone-${bucket.tone}`}>
+                  <div className="dashboardFocusLaneHeader">
+                    <div className="dashboardFocusLaneHeaderMain">
+                      <span className="dashboardFocusLaneLabel">{bucket.label}</span>
+                      <span className="dashboardFocusLaneCount">{bucket.totalCount}건</span>
                     </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="dashboardEmptyState">가까운 프로젝트 일정이 없습니다.</p>
-            )}
+                    <span className="dashboardFocusLaneHelper">
+                      {bucket.helper}
+                      {bucket.totalCount > bucket.tasks.length ? ` · 상위 ${bucket.tasks.length}건만 표시` : ''}
+                    </span>
+                  </div>
+                  {bucket.tasks.length > 0 ? (
+                    <div className="dashboardLaneList">
+                      {bucket.tasks.map((task) => (
+                        <button key={task.id} type="button" className="dashboardTaskCard" onClick={() => onOpenTask(task.id)}>
+                          <div className="dashboardTaskCardTop">
+                            <strong>{task.taskName}</strong>
+                            <Badge tone={toStatusTone(task.status)}>{task.status || '미분류'}</Badge>
+                          </div>
+                          <span className="dashboardListMeta">{task.projectName || '프로젝트 미지정'}</span>
+                          <span className="dashboardListMeta">
+                            마감 {formatTaskDueLabel(task, formatDateLabel)} · {riskLabelForTask(task, today, todayIso)}
+                          </span>
+                          <span className="dashboardListMeta">담당 {joinOrDash(task.assignee)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="dashboardEmptyState">현재 항목이 없습니다.</p>
+                  )}
+                </article>
+              ))}
+            </div>
           </article>
 
-          <article className="dashboardCard dashboardReportCard">
+          <div className="dashboardSplitGrid">
+            <article className="dashboardCard">
+              <div className="dashboardSectionHeader">
+                <div>
+                  <span className="dashboardSectionEyebrow">This Week</span>
+                  <h3>이번 주 프로젝트</h3>
+                  <p>행사일이 가까운 프로젝트부터 운영 포인트를 확인합니다.</p>
+                </div>
+                <Button type="button" variant="secondary" size="mini" onClick={() => onOpenView('projects')}>
+                  프로젝트
+                </Button>
+              </div>
+              {dashboardSummary.upcomingProjects.length > 0 ? (
+                <div className="dashboardList">
+                  {dashboardSummary.upcomingProjects.map(({ project, activeTaskCount }) => (
+                    <article key={project.id} className="dashboardListItem is-static">
+                      <div className="dashboardListItemTop">
+                        <strong>{project.name}</strong>
+                        <span className="dashboardDateChip">{project.eventDate ? formatDateLabel(project.eventDate) : '-'}</span>
+                      </div>
+                      <span className="dashboardListMeta">{projectMetaLabel(project)}</span>
+                      <span className="dashboardListMeta">활성 업무 {activeTaskCount}건</span>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="dashboardEmptyState">가까운 일정의 프로젝트가 없습니다.</p>
+              )}
+            </article>
+
+            <article className="dashboardCard">
+              <div className="dashboardSectionHeader">
+                <div>
+                  <span className="dashboardSectionEyebrow">Checklist Risk</span>
+                  <h3>체크리스트 할당 포커스</h3>
+                  <p>{selectedChecklistProject ? `${selectedChecklistProject.name} 기준` : '현재 선택 행사 기준'} 미할당 항목입니다.</p>
+                </div>
+                <Button type="button" variant="secondary" size="mini" onClick={() => onOpenView('checklist')}>
+                  체크리스트
+                </Button>
+              </div>
+              {dashboardSummary.checklistFocusRows.length > 0 ? (
+                <div className="dashboardList">
+                  {dashboardSummary.checklistFocusRows.map((row) => (
+                    <article key={row.item.id} className="dashboardListItem is-static">
+                      <div className="dashboardListItemTop">
+                        <strong>{row.item.productName}</strong>
+                        <Badge tone="red">미할당</Badge>
+                      </div>
+                      <span className="dashboardListMeta">{row.item.workCategory || '분류 미지정'}</span>
+                      <span className="dashboardListMeta">예정 마감 {row.computedDueDate ? formatDateLabel(row.computedDueDate) : '-'}</span>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="dashboardEmptyState">미할당 체크리스트 항목이 없습니다.</p>
+              )}
+            </article>
+          </div>
+        </div>
+
+        <aside className="dashboardSidebar">
+          <article className="dashboardCard dashboardQuickAccess">
             <div className="dashboardSectionHeader compact">
-              <h3>보고용 요약</h3>
+              <div>
+                <span className="dashboardSectionEyebrow">Quick Access</span>
+                <h3>바로 이동</h3>
+              </div>
+            </div>
+            <div className="dashboardNavGrid">
+              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('tasks')}>
+                <strong>업무</strong>
+                <span>실행과 수정</span>
+              </button>
+              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('projects')}>
+                <strong>프로젝트</strong>
+                <span>운영 일정 확인</span>
+              </button>
+              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('checklist')}>
+                <strong>체크리스트</strong>
+                <span>미할당 정리</span>
+              </button>
+              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('meetings')}>
+                <strong>회의록</strong>
+                <span>후속 액션 확인</span>
+              </button>
+            </div>
+          </article>
+
+          <article className="dashboardCard dashboardPulseCard">
+            <div className="dashboardSectionHeader compact">
+              <div>
+                <span className="dashboardSectionEyebrow">Team Pulse</span>
+                <h3>운영 스냅샷</h3>
+                <p>숫자로 현재 팀 상태를 빠르게 읽습니다.</p>
+              </div>
+            </div>
+            <div className="dashboardPulseGrid">
+              <div>
+                <span>주간 완료</span>
+                <strong>{dashboardSummary.completedThisWeek.length}</strong>
+              </div>
+              <div>
+                <span>이번 주 마감</span>
+                <strong>{dashboardSummary.weekDueTasks.length}</strong>
+              </div>
+              <div>
+                <span>긴급 표시</span>
+                <strong>{dashboardSummary.urgentTasks.length}</strong>
+              </div>
+              <div>
+                <span>체크리스트 할당률</span>
+                <strong>{dashboardSummary.checklistCoveragePct}%</strong>
+              </div>
+            </div>
+            <div className="dashboardPulseEfficiency">
+              <div
+                className="dashboardPulseRing"
+                style={{ '--pct': `${Math.min(dashboardSummary.weeklyEfficiencyPct, 100)}%` } as React.CSSProperties}
+              >
+                <div className="dashboardPulseRingInner">
+                  <span className="dashboardPulseRingLabel">{dashboardSummary.weeklyEfficiencyPct}%</span>
+                </div>
+              </div>
+              <div className="dashboardPulseEfficiencyText">
+                <strong>주간 완료율</strong>
+                <span>
+                  {dashboardSummary.completedThisWeek.length}건 완료 / {dashboardSummary.weekDueTasks.length}건 마감
+                </span>
+              </div>
+            </div>
+            <div className="dashboardWeeklyBars">
+              {dashboardSummary.weekdayTaskCounts.map((day) => {
+                const maxCount = Math.max(...dashboardSummary.weekdayTaskCounts.map((d) => d.count), 1)
+                const heightPct = Math.max((day.count / maxCount) * 100, 8)
+                return (
+                  <div key={day.label} className="dashboardWeeklyBar">
+                    <div className="bar" style={{ height: `${heightPct}%` }} />
+                    <span className="dayLabel">{day.label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </article>
+
+          <article className="dashboardCard dashboardSummaryCard">
+            <div className="dashboardSectionHeader compact">
+              <div>
+                <span className="dashboardSectionEyebrow">Reporting</span>
+                <h3>보고용 요약</h3>
+                <p>메신저, 회의, 일일보고에 바로 붙여넣을 수 있습니다.</p>
+              </div>
               <Button type="button" variant="secondary" size="mini" onClick={() => void onCopyReportSummary(reportSummary)}>
                 복사
               </Button>
             </div>
-            <pre className="dashboardReportBox">{reportSummary}</pre>
+            <textarea className="dashboardSummaryBox" readOnly value={reportSummary} />
+            <div className="dashboardSummaryFooter">
+              <span className="dashboardSummaryChip">할당 완료 {dashboardSummary.checklistAssigned.length}건</span>
+              <span className="dashboardSummaryChip">사용법은 가이드 탭에서 확인</span>
+              <Button type="button" variant="secondary" size="mini" onClick={() => onOpenView('guide')}>
+                사용법
+              </Button>
+            </div>
           </article>
         </aside>
       </div>
     </section>
-  )
-}
-
-type StatCellProps = {
-  label: string
-  value: number | string
-  tone: 'plain' | 'red' | 'amber' | 'green'
-}
-
-function StatCell({ label, value, tone }: StatCellProps) {
-  return (
-    <div className={`dashboardStatCell tone-${tone}`}>
-      <span className="dashboardStatValue">{value}</span>
-      <span className="dashboardStatLabel">{label}</span>
-    </div>
   )
 }
