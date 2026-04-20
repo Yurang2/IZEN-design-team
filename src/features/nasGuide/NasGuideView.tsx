@@ -1664,11 +1664,23 @@ const REF_ROLE_STYLES: Record<string, { bg: string; border: string; text: string
   PUB: C.gdrive,
 }
 
+const REF_ROLE_META: Record<WorkManualRefRole, { label: string; desc: string }> = {
+  ASSET: { label: 'ASSET', desc: '꺼낼 소스' },
+  WORK: { label: 'WORK', desc: '작업 위치' },
+  PUB: { label: 'PUB', desc: '최종 배포' },
+}
+
 // Unified status styles for both folders and work manuals (3 states).
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
   '미정': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '○' },
   '논의중': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '🟡' },
   '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '🔒' },
+}
+
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  '미정': '아직 운영 기준이 정해지지 않은 상태',
+  '논의중': '가안 단계이며 폴더 트리에서는 연하게 보이는 상태',
+  '확정': '현재 팀 기준으로 확정되어 진하게 표시되는 상태',
 }
 
 function recordHistory(entry: {
@@ -1873,6 +1885,7 @@ function ManualRefEditModal({
           {(['ASSET', 'WORK', 'PUB'] as WorkManualRefRole[]).map((role) => {
             const ref = refsHere.find((r) => r.role === role)
             const style = REF_ROLE_STYLES[role]
+            const meta = REF_ROLE_META[role]
             return (
               <div
                 key={role}
@@ -1885,7 +1898,7 @@ function ManualRefEditModal({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div style={{ fontWeight: 700, color: ref ? style.text : 'var(--muted)', fontSize: '0.88em' }}>
-                    {role}{role === 'ASSET' ? ' (꺼낼 소스)' : role === 'WORK' ? ' (작업 위치)' : ' (최종 배포)'}
+                    {meta.label} ({meta.desc})
                   </div>
                   {ref ? (
                     <span
@@ -2415,6 +2428,8 @@ function WorkManualsSection({
         ) : null}
       </article>
 
+      <ManualScreenLegend />
+
       <div
         style={{
           display: 'grid',
@@ -2496,7 +2511,7 @@ function WorkManualsSection({
                         >
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', flex: 1, minWidth: 0 }}>
                             <span
-                              title={`상태: ${statusName}`}
+                              title={`상태: ${statusName} · ${STATUS_DESCRIPTIONS[statusName] ?? ''}`}
                               style={{
                                 flexShrink: 0,
                                 width: 16,
@@ -2525,12 +2540,12 @@ function WorkManualsSection({
                               </span>
                             ) : null}
                             {!hasManual ? (
-                              <span title="매뉴얼 미작성" style={{ fontSize: '0.7em', background: '#fef3c7', color: '#92400e', padding: '0 4px', borderRadius: 3 }}>
+                              <span title="매뉴얼 미작성: Notion에는 있지만 workTypeManuals.ts 초안이 아직 없습니다." style={{ fontSize: '0.7em', background: '#fef3c7', color: '#92400e', padding: '0 4px', borderRadius: 3 }}>
                                 미작성
                               </span>
                             ) : null}
                             {isAmbiguous ? (
-                              <span title="해석 확인 필요" style={{ fontSize: '0.7em', background: '#fef3c7', color: '#92400e', padding: '0 4px', borderRadius: 3 }}>
+                              <span title="해석 확인 필요: 업무 범위나 용어 정의를 다시 확인해야 합니다." style={{ fontSize: '0.7em', background: '#fef3c7', color: '#92400e', padding: '0 4px', borderRadius: 3 }}>
                                 ?
                               </span>
                             ) : null}
@@ -2775,20 +2790,131 @@ function ChangeHistoryPanel({ items, filterTarget, onReload }: { items: ChangeHi
 function HighlightLegend() {
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: '0.78em', color: 'var(--muted)' }}>
-      {[
-        { role: 'asset' as const, label: 'ASSET 꺼낼 소스' },
-        { role: 'project' as const, label: 'WORK 작업 위치' },
-        { role: 'gdrive' as const, label: 'PUB 배포 위치' },
-      ].map(({ role, label }) => {
+      {([
+        ['ASSET', 'asset'],
+        ['WORK', 'project'],
+        ['PUB', 'gdrive'],
+      ] as const).map(([roleKey, role]) => {
         const color = C[role]
+        const meta = REF_ROLE_META[roleKey]
         return (
           <span key={role} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <span style={{ display: 'inline-block', width: 12, height: 12, background: color.bg, border: `2px solid ${color.border}`, borderRadius: 3 }} />
-            {label}
+            {meta.label} {meta.desc}
           </span>
         )
       })}
     </div>
+  )
+}
+
+function ManualScreenLegend() {
+  const panelStyle: React.CSSProperties = {
+    display: 'grid',
+    gap: 8,
+    padding: 12,
+    background: 'var(--surface2, #f8fafc)',
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+  }
+  const inlineBadgeStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 18,
+    minHeight: 18,
+    padding: '0 6px',
+    borderRadius: 999,
+    fontSize: '0.72em',
+    fontWeight: 700,
+  }
+  return (
+    <article className="workflowCard workflowCardWide">
+      <div className="workflowSectionHeader">
+        <div>
+          <span className="workflowSectionEyebrow">Legend</span>
+          <h3>이 화면 읽는 법</h3>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        <div style={panelStyle}>
+          <h4 style={{ margin: 0, fontSize: '0.92em' }}>상태 아이콘</h4>
+          {WORK_MANUAL_STATUS_OPTIONS.map((status) => {
+            const style = STATUS_STYLES[status]
+            return (
+              <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82em' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    background: style.bg,
+                    color: style.text,
+                    border: `1px solid ${style.border}`,
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}
+                >
+                  <span>{style.icon}</span>
+                  <span>{status}</span>
+                </span>
+                <span style={{ color: 'var(--text2)' }}>{STATUS_DESCRIPTIONS[status]}</span>
+              </div>
+            )
+          })}
+          <div style={{ fontSize: '0.78em', color: 'var(--muted)' }}>
+            왼쪽 목록의 작은 네모 아이콘도 같은 상태 의미입니다.
+          </div>
+        </div>
+
+        <div style={panelStyle}>
+          <h4 style={{ margin: 0, fontSize: '0.92em' }}>폴더 트리 색칠</h4>
+          <div style={{ display: 'grid', gap: 6, fontSize: '0.82em' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 18, height: 18, borderRadius: 4, background: C.project.bg, border: `2px solid ${C.project.border}`, flexShrink: 0 }} />
+              <span>진한 색 + 실선: 확정된 참조 폴더</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 18, height: 18, borderRadius: 4, background: C.project.soft, border: `2px dashed ${C.project.border}`, flexShrink: 0 }} />
+              <span>연한 색 + 점선: 논의중인 참조 후보</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 18, height: 18, borderRadius: 4, background: 'transparent', border: '2px solid var(--border)', flexShrink: 0 }} />
+              <span>색 없음: 아직 참조 미지정 또는 미정</span>
+            </div>
+          </div>
+          <HighlightLegend />
+        </div>
+
+        <div style={panelStyle}>
+          <h4 style={{ margin: 0, fontSize: '0.92em' }}>왼쪽 목록 배지</h4>
+          <div style={{ display: 'grid', gap: 6, fontSize: '0.82em' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...inlineBadgeStyle, background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' }}>?</span>
+              <span>업무 범위나 용어 정의 해석을 다시 확인해야 하는 항목</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...inlineBadgeStyle, background: '#e5e7eb', color: '#6b7280', border: '1px solid #d1d5db' }}>local</span>
+              <span>Notion 업무 DB에는 아직 없는 로컬 초안</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...inlineBadgeStyle, background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' }}>미작성</span>
+              <span>Notion에는 있지만 매뉴얼 초안이 아직 없음</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...inlineBadgeStyle, background: WORK_MANUAL_CATEGORIES.A.bg, color: WORK_MANUAL_CATEGORIES.A.text, border: `1px solid ${WORK_MANUAL_CATEGORIES.A.border}` }}>[A]</span>
+              <span>선택된 행의 연한 배경은 현재 카테고리 색입니다.</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--muted)', fontSize: '1.05em' }}>🎨</span>
+              <span>상세 카드 상단 앱 목록은 주로 쓰는 도구입니다.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -3081,7 +3207,7 @@ function ManualDetail({
         </div>
         <p style={{ fontSize: '0.82em', color: 'var(--text2)', margin: '0 0 8px' }}>
           폴더 옆 배지를 클릭해 <strong>이 업무의 참조 폴더</strong>를 추가/확정할 수 있습니다.
-          확정(🔒)된 참조만 역할 색으로 "불이 들어옵니다". 현재
+          확정(🔒) 참조는 진하게, 논의중(🟡) 참조는 연하게 표시됩니다. 현재
           <strong> {refsConfirmed}/{refsTotal} 확정</strong>.
         </p>
         <TreeViewer
@@ -3821,12 +3947,12 @@ function AutoSaveSection() {
 
 const TABS = [
   { id: 'structure', label: '폴더 구조', icon: '📁' },
+  { id: 'workManuals', label: '업무별 매뉴얼', icon: '📖' },
   { id: 'decision', label: '어디에 넣나?', icon: '🔍' },
   { id: 'naming', label: '파일명 규칙', icon: '📝' },
   { id: 'autosave', label: '자동 저장 방식', icon: '🤖' },
   { id: 'workflow', label: '작업 흐름', icon: '🔄' },
   { id: 'gdrive', label: '구글 드라이브', icon: '☁️' },
-  { id: 'workManuals', label: '업무별 매뉴얼', icon: '📖' },
   { id: 'issues', label: '이슈 트래커', icon: '📋' },
 ] as const
 
@@ -3835,7 +3961,7 @@ const TABS = [
 // ---------------------------------------------------------------------------
 
 export function NasGuideView() {
-  const [activeTab, setActiveTab] = useState(0)
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['id']>('structure')
   const folderStructureTree = useMemo(
     () => fillEmptyLeafExampleFiles([...cloneTree(NAS_TREE), ...cloneTree(GDRIVE_TREE)]),
     [],
@@ -3922,18 +4048,18 @@ export function NasGuideView() {
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        {TABS.map((tab, i) => (
+        {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
-            className={activeTab === i ? '' : 'secondary'}
-            onClick={() => setActiveTab(i)}
+            className={activeTab === tab.id ? '' : 'secondary'}
+            onClick={() => setActiveTab(tab.id)}
             style={{
               padding: '7px 14px',
               fontSize: '0.82em',
               whiteSpace: 'nowrap',
               borderRadius: 8,
-              ...(activeTab !== i ? { boxShadow: 'none' } : {}),
+              ...(activeTab !== tab.id ? { boxShadow: 'none' } : {}),
             }}
           >
             {tab.icon} {tab.label}
@@ -3956,7 +4082,7 @@ export function NasGuideView() {
           onCancel={() => setFolderPending(null)}
           onConfirm={(next, reason) => commitFolderStatus(next as FolderStatus, reason)}
         />
-        {activeTab === 0 ? (
+        {activeTab === 'structure' ? (
           <StructureSection
             exampleTreeData={folderStructureTree}
             actualTreeData={actualFileTree}
@@ -3965,19 +4091,19 @@ export function NasGuideView() {
             onFolderStatusClick={onFolderStatusClick}
           />
         ) : null}
-        {activeTab === 1 ? <DecisionSection /> : null}
-        {activeTab === 2 ? <NamingSection /> : null}
-        {activeTab === 3 ? <AutoSaveSection /> : null}
-        {activeTab === 4 ? <WorkflowSection /> : null}
-        {activeTab === 5 ? <GDriveSection /> : null}
-        {activeTab === 6 ? (
+        {activeTab === 'workManuals' ? (
           <WorkManualsSection
             folderTree={folderStructureTree}
             historyItems={historyItems}
             onReloadHistory={() => setHistoryVersion((v) => v + 1)}
           />
         ) : null}
-        {activeTab === 7 ? <IssuesSection /> : null}
+        {activeTab === 'decision' ? <DecisionSection /> : null}
+        {activeTab === 'naming' ? <NamingSection /> : null}
+        {activeTab === 'autosave' ? <AutoSaveSection /> : null}
+        {activeTab === 'workflow' ? <WorkflowSection /> : null}
+        {activeTab === 'gdrive' ? <GDriveSection /> : null}
+        {activeTab === 'issues' ? <IssuesSection /> : null}
       </div>
     </section>
   )
