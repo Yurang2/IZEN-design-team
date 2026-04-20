@@ -637,6 +637,12 @@ export default {
         if (p.type === 'checkbox') return p.checkbox ? 'true' : 'false'
         return ''
       }
+      const isCompoundManualPath = (value: string) => (
+        /\r?\n/.test(value) ||
+        /\s+\+\s+/.test(value) ||
+        /\s+or\s+/i.test(value) ||
+        /\s+또는\s+/.test(value)
+      )
 
       if (request.method === 'GET' && path === '/folder-status') {
         const allPages: any[] = []
@@ -773,6 +779,9 @@ export default {
         const role = asString(body.role)
         if (!workType || !folderPath || !role) {
           return json({ ok: false, error: 'workType, path, role are required' }, 400, origin)
+        }
+        if (isCompoundManualPath(folderPath)) {
+          return json({ ok: false, error: 'invalid_compound_path' }, 400, origin)
         }
         const summary = `${workType} · ${role} · ${folderPath}`
         const props: any = {

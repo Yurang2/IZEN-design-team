@@ -461,7 +461,7 @@ export const WORK_TYPE_MANUALS: WorkTypeManual[] = [
     description: '현장·스튜디오 촬영 (사진 + 영상 동시 진행 가능).',
     adobeApps: ['Lightroom (촬영 후)'],
     assets: [{ path: '(촬영 장비)', label: '카메라·렌즈·조명' }],
-    workBasePath: '01_PROJECT/IZYYNNNN_.../05_사진/a_자체촬영/ + 04_영상/a_자체촬영/',
+    workBasePath: '01_PROJECT/IZYYNNNN_.../05_사진/a_자체촬영/\n01_PROJECT/IZYYNNNN_.../04_영상/a_자체촬영/',
     artifacts: [
       { filename: '3N8A2815.CR3', purpose: '카메라 RAW 사진 (파일명 카메라 원본 유지)' },
       { filename: '3N8A2815.JPG', purpose: '카메라 JPG 미리보기' },

@@ -66,17 +66,38 @@ async function insertRef(dbId, item) {
 // normalizeManualPath(). Placeholder IZYYNNNN_... is kept as-is here so the
 // UI can substitute per-project when rendering.
 function normalizePath(raw) {
-  return raw
-    .split(/\n|(?:\s+or\s+)|(?:\s+또는\s+)/gi)
+  const parts = raw
+    .split(/\n|(?:\s+or\s+)|(?:\s+또는\s+)|(?:\s*\+\s*)/gi)
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((part) => {
-      let p = part.replace(/^GDrive\s+/i, 'Google Drive/')
-      const cutIdx = p.search(/[{|(]/)
-      if (cutIdx >= 0) p = p.substring(0, cutIdx)
-      return p.replace(/\/+$/, '').trim()
-    })
-    .filter(Boolean)
+
+  const out = []
+  let currentProjectRoot = ''
+  for (const partRaw of parts) {
+    let part = partRaw.replace(/^GDrive\s+/i, 'Google Drive/')
+    const cutIdx = part.search(/[{|(]/)
+    if (cutIdx >= 0) part = part.substring(0, cutIdx)
+    part = part.replace(/\/+$/, '').trim()
+    if (!part) continue
+
+    const projectRootMatch = part.match(/^(01_PROJECT\/(?:IZYYNNNN_[^/]+|IZ\d+_[^/]+)\/)/)
+    if (projectRootMatch) {
+      currentProjectRoot = projectRootMatch[1]
+    } else if (currentProjectRoot && /^\d{2}_[^/]+/.test(part)) {
+      part = `${currentProjectRoot}${part}`
+    }
+
+    if (
+      part.startsWith('01_PROJECT/') ||
+      part.startsWith('02_ASSET/') ||
+      part.startsWith('Google Drive/') ||
+      part.startsWith('99_ARCHIVE/')
+    ) {
+      out.push(part)
+    }
+  }
+
+  return out
 }
 
 // Load the static manuals from workTypeManuals.ts by parsing it as TS text.

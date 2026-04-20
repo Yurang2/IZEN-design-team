@@ -725,7 +725,7 @@ function TreeItem({
         ) : null}
         {hasDescCount ? (
           <span
-            title={`하위에 확정 ${descCount!.confirmed}건, 미정+논의중 ${descCount!.pending}건`}
+            title={`하위 참조 요약 · 확정 ${descCount!.confirmed}건, 미정/논의중 ${descCount!.pending}건`}
             style={{
               fontSize: '0.68em',
               fontWeight: 700,
@@ -2186,11 +2186,12 @@ function collapseProjectToTemplate(concretePath: string): string {
 function normalizeManualPath(raw: string): string[] {
   // 여러 경로가 섞여 있는 경우 분리
   const parts = raw
-    .split(/\n|(?:\s+or\s+)|(?:\s+또는\s+)/gi)
+    .split(/\n|(?:\s+or\s+)|(?:\s+또는\s+)|(?:\s*\+\s*)/gi)
     .map((s) => s.trim())
     .filter(Boolean)
 
   const out: string[] = []
+  let currentProjectRoot = ''
   for (let part of parts) {
     part = part.replace(/^GDrive\s+/i, 'Google Drive/')
     // 괄호·중괄호·파이프 이후는 가변 토큰으로 보고 잘라냄 → 상위 폴더까지만 하이라이트
@@ -2199,6 +2200,12 @@ function normalizeManualPath(raw: string): string[] {
     // 후행 슬래시 제거
     part = part.replace(/\/+$/, '').trim()
     if (!part) continue
+    const projectRootMatch = part.match(/^(01_PROJECT\/(?:IZYYNNNN_[^/]+|IZ\d+_[^/]+)\/)/)
+    if (projectRootMatch) {
+      currentProjectRoot = projectRootMatch[1]
+    } else if (currentProjectRoot && /^\d{2}_[^/]+/.test(part)) {
+      part = `${currentProjectRoot}${part}`
+    }
     // IZYYNNNN_... placeholder를 샘플 프로젝트로 치환
     part = part.replace(/IZYYNNNN_[^/]*/g, SAMPLE_PROJECT_FOLDER)
     if (
@@ -2884,6 +2891,10 @@ function ManualScreenLegend() {
               <span style={{ width: 18, height: 18, borderRadius: 4, background: 'transparent', border: '2px solid var(--border)', flexShrink: 0 }} />
               <span>색 없음: 아직 참조 미지정 또는 미정</span>
             </div>
+            <div style={{ fontSize: '0.78em', color: 'var(--text2)', paddingTop: 4, borderTop: '1px dashed var(--border)' }}>
+              <strong>✓숫자 / ○숫자</strong>는 현재 폴더 상태가 아니라 <strong>하위 참조 요약</strong>입니다.
+              ✓는 확정 참조 개수, ○는 미정·논의중 참조 개수이며, 둘 다 보이면 확정과 후보가 함께 있다는 뜻입니다.
+            </div>
           </div>
           <HighlightLegend />
         </div>
@@ -3207,7 +3218,9 @@ function ManualDetail({
         </div>
         <p style={{ fontSize: '0.82em', color: 'var(--text2)', margin: '0 0 8px' }}>
           폴더 옆 배지를 클릭해 <strong>이 업무의 참조 폴더</strong>를 추가/확정할 수 있습니다.
-          확정(🔒) 참조는 진하게, 논의중(🟡) 참조는 연하게 표시됩니다. 현재
+          오른쪽 WORK/ASSET/PUB 배지는 <strong>현재 폴더에 직접 걸린 참조</strong>이고, 이름 옆
+          <strong> ✓/○ 숫자</strong>는 <strong>하위 폴더 참조 요약</strong>입니다. 확정(🔒) 참조는 진하게,
+          논의중(🟡) 참조는 연하게 표시됩니다. 현재
           <strong> {refsConfirmed}/{refsTotal} 확정</strong>.
         </p>
         <TreeViewer
