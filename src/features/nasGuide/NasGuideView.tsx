@@ -1597,8 +1597,8 @@ type TaskSchemaResponse = {
   }
 }
 
-type WorkManualStatus = '확정' | '논의중' | '미정'
-const WORK_MANUAL_STATUS_OPTIONS: WorkManualStatus[] = ['미정', '논의중', '확정']
+type WorkManualStatus = '확정' | '검토대기' | '논의중' | '미정'
+const WORK_MANUAL_STATUS_OPTIONS: WorkManualStatus[] = ['미정', '논의중', '검토대기', '확정']
 
 type WorkManualStatusItem = {
   id: string
@@ -1670,17 +1670,34 @@ const REF_ROLE_META: Record<WorkManualRefRole, { label: string; desc: string }> 
   PUB: { label: 'PUB', desc: '최종 배포' },
 }
 
-// Unified status styles for both folders and work manuals (3 states).
+// Unified status styles for folders and work manuals.
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
   '미정': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af', icon: '○' },
-  '논의중': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '🟡' },
+  '논의중': { bg: '#fff7ed', text: '#9a3412', border: '#f97316', icon: '🟡' },
+  '검토대기': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b', icon: '🔓' },
   '확정': { bg: '#dcfce7', text: '#166534', border: '#22c55e', icon: '🔒' },
 }
 
 const STATUS_DESCRIPTIONS: Record<string, string> = {
   '미정': '아직 운영 기준이 정해지지 않은 상태',
-  '논의중': '가안 단계이며 폴더 트리에서는 연하게 보이는 상태',
+  '논의중': '아직 작업 기준을 조율 중인 상태',
+  '검토대기': '하위 참조 폴더는 모두 확정되었고 팀장 검토만 남은 상태',
   '확정': '현재 팀 기준으로 확정되어 진하게 표시되는 상태',
+}
+
+function getWorkManualStatusOptions(currentStatus: WorkManualStatus, refsAllConfirmed: boolean): WorkManualStatus[] {
+  if (currentStatus === '확정') return ['논의중', '확정']
+  if (currentStatus === '검토대기') return refsAllConfirmed ? ['확정', '논의중', '검토대기'] : ['논의중']
+  if (refsAllConfirmed) return ['검토대기', '논의중', '미정']
+  return ['논의중', '미정']
+}
+
+function getPreferredWorkManualNextStatus(currentStatus: WorkManualStatus, refsAllConfirmed: boolean): WorkManualStatus | undefined {
+  if (currentStatus === '검토대기' && refsAllConfirmed) return '확정'
+  if (currentStatus === '확정') return '논의중'
+  if (refsAllConfirmed) return '검토대기'
+  if (currentStatus === '미정') return '논의중'
+  return undefined
 }
 
 function recordHistory(entry: {
@@ -2050,6 +2067,7 @@ function StatusChangeReasonModal({
   title,
   target,
   currentStatus,
+  preferredNextStatus,
   statusOptions,
   statusStyles,
   lockedStatus = '확정',
@@ -2062,6 +2080,7 @@ function StatusChangeReasonModal({
   title: string
   target: string
   currentStatus: string
+  preferredNextStatus?: string
   statusOptions: readonly string[]
   statusStyles: Record<string, { bg: string; text: string; border: string; icon: string }>
   lockedStatus?: string
@@ -2075,11 +2094,16 @@ function StatusChangeReasonModal({
   useEffect(() => {
     if (open) {
       setReason('')
-      // 현재와 다른 첫 옵션을 기본값으로
-      const defaultNext = statusOptions.find((s) => s !== currentStatus) ?? statusOptions[0] ?? ''
+      const defaultNext =
+        (preferredNextStatus && preferredNextStatus !== currentStatus && statusOptions.includes(preferredNextStatus)
+          ? preferredNextStatus
+          : undefined) ??
+        statusOptions.find((s) => s !== currentStatus) ??
+        statusOptions[0] ??
+        ''
       setNextStatus(defaultNext)
     }
-  }, [open, currentStatus, statusOptions])
+  }, [open, currentStatus, preferredNextStatus, statusOptions])
   if (!open) return null
   const canSubmit = reason.trim().length > 0 && nextStatus !== currentStatus
   const sameNote = nextStatus === currentStatus ? '현재 상태와 동일합니다' : ''
@@ -2358,15 +2382,36 @@ function WorkManualsSection({
       const existing = statusByWorkType.get(workType)
       const before = (existing?.status as string) || '미정'
       if (before === nextStatus) return
-      const patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt'>> = { status: nextStatus }
-      if (nextStatus === '확정') {
-        patch.fixedAt = new Date().toISOString().slice(0, 10)
+      const patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt'>> = {
+        status: nextStatus,
+        fixedAt: nextStatus === '확정' ? new Date().toISOString().slice(0, 10) : '',
       }
       await updateStatus(workType, patch)
       await recordHistory({
         kind: '업무매뉴얼',
         target: workType,
         action: `${before}→${nextStatus}`,
+        before,
+        after: nextStatus,
+        reason,
+      })
+    },
+    [statusByWorkType, updateStatus],
+  )
+
+  const autoChangeStatus = useCallback(
+    async (workType: string, nextStatus: WorkManualStatus, reason: string) => {
+      const existing = statusByWorkType.get(workType)
+      const before = (existing?.status as string) || '미정'
+      if (before === nextStatus) return
+      await updateStatus(workType, {
+        status: nextStatus,
+        fixedAt: nextStatus === '확정' ? new Date().toISOString().slice(0, 10) : '',
+      })
+      await recordHistory({
+        kind: '업무매뉴얼',
+        target: workType,
+        action: `${before}→${nextStatus} (자동)`,
         before,
         after: nextStatus,
         reason,
@@ -2575,6 +2620,7 @@ function WorkManualsSection({
               folderTree={folderTree}
               onUpdateStatus={(patch) => updateStatus(selectedItem.workType, patch)}
               onChangeStatusWithReason={changeStatusWithReason}
+              onAutoChangeStatus={autoChangeStatus}
               historyItems={historyItems}
               refs={refs}
               refsByPath={refsByPath}
@@ -2934,6 +2980,7 @@ function ManualDetail({
   folderTree,
   onUpdateStatus,
   onChangeStatusWithReason,
+  onAutoChangeStatus,
   historyItems,
   refs,
   refsByPath,
@@ -2946,6 +2993,7 @@ function ManualDetail({
   folderTree: TreeNode[]
   onUpdateStatus: (patch: Partial<Pick<WorkManualStatusItem, 'status' | 'fixedAt' | 'note'>>) => void
   onChangeStatusWithReason: (workType: string, nextStatus: WorkManualStatus, reason: string) => Promise<void>
+  onAutoChangeStatus: (workType: string, nextStatus: WorkManualStatus, reason: string) => Promise<void>
   historyItems: ChangeHistoryItem[]
   refs: WorkManualRef[]
   refsByPath: Map<string, WorkManualRef[]>
@@ -3005,11 +3053,40 @@ function ManualDetail({
   const [noteDraft, setNoteDraft] = useState(statusItem?.note ?? '')
   const [noteDirty, setNoteDirty] = useState(false)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
-  const canConfirmManual = refsAllConfirmed
+  const autoTransitionKeyRef = useRef('')
+  const manualStatusOptions = useMemo(
+    () => getWorkManualStatusOptions(statusName, refsAllConfirmed),
+    [refsAllConfirmed, statusName],
+  )
+  const preferredNextStatus = useMemo(
+    () => getPreferredWorkManualNextStatus(statusName, refsAllConfirmed),
+    [refsAllConfirmed, statusName],
+  )
   useEffect(() => {
     setNoteDraft(statusItem?.note ?? '')
     setNoteDirty(false)
   }, [statusItem?.id, statusItem?.note])
+
+  useEffect(() => {
+    const nextStatus =
+      refsAllConfirmed && (statusName === '미정' || statusName === '논의중')
+        ? '검토대기'
+        : !refsAllConfirmed && statusName === '검토대기'
+          ? '논의중'
+          : null
+    if (!nextStatus) {
+      autoTransitionKeyRef.current = ''
+      return
+    }
+    const transitionKey = `${workType}:${statusName}->${nextStatus}:${refsConfirmed}/${refsTotal}`
+    if (autoTransitionKeyRef.current === transitionKey) return
+    autoTransitionKeyRef.current = transitionKey
+    const reason =
+      nextStatus === '검토대기'
+        ? '하위 ASSET/WORK/PUB 참조가 모두 확정되어 자동으로 검토대기로 전환'
+        : '하위 ASSET/WORK/PUB 참조 중 미확정 항목이 생겨 자동으로 논의중으로 반려'
+    void onAutoChangeStatus(workType, nextStatus, reason)
+  }, [onAutoChangeStatus, refsAllConfirmed, refsConfirmed, refsTotal, statusName, workType])
 
   if (!manual) {
     return (
@@ -3035,13 +3112,14 @@ function ManualDetail({
       <StatusChangeReasonModal
         open={statusModalOpen}
         title={
-          canConfirmManual
+          refsAllConfirmed
             ? '업무 매뉴얼 상태 변경'
-            : `업무 매뉴얼 상태 변경 · 참조 폴더 ${refsConfirmed}/${refsTotal} 확정 (나머지 ${refsTotal - refsConfirmed}개도 확정해야 매뉴얼 확정 가능)`
+            : `업무 매뉴얼 상태 변경 · 참조 폴더 ${refsConfirmed}/${refsTotal} 확정 (모두 확정되면 검토대기로 자동 전환)`
         }
         target={workType}
         currentStatus={statusName}
-        statusOptions={canConfirmManual ? WORK_MANUAL_STATUS_OPTIONS : WORK_MANUAL_STATUS_OPTIONS.filter((s) => s !== '확정')}
+        preferredNextStatus={preferredNextStatus}
+        statusOptions={manualStatusOptions}
         statusStyles={STATUS_STYLES}
         lockedStatus="확정"
         history={historyItems.filter((h) => h.target === workType)}
