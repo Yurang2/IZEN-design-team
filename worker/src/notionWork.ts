@@ -3260,6 +3260,7 @@ export class NotionWorkService {
       applicable: assignmentStatus !== 'not_applicable',
       assignmentStatus,
       assignmentStatusText,
+      updatedAt: normalizeText(page.last_edited_time),
     }
   }
 
@@ -3399,29 +3400,49 @@ export class NotionWorkService {
       const checklists = await this.listChecklists()
       preferredLabel = checklists.find((entry) => normalizeNotionId(entry.id) === normalizeNotionId(checklistItemPageId))?.productName
     }
-
-    const pages = await this.listChecklistAssignmentPagesByProject(schema, projectPageId)
-    const existingPage = pages.find((page) => {
+    const normalizedPreferredLabel = normalizeText(preferredLabel)
+    const matchesAssignmentPage = (page: any): boolean => {
       const row = this.mapChecklistAssignmentPage(page, schema)
       if (normalizeText(row.key) === key) return true
-      return (
+      if (
         normalizeNotionId(row.projectPageId) === normalizeNotionId(projectPageId) &&
         normalizeNotionId(row.checklistItemPageId) === normalizeNotionId(checklistItemPageId)
+      ) {
+        return true
+      }
+      return (
+        Boolean(normalizedPreferredLabel) &&
+        normalizeNotionId(row.projectPageId) === normalizeNotionId(projectPageId) &&
+        !normalizeNotionId(row.checklistItemPageId) &&
+        normalizeText(row.key) === normalizedPreferredLabel
       )
-    })
-    let targetPage = existingPage
-
-    if (!targetPage && isKnownField(schema.fields.key)) {
-      const databaseId = this.getChecklistAssignmentDbId()
-      const allPages = await this.queryAll(databaseId)
-      targetPage = allPages.find((page) => {
-        const props = (page.properties ?? {}) as AnyMap
-        const keyText = extractTextLike(props, schema.fields.key, '')
-        return normalizeText(keyText) === key
-      })
     }
 
-    if (targetPage?.id) {
+    const pages = await this.listChecklistAssignmentPagesByProject(schema, projectPageId)
+    const targetPages = pages.filter((page) => matchesAssignmentPage(page))
+
+    if (targetPages.length === 0 && isKnownField(schema.fields.key)) {
+      const databaseId = this.getChecklistAssignmentDbId()
+      const allPages = await this.queryAll(databaseId)
+      for (const page of allPages) {
+        const props = (page.properties ?? {}) as AnyMap
+        const keyText = extractTextLike(props, schema.fields.key, '')
+        const normalizedKeyText = normalizeText(keyText)
+        if (normalizedKeyText === key) {
+          if (!targetPages.some((entry) => entry.id === page.id)) targetPages.push(page)
+          continue
+        }
+        if (!normalizedPreferredLabel || normalizedKeyText !== normalizedPreferredLabel) continue
+        const relationProjectIds = extractRelationIds(props, schema.fields.project)
+        const relationChecklistIds = extractRelationIds(props, schema.fields.checklistItem)
+        const sameProject = relationProjectIds.some((id) => normalizeNotionId(id) === normalizeNotionId(projectPageId))
+        if (sameProject && relationChecklistIds.length === 0 && !targetPages.some((entry) => entry.id === page.id)) {
+          targetPages.push(page)
+        }
+      }
+    }
+
+    if (targetPages.length > 0) {
       const properties: AnyMap = {}
       if (shouldUseKeyAsTitle) {
         applyTitleLike(properties, schema.fields.key, key)
@@ -3435,8 +3456,10 @@ export class NotionWorkService {
       }
       applyCheckbox(properties, schema.fields.applicable, assignmentStatus !== 'not_applicable')
       applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText(assignmentStatus))
-      await this.api.updatePage(targetPage.id, { properties })
-      const refreshed = await this.api.retrievePage(targetPage.id)
+      for (const page of targetPages) {
+        await this.api.updatePage(page.id, { properties })
+      }
+      const refreshed = await this.api.retrievePage(targetPages[targetPages.length - 1].id)
       return this.mapChecklistAssignmentPage(refreshed, schema)
     }
 

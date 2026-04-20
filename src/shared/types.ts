@@ -129,6 +129,7 @@ export type ChecklistAssignmentRow = {
   applicable: boolean
   assignmentStatus: ChecklistAssignmentStatus
   assignmentStatusText: string
+  updatedAt?: string
 }
 
 export type ChecklistPreviewResponse = {

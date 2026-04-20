@@ -35,7 +35,7 @@ export function checklistItemKeyFromAssignmentRow(row: ChecklistAssignmentRow): 
 
 export function checklistAssignmentRowPriority(row: ChecklistAssignmentRow): number {
   const taskId = sanitizeChecklistTaskPageId(row.taskPageId)
-  let score = 0
+  let score = Number.isFinite(Date.parse(row.updatedAt ?? '')) ? Date.parse(row.updatedAt ?? '') : 0
   if (row.assignmentStatus === 'assigned') score += taskId ? 300 : 160
   else if (row.assignmentStatus === 'unassigned') score += 100
   const statusText = (row.assignmentStatusText ?? '').trim().toLowerCase()
