@@ -1550,518 +1550,487 @@ button.boardCard:hover {
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  padding: 18px;
+  padding: 14px 18px;
 }
 
-.dashboardHeaderMain,
-.dashboardHeaderMeta,
-.dashboardSectionHeader > div {
+.dashboardHeaderMain {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .dashboardEyebrow,
 .dashboardSectionEyebrow {
   color: #2563eb;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.dashboardHeader h2,
-.dashboardCard h3 {
-  color: var(--text-main);
-  margin: 0;
-}
-
 .dashboardHeader h2 {
-  font-size: 30px;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-.dashboardHeader p,
-.dashboardCard p,
-.dashboardListMeta,
-.dashboardFocusLaneHelper,
-.dashboardEmptyState {
-  color: var(--text-sub);
-  font-size: 12px;
-  line-height: 1.55;
+  color: var(--text-main);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   margin: 0;
 }
 
 .dashboardHeaderMeta {
-  justify-items: end;
-  min-width: 280px;
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
-.dashboardHeaderChip,
-.dashboardSummaryChip {
+.dashboardHeaderChip {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text-sub);
   font-size: 11px;
   font-weight: 500;
-  padding: 6px 10px;
+  padding: 5px 10px;
 }
 
-.dashboardHeaderActions,
-.dashboardSummaryFooter {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+.dashboardStatStrip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
 }
+
+.dashboardStatCell {
+  align-items: center;
+  border-right: 1px solid var(--border);
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.dashboardStatCell:last-child {
+  border-right: none;
+}
+
+.dashboardStatValue {
+  color: var(--text-main);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.dashboardStatLabel {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.dashboardStatCell.tone-red .dashboardStatValue { color: #dc2626; }
+.dashboardStatCell.tone-amber .dashboardStatValue { color: #c2410c; }
+.dashboardStatCell.tone-green .dashboardStatValue { color: #16a34a; }
 
 .dashboardPrimaryGrid {
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.9fr);
+  grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.85fr);
 }
 
-.dashboardMainColumn,
 .dashboardSidebar {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   min-width: 0;
 }
 
-.dashboardMetricStrip {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.dashboardMetricCard,
 .dashboardCard {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.03);
-}
-
-.dashboardMetricCard {
-  display: grid;
-  gap: 8px;
-  min-height: 136px;
-  padding: 16px;
-  position: relative;
-}
-
-.dashboardMetricCard strong {
-  color: var(--text-main);
-  font-size: 32px;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-
-.dashboardMetricLabel {
-  color: var(--text-sub);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.dashboardMetricCard small {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.dashboardMetricCard.tone-red {
-  box-shadow: 0 10px 28px rgba(185, 28, 28, 0.08);
-}
-
-.dashboardMetricCard.tone-blue {
-  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
-}
-
-.dashboardMetricCard.tone-amber {
-  box-shadow: 0 10px 28px rgba(194, 65, 12, 0.08);
-}
-
-.dashboardMetricIcon {
-  align-items: center;
-  background: #eff6ff;
-  border-radius: 999px;
-  color: #2563eb;
-  display: flex;
-  font-size: 16px;
-  height: 32px;
-  justify-content: center;
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  width: 32px;
-}
-
-.tone-red .dashboardMetricIcon {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.tone-blue .dashboardMetricIcon {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.tone-amber .dashboardMetricIcon {
-  background: #fff7ed;
-  color: #c2410c;
-}
-
-.dashboardCard {
   display: grid;
   gap: 12px;
   padding: 14px;
 }
 
 .dashboardSectionHeader {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
   gap: 12px;
   justify-content: space-between;
 }
 
 .dashboardSectionHeader.compact {
-  align-items: flex-start;
-}
-
-.dashboardFocusBoard {
-  gap: 14px;
-}
-
-.dashboardFocusGrid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.dashboardFocusLane {
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  display: grid;
-  gap: 10px;
-  min-height: 260px;
-  min-width: 0;
-  overflow: hidden;
-  padding: 12px;
-}
-
-.dashboardFocusLane.tone-red {
-  background: linear-gradient(180deg, rgba(254, 242, 242, 0.92) 0%, rgba(255, 255, 255, 0.96) 100%);
-  border-color: #fecaca;
-}
-
-.dashboardFocusLane.tone-blue {
-  background: linear-gradient(180deg, rgba(239, 246, 255, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
-  border-color: #bfdbfe;
-}
-
-.dashboardFocusLane.tone-green {
-  background: linear-gradient(180deg, rgba(240, 253, 244, 0.94) 0%, rgba(255, 255, 255, 0.96) 100%);
-  border-color: #bbf7d0;
-}
-
-.dashboardFocusLane.tone-gray {
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
-  border-color: #dbe2ea;
-}
-
-.dashboardFocusLaneHeader {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  display: grid;
-  gap: 4px;
-  padding-bottom: 10px;
-}
-
-.dashboardFocusLaneHeaderMain {
   align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  min-width: 0;
 }
 
-.dashboardFocusLaneLabel {
-  color: var(--text-main);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.dashboardFocusLaneCount {
-  border: none;
-  border-radius: 999px;
-  color: #fff;
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  padding: 4px 10px;
-}
-
-.tone-red .dashboardFocusLaneCount { background: #ef4444; }
-.tone-blue .dashboardFocusLaneCount { background: #3b82f6; }
-.tone-green .dashboardFocusLaneCount { background: #22c55e; }
-.tone-gray .dashboardFocusLaneCount { background: #94a3b8; }
-
-.dashboardLaneList,
-.dashboardList {
-  display: grid;
-  gap: 8px;
-}
-
-.dashboardTaskCard,
-.dashboardListItem {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-  overflow: hidden;
-  padding: 10px;
-  text-align: left;
-  width: 100%;
-}
-
-.dashboardTaskCard {
-  border-radius: 12px;
-  color: inherit;
-  cursor: pointer;
-  gap: 8px;
-  padding: 14px;
-}
-
-.tone-red .dashboardTaskCard {
-  border-left: 3px solid #fca5a5;
-}
-
-.tone-blue .dashboardTaskCard {
-  border-left: 3px solid #93c5fd;
-}
-
-.tone-green .dashboardTaskCard {
-  border-left: 3px solid #86efac;
-}
-
-.tone-gray .dashboardTaskCard {
-  border-left: 3px solid #cbd5e1;
-}
-
-.dashboardTaskCard:hover,
-button.dashboardNavButton:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-
-.dashboardListItem.is-static {
-  cursor: default;
-}
-
-.dashboardTaskCardTop,
-.dashboardListItemTop {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.dashboardTaskCardTop strong,
-.dashboardListItemTop strong,
-.dashboardNavButton strong {
-  color: var(--text-main);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.dashboardSplitGrid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.dashboardDateChip {
-  background: var(--primary-soft);
-  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
-  border-radius: 999px;
-  color: var(--primary-strong);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 8px;
-}
-
-.dashboardNavGrid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-button.dashboardNavButton {
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  gap: 4px;
-  min-height: 84px;
-  min-width: 0;
-  overflow: hidden;
-  padding: 12px;
-  text-align: left;
-}
-
-.dashboardNavButton span {
-  color: var(--text-sub);
-  font-size: 11px;
-  overflow-wrap: anywhere;
-}
-
-.dashboardPulseGrid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.dashboardPulseGrid div {
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  display: grid;
-  gap: 6px;
-  padding: 10px;
-}
-
-.dashboardPulseGrid span {
-  color: var(--text-sub);
-  font-size: 11px;
-}
-
-.dashboardPulseGrid strong {
-  color: var(--text-main);
-  font-size: 22px;
-  line-height: 1;
-}
-
-.dashboardPulseEfficiency {
-  align-items: center;
-  display: flex;
-  gap: 14px;
-  padding: 4px 0 0;
-}
-
-.dashboardPulseRing {
-  align-items: center;
-  background: conic-gradient(#3b82f6 var(--pct, 0%), var(--border) 0%);
-  border-radius: 999px;
-  display: flex;
-  flex-shrink: 0;
-  height: 52px;
-  justify-content: center;
-  width: 52px;
-}
-
-.dashboardPulseRingInner {
-  align-items: center;
-  background: var(--surface);
-  border-radius: 999px;
-  display: flex;
-  height: 40px;
-  justify-content: center;
-  width: 40px;
-}
-
-.dashboardPulseRingLabel {
-  color: var(--text-main);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.dashboardPulseEfficiencyText {
-  display: grid;
-  gap: 2px;
-}
-
-.dashboardPulseEfficiencyText span {
-  color: var(--text-sub);
-  font-size: 11px;
-}
-
-.dashboardPulseEfficiencyText strong {
+.dashboardCard h3 {
   color: var(--text-main);
   font-size: 14px;
-  line-height: 1.2;
-}
-
-.dashboardWeeklyBars {
-  align-items: flex-end;
-  display: flex;
-  gap: 6px;
-  height: 72px;
-  padding: 4px 0 0;
-}
-
-.dashboardWeeklyBar {
-  align-items: center;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 4px;
-  height: 100%;
-  justify-content: flex-end;
-}
-
-.dashboardWeeklyBar .bar {
-  background: #3b82f6;
-  border-radius: 3px 3px 0 0;
-  min-height: 4px;
-  width: 100%;
-}
-
-.dashboardWeeklyBar .dayLabel {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.dashboardSummaryCard {
-  gap: 10px;
-}
-
-.dashboardSummaryBox {
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text-main);
-  font: inherit;
-  line-height: 1.6;
-  min-height: 180px;
-  min-width: 0;
-  padding: 12px;
-  resize: vertical;
-  width: 100%;
-}
-
-.dashboardSummaryFooter {
-  justify-content: flex-start;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
 }
 
 .dashboardEmptyState {
   align-self: start;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(248, 250, 252, 0.8);
   border: 1px dashed rgba(148, 163, 184, 0.42);
   border-radius: 10px;
-  padding: 10px;
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+  padding: 14px;
+  text-align: center;
 }
 
-[data-theme='v2'] .dashboardHeader {
+.dashboardTasksPanel {
+  gap: 14px;
+  min-width: 0;
+  padding: 16px 18px;
+}
+
+.dashboardTasksHeader {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.dashboardTasksHeaderTitle {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+}
+
+.dashboardTasksPanel h3 {
+  font-size: 15px;
+}
+
+.dashboardTasksCount {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.dashboardFilterTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dashboardFilterTab {
+  align-items: center;
   background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 5px;
+  padding: 5px 10px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.dashboardFilterTab:hover {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+
+.dashboardFilterTabCount {
+  font-weight: 700;
+}
+
+.dashboardFilterTab.tone-plain.is-active {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  color: var(--primary-strong);
+}
+
+.dashboardFilterTab.tone-red.is-active {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.dashboardFilterTab.tone-amber.is-active {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+}
+
+.dashboardFilterTab.tone-yellow.is-active {
+  background: #fef9c3;
+  border-color: #fde047;
+  color: #7c2d12;
+}
+
+.dashboardFilterTab.tone-violet.is-active {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+}
+
+.dashboardTasksGroups {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboardTaskGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboardTaskGroupHeader {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  text-align: left;
+  width: 100%;
+}
+
+.dashboardDdayPill {
+  border-radius: 4px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-width: 44px;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+.dashboardDdayPill.tone-red {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.dashboardDdayPill.tone-amber {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.dashboardDdayPill.tone-muted {
+  background: var(--surface-soft);
+  color: var(--text-sub);
+}
+
+.dashboardTaskGroupName {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboardTaskGroupCount {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.dashboardTaskGroupChevron {
+  color: var(--text-muted);
+  display: inline-flex;
+  margin-left: auto;
+  transform: rotate(90deg);
+  transition: transform 0.2s;
+}
+
+.dashboardTaskGroupChevron.is-collapsed {
+  transform: rotate(0deg);
+}
+
+.dashboardTaskList {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboardTaskRow {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  padding: 8px 12px;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+
+.dashboardTaskRow:hover {
+  background: var(--surface-soft);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+
+.dashboardTaskName {
+  color: var(--text-main);
+  flex: 1;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboardTaskAssignee {
+  color: var(--text-sub);
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.dashboardTaskAssignee.is-missing {
+  color: #f97316;
+  font-weight: 500;
+}
+
+.dashboardRiskTag {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+}
+
+.dashboardRiskTag.tone-red {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.dashboardRiskTag.tone-amber {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+}
+
+.dashboardRiskTag.tone-yellow {
+  background: #fef9c3;
+  border-color: #fde047;
+  color: #7c2d12;
+}
+
+.dashboardRiskTag.tone-violet {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+}
+
+.dashboardWeekChips {
+  align-items: center;
+  color: var(--text-sub);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.dashboardWeekChips strong {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.dashboardWeekSeparator {
+  color: var(--text-muted);
+}
+
+.dashboardProjectsRail {
+  gap: 10px;
+}
+
+.dashboardProjectsList {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboardProjectRow {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 9px 12px;
+}
+
+.dashboardProjectRowMain {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboardProjectRowName {
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboardProjectRowMeta {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.dashboardProjectRowDday {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.dashboardProjectRowDday.tone-red { color: #dc2626; }
+.dashboardProjectRowDday.tone-amber { color: #c2410c; }
+.dashboardProjectRowDday.tone-muted { color: #3b5bdb; }
+
+.dashboardReportCard {
+  gap: 10px;
+}
+
+.dashboardReportBox {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+}
+
+[data-theme='v2'] .dashboardHeader,
+[data-theme='v2'] .dashboardStatStrip,
+[data-theme='v2'] .dashboardCard,
+[data-theme='v2'] .dashboardProjectRow,
+[data-theme='v2'] .dashboardTaskRow,
+[data-theme='v2'] .dashboardReportBox,
+[data-theme='v2'] .dashboardFilterTab {
+  background: var(--surface2);
   border-color: var(--border);
 }
 
@@ -2070,134 +2039,79 @@ button.dashboardNavButton {
   color: #93c5fd;
 }
 
-[data-theme='v2'] .dashboardMetricCard,
-[data-theme='v2'] .dashboardCard,
-[data-theme='v2'] .dashboardFocusLane,
-[data-theme='v2'] .dashboardTaskCard,
-[data-theme='v2'] .dashboardListItem,
-[data-theme='v2'] .dashboardSummaryBox,
-[data-theme='v2'] .dashboardPulseGrid div,
-[data-theme='v2'] button.dashboardNavButton {
-  background: var(--surface2);
-  border-color: var(--border);
-}
-
-[data-theme='v2'] .dashboardHeaderChip,
-[data-theme='v2'] .dashboardSummaryChip {
+[data-theme='v2'] .dashboardHeaderChip {
   background: #1d2735;
   border-color: #304054;
 }
 
-[data-theme='v2'] .dashboardFocusLaneCount {
-  color: #fff;
+[data-theme='v2'] .dashboardStatCell {
+  border-color: var(--border);
 }
 
-[data-theme='v2'] .tone-red .dashboardFocusLaneCount { background: #991b1b; }
-[data-theme='v2'] .tone-blue .dashboardFocusLaneCount { background: #1e40af; }
-[data-theme='v2'] .tone-green .dashboardFocusLaneCount { background: #166534; }
-[data-theme='v2'] .tone-gray .dashboardFocusLaneCount { background: #475569; }
+[data-theme='v2'] .dashboardStatCell.tone-red .dashboardStatValue { color: #fca5a5; }
+[data-theme='v2'] .dashboardStatCell.tone-amber .dashboardStatValue { color: #fdba74; }
+[data-theme='v2'] .dashboardStatCell.tone-green .dashboardStatValue { color: #86efac; }
 
-[data-theme='v2'] .dashboardMetricIcon {
-  background: rgba(96, 165, 250, 0.12);
-  color: #93c5fd;
-}
+[data-theme='v2'] .dashboardDdayPill.tone-red { background: rgba(248, 113, 113, 0.14); color: #fca5a5; }
+[data-theme='v2'] .dashboardDdayPill.tone-amber { background: rgba(251, 146, 60, 0.14); color: #fdba74; }
+[data-theme='v2'] .dashboardDdayPill.tone-muted { background: var(--surface2); color: var(--text-sub); }
 
-[data-theme='v2'] .tone-red .dashboardMetricIcon {
-  background: rgba(248, 113, 113, 0.12);
-  color: #fca5a5;
-}
+[data-theme='v2'] .dashboardRiskTag.tone-red { background: rgba(248, 113, 113, 0.14); border-color: rgba(248, 113, 113, 0.35); color: #fca5a5; }
+[data-theme='v2'] .dashboardRiskTag.tone-amber { background: rgba(251, 146, 60, 0.14); border-color: rgba(251, 146, 60, 0.35); color: #fdba74; }
+[data-theme='v2'] .dashboardRiskTag.tone-yellow { background: rgba(250, 204, 21, 0.14); border-color: rgba(250, 204, 21, 0.35); color: #fde047; }
+[data-theme='v2'] .dashboardRiskTag.tone-violet { background: rgba(167, 139, 250, 0.14); border-color: rgba(167, 139, 250, 0.35); color: #c4b5fd; }
 
-[data-theme='v2'] .tone-blue .dashboardMetricIcon {
-  background: rgba(96, 165, 250, 0.12);
-  color: #93c5fd;
-}
+[data-theme='v2'] .dashboardFilterTab.tone-red.is-active { background: rgba(248, 113, 113, 0.14); border-color: rgba(248, 113, 113, 0.45); color: #fca5a5; }
+[data-theme='v2'] .dashboardFilterTab.tone-amber.is-active { background: rgba(251, 146, 60, 0.14); border-color: rgba(251, 146, 60, 0.45); color: #fdba74; }
+[data-theme='v2'] .dashboardFilterTab.tone-yellow.is-active { background: rgba(250, 204, 21, 0.14); border-color: rgba(250, 204, 21, 0.45); color: #fde047; }
+[data-theme='v2'] .dashboardFilterTab.tone-violet.is-active { background: rgba(167, 139, 250, 0.14); border-color: rgba(167, 139, 250, 0.45); color: #c4b5fd; }
 
-[data-theme='v2'] .tone-amber .dashboardMetricIcon {
-  background: rgba(251, 146, 60, 0.12);
+[data-theme='v2'] .dashboardProjectRowDday.tone-red { color: #fca5a5; }
+[data-theme='v2'] .dashboardProjectRowDday.tone-amber { color: #fdba74; }
+[data-theme='v2'] .dashboardProjectRowDday.tone-muted { color: #93c5fd; }
+
+[data-theme='v2'] .dashboardTaskAssignee.is-missing {
   color: #fdba74;
-}
-
-[data-theme='v2'] .tone-red .dashboardTaskCard { border-left-color: #7f1d1d; }
-[data-theme='v2'] .tone-blue .dashboardTaskCard { border-left-color: #1e3a5f; }
-[data-theme='v2'] .tone-green .dashboardTaskCard { border-left-color: #14532d; }
-[data-theme='v2'] .tone-gray .dashboardTaskCard { border-left-color: #334155; }
-
-[data-theme='v2'] .dashboardPulseRing {
-  background: conic-gradient(#60a5fa var(--pct, 0%), var(--border) 0%);
-}
-
-[data-theme='v2'] .dashboardPulseRingInner {
-  background: var(--surface2);
-}
-
-[data-theme='v2'] .dashboardWeeklyBar .bar {
-  background: #60a5fa;
-}
-
-[data-theme='v2'] .dashboardFocusLane.tone-red,
-[data-theme='v2'] .dashboardFocusLane.tone-blue,
-[data-theme='v2'] .dashboardFocusLane.tone-green,
-[data-theme='v2'] .dashboardFocusLane.tone-gray {
-  background: var(--surface2);
-}
-
-[data-theme='v2'] .dashboardDateChip {
-  background: #223249;
-  border-color: #38506e;
-  color: #dbeafe;
 }
 
 @media (max-width: 1280px) {
   .dashboardPrimaryGrid {
     grid-template-columns: 1fr;
   }
-
-  .dashboardSidebar {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
-@media (max-width: 1100px) {
-  .dashboardFocusGrid,
-  .dashboardMetricStrip {
+@media (max-width: 900px) {
+  .dashboardStatStrip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .dashboardSplitGrid {
-    grid-template-columns: 1fr;
+  .dashboardStatCell {
+    border-bottom: 1px solid var(--border);
   }
 
-  .dashboardSidebar {
-    grid-template-columns: 1fr;
+  .dashboardStatCell:nth-child(2n) {
+    border-right: none;
+  }
+
+  .dashboardStatCell:nth-last-child(-n+2) {
+    border-bottom: none;
   }
 }
 
 @media (max-width: 760px) {
-  .dashboardHeader,
-  .dashboardSectionHeader,
-  .dashboardTaskCardTop,
-  .dashboardListItemTop,
-  .dashboardHeaderActions,
-  .dashboardSummaryFooter {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .dashboardFocusLaneHeaderMain {
+  .dashboardHeader {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .dashboardHeaderMeta {
-    justify-items: start;
-    min-width: 0;
+    justify-content: flex-start;
   }
 
-  .dashboardFocusGrid,
-  .dashboardMetricStrip,
-  .dashboardNavGrid,
-  .dashboardPulseGrid {
-    grid-template-columns: 1fr;
+  .dashboardTasksHeader,
+  .dashboardSectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
