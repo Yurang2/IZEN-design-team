@@ -1,0 +1,22 @@
+* text=auto eol=lf
+
+# Common Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
+*.mp3 binary
+*.wav binary
+*.mp4 binary
+*.mov binary
+*.zip binary
+*.pdf binary
+*.pptx binary
+*.pyc binary
