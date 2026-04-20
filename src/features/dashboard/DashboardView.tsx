@@ -54,7 +54,6 @@ type FocusBucket = {
 
 type UpcomingProjectItem = {
   project: ProjectRecord
-  activeTaskCount: number
 }
 
 function normalizeStatus(status: string | undefined): string {
@@ -114,11 +113,6 @@ function riskLabelForTask(task: TaskRecord, today: Date, todayIso: string): stri
   if (task.urgent) return '긴급'
   if (task.assignee.length === 0) return '담당 미지정'
   return '확인 필요'
-}
-
-function projectMetaLabel(project: ProjectRecord): string {
-  const bits = [project.projectType, project.eventCategory].filter(Boolean)
-  return bits.length > 0 ? bits.join(' / ') : '기본 정보 없음'
 }
 
 function compareTaskPriority(a: TaskRecord, b: TaskRecord, today: Date, todayIso: string): number {
@@ -182,13 +176,6 @@ export function DashboardView({
 
     const priorityTasks = uniqueTaskList([...delayedTasks, ...todayDueTasks, ...urgentTasks, ...unassignedTasks], today, todayIso, 8)
 
-    const activeTasksByProjectName = new Map<string, number>()
-    for (const task of activeTasks) {
-      const projectName = task.projectName.trim()
-      if (!projectName) continue
-      activeTasksByProjectName.set(projectName, (activeTasksByProjectName.get(projectName) ?? 0) + 1)
-    }
-
     const upcomingProjects: UpcomingProjectItem[] = projects
       .filter((project) => {
         if (!project.eventDate) return false
@@ -197,10 +184,7 @@ export function DashboardView({
       })
       .sort((a, b) => (a.eventDate ?? '9999-12-31').localeCompare(b.eventDate ?? '9999-12-31'))
       .slice(0, 6)
-      .map((project) => ({
-        project,
-        activeTaskCount: activeTasksByProjectName.get(project.name) ?? 0,
-      }))
+      .map((project) => ({ project }))
 
     const checklistUnassigned = checklistRows
       .filter((row) => row.assignmentStatus === 'unassigned')
@@ -400,19 +384,27 @@ export function DashboardView({
                   </div>
                   {bucket.tasks.length > 0 ? (
                     <div className="dashboardLaneList">
-                      {bucket.tasks.map((task) => (
-                        <button key={task.id} type="button" className="dashboardTaskCard" onClick={() => onOpenTask(task.id)}>
-                          <div className="dashboardTaskCardTop">
-                            <strong>{task.taskName}</strong>
-                            <Badge tone={toStatusTone(task.status)}>{task.status || '미분류'}</Badge>
-                          </div>
-                          <span className="dashboardListMeta">{task.projectName || '프로젝트 미지정'}</span>
-                          <span className="dashboardListMeta">
-                            마감 {formatTaskDueLabel(task, formatDateLabel)} · {riskLabelForTask(task, today, todayIso)}
-                          </span>
-                          <span className="dashboardListMeta">담당 {joinOrDash(task.assignee)}</span>
-                        </button>
-                      ))}
+                      {bucket.tasks.map((task) => {
+                        const isUnassignedBucket = bucket.key === 'unassigned'
+                        return (
+                          <button key={task.id} type="button" className="dashboardTaskCard" onClick={() => onOpenTask(task.id)}>
+                            <div className="dashboardTaskCardTop">
+                              <strong>{task.taskName}</strong>
+                              {!isUnassignedBucket ? (
+                                <Badge tone={toStatusTone(task.status)}>{task.status || '미분류'}</Badge>
+                              ) : null}
+                            </div>
+                            <span className="dashboardListMeta">{task.projectName || '프로젝트 미지정'}</span>
+                            <span className="dashboardListMeta">마감 {formatTaskDueLabel(task, formatDateLabel)}</span>
+                            {!isUnassignedBucket ? (
+                              <>
+                                <span className="dashboardListMeta">{riskLabelForTask(task, today, todayIso)}</span>
+                                <span className="dashboardListMeta">담당 {joinOrDash(task.assignee)}</span>
+                              </>
+                            ) : null}
+                          </button>
+                        )
+                      })}
                     </div>
                   ) : (
                     <p className="dashboardEmptyState">현재 항목이 없습니다.</p>
@@ -436,14 +428,12 @@ export function DashboardView({
               </div>
               {dashboardSummary.upcomingProjects.length > 0 ? (
                 <div className="dashboardList">
-                  {dashboardSummary.upcomingProjects.map(({ project, activeTaskCount }) => (
+                  {dashboardSummary.upcomingProjects.map(({ project }) => (
                     <article key={project.id} className="dashboardListItem is-static">
                       <div className="dashboardListItemTop">
                         <strong>{project.name}</strong>
                         <span className="dashboardDateChip">{project.eventDate ? formatDateLabel(project.eventDate) : '-'}</span>
                       </div>
-                      <span className="dashboardListMeta">{projectMetaLabel(project)}</span>
-                      <span className="dashboardListMeta">활성 업무 {activeTaskCount}건</span>
                     </article>
                   ))}
                 </div>
@@ -484,33 +474,6 @@ export function DashboardView({
         </div>
 
         <aside className="dashboardSidebar">
-          <article className="dashboardCard dashboardQuickAccess">
-            <div className="dashboardSectionHeader compact">
-              <div>
-                <span className="dashboardSectionEyebrow">Quick Access</span>
-                <h3>바로 이동</h3>
-              </div>
-            </div>
-            <div className="dashboardNavGrid">
-              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('tasks')}>
-                <strong>업무</strong>
-                <span>실행과 수정</span>
-              </button>
-              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('projects')}>
-                <strong>프로젝트</strong>
-                <span>운영 일정 확인</span>
-              </button>
-              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('checklist')}>
-                <strong>체크리스트</strong>
-                <span>미할당 정리</span>
-              </button>
-              <button type="button" className="dashboardNavButton" onClick={() => onOpenView('meetings')}>
-                <strong>회의록</strong>
-                <span>후속 액션 확인</span>
-              </button>
-            </div>
-          </article>
-
           <article className="dashboardCard dashboardPulseCard">
             <div className="dashboardSectionHeader compact">
               <div>
