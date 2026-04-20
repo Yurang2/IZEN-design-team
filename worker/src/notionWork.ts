@@ -6,6 +6,7 @@ import type {
   ChecklistAssignmentStatus,
   ChecklistPreviewItem,
   CreateFeedbackInput,
+  CreateProgramIssueInput,
   CreateShotSlotInput,
   CreateSubtitleRevisionInput,
   CreateTaskInput,
@@ -14,6 +15,8 @@ import type {
   FeedbackSchema,
   FieldSchema,
   FieldStatus,
+  ProgramIssueRecord,
+  ProgramIssueSchema,
   ProjectRecord,
   SubtitleRevisionRecord,
   SubtitleRevisionSchema,
@@ -23,6 +26,7 @@ import type {
   VideoManualItemRecord,
   VideoManualSchema,
   UpdateFeedbackInput,
+  UpdateProgramIssueInput,
   ScheduleCell,
   ScheduleColumn,
   ScheduleRow,
@@ -3974,6 +3978,167 @@ export class NotionWorkService {
 
     await this.api.updatePage(id, { properties })
     return this.getFeedback(id)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Program Issues
+  // ---------------------------------------------------------------------------
+
+  private buildProgramIssueSchema(properties: Record<string, any>): ProgramIssueSchema {
+    return {
+      fields: {
+        title: pickField('title', properties, '이슈 제목', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        description: pickField('description', properties, '상세 내용', ['rich_text', 'title'], true),
+        issueType: pickField('issueType', properties, '구분', ['select', 'status', 'rich_text'], true),
+        screenName: pickField('screenName', properties, '화면/기능', ['rich_text', 'title', 'select'], true),
+        priority: pickField('priority', properties, '중요도', ['select', 'status', 'rich_text'], true),
+        status: pickField('status', properties, '상태', ['select', 'status', 'rich_text'], true),
+        reporter: pickField('reporter', properties, '제보자', ['rich_text', 'title', 'select'], true),
+        assignee: pickField('assignee', properties, '담당자', ['rich_text', 'title', 'select'], true),
+        holdReason: pickField('holdReason', properties, '보류 사유', ['rich_text', 'title'], true),
+        reproductionSteps: pickField('reproductionSteps', properties, '재현 방법', ['rich_text', 'title'], true),
+        notes: pickField('notes', properties, '비고', ['rich_text', 'title'], true),
+        date: pickField('date', properties, '등록일', ['date'], true),
+        resolvedDate: pickField('resolvedDate', properties, '해결일', ['date'], true),
+      },
+    }
+  }
+
+  private async getProgramIssueSchema(): Promise<ProgramIssueSchema> {
+    const dbId = this.env.NOTION_PROGRAM_ISSUES_DB_ID
+    if (!dbId) throw new Error('NOTION_PROGRAM_ISSUES_DB_ID_not_configured')
+    const db: any = await this.api.retrieveDatabase(dbId)
+    const properties = (db.properties ?? {}) as Record<string, any>
+    return this.buildProgramIssueSchema(properties)
+  }
+
+  private mapProgramIssuePage(page: any, schema: ProgramIssueSchema): ProgramIssueRecord {
+    const props = (page.properties ?? {}) as AnyMap
+
+    return {
+      id: page.id,
+      url: page.url,
+      title: extractTitle(props, schema.fields.title),
+      description: extractTextLike(props, schema.fields.description, '') || undefined,
+      issueType: extractTextLike(props, schema.fields.issueType, '') || undefined,
+      screenName: extractTextLike(props, schema.fields.screenName, '') || undefined,
+      priority: extractTextLike(props, schema.fields.priority, '') || undefined,
+      status: extractTextLike(props, schema.fields.status, '') || undefined,
+      reporter: extractTextLike(props, schema.fields.reporter, '') || undefined,
+      assignee: extractTextLike(props, schema.fields.assignee, '') || undefined,
+      holdReason: extractTextLike(props, schema.fields.holdReason, '') || undefined,
+      reproductionSteps: extractTextLike(props, schema.fields.reproductionSteps, '') || undefined,
+      notes: extractTextLike(props, schema.fields.notes, '') || undefined,
+      date: extractDate(props, schema.fields.date),
+      resolvedDate: extractDate(props, schema.fields.resolvedDate),
+    }
+  }
+
+  async listProgramIssues(): Promise<ProgramIssueRecord[]> {
+    const dbId = this.env.NOTION_PROGRAM_ISSUES_DB_ID
+    if (!dbId) return []
+
+    const [schema, pages] = await Promise.all([this.getProgramIssueSchema(), this.queryAll(dbId)])
+    return pages.map((page) => this.mapProgramIssuePage(page, schema))
+  }
+
+  async getProgramIssue(id: string): Promise<ProgramIssueRecord> {
+    const [schema, page] = await Promise.all([this.getProgramIssueSchema(), this.api.retrievePage(id)])
+    return this.mapProgramIssuePage(page, schema)
+  }
+
+  async createProgramIssue(input: CreateProgramIssueInput): Promise<ProgramIssueRecord> {
+    const schema = await this.getProgramIssueSchema()
+    const properties: AnyMap = {}
+
+    if (!isKnownField(schema.fields.title)) {
+      throw new Error('program_issue_title_property_[UNKNOWN]')
+    }
+
+    const title = normalizeText(input.title)
+    if (!title) throw new Error('title_required')
+
+    applyTitleLike(properties, schema.fields.title, title)
+    applyRichText(properties, schema.fields.description, input.description)
+    applySelectLike(properties, schema.fields.issueType, input.issueType)
+    applyRichText(properties, schema.fields.screenName, input.screenName)
+    applySelectLike(properties, schema.fields.priority, input.priority)
+    applySelectLike(properties, schema.fields.status, input.status)
+    applyRichText(properties, schema.fields.reporter, input.reporter)
+    applyRichText(properties, schema.fields.assignee, input.assignee)
+    applyRichText(properties, schema.fields.holdReason, input.holdReason)
+    applyRichText(properties, schema.fields.reproductionSteps, input.reproductionSteps)
+    applyRichText(properties, schema.fields.notes, input.notes)
+    applyDate(properties, schema.fields.date, input.date)
+    applyDate(properties, schema.fields.resolvedDate, input.resolvedDate)
+
+    const created: any = await this.api.createPage({
+      parent: { database_id: this.env.NOTION_PROGRAM_ISSUES_DB_ID! },
+      properties,
+    })
+
+    return this.getProgramIssue(created.id)
+  }
+
+  async updateProgramIssue(id: string, patch: UpdateProgramIssueInput): Promise<ProgramIssueRecord> {
+    const schema = await this.getProgramIssueSchema()
+    const properties: AnyMap = {}
+
+    if (hasOwn(patch as Record<string, unknown>, 'title')) {
+      const value = normalizeText(patch.title ?? '')
+      if (value) applyTitleLike(properties, schema.fields.title, value)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'description')) {
+      applyRichText(properties, schema.fields.description, patch.description)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'issueType')) {
+      applySelectLike(properties, schema.fields.issueType, patch.issueType)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'screenName')) {
+      applyRichText(properties, schema.fields.screenName, patch.screenName)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'priority')) {
+      applySelectLike(properties, schema.fields.priority, patch.priority)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'status')) {
+      applySelectLike(properties, schema.fields.status, patch.status)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'reporter')) {
+      applyRichText(properties, schema.fields.reporter, patch.reporter)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'assignee')) {
+      applyRichText(properties, schema.fields.assignee, patch.assignee)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'holdReason')) {
+      applyRichText(properties, schema.fields.holdReason, patch.holdReason)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'reproductionSteps')) {
+      applyRichText(properties, schema.fields.reproductionSteps, patch.reproductionSteps)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'notes')) {
+      applyRichText(properties, schema.fields.notes, patch.notes)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'date')) {
+      applyDate(properties, schema.fields.date, patch.date)
+    }
+
+    if (hasOwn(patch as Record<string, unknown>, 'resolvedDate')) {
+      applyDate(properties, schema.fields.resolvedDate, patch.resolvedDate)
+    }
+
+    await this.api.updatePage(id, { properties })
+    return this.getProgramIssue(id)
   }
 
   // ---------------------------------------------------------------------------

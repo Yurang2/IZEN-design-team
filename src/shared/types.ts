@@ -245,6 +245,7 @@ export type MetaResponse = {
     photoGuide?: { id: string | null; url: string | null }
     meeting?: { id: string; url: string | null }
     feedback?: { id: string | null; url: string | null }
+    programIssues?: { id: string | null; url: string | null }
     videoManual?: { id: string | null; url: string | null }
   }
 }
@@ -321,6 +322,50 @@ export type FeedbackFilters = {
 }
 
 export type FeedbackSort = 'date_desc' | 'date_asc' | 'priority_desc'
+
+export type ProgramIssueType = '버그' | '개선' | '질문' | '제안' | '기타'
+export type ProgramIssueStatus = '미해결' | '확인중' | '진행중' | '보류' | '해결'
+export type ProgramIssuePriority = '낮음' | '보통' | '높음' | '긴급'
+
+export type ProgramIssueRecord = {
+  id: string
+  url: string
+  title: string
+  description?: string
+  issueType?: string
+  screenName?: string
+  priority?: string
+  status?: string
+  reporter?: string
+  assignee?: string
+  holdReason?: string
+  reproductionSteps?: string
+  notes?: string
+  date?: string
+  resolvedDate?: string
+}
+
+export type ProgramIssueListResponse = {
+  ok: boolean
+  items: ProgramIssueRecord[]
+  nextCursor?: string
+  hasMore: boolean
+  cacheTtlMs: number
+}
+
+export type ProgramIssueResponse = {
+  ok: boolean
+  item: ProgramIssueRecord
+}
+
+export type ProgramIssueFilters = {
+  status: string
+  issueType: string
+  priority: string
+  q: string
+}
+
+export type ProgramIssueSort = 'date_desc' | 'date_asc' | 'priority_desc' | 'status'
 
 // ---------------------------------------------------------------------------
 // Subtitle
@@ -426,6 +471,7 @@ export type TopView =
   | 'geminiImageTest'
   | 'mailTemplate'
   | 'feedback'
+  | 'programIssues'
   | 'subtitle'
   | 'videoManagement'
   | 'videoManual'

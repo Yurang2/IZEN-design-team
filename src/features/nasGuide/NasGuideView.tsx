@@ -3953,7 +3953,7 @@ const TABS = [
   { id: 'autosave', label: '자동 저장 방식', icon: '🤖' },
   { id: 'workflow', label: '작업 흐름', icon: '🔄' },
   { id: 'gdrive', label: '구글 드라이브', icon: '☁️' },
-  { id: 'issues', label: '이슈 트래커', icon: '📋' },
+  { id: 'issues', label: 'NAS 이슈 트래커', icon: '📋' },
 ] as const
 
 // ---------------------------------------------------------------------------

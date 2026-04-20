@@ -1,4 +1,5 @@
 export * from './feedback'
+export * from './programIssues'
 export * from './subtitle'
 export * from './photoGuide'
 export * from './meetings'

@@ -30,15 +30,18 @@ export function parseTopView(value: string | null): TopView {
     value === 'geminiImageTest' ||
     value === 'mailTemplate' ||
     value === 'feedback' ||
+    value === 'programIssues' ||
     value === 'nasGuide' ||
     value === 'nasUpload' ||
     value === 'nasExplorer' ||
     value === 'gdrive' ||
     value === 'subtitle' ||
     value === 'videoManagement' ||
+    value === 'videoManual' ||
     value === 'guide'
-  )
+  ) {
     return value
+  }
   return 'dashboard'
 }
 
@@ -111,13 +114,15 @@ export function toTopViewPath(view: TopView): string {
   if (view === 'eventGraphics') return 'Event Graphics Timetable'
   if (view === 'photoGuide') return 'Photo Guide'
   if (view === 'equipment') return 'Equipment'
-  if (view === 'feedback') return 'Feedback'
+  if (view === 'feedback') return 'Work Feedback'
+  if (view === 'programIssues') return 'Program Issues'
   if (view === 'nasGuide') return 'NAS Folder Guide'
   if (view === 'nasUpload') return 'NAS Upload'
   if (view === 'nasExplorer') return 'NAS Explorer'
   if (view === 'gdrive') return 'Google Drive'
   if (view === 'subtitle') return 'Subtitle Script'
   if (view === 'videoManagement') return 'Video Management'
+  if (view === 'videoManual') return 'Video Manual'
   if (view === 'meetings') return 'Meetings'
   if (view === 'snsPost') return 'SNS Post Generator'
   if (view === 'geminiImageTest') return 'Gemini Image Test'
@@ -137,13 +142,15 @@ export function toTopViewTitle(view: TopView): string {
   if (view === 'eventGraphics') return '타임테이블'
   if (view === 'photoGuide') return '촬영가이드'
   if (view === 'equipment') return '촬영장비'
-  if (view === 'feedback') return '피드백'
+  if (view === 'feedback') return '업무 피드백'
+  if (view === 'programIssues') return '프로그램 이슈 트래커'
   if (view === 'nasGuide') return 'NAS 폴더 구조 가이드'
   if (view === 'nasUpload') return 'NAS 파일 업로드'
   if (view === 'nasExplorer') return 'NAS 탐색기'
   if (view === 'gdrive') return '구글 드라이브'
   if (view === 'subtitle') return '자막 스크립트'
   if (view === 'videoManagement') return '영상 관리'
+  if (view === 'videoManual') return '영상 작업 매뉴얼'
   if (view === 'meetings') return '회의록'
   if (view === 'snsPost') return 'SNS 본문 생성'
   if (view === 'geminiImageTest') return 'Gemini 이미지 테스트'

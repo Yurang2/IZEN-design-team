@@ -43,6 +43,7 @@ export interface Env {
   NOTION_MEETING_DB_ID?: string
   NOTION_CHECKLIST_ASSIGNMENT_DB_ID?: string
   NOTION_FEEDBACK_DB_ID?: string
+  NOTION_PROGRAM_ISSUES_DB_ID?: string
   NOTION_SUBTITLE_VIDEO_DB_ID?: string
   NOTION_SUBTITLE_REVISION_DB_ID?: string
   NOTION_VIDEO_MANUAL_DB_ID?: string
@@ -275,6 +276,24 @@ export type FeedbackSchema = {
   }
 }
 
+export type ProgramIssueSchema = {
+  fields: {
+    title: FieldSchema
+    description: FieldSchema
+    issueType: FieldSchema
+    screenName: FieldSchema
+    priority: FieldSchema
+    status: FieldSchema
+    reporter: FieldSchema
+    assignee: FieldSchema
+    holdReason: FieldSchema
+    reproductionSteps: FieldSchema
+    notes: FieldSchema
+    date: FieldSchema
+    resolvedDate: FieldSchema
+  }
+}
+
 export type FeedbackRecord = {
   id: string
   url: string
@@ -294,6 +313,24 @@ export type FeedbackRecord = {
   date?: string
 }
 
+export type ProgramIssueRecord = {
+  id: string
+  url: string
+  title: string
+  description?: string
+  issueType?: string
+  screenName?: string
+  priority?: string
+  status?: string
+  reporter?: string
+  assignee?: string
+  holdReason?: string
+  reproductionSteps?: string
+  notes?: string
+  date?: string
+  resolvedDate?: string
+}
+
 export type CreateFeedbackInput = {
   content: string
   sourceProjectId?: string
@@ -305,6 +342,22 @@ export type CreateFeedbackInput = {
   recurring?: boolean
   notes?: string
   date?: string
+}
+
+export type CreateProgramIssueInput = {
+  title: string
+  description?: string
+  issueType?: string
+  screenName?: string
+  priority?: string
+  status?: string
+  reporter?: string
+  assignee?: string
+  holdReason?: string
+  reproductionSteps?: string
+  notes?: string
+  date?: string
+  resolvedDate?: string
 }
 
 export type UpdateFeedbackInput = {
@@ -320,6 +373,22 @@ export type UpdateFeedbackInput = {
   recurring?: boolean | null
   notes?: string | null
   date?: string | null
+}
+
+export type UpdateProgramIssueInput = {
+  title?: string | null
+  description?: string | null
+  issueType?: string | null
+  screenName?: string | null
+  priority?: string | null
+  status?: string | null
+  reporter?: string | null
+  assignee?: string | null
+  holdReason?: string | null
+  reproductionSteps?: string | null
+  notes?: string | null
+  date?: string | null
+  resolvedDate?: string | null
 }
 
 // ---------------------------------------------------------------------------

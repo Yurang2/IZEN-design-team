@@ -3,9 +3,11 @@ import type {
   ChecklistAssignmentRow,
   ChecklistAssignmentStatus,
   CreateFeedbackInput,
+  CreateProgramIssueInput,
   CreateTaskInput,
   Env,
   UpdateFeedbackInput,
+  UpdateProgramIssueInput,
   UpdateTaskInput,
 } from './types'
 import {
@@ -87,8 +89,11 @@ import {
   writeChecklistAssignmentToD1,
   checklistAppliesToProject,
   filterFeedback,
+  filterProgramIssues,
   parseFeedbackCreateBody,
   parseFeedbackUpdateBody,
+  parseProgramIssueCreateBody,
+  parseProgramIssueUpdateBody,
   parseShotSlotCreateBody,
   parseSubtitleRevisionCreateBody,
   toPhotoGuideUploadErrorStatus,
@@ -1002,6 +1007,10 @@ export default {
               feedback: {
                 id: env.NOTION_FEEDBACK_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_FEEDBACK_DB_ID),
+              },
+              programIssues: {
+                id: env.NOTION_PROGRAM_ISSUES_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_PROGRAM_ISSUES_DB_ID),
               },
               subtitleVideo: {
                 id: env.NOTION_SUBTITLE_VIDEO_DB_ID ?? null,
@@ -2055,6 +2064,66 @@ export default {
         return ok({ ok: true, feedback: updated }, origin)
       }
 
+      // ---- Program Issues CRUD ----
+
+      const programIssueMatch = path.match(/^\/program-issues\/([^/]+)$/)
+
+      if (request.method === 'GET' && path === '/program-issues') {
+        const status = asString(url.searchParams.get('status'))
+        const issueType = asString(url.searchParams.get('issueType'))
+        const priority = asString(url.searchParams.get('priority'))
+        const q = asString(url.searchParams.get('q'))
+        const cursor = asString(url.searchParams.get('cursor'))
+        const pageSize = parsePageSize(url.searchParams.get('pageSize'))
+
+        const allItems = await service.listProgramIssues()
+        const filtered = filterProgramIssues(allItems, status, issueType, priority, q)
+        const paged = paginate(filtered, cursor, pageSize)
+
+        return ok(
+          {
+            ok: true,
+            items: paged.items,
+            nextCursor: paged.nextCursor,
+            hasMore: paged.hasMore,
+            cacheTtlMs,
+          },
+          origin,
+        )
+      }
+
+      if (request.method === 'GET' && programIssueMatch) {
+        const id = decodeURIComponent(programIssueMatch[1])
+        const item = await service.getProgramIssue(id)
+        return ok({ ok: true, item }, origin)
+      }
+
+      if (request.method === 'POST' && path === '/program-issues') {
+        let payload: CreateProgramIssueInput
+        try {
+          payload = parseProgramIssueCreateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+
+        const created = await service.createProgramIssue(payload)
+        return json({ ok: true, item: created }, 201, origin)
+      }
+
+      if (request.method === 'PATCH' && programIssueMatch) {
+        const id = decodeURIComponent(programIssueMatch[1])
+        let patch: UpdateProgramIssueInput
+
+        try {
+          patch = parseProgramIssueUpdateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_patch' }, 400, origin)
+        }
+
+        const updated = await service.updateProgramIssue(id, patch)
+        return ok({ ok: true, item: updated }, origin)
+      }
+
       if (request.method === 'GET' && path === '/') {
         return ok(
           {
@@ -2101,6 +2170,10 @@ export default {
               'GET /api/feedback/:id',
               'POST /api/feedback',
               'PATCH /api/feedback/:id',
+              'GET /api/program-issues?status=...&issueType=...&priority=...&q=...',
+              'GET /api/program-issues/:id',
+              'POST /api/program-issues',
+              'PATCH /api/program-issues/:id',
             ],
           },
           origin,

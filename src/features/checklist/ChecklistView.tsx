@@ -276,7 +276,7 @@ function FeedbackBanner({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <strong>과거 피드백 {count}건</strong>
+        <strong>과거 업무 피드백 {count}건</strong>
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
@@ -290,7 +290,7 @@ function FeedbackBanner({
             onClick={() => onNavigate(eventCategory)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontSize: 'inherit', color: 'var(--primary, #1976d2)', marginLeft: 'auto' }}
           >
-            피드백 보기
+            업무 피드백 보기
           </button>
         ) : null}
       </div>

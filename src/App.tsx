@@ -6,6 +6,7 @@ import { TaskCreateModal } from './features/tasks/TaskCreateModal'
 const ChecklistView = lazy(() => import('./features/checklist/ChecklistView').then((m) => ({ default: m.ChecklistView })))
 const DashboardView = lazy(() => import('./features/dashboard/DashboardView').then((m) => ({ default: m.DashboardView })))
 const FeedbackView = lazy(() => import('./features/feedback/FeedbackView').then((m) => ({ default: m.FeedbackView })))
+const ProgramIssuesView = lazy(() => import('./features/programIssues/ProgramIssuesView').then((m) => ({ default: m.ProgramIssuesView })))
 const EventGraphicsPrintPage = lazy(() => import('./features/eventGraphics/EventGraphicsPrintPage').then((m) => ({ default: m.EventGraphicsPrintPage })))
 const EventGraphicsSharePage = lazy(() => import('./features/eventGraphics/EventGraphicsSharePage').then((m) => ({ default: m.EventGraphicsSharePage })))
 const EventGraphicsTimetableView = lazy(() => import('./features/eventGraphics/EventGraphicsTimetableView').then((m) => ({ default: m.EventGraphicsTimetableView })))
@@ -178,12 +179,14 @@ function App() {
     checklist: string | null
     screeningVideo: string | null
     feedback: string | null
+    programIssues: string | null
   }>({
     project: null,
     task: null,
     checklist: null,
     screeningVideo: null,
     feedback: null,
+    programIssues: null,
   })
 
   const debouncedFilterQ = useDebouncedValue(filters.q, 250)
@@ -352,6 +355,7 @@ function App() {
         checklist: response.databases.checklist.url ?? toNotionUrlById(response.databases.checklist.id ?? undefined),
         screeningVideo: response.databases.screeningVideo?.url ?? toNotionUrlById(response.databases.screeningVideo?.id ?? undefined),
         feedback: response.databases.feedback?.url ?? toNotionUrlById(response.databases.feedback?.id ?? undefined),
+        programIssues: response.databases.programIssues?.url ?? toNotionUrlById(response.databases.programIssues?.id ?? undefined),
       })
     } catch {
       // Ignore meta failures; app can run without DB deep-links.
@@ -1371,8 +1375,9 @@ function App() {
     if (activeView === 'equipment') return equipment.databaseUrl
     if (activeView === 'checklist') return dbLinks.checklist
     if (activeView === 'feedback') return dbLinks.feedback
+    if (activeView === 'programIssues') return dbLinks.programIssues
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.project, dbLinks.task, equipment.databaseUrl, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
+  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.programIssues, dbLinks.project, dbLinks.task, equipment.databaseUrl, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -1412,13 +1417,14 @@ function App() {
         { view: 'photoGuide', title: '촬영가이드', label: '촬영가이드', icon: 'list', test: true },
         { view: 'equipment', title: '촬영장비', label: '촬영장비', icon: 'list' },
         { view: 'checklist', title: '행사 체크리스트', label: '행사 체크리스트', icon: 'checksquare' },
-        { view: 'feedback', title: '피드백', label: '피드백', icon: 'list', test: true },
+        { view: 'feedback', title: '업무 피드백', label: '업무 피드백', icon: 'list', test: true },
       ],
     },
     {
       key: 'tools',
       label: '도구',
       items: [
+        { view: 'programIssues', title: '프로그램 이슈 트래커', label: '프로그램 이슈', icon: 'list', test: true },
         { view: 'videoManagement', title: '영상 관리', label: '영상 관리', icon: 'list', test: true },
         { view: 'videoManual', title: '영상 작업 매뉴얼', label: '영상 작업 매뉴얼', icon: 'list', test: true },
         { view: 'subtitle', title: '자막 스크립트', label: '자막 스크립트', icon: 'list', test: true },
@@ -2951,6 +2957,10 @@ function App() {
           projects={projects}
           loadingProjects={loadingProjects}
         />
+      ) : null}
+
+      {activeView === 'programIssues' ? (
+        <ProgramIssuesView configured={Boolean(dbLinks.programIssues)} />
       ) : null}
 
       {activeView === 'videoManagement' ? <VideoManagementView /> : null}
