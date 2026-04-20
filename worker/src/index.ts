@@ -1723,12 +1723,21 @@ export default {
               return json({ ok: false, error: 'task_not_found' }, 404, origin)
             }
           }
-          const row = await service.upsertChecklistAssignment({
-            projectPageId: payload.projectPageId,
-            checklistItemPageId: payload.checklistItemPageId,
-            taskPageId: payload.taskPageId,
-            assignmentStatus: payload.assignmentStatus,
-          })
+          let row: ChecklistAssignmentRow
+          try {
+            row = await service.upsertChecklistAssignment({
+              projectPageId: payload.projectPageId,
+              checklistItemPageId: payload.checklistItemPageId,
+              taskPageId: payload.taskPageId,
+              assignmentStatus: payload.assignmentStatus,
+              allowCreate: false,
+            })
+          } catch (error: unknown) {
+            if (error instanceof Error && error.message === 'checklist_assignment_missing') {
+              return json({ ok: false, error: 'checklist_assignment_missing' }, 409, origin)
+            }
+            throw error
+          }
           const rows = await service.listChecklistAssignments(payload.projectPageId)
           return ok(
             {

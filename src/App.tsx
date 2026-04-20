@@ -127,6 +127,14 @@ import {
 import './App.css'
 import './shared/ui/ui.css'
 
+const CHECKLIST_ASSIGNMENT_PENDING_MESSAGE =
+  '체크리스트를 준비 중입니다. 잠시 후 다시 시도해주세요. 1분 후에도 계속되면 관리자에게 문의해주세요.'
+
+function isChecklistAssignmentPendingError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return error.message.includes('checklist_assignment_missing')
+}
+
 function App() {
   const initialListUiState = readListUiStateFromSearch(window.location.search)
   const { toasts, pushToast, dismissToast, copyText } = useToast()
@@ -1671,7 +1679,9 @@ function App() {
       }
     } catch (error: unknown) {
       setAssignmentRows(previousRows)
-      const message = toErrorMessage(error, '체크리스트 할당 저장에 실패했습니다.')
+      const message = isChecklistAssignmentPendingError(error)
+        ? CHECKLIST_ASSIGNMENT_PENDING_MESSAGE
+        : toErrorMessage(error, '체크리스트 할당 저장에 실패했습니다.')
       setAssignmentSyncError(message)
       pushToast('error', message)
     }

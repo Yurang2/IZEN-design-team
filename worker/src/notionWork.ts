@@ -3376,6 +3376,7 @@ export class NotionWorkService {
     checklistItemPageId: string
     taskPageId?: string | null
     assignmentStatus?: ChecklistAssignmentStatus
+    allowCreate?: boolean
   }): Promise<ChecklistAssignmentRow> {
     const schema = await this.getChecklistAssignmentSchema()
     if (!isKnownField(schema.fields.project) || !isKnownField(schema.fields.checklistItem)) {
@@ -3461,6 +3462,10 @@ export class NotionWorkService {
       }
       const refreshed = await this.api.retrievePage(targetPages[targetPages.length - 1].id)
       return this.mapChecklistAssignmentPage(refreshed, schema)
+    }
+
+    if (params.allowCreate === false) {
+      throw new Error('checklist_assignment_missing')
     }
 
     const properties: AnyMap = {}
