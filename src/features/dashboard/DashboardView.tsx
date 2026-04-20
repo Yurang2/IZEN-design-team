@@ -386,8 +386,15 @@ export function DashboardView({
                     <div className="dashboardLaneList">
                       {bucket.tasks.map((task) => {
                         const isUnassignedBucket = bucket.key === 'unassigned'
+                        const dueLabel = `마감 ${formatTaskDueLabel(task, formatDateLabel)}`
+                        const detailBits = [dueLabel, riskLabelForTask(task, today, todayIso), `담당 ${joinOrDash(task.assignee)}`]
                         return (
-                          <button key={task.id} type="button" className="dashboardTaskCard" onClick={() => onOpenTask(task.id)}>
+                          <button
+                            key={task.id}
+                            type="button"
+                            className={`dashboardTaskCard${isUnassignedBucket ? ' is-unassigned' : ''}`}
+                            onClick={() => onOpenTask(task.id)}
+                          >
                             <div className="dashboardTaskCardTop">
                               <strong>{task.taskName}</strong>
                               {!isUnassignedBucket ? (
@@ -395,13 +402,11 @@ export function DashboardView({
                               ) : null}
                             </div>
                             <span className="dashboardListMeta">{task.projectName || '프로젝트 미지정'}</span>
-                            <span className="dashboardListMeta">마감 {formatTaskDueLabel(task, formatDateLabel)}</span>
-                            {!isUnassignedBucket ? (
-                              <>
-                                <span className="dashboardListMeta">{riskLabelForTask(task, today, todayIso)}</span>
-                                <span className="dashboardListMeta">담당 {joinOrDash(task.assignee)}</span>
-                              </>
-                            ) : null}
+                            {isUnassignedBucket ? (
+                              <span className="dashboardTaskMetaInline">{dueLabel}</span>
+                            ) : (
+                              <span className="dashboardTaskMetaInline">{detailBits.join(' · ')}</span>
+                            )}
                           </button>
                         )
                       })}
