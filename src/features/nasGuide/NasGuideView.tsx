@@ -26,6 +26,22 @@ type TreeExample = {
   comment?: string
 }
 
+type SharedTreeNodeItem = {
+  id?: string
+  path: string
+  name: string
+  parentPath: string
+  nodeType: 'folder' | 'file'
+  comment?: string
+  sortOrder: number
+  updatedAt?: string
+}
+
+type SharedTreeResponse = {
+  ok: boolean
+  items: SharedTreeNodeItem[]
+}
+
 // ---------------------------------------------------------------------------
 // Data helpers
 // ---------------------------------------------------------------------------
@@ -590,6 +606,110 @@ function mergeFilesIntoTree(baseTree: TreeNode[], examples: TreeExample[]): Tree
   return tree
 }
 
+function flattenTreeToItems(nodes: TreeNode[], parentPath = ''): SharedTreeNodeItem[] {
+  return nodes.flatMap((node, index) => {
+    const path = parentPath ? `${parentPath}/${node.name}` : node.name
+    const item: SharedTreeNodeItem = {
+      path,
+      name: node.name,
+      parentPath,
+      nodeType: node.isFile ? 'file' : 'folder',
+      comment: node.comment,
+      sortOrder: index,
+    }
+    const children = node.children ? flattenTreeToItems(node.children, path) : []
+    return [item, ...children]
+  })
+}
+
+function buildTreeFromItems(items: SharedTreeNodeItem[]): TreeNode[] {
+  const sorted = [...items].sort((a, b) => {
+    if (a.parentPath !== b.parentPath) return a.parentPath.localeCompare(b.parentPath)
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+    return a.path.localeCompare(b.path)
+  })
+  const nodeByPath = new Map<string, TreeNode>()
+  const childrenByParent = new Map<string, TreeNode[]>()
+
+  for (const item of sorted) {
+    const node: TreeNode = {
+      name: item.name,
+      comment: item.comment || undefined,
+      isFile: item.nodeType === 'file' || undefined,
+      children: item.nodeType === 'file' ? undefined : [],
+    }
+    nodeByPath.set(item.path, node)
+    const siblings = childrenByParent.get(item.parentPath) ?? []
+    siblings.push(node)
+    childrenByParent.set(item.parentPath, siblings)
+  }
+
+  for (const item of sorted) {
+    if (!item.parentPath) continue
+    const parent = nodeByPath.get(item.parentPath)
+    if (!parent) continue
+    parent.children = childrenByParent.get(item.path) ?? parent.children ?? []
+  }
+
+  return childrenByParent.get('') ?? []
+}
+
+function findTreeNode(nodes: TreeNode[], path: string): TreeNode | null {
+  const parts = path.split('/').filter(Boolean)
+  let currentNodes = nodes
+  let current: TreeNode | undefined
+  for (const part of parts) {
+    current = currentNodes.find((node) => node.name === part)
+    if (!current) return null
+    currentNodes = current.children ?? []
+  }
+  return current ?? null
+}
+
+function updateTreeAtPath(
+  nodes: TreeNode[],
+  path: string,
+  updater: (node: TreeNode, siblings: TreeNode[]) => void,
+): TreeNode[] {
+  const parts = path.split('/').filter(Boolean)
+  if (parts.length === 0) return cloneTree(nodes)
+  const next = cloneTree(nodes)
+  let siblings = next
+  let current: TreeNode | undefined
+  for (const part of parts) {
+    current = siblings.find((node) => node.name === part)
+    if (!current) return next
+    if (!current.isFile && !current.children) current.children = []
+    siblings = current.children ?? []
+  }
+  if (current) updater(current, siblings)
+  return next
+}
+
+function removeTreeAtPath(nodes: TreeNode[], path: string): TreeNode[] {
+  const parts = path.split('/').filter(Boolean)
+  if (parts.length === 0) return cloneTree(nodes)
+  const next = cloneTree(nodes)
+  let siblings = next
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const current = siblings.find((node) => node.name === parts[i])
+    if (!current || !current.children) return next
+    siblings = current.children
+  }
+  const targetName = parts[parts.length - 1]
+  const index = siblings.findIndex((node) => node.name === targetName)
+  if (index >= 0) siblings.splice(index, 1)
+  return next
+}
+
+function uniqueTreeName(siblings: TreeNode[], desired: string): string {
+  const names = new Set(siblings.map((node) => node.name))
+  if (!names.has(desired)) return desired
+  let n = 2
+  while (names.has(`${desired} (${n})`)) n += 1
+  return `${desired} (${n})`
+}
+
 // ---------------------------------------------------------------------------
 // Tree item component
 // ---------------------------------------------------------------------------
@@ -611,6 +731,8 @@ function TreeItem({
   manualRefsByPath,
   onManualRefClick,
   descendantCountByPath,
+  selectedPath,
+  onSelectPath,
 }: {
   node: TreeNode
   path: string
@@ -625,9 +747,12 @@ function TreeItem({
   manualRefsByPath?: Map<string, WorkManualRef[]> | null
   onManualRefClick?: (path: string) => void
   descendantCountByPath?: Map<string, { confirmed: number; pending: number }> | null
+  selectedPath?: string | null
+  onSelectPath?: (path: string) => void
 }) {
   const isOpen = open.has(path)
   const hasKids = !!node.children?.length
+  const isSelectedPath = selectedPath === path
   const color = ROOT_COLORS[rootName]
   const isRoot = depth === 0
   const confirmedRole = highlightedPaths?.get(path) ?? null
@@ -651,7 +776,10 @@ function TreeItem({
       <div
         role={hasKids ? 'button' : undefined}
         tabIndex={hasKids ? 0 : undefined}
-        onClick={() => hasKids && toggle(path)}
+        onClick={() => {
+          if (hasKids) toggle(path)
+          onSelectPath?.(path)
+        }}
         onKeyDown={(e) => {
           if (hasKids && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
@@ -675,7 +803,11 @@ function TreeItem({
                 ? `3px dashed ${highlightColor.border}`
                 : `3px solid ${highlightColor.border}`
               : undefined,
-          boxShadow: highlightColor && !isRoot && !isDim ? `inset 0 0 0 1px ${highlightColor.border}` : undefined,
+          boxShadow: isSelectedPath
+            ? 'inset 0 0 0 2px #2563eb'
+            : highlightColor && !isRoot && !isDim
+              ? `inset 0 0 0 1px ${highlightColor.border}`
+              : undefined,
           fontWeight: isRoot || (highlightColor && !isDim) ? 700 : 400,
           opacity: isDim ? 0.85 : 1,
           fontSize: '0.85em',
@@ -856,6 +988,8 @@ function TreeItem({
               manualRefsByPath={manualRefsByPath}
               onManualRefClick={onManualRefClick}
               descendantCountByPath={descendantCountByPath}
+              selectedPath={selectedPath}
+              onSelectPath={onSelectPath}
             />
           ))
         : null}
@@ -885,6 +1019,8 @@ function TreeViewer({
   manualRefsByPath,
   onManualRefClick,
   descendantCountByPath,
+  selectedPath,
+  onSelectPath,
 }: {
   data: TreeNode[]
   highlightedPaths?: Map<string, HighlightRole> | null
@@ -894,6 +1030,8 @@ function TreeViewer({
   manualRefsByPath?: Map<string, WorkManualRef[]> | null
   onManualRefClick?: (path: string) => void
   descendantCountByPath?: Map<string, { confirmed: number; pending: number }> | null
+  selectedPath?: string | null
+  onSelectPath?: (path: string) => void
 }): React.ReactElement {
   const allPaths = useMemo(() => collectPaths(data, ''), [data])
   const defaultOpen = useMemo(() => {
@@ -980,10 +1118,128 @@ function TreeViewer({
             manualRefsByPath={manualRefsByPath}
             onManualRefClick={onManualRefClick}
             descendantCountByPath={descendantCountByPath}
+            selectedPath={selectedPath}
+            onSelectPath={onSelectPath}
           />
         ))}
       </div>
     </div>
+  )
+}
+
+function SharedTreeEditor({
+  tree,
+  saving,
+  saveMessage,
+  onChange,
+}: {
+  tree: TreeNode[]
+  saving: boolean
+  saveMessage: string
+  onChange: (nextTree: TreeNode[], reason: string) => void
+}) {
+  const [selectedPath, setSelectedPath] = useState<string | null>(tree[0]?.name ?? null)
+
+  useEffect(() => {
+    if (!selectedPath || !findTreeNode(tree, selectedPath)) {
+      setSelectedPath(tree[0]?.name ?? null)
+    }
+  }, [tree, selectedPath])
+
+  const selectedNode = selectedPath ? findTreeNode(tree, selectedPath) : null
+
+  const renameSelected = () => {
+    if (!selectedPath || !selectedNode) return
+    const parentPath = selectedPath.split('/').slice(0, -1).join('/')
+    const parent = parentPath ? findTreeNode(tree, parentPath) : null
+    const siblings = parent?.children ?? tree
+    const nextNameRaw = window.prompt('새 이름', selectedNode.name)
+    const nextName = nextNameRaw?.trim()
+    if (!nextName || nextName === selectedNode.name) return
+    if (siblings.some((node) => node !== selectedNode && node.name === nextName)) {
+      window.alert('같은 위치에 동일한 이름이 이미 있습니다.')
+      return
+    }
+    const nextTree = updateTreeAtPath(tree, selectedPath, (node) => {
+      node.name = nextName
+    })
+    const nextPath = parentPath ? `${parentPath}/${nextName}` : nextName
+    setSelectedPath(nextPath)
+    onChange(nextTree, `폴더/파일 이름 수정 · ${selectedPath} → ${nextPath}`)
+  }
+
+  const editComment = () => {
+    if (!selectedPath || !selectedNode) return
+    const nextComment = window.prompt('메모/설명', selectedNode.comment ?? '')
+    if (nextComment === null) return
+    const nextTree = updateTreeAtPath(tree, selectedPath, (node) => {
+      node.comment = nextComment.trim() || undefined
+    })
+    onChange(nextTree, `메모 수정 · ${selectedPath}`)
+  }
+
+  const addChild = (kind: 'folder' | 'file') => {
+    if (!selectedPath || !selectedNode || selectedNode.isFile) {
+      window.alert('폴더를 먼저 선택해주세요.')
+      return
+    }
+    const nextNameRaw = window.prompt(kind === 'folder' ? '새 하위 폴더명' : '새 하위 파일명', kind === 'folder' ? '새 폴더' : '새 파일.txt')
+    const nextName = nextNameRaw?.trim()
+    if (!nextName) return
+    const nextTree = updateTreeAtPath(tree, selectedPath, (node) => {
+      if (!node.children) node.children = []
+      const uniqueName = uniqueTreeName(node.children, nextName)
+      node.children.push(kind === 'file' ? { name: uniqueName, isFile: true } : { name: uniqueName, children: [] })
+    })
+    onChange(nextTree, `${kind === 'folder' ? '하위 폴더' : '하위 파일'} 추가 · ${selectedPath}/${nextName}`)
+  }
+
+  const removeSelected = () => {
+    if (!selectedPath || !selectedNode) return
+    if (!window.confirm(`정말 삭제할까요?\n${selectedPath}`)) return
+    const nextTree = removeTreeAtPath(tree, selectedPath)
+    const parentPath = selectedPath.split('/').slice(0, -1).join('/') || null
+    setSelectedPath(parentPath)
+    onChange(nextTree, `폴더/파일 삭제 · ${selectedPath}`)
+  }
+
+  return (
+    <article className="workflowCard workflowCardWide">
+      <div className="workflowSectionHeader">
+        <div>
+          <span className="workflowSectionEyebrow">Master Shared Tree</span>
+          <h3>공통 폴더 위계 편집기</h3>
+        </div>
+      </div>
+      <p style={{ fontSize: '0.82em', color: 'var(--text2)', marginTop: 0 }}>
+        <strong>업무별 매뉴얼</strong>에서만 공통 트리를 수정합니다. 여기서 저장된 위계가 <strong>폴더 구조</strong>와 <strong>구글드라이브</strong> 탭에도 그대로 반영됩니다.
+      </p>
+      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1.5fr) minmax(260px, 0.9fr)' }}>
+        <TreeViewer data={tree} selectedPath={selectedPath} onSelectPath={setSelectedPath} />
+        <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--surface-soft, var(--surface2))' }}>
+            <div style={{ fontSize: '0.75em', color: 'var(--muted)', marginBottom: 4 }}>선택 경로</div>
+            <code className="fileGuideCode" style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{selectedPath ?? '(없음)'}</code>
+            <div style={{ fontSize: '0.8em', marginTop: 8 }}>
+              타입: <strong>{selectedNode?.isFile ? '파일' : '폴더'}</strong>
+            </div>
+            {selectedNode?.comment ? (
+              <div style={{ fontSize: '0.78em', color: 'var(--muted)', marginTop: 6 }}>메모: {selectedNode.comment}</div>
+            ) : null}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button type="button" onClick={renameSelected} disabled={!selectedNode}>이름 수정</button>
+            <button type="button" onClick={editComment} disabled={!selectedNode}>메모 수정</button>
+            <button type="button" onClick={() => addChild('folder')} disabled={!selectedNode || !!selectedNode?.isFile}>하위 폴더 추가</button>
+            <button type="button" onClick={() => addChild('file')} disabled={!selectedNode || !!selectedNode?.isFile}>하위 파일 추가</button>
+            <button type="button" className="secondary" onClick={removeSelected} disabled={!selectedNode}>선택 삭제</button>
+          </div>
+          <div style={{ fontSize: '0.78em', color: saving ? 'var(--text1)' : 'var(--muted)' }}>
+            {saving ? '저장 중…' : saveMessage || '수정 즉시 저장됩니다.'}
+          </div>
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -1517,7 +1773,7 @@ function WorkflowSection() {
 // Section 5: 구글 드라이브
 // ---------------------------------------------------------------------------
 
-function GDriveSection() {
+function GDriveSection({ data }: { data: TreeNode[] }) {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <article className="workflowCard workflowCardWide">
@@ -1531,7 +1787,7 @@ function GDriveSection() {
           구글 드라이브는 완성 배포본 보관소이며, 예전 <strong>03_LIBRARY</strong> 폴더 체계를 그대로 복구해 사용합니다.
           최종본은 카테고리별 상위 폴더에 <strong>Rev</strong>로 올리고, 구버전은 <code className="fileGuideCode">_archive</code>로 내립니다.
         </p>
-        <TreeViewer data={GDRIVE_TREE} />
+        <TreeViewer data={data} />
       </article>
 
       <article className="workflowCard workflowCardWide">
@@ -2264,10 +2520,16 @@ function WorkManualsSection({
   folderTree,
   historyItems,
   onReloadHistory,
+  treeSaving,
+  treeSaveMessage,
+  onSharedTreeChange,
 }: {
   folderTree: TreeNode[]
   historyItems: ChangeHistoryItem[]
   onReloadHistory: () => void
+  treeSaving: boolean
+  treeSaveMessage: string
+  onSharedTreeChange: (nextTree: TreeNode[], reason: string) => void
 }) {
   const [notionOptions, setNotionOptions] = useState<string[]>([])
   const [statusItems, setStatusItems] = useState<WorkManualStatusItem[]>([])
@@ -2485,6 +2747,13 @@ function WorkManualsSection({
       </article>
 
       <ManualScreenLegend />
+
+      <SharedTreeEditor
+        tree={folderTree}
+        saving={treeSaving}
+        saveMessage={treeSaveMessage}
+        onChange={onSharedTreeChange}
+      />
 
       <div
         style={{
@@ -4057,14 +4326,19 @@ const TABS = [
 
 export function NasGuideView() {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['id']>('structure')
-  const folderStructureTree = useMemo(
+  const defaultSharedTree = useMemo(
     () => fillEmptyLeafExampleFiles([...cloneTree(NAS_TREE), ...cloneTree(GDRIVE_TREE)]),
     [],
   )
+  const [sharedTree, setSharedTree] = useState<TreeNode[]>(defaultSharedTree)
+  const [treeSaving, setTreeSaving] = useState(false)
+  const [treeSaveMessage, setTreeSaveMessage] = useState('')
+
   const actualFileTree = useMemo(
-    () => mergeFilesIntoTree(stripFilesFromTree(folderStructureTree), GENERATED_NAS_GUIDE_EXAMPLES),
-    [folderStructureTree],
+    () => mergeFilesIntoTree(stripFilesFromTree(sharedTree), GENERATED_NAS_GUIDE_EXAMPLES),
+    [sharedTree],
   )
+  const gdriveTree = useMemo(() => sharedTree.filter((node) => node.name === 'Google Drive'), [sharedTree])
 
   // Folder status + history (shared across tabs)
   const [folderStatusItems, setFolderStatusItems] = useState<FolderStatusItem[]>([])
@@ -4086,6 +4360,53 @@ export function NasGuideView() {
 
   useEffect(() => { loadFolderStatus() }, [loadFolderStatus])
   useEffect(() => { loadHistory() }, [loadHistory, historyVersion])
+
+  useEffect(() => {
+    let cancelled = false
+    api<SharedTreeResponse>('/nas-tree')
+      .then((res) => {
+        if (cancelled) return
+        if (res?.items?.length) {
+          setSharedTree(buildTreeFromItems(res.items))
+          setTreeSaveMessage('저장된 공통 트리를 불러왔습니다.')
+        } else {
+          setSharedTree(defaultSharedTree)
+          setTreeSaveMessage('기본 트리로 시작합니다.')
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSharedTree(defaultSharedTree)
+        setTreeSaveMessage('저장된 공통 트리를 불러오지 못해 기본 트리를 사용합니다.')
+      })
+    return () => { cancelled = true }
+  }, [defaultSharedTree])
+
+  const saveSharedTree = useCallback(async (nextTree: TreeNode[], reason: string) => {
+    setSharedTree(nextTree)
+    setTreeSaving(true)
+    setTreeSaveMessage('공통 트리 저장 중...')
+    try {
+      await api('/nas-tree', {
+        method: 'PUT',
+        body: JSON.stringify({ items: flattenTreeToItems(nextTree) }),
+      })
+      setTreeSaveMessage(`저장 완료 · ${reason}`)
+      await recordHistory({
+        kind: '폴더',
+        target: '업무별 매뉴얼 공통 트리',
+        action: '공통 트리 수정',
+        before: '',
+        after: '',
+        reason,
+      })
+      setHistoryVersion((v) => v + 1)
+    } catch (err) {
+      setTreeSaveMessage(err instanceof Error ? `저장 실패 · ${err.message}` : '저장 실패')
+    } finally {
+      setTreeSaving(false)
+    }
+  }, [])
 
   const folderStatusMap = useMemo(() => {
     const m = new Map<string, FolderStatusItem>()
@@ -4179,7 +4500,7 @@ export function NasGuideView() {
         />
         {activeTab === 'structure' ? (
           <StructureSection
-            exampleTreeData={folderStructureTree}
+            exampleTreeData={sharedTree}
             actualTreeData={actualFileTree}
             actualCount={GENERATED_NAS_GUIDE_EXAMPLE_META.total}
             folderStatusMap={folderStatusMap}
@@ -4188,16 +4509,19 @@ export function NasGuideView() {
         ) : null}
         {activeTab === 'workManuals' ? (
           <WorkManualsSection
-            folderTree={folderStructureTree}
+            folderTree={sharedTree}
             historyItems={historyItems}
             onReloadHistory={() => setHistoryVersion((v) => v + 1)}
+            treeSaving={treeSaving}
+            treeSaveMessage={treeSaveMessage}
+            onSharedTreeChange={saveSharedTree}
           />
         ) : null}
         {activeTab === 'decision' ? <DecisionSection /> : null}
         {activeTab === 'naming' ? <NamingSection /> : null}
         {activeTab === 'autosave' ? <AutoSaveSection /> : null}
         {activeTab === 'workflow' ? <WorkflowSection /> : null}
-        {activeTab === 'gdrive' ? <GDriveSection /> : null}
+        {activeTab === 'gdrive' ? <GDriveSection data={gdriveTree} /> : null}
         {activeTab === 'issues' ? <IssuesSection /> : null}
       </div>
     </section>
