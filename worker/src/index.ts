@@ -317,6 +317,44 @@ export default {
         comment: asString(item.comment),
         sortOrder: Number(item.sortOrder ?? 0),
       })
+      const toTreeItem = (page: any) => {
+        const props = (page.properties ?? {}) as Record<string, any>
+        const keyword = getText(props['키워드'])
+        if (keyword !== TREE_KEYWORD) return null
+        const rawMeta = getText(props['비고'])
+        let meta: any = {}
+        try { meta = rawMeta ? JSON.parse(rawMeta) : {} } catch { meta = {} }
+        return {
+          id: page.id,
+          path: getText(props['추천 경로']),
+          name: asString(meta.name),
+          parentPath: asString(meta.parentPath),
+          nodeType: asString(meta.nodeType) || 'folder',
+          comment: asString(meta.comment),
+          sortOrder: Number(meta.sortOrder ?? 0),
+          updatedAt: page.last_edited_time ?? '',
+        }
+      }
+      const listTreeItems = async () => {
+        const allPages = await loadAllPages()
+        return allPages
+          .map((page: any) => toTreeItem(page))
+          .filter(Boolean)
+          .sort((a: any, b: any) => {
+            if (a.parentPath !== b.parentPath) return a.parentPath.localeCompare(b.parentPath)
+            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+            return a.path.localeCompare(b.path)
+          })
+      }
+      const notionJson = async (target: string, init: RequestInit, errorCode: string) => {
+        const res = await fetch(target, init)
+        const data: any = await res.json().catch(() => null)
+        if (!res.ok) {
+          const message = asString(data?.message) || asString(data?.code) || errorCode
+          throw new Error(`${errorCode}:${message}`)
+        }
+        return data
+      }
 
       if (request.method === 'GET' && path === '/path-mapping') {
         const allPages = await loadAllPages()
@@ -332,33 +370,12 @@ export default {
       }
 
       if (request.method === 'GET' && path === '/nas-tree') {
-        const allPages = await loadAllPages()
-        const items = allPages
-          .map((page: any) => {
-            const props = (page.properties ?? {}) as Record<string, any>
-            const keyword = getText(props['키워드'])
-            if (keyword !== TREE_KEYWORD) return null
-            const rawMeta = getText(props['비고'])
-            let meta: any = {}
-            try { meta = rawMeta ? JSON.parse(rawMeta) : {} } catch { meta = {} }
-            return {
-              id: page.id,
-              path: getText(props['추천 경로']),
-              name: asString(meta.name),
-              parentPath: asString(meta.parentPath),
-              nodeType: asString(meta.nodeType) || 'folder',
-              comment: asString(meta.comment),
-              sortOrder: Number(meta.sortOrder ?? 0),
-              updatedAt: page.last_edited_time ?? '',
-            }
-          })
-          .filter(Boolean)
-          .sort((a: any, b: any) => a.path.localeCompare(b.path))
+        const items = await listTreeItems()
         return ok({ ok: true, items }, origin)
       }
 
       if (request.method === 'PUT' && path === '/nas-tree') {
-        const body = await readJsonBody(request)
+        const body = await readJsonBody(request) as Record<string, unknown>
         const items = Array.isArray(body.items) ? body.items : []
         const normalized = items.map((item: any, index: number) => ({
           path: asString(item.path),
@@ -368,6 +385,15 @@ export default {
           comment: asString(item.comment),
           sortOrder: Number(item.sortOrder ?? index),
         })).filter((item: any) => item.path && item.name)
+
+        const duplicatePath = normalized.find((item: any, index: number) => normalized.findIndex((candidate: any) => candidate.path === item.path) !== index)
+        if (duplicatePath) {
+          return json({ ok: false, error: 'duplicate_path', path: duplicatePath.path }, 400, origin)
+        }
+        const missingParent = normalized.find((item: any) => item.parentPath && !normalized.some((candidate: any) => candidate.path === item.parentPath))
+        if (missingParent) {
+          return json({ ok: false, error: 'missing_parent', path: missingParent.path, parentPath: missingParent.parentPath }, 400, origin)
+        }
 
         const allPages = await loadAllPages()
         const existingTreePages = allPages.filter((page: any) => {
@@ -380,18 +406,6 @@ export default {
         }))
         const submittedPaths = new Set(normalized.map((item: any) => item.path))
 
-        for (const page of existingTreePages) {
-          const props = (page.properties ?? {}) as Record<string, any>
-          const existingPath = getText(props['추천 경로'])
-          if (!submittedPaths.has(existingPath)) {
-            await fetch(`https://api.notion.com/v1/pages/${page.id}`, {
-              method: 'PATCH',
-              headers: notionHeaders,
-              body: JSON.stringify({ archived: true }),
-            })
-          }
-        }
-
         for (const item of normalized) {
           const existing = existingByPath.get(item.path)
           const nextMeta = buildTreeMeta(item)
@@ -400,34 +414,77 @@ export default {
             const prevMeta = getText(props['비고'])
             const prevPath = getText(props['추천 경로'])
             if (prevMeta === nextMeta && prevPath === item.path) continue
-            await fetch(`https://api.notion.com/v1/pages/${existing.id}`, {
-              method: 'PATCH',
+            const updated = await notionJson(
+              `https://api.notion.com/v1/pages/${existing.id}`,
+              {
+                method: 'PATCH',
+                headers: notionHeaders,
+                body: JSON.stringify({
+                  properties: {
+                    '추천 경로': { rich_text: [{ text: { content: item.path } }] },
+                    '비고': { rich_text: [{ text: { content: nextMeta } }] },
+                  },
+                }),
+              },
+              'nas_tree_update_failed',
+            )
+            if (!updated?.id) throw new Error(`nas_tree_update_failed:${item.path}`)
+            continue
+          }
+
+          const created = await notionJson(
+            'https://api.notion.com/v1/pages',
+            {
+              method: 'POST',
               headers: notionHeaders,
               body: JSON.stringify({
+                parent: { database_id: dbId },
                 properties: {
+                  '키워드': { title: [{ text: { content: TREE_KEYWORD } }] },
                   '추천 경로': { rich_text: [{ text: { content: item.path } }] },
                   '비고': { rich_text: [{ text: { content: nextMeta } }] },
                 },
               }),
-            })
-            continue
-          }
-
-          await fetch('https://api.notion.com/v1/pages', {
-            method: 'POST',
-            headers: notionHeaders,
-            body: JSON.stringify({
-              parent: { database_id: dbId },
-              properties: {
-                '키워드': { title: [{ text: { content: TREE_KEYWORD } }] },
-                '추천 경로': { rich_text: [{ text: { content: item.path } }] },
-                '비고': { rich_text: [{ text: { content: nextMeta } }] },
-              },
-            }),
-          })
+            },
+            'nas_tree_create_failed',
+          )
+          if (!created?.id) throw new Error(`nas_tree_create_failed:${item.path}`)
         }
 
-        return ok({ ok: true, count: normalized.length }, origin)
+        const syncedItems = await listTreeItems()
+        const syncedByPath = new Map(syncedItems.map((item: any) => [item.path, item]))
+        for (const item of normalized) {
+          const synced = syncedByPath.get(item.path)
+          if (!synced) throw new Error(`nas_tree_verify_missing:${item.path}`)
+          if (
+            synced.name !== item.name
+            || synced.parentPath !== item.parentPath
+            || synced.nodeType !== item.nodeType
+            || (synced.comment ?? '') !== (item.comment ?? '')
+            || Number(synced.sortOrder ?? 0) !== Number(item.sortOrder ?? 0)
+          ) {
+            throw new Error(`nas_tree_verify_mismatch:${item.path}`)
+          }
+        }
+
+        for (const page of existingTreePages) {
+          const props = (page.properties ?? {}) as Record<string, any>
+          const existingPath = getText(props['추천 경로'])
+          if (!submittedPaths.has(existingPath)) {
+            const archived = await notionJson(
+              `https://api.notion.com/v1/pages/${page.id}`,
+              {
+                method: 'PATCH',
+                headers: notionHeaders,
+                body: JSON.stringify({ archived: true }),
+              },
+              'nas_tree_archive_failed',
+            )
+            if (!archived?.id) throw new Error(`nas_tree_archive_failed:${existingPath}`)
+          }
+        }
+
+        return ok({ ok: true, count: normalized.length, items: syncedItems }, origin)
       }
     }
 

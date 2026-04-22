@@ -4383,14 +4383,17 @@ export function NasGuideView() {
   }, [defaultSharedTree])
 
   const saveSharedTree = useCallback(async (nextTree: TreeNode[], reason: string) => {
+    const previousTree = sharedTree
     setSharedTree(nextTree)
     setTreeSaving(true)
     setTreeSaveMessage('공통 트리 저장 중...')
     try {
-      await api('/nas-tree', {
+      const res = await api<SharedTreeResponse>('/nas-tree', {
         method: 'PUT',
         body: JSON.stringify({ items: flattenTreeToItems(nextTree) }),
       })
+      const savedTree = res?.items?.length ? buildTreeFromItems(res.items) : nextTree
+      setSharedTree(savedTree)
       setTreeSaveMessage(`저장 완료 · ${reason}`)
       await recordHistory({
         kind: '폴더',
@@ -4402,11 +4405,13 @@ export function NasGuideView() {
       })
       setHistoryVersion((v) => v + 1)
     } catch (err) {
-      setTreeSaveMessage(err instanceof Error ? `저장 실패 · ${err.message}` : '저장 실패')
+      setSharedTree(previousTree)
+      const message = err instanceof Error ? err.message : '저장 실패'
+      setTreeSaveMessage(`저장 실패 · ${message} · 마지막 저장 상태로 복원했습니다.`)
     } finally {
       setTreeSaving(false)
     }
-  }, [])
+  }, [sharedTree])
 
   const folderStatusMap = useMemo(() => {
     const m = new Map<string, FolderStatusItem>()
