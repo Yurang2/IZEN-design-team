@@ -170,6 +170,9 @@ const NAS_TREE: TreeNode[] = [
       ]),
     ]),
     dc('IZ250031_IFU-Rev개정', 'IFU 개정 → 최종 PDF 배포', [
+      d('00_기획-문서', [
+        d('연구소 원고'),
+      ]),
       d('01_인쇄물', [
         d('IFU', [f('IZEN_I-system_IFU_EN_v02.indd'), f('IZEN_I-system_IFU_EN_v02.pdf')]),
       ]),
@@ -448,6 +451,7 @@ function buildEmptyLeafExampleFiles(pathSegments: string[]): TreeNode[] {
     const rawPrefix = projectRawPrefix(projectFolder)
 
     if (joined.endsWith('/00_기획-문서/미팅')) return [f(`${prefix}_킥오프미팅_회의록_v01.docx`)]
+    if (joined.endsWith('/00_기획-문서/연구소 원고')) return [f(`${prefix}_연구소원고_v01.docx`)]
     if (joined.endsWith('/00_기획-문서')) return [f(`${prefix}_운영계획_v01.pptx`)]
     if (leaf === '브로슈어') return [f(`${prefix}_브로슈어_EN_12p_v01.indd`)]
     if (leaf === '리플렛') {
