@@ -1,0 +1,1780 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NAS Guide Standalone Editor</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2d;
+      --panel-2: #19233b;
+      --line: #2a3658;
+      --text: #edf2ff;
+      --muted: #9fb0d5;
+      --accent: #60a5fa;
+      --accent-2: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --folder: #fde68a;
+      --file: #93c5fd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0b1020 0%, #0d1325 100%);
+      color: var(--text);
+      font-family: Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      min-height: 100vh;
+    }
+    .main { padding: 20px; }
+    .side {
+      border-left: 1px solid var(--line);
+      background: rgba(10, 15, 29, 0.94);
+      padding: 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+    }
+    .toolbar, .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .title { font-size: 24px; font-weight: 800; margin: 0 0 8px; }
+    .sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin-bottom: 18px; }
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: #173055; border-color: #285ea8; }
+    button.good { background: #153925; border-color: #2a8b4f; }
+    button.warn { background: #4b3510; border-color: #c58a1b; }
+    button.danger { background: #4a1d24; border-color: #a93649; }
+    .tree {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      overflow: auto;
+    }
+    .node {
+      margin: 2px 0;
+      border-radius: 10px;
+    }
+    .node-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+    }
+    .node-row:hover { background: rgba(255,255,255,0.035); }
+    .node-row.selected {
+      background: rgba(96,165,250,0.12);
+      border-color: rgba(96,165,250,0.45);
+    }
+    .indent { display: inline-block; width: 18px; flex: 0 0 auto; }
+    .toggle {
+      width: 20px; flex: 0 0 auto; text-align: center; color: var(--muted); cursor: pointer;
+      user-select: none;
+    }
+    .icon { width: 20px; flex: 0 0 auto; }
+    .name { font-size: 14px; font-weight: 600; }
+    .comment { color: var(--muted); font-size: 12px; margin-left: 6px; }
+    .pathbox, .help, .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .value { font-size: 13px; line-height: 1.5; word-break: break-all; }
+    .muted { color: var(--muted); }
+    .status { font-size: 13px; color: #bfdbfe; }
+    .small { font-size: 12px; color: var(--muted); }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line);
+      font-size: 12px; color: var(--muted);
+    }
+    .side h2 { margin: 0 0 10px; font-size: 18px; }
+    .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 960px) {
+      .app { grid-template-columns: 1fr; }
+      .side { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="main">
+      <h1 class="title">NAS Guide Standalone Editor</h1>
+      <div class="sub">
+        팀끼리 돌려보는 독립 HTML 편집기입니다. 현재 상태는 이 파일 안에 들어가며,<br />
+        <strong>저장본 HTML</strong>을 다시 열면 이어서 수정할 수 있습니다. 나중에 nasGuide 페이지 반영용 원본으로도 쓰기 쉽게 만들었습니다.
+      </div>
+      <div class="toolbar">
+        <button id="expandAllBtn">전체 펼치기</button>
+        <button id="collapseAllBtn">전체 접기</button>
+        <button id="saveBtn" class="primary">현재 상태로 HTML 저장</button>
+        <button id="downloadJsonBtn">JSON 참고 저장</button>
+      </div>
+      <div class="stats">
+        <span class="pill">📁 폴더 <strong id="folderCount">0</strong></span>
+        <span class="pill">📄 파일 <strong id="fileCount">0</strong></span>
+        <span class="pill">✅ 단일 파일 전달형</span>
+      </div>
+      <div class="tree" id="treeRoot"></div>
+    </main>
+    <aside class="side">
+      <div class="pathbox">
+        <div class="label">선택 항목</div>
+        <div id="selectedName" class="value">아직 선택되지 않음</div>
+        <div class="label" style="margin-top:10px">경로</div>
+        <div id="selectedPath" class="value muted">-</div>
+      </div>
+      <div class="panel">
+        <h2>편집</h2>
+        <div class="action-grid">
+          <button id="renameBtn">이름 수정</button>
+          <button id="commentBtn">메모 수정</button>
+          <button id="addFolderBtn" class="good">하위 폴더 추가</button>
+          <button id="addFileBtn" class="good">하위 파일 추가</button>
+          <button id="cloneBtn">복제</button>
+          <button id="deleteBtn" class="danger">삭제</button>
+        </div>
+        <div class="small" style="margin-top:10px">폴더를 선택하면 하위 폴더/파일을 추가할 수 있고, 파일은 이름만 수정 가능합니다.</div>
+      </div>
+      <div class="help">
+        <h2>사용 방법</h2>
+        <div class="small">
+          1. 왼쪽 트리에서 항목 선택<br />
+          2. 오른쪽에서 이름 수정 / 폴더 추가 / 파일 추가<br />
+          3. <strong>현재 상태로 HTML 저장</strong> 버튼으로 저장본 생성<br />
+          4. 그 HTML 파일을 다시 열면 이어서 수정 가능<br /><br />
+          나중에 이 파일을 Codex/Hermes에 주면 구조를 읽어서 nasGuide 페이지에 옮기기 쉽게 되어 있습니다.
+        </div>
+      </div>
+      <div class="help">
+        <h2>상태</h2>
+        <div id="statusText" class="status">준비됨</div>
+      </div>
+    </aside>
+  </div>
+
+  <script id="tree-data" type="application/json">[
+  {
+    "name": "01_PROJECT",
+    "comment": "작업 과정 (프로젝트별)",
+    "children": [
+      {
+        "name": "IZ250001_CIS-Conference-2026",
+        "comment": "풀세트 행사 프로젝트",
+        "children": [
+          {
+            "name": "00_기획-문서",
+            "children": [
+              {
+                "name": "기획서",
+                "comment": "타팀 수령 기획서",
+                "children": [
+                  {
+                    "name": "CIS2026_기획서_마케팅팀.docx",
+                    "comment": "원본 파일명 그대로",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "보고서-제안서",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_부스_제안서_v02.pptx",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "품의서-지출결의서",
+                "children": [
+                  {
+                    "name": "판촉물_견적서_기프트인포_v01.pdf",
+                    "comment": "판촉물 견적서도 여기에",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "미팅",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "01_인쇄물",
+            "children": [
+              {
+                "name": "포스터",
+                "comment": "1p",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_포스터_EN_A1_v01_작업중.psd",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_CIS2026_포스터_EN_A1_v03.ai",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "리플렛",
+                "comment": "1~4p",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_리플렛_EN_A4_v01.ai",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_CIS2026_리플렛_RU_A4_v01.ai",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "브로슈어",
+                "comment": "6~24p",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "카달로그",
+                "comment": "다페이지 인쇄물",
+                "children": [
+                  {
+                    "name": "IZEN_I-system_카달로그_EN_v04.indd",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "배너-현수막",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_배너_EN_v02.ai",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "certificate",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_certificate_v01.ai",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "02_부스",
+            "children": [
+              {
+                "name": "부스디자인",
+                "comment": "3D 부스 모델링 (C4D 등)",
+                "children": [
+                  {
+                    "name": "IZEN_부스_CIS2026_v03.c4d",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "부스그래픽",
+                "comment": "벽면 그래픽 디자인",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_부스_벽면A_v02.ai",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "03_디지털",
+            "children": [
+              {
+                "name": "SNS",
+                "comment": "SNS용 이미지 (작업+업로드)",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "PPT",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_발표자료_v01.pptx",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "행사운영",
+                "comment": "행사장 운영 에셋 (이미지+영상+오디오+큐시트)",
+                "children": [
+                  {
+                    "name": "I01_graphic.png",
+                    "isFile": true
+                  },
+                  {
+                    "name": "V01_graphic.mp4",
+                    "isFile": true
+                  },
+                  {
+                    "name": "A01_Entrance_Audio.wav",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_Bangkok2026_큐시트.pdf",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "렌더링",
+                "comment": "프로젝트 전용 제품 렌더링",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_제품_렌더_정면_v01.png",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "홈페이지",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "04_영상",
+            "comment": "a,b만 고정. 나머지는 영상 종류별 자유 생성",
+            "children": [
+              {
+                "name": "a_자체촬영",
+                "comment": "카메라 RAW (MXF, MOV)",
+                "children": [
+                  {
+                    "name": "CIS2026_DAY1_CAM-A_001.MXF",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "b_수신",
+                "children": [
+                  {
+                    "name": "외주",
+                    "comment": "외부 영상팀 (원본 or 완성본)",
+                    "children": [],
+                    "isFile": false
+                  },
+                  {
+                    "name": "타팀",
+                    "comment": "영업팀 핸드폰 영상 등",
+                    "children": [],
+                    "isFile": false
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "후기영상",
+                "comment": "자유 생성 예시 — 행사 프로젝트",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_후기_v01.prproj",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_CIS2026_후기_v01.mp4",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_CIS2026_후기_v01",
+                    "comment": "귀속 소스",
+                    "children": [
+                      {
+                        "name": "IZEN_CIS2026_후기_썸네일_v01.png",
+                        "isFile": true
+                      },
+                      {
+                        "name": "IZEN_CIS2026_후기_자막_EN_v01.txt",
+                        "isFile": true
+                      },
+                      {
+                        "name": "Adobestock_123456789.wav",
+                        "isFile": true
+                      },
+                      {
+                        "name": "Adobestock_987654321.mp4",
+                        "isFile": true
+                      }
+                    ],
+                    "isFile": false
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "티저",
+                "comment": "자유 생성 예시",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_티저_v01.aep",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_CIS2026_티저_v01.mp4",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "모션그래픽",
+                "comment": "오프닝 등 → 완성본은 03_디지털/행사운영/에도 복사",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_오프닝_v01.c4d",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_CIS2026_오프닝_v01.mp4",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "강연소개",
+                "comment": "자유 생성 예시",
+                "children": [
+                  {
+                    "name": "IZEN_CIS2026_강연소개_Dr-Kim_v01.aep",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_CIS2026_강연소개_Dr-Kim_v01.mp4",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "05_사진",
+            "children": [
+              {
+                "name": "a_자체촬영",
+                "comment": "카메라 RAW/JPG 전량",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "b_수신",
+                "comment": "타팀 핸드폰 등 (작업 필요한 소스)",
+                "children": [
+                  {
+                    "name": "타팀",
+                    "children": [],
+                    "isFile": false
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "c_보정",
+                "comment": "우리 보정 + 외주 보정본 (여기서 DAY 분류)",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "d_공유",
+                "children": [
+                  {
+                    "name": "DAY1",
+                    "comment": "1일차 공유 사진",
+                    "children": [],
+                    "isFile": false
+                  },
+                  {
+                    "name": "DAY2",
+                    "comment": "2일차 공유 사진",
+                    "children": [],
+                    "isFile": false
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "06_현장수집",
+            "comment": "타사 부스/제품 등 현장 레퍼런스 (사진·영상 구분 없이)",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250002_AEEDC-Dubai-2026",
+        "comment": "중간 규모",
+        "children": [
+          {
+            "name": "00_기획-문서",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "01_인쇄물",
+            "children": [
+              {
+                "name": "리플렛",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "배너-현수막",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "02_부스",
+            "children": [
+              {
+                "name": "부스디자인",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "부스그래픽",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "04_영상",
+            "children": [
+              {
+                "name": "클립",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "후기영상",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "홍보영상",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250003_IDS-Cologne-2026",
+        "comment": "소규모",
+        "children": [
+          {
+            "name": "01_인쇄물",
+            "children": [
+              {
+                "name": "리플렛",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "배너-현수막",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "02_부스",
+            "children": [
+              {
+                "name": "부스디자인",
+                "children": [],
+                "isFile": false
+              },
+              {
+                "name": "부스그래픽",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250004_Russia-Dental-Expo-2026",
+        "comment": "러시아어 버전 포함",
+        "children": [
+          {
+            "name": "01_인쇄물",
+            "children": [
+              {
+                "name": "포스터",
+                "children": [
+                  {
+                    "name": "IZEN_RusDentalExpo_포스터_RU_A1_v01.ai",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "리플렛",
+                "children": [
+                  {
+                    "name": "IZEN_RusDentalExpo_리플렛_RU_A4_v01.ai",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_RusDentalExpo_리플렛_EN_A4_v01.ai",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "02_부스",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250015_회사소개영상-v3수정",
+        "comment": "영업팀 검수 → 자막 수정 → 최종본",
+        "children": [
+          {
+            "name": "00_기획-문서",
+            "children": [
+              {
+                "name": "회사소개영상_검수의견_영업팀.docx",
+                "comment": "원본 파일명 그대로",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "04_영상",
+            "children": [
+              {
+                "name": "회사소개영상",
+                "children": [
+                  {
+                    "name": "IZEN_회사소개영상-Full_v03.prproj",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_회사소개영상-Full_EN_v03.mp4",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250016_I-system-카달로그-리뉴얼",
+        "comment": "InDesign → 다국어 PDF",
+        "children": [
+          {
+            "name": "01_인쇄물",
+            "children": [
+              {
+                "name": "카달로그",
+                "children": [
+                  {
+                    "name": "IZEN_I-system_카달로그_EN_v04.indd",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_I-system_카달로그_EN_v04.pdf",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_I-system_카달로그_RU_v02.pdf",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250017_신제품-렌더링-연구소요청",
+        "comment": "연구소 요청 → 3D → 납품",
+        "children": [
+          {
+            "name": "00_기획-문서",
+            "children": [
+              {
+                "name": "신제품_렌더링요청_연구소.docx",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "03_디지털",
+            "children": [
+              {
+                "name": "렌더링",
+                "children": [
+                  {
+                    "name": "IZEN_신제품_렌더_정면_v01.png",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_신제품_렌더_측면_v01.png",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250018_제품-사용법영상-T-system",
+        "comment": "스토리보드 → 3D → 편집",
+        "children": [
+          {
+            "name": "00_기획-문서",
+            "children": [
+              {
+                "name": "IZEN_T-system_사용법영상_스토리보드_v01.pptx",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "04_영상",
+            "children": [
+              {
+                "name": "제품영상",
+                "children": [
+                  {
+                    "name": "IZEN_T-system_사용법_3D_v02.c4d",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_T-system_사용법영상-기본편_v02.prproj",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_T-system_사용법영상-기본편_v02.mp4",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250031_IFU-Rev개정",
+        "comment": "IFU 개정 → 최종 PDF 배포",
+        "children": [
+          {
+            "name": "00_기획-문서",
+            "children": [
+              {
+                "name": "연구소 원고",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "01_인쇄물",
+            "children": [
+              {
+                "name": "IFU",
+                "children": [
+                  {
+                    "name": "IZEN_I-system_IFU_EN_v02.indd",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_I-system_IFU_EN_v02.pdf",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250900_SNS-정기콘텐츠",
+        "comment": "정기 (매년 생성, 연말 아카이브)",
+        "children": [
+          {
+            "name": "제품",
+            "children": [
+              {
+                "name": "2025-03_I-system-신제품",
+                "children": [
+                  {
+                    "name": "IZEN_SNS_제품_I-system-fixture_v02.png",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "2025-04_T-system-케이스",
+                "children": [],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "임상",
+            "children": [
+              {
+                "name": "2025-03_Dr-Kim",
+                "children": [
+                  {
+                    "name": "IZEN_SNS_임상_Dr-Kim-case_v01.png",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "브랜딩",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "IZ250901_뉴스레터",
+        "comment": "정기 (매월 발행)",
+        "children": [
+          {
+            "name": "2025-01",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "2025-02",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "2025-03",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      }
+    ],
+    "isFile": false
+  },
+  {
+    "name": "02_ASSET",
+    "comment": "작업 재료 (소스)",
+    "children": [
+      {
+        "name": "01_로고",
+        "children": [
+          {
+            "name": "IZEN_CI",
+            "children": [
+              {
+                "name": "IZEN_CI_LOGO_Black.png",
+                "isFile": true
+              },
+              {
+                "name": "IZEN_CI_LOGO_White.png",
+                "isFile": true
+              },
+              {
+                "name": "IZEN_CI_LOGO.ai",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "IAM",
+            "children": [
+              {
+                "name": "IAM_LOGO_Black.png",
+                "isFile": true
+              },
+              {
+                "name": "IAM_LOGO_White.png",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "ZENEX",
+            "children": [
+              {
+                "name": "zenex_logo_bk.png",
+                "isFile": true
+              },
+              {
+                "name": "zenex_logo.ai",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "Cleanimplant",
+            "children": [
+              {
+                "name": "Cleanimplant_LOGO_Black.png",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "Dealer",
+            "comment": "딜러 로고",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "02_제품-렌더링",
+        "children": [
+          {
+            "name": "01_zenex_fixture",
+            "children": [
+              {
+                "name": "01_multi",
+                "children": [
+                  {
+                    "name": "I-System",
+                    "children": [],
+                    "isFile": false
+                  },
+                  {
+                    "name": "R-System",
+                    "children": [],
+                    "isFile": false
+                  },
+                  {
+                    "name": "T-System",
+                    "children": [],
+                    "isFile": false
+                  }
+                ],
+                "isFile": false
+              },
+              {
+                "name": "02_plus",
+                "children": [
+                  {
+                    "name": "I-System",
+                    "children": [],
+                    "isFile": false
+                  },
+                  {
+                    "name": "R-System",
+                    "children": [],
+                    "isFile": false
+                  },
+                  {
+                    "name": "T-System",
+                    "children": [],
+                    "isFile": false
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "02_cover_screw",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "03_healing_abutment",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "04_abutment",
+            "comment": "01~18 하위 부품별",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "05_zenex_kit",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "06_sinus_combination_kit",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "07_plazmax",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "연출",
+            "comment": "그래픽용 연출 이미지 — flat (하위 구조는 축적 후 결정)",
+            "children": [
+              {
+                "name": "ZMSN3008_정면01_v01.png",
+                "isFile": true
+              },
+              {
+                "name": "ZMSN3008_측면01_v01.png",
+                "isFile": true
+              },
+              {
+                "name": "ZMSN3008_식립01_v01.png",
+                "isFile": true
+              },
+              {
+                "name": "전제품_배치01_v01.png",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "03_3D-소스",
+        "comment": "STEP, STL 원본",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "04_브랜드-가이드",
+        "children": [
+          {
+            "name": "IZEN_IMPLANT_BRAND_GUIDELINES_EN.pdf",
+            "isFile": true
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "05_폰트",
+        "children": [
+          {
+            "name": "Pretendard.zip",
+            "isFile": true
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "06_템플릿",
+        "comment": "용도별 서브분류 (AI/PSD/INDD/AEP/PPTX)",
+        "children": [
+          {
+            "name": "01_SNS",
+            "comment": "정사각/세로/가로 SNS 템플릿",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "02_인쇄",
+            "comment": "A4/A3/명함/현수막 템플릿",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "03_PPT",
+            "comment": "발표자료 마스터",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "04_영상",
+            "comment": "AE 인트로/아웃트로/자막 템플릿",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "05_InDesign",
+            "comment": "카달로그/IFU 마스터",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "07_제품사진-원본",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "08_패키지",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "09_임상",
+        "children": [
+          {
+            "name": "자사-케이스",
+            "comment": "자사 임상 사진",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "타사-레퍼런스",
+            "comment": "타사 임상 참고",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "10_연자",
+        "comment": "연자 사진+프로필",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "11_스톡-라이선스",
+        "comment": "구매 스톡 원본 + 라이선스 증빙 (재사용 SSOT)",
+        "children": [
+          {
+            "name": "01_이미지",
+            "comment": "Shutterstock/iStock 이미지",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "02_영상",
+            "comment": "Adobe Stock/Envato 영상 클립",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "03_오디오",
+            "comment": "BGM/효과음 (Adobe Stock, Artlist 등)",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "04_모션",
+            "comment": ".mogrt, AE 템플릿 (Envato 등)",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      }
+    ],
+    "isFile": false
+  },
+  {
+    "name": "99_ARCHIVE",
+    "comment": "과거 파일 보존",
+    "children": [
+      {
+        "name": "2024_07_이전",
+        "comment": "기존 462K 파일 그대로 보존 — 재분류 안 함",
+        "children": [],
+        "isFile": false
+      }
+    ],
+    "isFile": false
+  },
+  {
+    "name": "Google Drive",
+    "children": [
+      {
+        "name": "01_회사소개",
+        "children": [
+          {
+            "name": "company-profile",
+            "comment": "PPT, PDF",
+            "children": [
+              {
+                "name": "IZEN_회사소개서_EN_Rev02.pdf",
+                "isFile": true
+              },
+              {
+                "name": "IZEN_회사소개서_EN_Rev02.pptx",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "company-video",
+            "comment": "소개영상 최종본",
+            "children": [
+              {
+                "name": "IZEN_회사소개영상-Full_EN_Rev01.mp4",
+                "isFile": true
+              },
+              {
+                "name": "IZEN_회사소개영상-Short_EN_Rev01.mp4",
+                "isFile": true
+              }
+            ],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "02_카달로그",
+        "children": [
+          {
+            "name": "I-system",
+            "children": [
+              {
+                "name": "IZEN_I-system_카달로그_EN_Rev03.pdf",
+                "comment": "← 최신 배포본",
+                "isFile": true
+              },
+              {
+                "name": "IZEN_I-system_카달로그_RU_Rev02.pdf",
+                "isFile": true
+              },
+              {
+                "name": "_archive",
+                "comment": "구버전",
+                "children": [
+                  {
+                    "name": "IZEN_I-system_카달로그_EN_Rev02.pdf",
+                    "isFile": true
+                  },
+                  {
+                    "name": "IZEN_I-system_카달로그_EN_Rev01.pdf",
+                    "isFile": true
+                  }
+                ],
+                "isFile": false
+              }
+            ],
+            "isFile": false
+          },
+          {
+            "name": "T-system",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "R-system",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "03_브로슈어",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "04_리플렛",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "05_포스터",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "06_certificate",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "07_배너-사인물",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "08_영상",
+        "children": [
+          {
+            "name": "후기영상",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "홍보영상",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "브랜딩영상",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "모션그래픽",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "제품영상",
+            "children": [],
+            "isFile": false
+          },
+          {
+            "name": "회사소개영상",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      },
+      {
+        "name": "09_패키지",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "10_IFU",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "11_기타-배포본",
+        "children": [],
+        "isFile": false
+      },
+      {
+        "name": "12__archive",
+        "children": [
+          {
+            "name": "구버전",
+            "comment": "Rev 하위 구버전 보관",
+            "children": [],
+            "isFile": false
+          }
+        ],
+        "isFile": false
+      }
+    ],
+    "isFile": false
+  }
+]</script>
+  <script>
+    const DATA_SCRIPT_ID = 'tree-data';
+    const INITIAL_HTML = document.documentElement.outerHTML;
+    const treeRoot = document.getElementById('treeRoot');
+    const selectedNameEl = document.getElementById('selectedName');
+    const selectedPathEl = document.getElementById('selectedPath');
+    const statusText = document.getElementById('statusText');
+    const folderCountEl = document.getElementById('folderCount');
+    const fileCountEl = document.getElementById('fileCount');
+
+    const state = {
+      tree: JSON.parse(document.getElementById(DATA_SCRIPT_ID).textContent),
+      selectedPath: null,
+      openPaths: new Set(),
+    };
+
+    function notify(msg) {
+      statusText.textContent = msg;
+    }
+
+    function cloneNode(node) {
+      return {
+        name: node.name,
+        comment: node.comment || '',
+        isFile: !!node.isFile,
+        children: node.children ? node.children.map(cloneNode) : undefined,
+      };
+    }
+
+    function walk(nodes, fn, path = []) {
+      nodes.forEach((node, index) => {
+        const current = [...path, node.name];
+        fn(node, current, index, nodes);
+        if (node.children && node.children.length) walk(node.children, fn, current);
+      });
+    }
+
+    function getCounts() {
+      let folders = 0;
+      let files = 0;
+      walk(state.tree, (node) => {
+        if (node.isFile) files += 1;
+        else folders += 1;
+      });
+      return { folders, files };
+    }
+
+    function updateCounts() {
+      const { folders, files } = getCounts();
+      folderCountEl.textContent = folders;
+      fileCountEl.textContent = files;
+    }
+
+    function findNodeByPath(pathString) {
+      if (!pathString) return null;
+      const parts = pathString.split('/').filter(Boolean);
+      let nodes = state.tree;
+      let node = null;
+      for (const part of parts) {
+        node = nodes.find((item) => item.name === part);
+        if (!node) return null;
+        nodes = node.children || [];
+      }
+      return node;
+    }
+
+    function withParentByPath(pathString) {
+      const parts = pathString.split('/').filter(Boolean);
+      let nodes = state.tree;
+      let parent = null;
+      let node = null;
+      for (const part of parts) {
+        node = nodes.find((item) => item.name === part);
+        if (!node) return null;
+        parent = nodes;
+        nodes = node.children || [];
+      }
+      return { parent, node };
+    }
+
+    function ensureFolderSelected(actionName) {
+      const node = findNodeByPath(state.selectedPath);
+      if (!node) { alert('먼저 항목을 선택해주세요.'); return null; }
+      if (node.isFile) { alert(actionName + '은(는) 폴더를 선택해야 합니다.'); return null; }
+      if (!Array.isArray(node.children)) node.children = [];
+      return node;
+    }
+
+    function setSelected(pathString) {
+      state.selectedPath = pathString;
+      render();
+    }
+
+    function uniqueName(children, baseName) {
+      const names = new Set(children.map((child) => child.name));
+      if (!names.has(baseName)) return baseName;
+      let i = 2;
+      while (names.has(baseName + ' (' + i + ')')) i += 1;
+      return baseName + ' (' + i + ')';
+    }
+
+    function renderNode(node, pathParts, depth) {
+      const row = document.createElement('div');
+      row.className = 'node';
+      const pathString = pathParts.join('/');
+      const hasChildren = !!(node.children && node.children.length);
+      const isOpen = state.openPaths.has(pathString) || depth < 1;
+      const isSelected = state.selectedPath === pathString;
+      const rowInner = document.createElement('div');
+      rowInner.className = 'node-row' + (isSelected ? ' selected' : '');
+      rowInner.addEventListener('click', () => setSelected(pathString));
+
+      for (let i = 0; i < depth; i += 1) {
+        const indent = document.createElement('span');
+        indent.className = 'indent';
+        rowInner.appendChild(indent);
+      }
+
+      const toggle = document.createElement('span');
+      toggle.className = 'toggle';
+      toggle.textContent = hasChildren ? (isOpen ? '▼' : '▶') : '';
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!hasChildren) return;
+        if (state.openPaths.has(pathString)) state.openPaths.delete(pathString);
+        else state.openPaths.add(pathString);
+        render();
+      });
+      rowInner.appendChild(toggle);
+
+      const icon = document.createElement('span');
+      icon.className = 'icon';
+      icon.textContent = node.isFile ? '📄' : '📁';
+      icon.style.color = node.isFile ? 'var(--file)' : 'var(--folder)';
+      rowInner.appendChild(icon);
+
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = node.name;
+      rowInner.appendChild(name);
+
+      if (node.comment) {
+        const comment = document.createElement('span');
+        comment.className = 'comment';
+        comment.textContent = '← ' + node.comment;
+        rowInner.appendChild(comment);
+      }
+
+      row.appendChild(rowInner);
+
+      if (hasChildren && isOpen) {
+        node.children.forEach((child) => row.appendChild(renderNode(child, [...pathParts, child.name], depth + 1)));
+      }
+      return row;
+    }
+
+    function render() {
+      treeRoot.innerHTML = '';
+      state.tree.forEach((node) => treeRoot.appendChild(renderNode(node, [node.name], 0)));
+      const selected = findNodeByPath(state.selectedPath);
+      selectedNameEl.textContent = selected ? (selected.isFile ? '📄 ' : '📁 ') + selected.name : '아직 선택되지 않음';
+      selectedPathEl.textContent = state.selectedPath || '-';
+      updateCounts();
+    }
+
+    function renameSelected() {
+      const current = withParentByPath(state.selectedPath);
+      if (!current || !current.node || !current.parent) return alert('먼저 항목을 선택해주세요.');
+      const next = prompt('새 이름', current.node.name);
+      if (!next || !next.trim()) return;
+      const trimmed = next.trim();
+      if (current.parent.some((sibling) => sibling !== current.node && sibling.name === trimmed)) {
+        return alert('같은 위치에 동일한 이름이 이미 있습니다.');
+      }
+      const oldPath = state.selectedPath;
+      current.node.name = trimmed;
+      const parts = oldPath.split('/').filter(Boolean);
+      parts[parts.length - 1] = trimmed;
+      state.selectedPath = parts.join('/');
+      notify('이름을 수정했습니다. 저장본 HTML을 다시 저장하세요.');
+      render();
+    }
+
+    function editComment() {
+      const current = withParentByPath(state.selectedPath);
+      if (!current || !current.node) return alert('먼저 항목을 선택해주세요.');
+      const next = prompt('메모/설명', current.node.comment || '');
+      if (next === null) return;
+      current.node.comment = next.trim();
+      notify('메모를 수정했습니다.');
+      render();
+    }
+
+    function addFolder() {
+      const folder = ensureFolderSelected('하위 폴더 추가');
+      if (!folder) return;
+      const name = prompt('새 폴더명', '새 폴더');
+      if (!name || !name.trim()) return;
+      const nextName = uniqueName(folder.children, name.trim());
+      folder.children.push({ name: nextName, isFile: false, children: [] });
+      const nextPath = (state.selectedPath ? state.selectedPath + '/' : '') + nextName;
+      state.openPaths.add(state.selectedPath);
+      state.openPaths.add(nextPath);
+      notify('하위 폴더를 추가했습니다.');
+      render();
+    }
+
+    function addFile() {
+      const folder = ensureFolderSelected('하위 파일 추가');
+      if (!folder) return;
+      const name = prompt('새 파일명', '새 파일.txt');
+      if (!name || !name.trim()) return;
+      const nextName = uniqueName(folder.children, name.trim());
+      folder.children.push({ name: nextName, isFile: true, comment: '' });
+      notify('하위 파일을 추가했습니다.');
+      render();
+    }
+
+    function deleteSelected() {
+      const current = withParentByPath(state.selectedPath);
+      if (!current || !current.node || !current.parent) return alert('먼저 항목을 선택해주세요.');
+      if (!confirm('정말 삭제할까요?')) return;
+      const idx = current.parent.indexOf(current.node);
+      current.parent.splice(idx, 1);
+      state.selectedPath = null;
+      notify('삭제했습니다.');
+      render();
+    }
+
+    function cloneSelected() {
+      const current = withParentByPath(state.selectedPath);
+      if (!current || !current.node || !current.parent) return alert('먼저 항목을 선택해주세요.');
+      const copy = cloneNode(current.node);
+      copy.name = uniqueName(current.parent, current.node.name + ' 복사본');
+      current.parent.splice(current.parent.indexOf(current.node) + 1, 0, copy);
+      notify('복제했습니다.');
+      render();
+    }
+
+    function expandAll() {
+      state.openPaths.clear();
+      walk(state.tree, (node, path) => {
+        if (!node.isFile && node.children && node.children.length) state.openPaths.add(path.join('/'));
+      });
+      render();
+    }
+
+    function collapseAll() {
+      state.openPaths.clear();
+      render();
+    }
+
+    function saveAsHtml() {
+      const json = JSON.stringify(state.tree, null, 2).replace(/</g, '\\u003c');
+      const startToken = '<script id="tree-data" type="application/json">';
+      const endToken = '</' + 'script>';
+      const startIdx = INITIAL_HTML.indexOf(startToken);
+      const endIdx = INITIAL_HTML.indexOf(endToken, startIdx);
+      if (startIdx < 0 || endIdx < 0) {
+        alert('내부 데이터 블록을 찾지 못했습니다.');
+        return;
+      }
+      const updatedHtml =
+        INITIAL_HTML.slice(0, startIdx + startToken.length) +
+        json +
+        INITIAL_HTML.slice(endIdx);
+      const blob = new Blob([updatedHtml], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'nas-guide-standalone-editor-' + stamp + '.html';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      notify('현재 상태가 포함된 HTML 저장본을 생성했습니다.');
+    }
+
+    function saveJson() {
+      const blob = new Blob([JSON.stringify(state.tree, null, 2)], { type: 'application/json;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'nas-guide-standalone-data.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      notify('JSON 참고본을 저장했습니다.');
+    }
+
+    document.getElementById('renameBtn').addEventListener('click', renameSelected);
+    document.getElementById('commentBtn').addEventListener('click', editComment);
+    document.getElementById('addFolderBtn').addEventListener('click', addFolder);
+    document.getElementById('addFileBtn').addEventListener('click', addFile);
+    document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
+    document.getElementById('cloneBtn').addEventListener('click', cloneSelected);
+    document.getElementById('expandAllBtn').addEventListener('click', expandAll);
+    document.getElementById('collapseAllBtn').addEventListener('click', collapseAll);
+    document.getElementById('saveBtn').addEventListener('click', saveAsHtml);
+    document.getElementById('downloadJsonBtn').addEventListener('click', saveJson);
+
+    expandAll();
+    setSelected(state.tree[0]?.name || null);
+    notify('준비됨 — 수정 후 HTML 저장 버튼으로 저장본을 만드세요.');
+  </script>
+</body>
+</html>
