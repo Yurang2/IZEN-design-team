@@ -23,7 +23,6 @@ type StoredNasTreeRow = {
 }
 
 const NAS_TREE_STATE_KEY = 'shared'
-const LEGACY_ROOT_PATHS = new Set(['01_PROJECT', '02_ASSET', '99_ARCHIVE', 'Google Drive'])
 
 let nasTreeDbInitInFlight: Promise<void> | null = null
 
@@ -167,13 +166,13 @@ async function readOrSeedNasTreeState(env: Env): Promise<SharedTreeNodeItem[]> {
   }
 
   const existingPaths = new Set(existing.map((item) => item.path))
-  const hasAllLegacyRoots = [...LEGACY_ROOT_PATHS].every((path) => existingPaths.has(path))
-  if (hasAllLegacyRoots) return existing
+  const hasAllSeededPaths = seeded.every((item) => existingPaths.has(item.path))
+  if (hasAllSeededPaths) return existing
 
   const mergedMap = new Map<string, SharedTreeNodeItem>()
   for (const item of seeded) mergedMap.set(item.path, item)
   for (const item of existing) mergedMap.set(item.path, item)
-  const merged = normalizeTreeItems([...mergedMap.values()])
+  const merged = normalizeTreeItems(Array.from(mergedMap.values()))
   await persistNasTreeState(env, merged, 'system-legacy-merge', 'seed')
   return (await readNasTreeState(env)) ?? merged
 }
