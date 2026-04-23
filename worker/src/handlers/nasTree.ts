@@ -1,5 +1,4 @@
 import type { Env } from '../types'
-import { LEGACY_NAS_TREE_SEED } from '../data/nasTreeSeed'
 import { asString, readJsonBody } from '../utils'
 
 export type SharedTreeNodeItem = {
@@ -157,26 +156,6 @@ async function readNasTreeState(env: Env): Promise<SharedTreeNodeItem[] | null> 
   }
 }
 
-async function readOrSeedNasTreeState(env: Env): Promise<SharedTreeNodeItem[]> {
-  const seeded = normalizeTreeItems(LEGACY_NAS_TREE_SEED)
-  const existing = await readNasTreeState(env)
-  if (!existing || existing.length === 0) {
-    await persistNasTreeState(env, seeded, 'system-legacy-seed', 'seed')
-    return (await readNasTreeState(env)) ?? seeded
-  }
-
-  const existingPaths = new Set(existing.map((item) => item.path))
-  const hasAllSeededPaths = seeded.every((item) => existingPaths.has(item.path))
-  if (hasAllSeededPaths) return existing
-
-  const mergedMap = new Map<string, SharedTreeNodeItem>()
-  for (const item of seeded) mergedMap.set(item.path, item)
-  for (const item of existing) mergedMap.set(item.path, item)
-  const merged = normalizeTreeItems(Array.from(mergedMap.values()))
-  await persistNasTreeState(env, merged, 'system-legacy-merge', 'seed')
-  return (await readNasTreeState(env)) ?? merged
-}
-
 export async function handleNasTreeRoutes(
   request: Request,
   path: string,
@@ -187,8 +166,8 @@ export async function handleNasTreeRoutes(
 
   if (request.method === 'GET') {
     await ensureNasTreeTables(env)
-    const items = await readOrSeedNasTreeState(env)
-    return respond.ok({ ok: true, items })
+    const items = await readNasTreeState(env)
+    return respond.ok({ ok: true, items: items ?? [] })
   }
 
   if (request.method === 'PUT') {
