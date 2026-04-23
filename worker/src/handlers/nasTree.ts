@@ -1,4 +1,5 @@
 import type { Env } from '../types'
+import { LEGACY_NAS_TREE_SEED } from '../data/nasTreeSeed'
 import { asString, readJsonBody } from '../utils'
 
 export type SharedTreeNodeItem = {
@@ -156,6 +157,15 @@ async function readNasTreeState(env: Env): Promise<SharedTreeNodeItem[] | null> 
   }
 }
 
+async function readOrSeedNasTreeState(env: Env): Promise<SharedTreeNodeItem[]> {
+  const existing = await readNasTreeState(env)
+  if (existing && existing.length > 0) return existing
+
+  const seeded = normalizeTreeItems(LEGACY_NAS_TREE_SEED)
+  await persistNasTreeState(env, seeded, 'system-legacy-seed', 'seed')
+  return (await readNasTreeState(env)) ?? seeded
+}
+
 export async function handleNasTreeRoutes(
   request: Request,
   path: string,
@@ -166,8 +176,8 @@ export async function handleNasTreeRoutes(
 
   if (request.method === 'GET') {
     await ensureNasTreeTables(env)
-    const items = await readNasTreeState(env)
-    return respond.ok({ ok: true, items: items ?? [] })
+    const items = await readOrSeedNasTreeState(env)
+    return respond.ok({ ok: true, items })
   }
 
   if (request.method === 'PUT') {
