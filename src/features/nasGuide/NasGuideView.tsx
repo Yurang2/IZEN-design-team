@@ -710,6 +710,15 @@ function uniqueTreeName(siblings: TreeNode[], desired: string): string {
   return `${desired} (${n})`
 }
 
+function validateTreeNodeName(name: string): string | null {
+  const trimmed = name.trim()
+  if (!trimmed) return '이름을 비워둘 수 없습니다.'
+  if (trimmed.includes('/')) return '폴더명/파일명에는 / 를 사용할 수 없습니다. - 또는 · 를 사용해주세요.'
+  if (trimmed.includes('\\')) return '폴더명/파일명에는 \\ 를 사용할 수 없습니다. - 또는 · 를 사용해주세요.'
+  if (/[\r\n\t]/.test(trimmed)) return '폴더명/파일명에는 줄바꿈이나 탭을 사용할 수 없습니다.'
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // Tree item component
 // ---------------------------------------------------------------------------
@@ -1156,6 +1165,11 @@ function SharedTreeEditor({
     const nextNameRaw = window.prompt('새 이름', selectedNode.name)
     const nextName = nextNameRaw?.trim()
     if (!nextName || nextName === selectedNode.name) return
+    const nameError = validateTreeNodeName(nextName)
+    if (nameError) {
+      window.alert(nameError)
+      return
+    }
     if (siblings.some((node) => node !== selectedNode && node.name === nextName)) {
       window.alert('같은 위치에 동일한 이름이 이미 있습니다.')
       return
@@ -1186,6 +1200,11 @@ function SharedTreeEditor({
     const nextNameRaw = window.prompt(kind === 'folder' ? '새 하위 폴더명' : '새 하위 파일명', kind === 'folder' ? '새 폴더' : '새 파일.txt')
     const nextName = nextNameRaw?.trim()
     if (!nextName) return
+    const nameError = validateTreeNodeName(nextName)
+    if (nameError) {
+      window.alert(nameError)
+      return
+    }
     const nextTree = updateTreeAtPath(tree, selectedPath, (node) => {
       if (!node.children) node.children = []
       const uniqueName = uniqueTreeName(node.children, nextName)
