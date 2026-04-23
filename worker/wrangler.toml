@@ -40,7 +40,7 @@ PAGE_PASSWORD = "izenjsk_62988"
 # npx wrangler secret put API_KEY --config worker/wrangler.toml
 # Comma-separated origins for browser access (exact + optional wildcard subdomain with *.)
 # Example: "http://localhost:5173,https://izen-design-team.pages.dev,https://*.izen-design-team.pages.dev"
-# ALLOWED_ORIGINS = "http://localhost:5173"
+ALLOWED_ORIGINS = "http://localhost:5173,https://izen-design-team.pages.dev,https://*.izen-design-team.pages.dev"
 
 # Basic burst protection (best effort, in-memory per isolate).
 RATE_LIMIT_WINDOW_SECONDS = "10"
