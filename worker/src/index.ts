@@ -335,6 +335,13 @@ export default {
         return ''
       }
       const loadAllPages = async () => queryNotionDatabaseAll(dbId, notionHeaders)
+      const loadTreePages = async () => queryNotionDatabaseAll(dbId, notionHeaders, () => ({
+        page_size: 100,
+        filter: {
+          property: '키워드',
+          title: { equals: TREE_KEYWORD },
+        },
+      }))
       const buildTreeMeta = (item: any) => JSON.stringify({
         name: asString(item.name),
         parentPath: asString(item.parentPath),
