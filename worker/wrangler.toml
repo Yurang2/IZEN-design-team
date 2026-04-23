@@ -82,13 +82,16 @@ MEETING_AUDIO_BUCKET_NAME = "izen-meeting-audio"
 REQUIRE_CF_ACCESS = "false"
 # ALLOWED_ACCESS_EMAILS = "user1@company.com,user2@company.com"
 
-# D1 bindings are appended at runtime by `scripts/run-worker.sh` when:
+# D1 bindings are configured as follows:
 # - CHECKLIST_DB_ID is set
 # - CHECKLIST_DB_NAME (optional, default: izen-design-checklist)
-# - NAS_TREE_DB_ID is set
-# - NAS_TREE_DB_NAME (optional, default: izen-nas-tree)
-# The deploy script now fails fast if NAS_TREE_DB_ID is missing so the binding
-# cannot be silently dropped by a later deploy.
+# - NAS_TREE_DB is committed here directly because Pages deploys did not
+#   reliably expose NAS_TREE_DB_ID to `scripts/run-worker.sh`.
+
+[[d1_databases]]
+binding = "NAS_TREE_DB"
+database_name = "izen-nas-tree"
+database_id = "d8a6c6d4-8966-43e8-8801-994c0a06e096"
 
 [[r2_buckets]]
 binding = "MEETING_AUDIO_BUCKET"

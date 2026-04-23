@@ -27,19 +27,7 @@ else
   echo "[run-worker] CHECKLIST_DB_ID is not set -> cache mode"
 fi
 
-if [[ -n "${NAS_TREE_DB_ID:-}" ]]; then
-  DB_NAME="${NAS_TREE_DB_NAME:-izen-nas-tree}"
-  {
-    printf "\n[[d1_databases]]\n"
-    printf "binding = \"NAS_TREE_DB\"\n"
-    printf "database_name = \"%s\"\n" "$DB_NAME"
-    printf "database_id = \"%s\"\n" "$NAS_TREE_DB_ID"
-  } >> "$TMP_CONFIG"
-  echo "[run-worker] D1 binding enabled: NAS_TREE_DB (${DB_NAME})"
-else
-  echo "[run-worker] ERROR: NAS_TREE_DB_ID is not set. Refusing to deploy because NAS_TREE_DB binding would be dropped."
-  exit 1
-fi
+echo "[run-worker] D1 binding enabled: NAS_TREE_DB (izen-nas-tree from worker/wrangler.toml)"
 
 if [[ -n "${MEETING_AUDIO_BUCKET_NAME:-}" ]]; then
   {
