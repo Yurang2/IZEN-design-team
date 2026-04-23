@@ -335,13 +335,25 @@ export default {
         return ''
       }
       const loadAllPages = async () => queryNotionDatabaseAll(dbId, notionHeaders)
-      const loadTreePages = async () => queryNotionDatabaseAll(dbId, notionHeaders, () => ({
-        page_size: 100,
-        filter: {
-          property: '키워드',
-          title: { equals: TREE_KEYWORD },
-        },
-      }))
+      const loadTreePages = async () => {
+        const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+          method: 'POST',
+          headers: notionHeaders,
+          body: JSON.stringify({
+            page_size: 100,
+            filter: {
+              property: '키워드',
+              title: { equals: TREE_KEYWORD },
+            },
+          }),
+        })
+        const data: any = await res.json().catch(() => null)
+        if (!res.ok) {
+          const message = asString(data?.message) || asString(data?.code) || 'notion_query_failed'
+          throw new Error(`notion_query_failed:${message}`)
+        }
+        return Array.isArray(data?.results) ? data.results : []
+      }
       const buildTreeMeta = (item: any) => JSON.stringify({
         name: asString(item.name),
         parentPath: asString(item.parentPath),
