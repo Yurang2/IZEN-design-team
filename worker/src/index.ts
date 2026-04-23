@@ -113,7 +113,7 @@ export default {
       jsonResponse(body, 200, { requestOrigin: origin, corsOrigin: allowedOrigin, path: responsePath })
     const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
     const coerceNotionCursor = (value: unknown) => {
-      const raw = asString(value).trim()
+      const raw = asString(value)
       if (!raw) return undefined
       if (UUID_PATTERN.test(raw)) return raw.match(UUID_PATTERN)?.[0]
       return undefined
@@ -142,7 +142,7 @@ export default {
         if (!data?.has_more) break
         const nextCursor = coerceNotionCursor(data?.next_cursor)
         if (!nextCursor) {
-          const preview = asString(data?.next_cursor).slice(0, 120)
+          const preview = (asString(data?.next_cursor) ?? '').slice(0, 120)
           throw new Error(`notion_invalid_next_cursor:${preview || 'empty'}`)
         }
         cursor = nextCursor
