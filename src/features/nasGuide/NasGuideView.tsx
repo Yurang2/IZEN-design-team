@@ -629,7 +629,7 @@ function buildTreeFromItems(items: SharedTreeNodeItem[]): TreeNode[] {
     return a.path.localeCompare(b.path)
   })
   const nodeByPath = new Map<string, TreeNode>()
-  const childrenByParent = new Map<string, TreeNode[]>()
+  const roots: TreeNode[] = []
 
   for (const item of sorted) {
     const node: TreeNode = {
@@ -639,19 +639,22 @@ function buildTreeFromItems(items: SharedTreeNodeItem[]): TreeNode[] {
       children: item.nodeType === 'file' ? undefined : [],
     }
     nodeByPath.set(item.path, node)
-    const siblings = childrenByParent.get(item.parentPath) ?? []
-    siblings.push(node)
-    childrenByParent.set(item.parentPath, siblings)
   }
 
   for (const item of sorted) {
-    if (!item.parentPath) continue
+    const node = nodeByPath.get(item.path)
+    if (!node) continue
+    if (!item.parentPath) {
+      roots.push(node)
+      continue
+    }
     const parent = nodeByPath.get(item.parentPath)
     if (!parent) continue
-    parent.children = childrenByParent.get(item.path) ?? parent.children ?? []
+    if (!parent.children) parent.children = []
+    parent.children.push(node)
   }
 
-  return childrenByParent.get('') ?? []
+  return roots
 }
 
 function findTreeNode(nodes: TreeNode[], path: string): TreeNode | null {
