@@ -368,7 +368,7 @@ export default {
         }
       }
       const listTreeItems = async () => {
-        const allPages = await loadAllPages()
+        const allPages = await loadTreePages()
         return allPages
           .map((page: any) => toTreeItem(page))
           .filter(Boolean)
@@ -427,11 +427,7 @@ export default {
           return json({ ok: false, error: 'missing_parent', path: missingParent.path, parentPath: missingParent.parentPath }, 400, origin)
         }
 
-        const allPages = await loadAllPages()
-        const existingTreePages = allPages.filter((page: any) => {
-          const props = (page.properties ?? {}) as Record<string, any>
-          return getText(props['키워드']) === TREE_KEYWORD
-        })
+        const existingTreePages = await loadTreePages()
         const existingByPath = new Map(existingTreePages.map((page: any) => {
           const props = (page.properties ?? {}) as Record<string, any>
           return [getText(props['추천 경로']), page]
