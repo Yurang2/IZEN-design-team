@@ -46,6 +46,7 @@ import {
   isAuthenticated,
 } from './auth'
 import { handleNasRoutes } from './handlers/nas'
+import { handleNasTreeRoutes } from './handlers/nasTree'
 import {
   checklistAssignmentKey,
   checklistMatrixKey,
@@ -315,11 +316,16 @@ export default {
     })
     if (nasHandled) return nasHandled
 
-    // Path mapping rules + shared NAS tree storage
-    if ((request.method === 'GET' && path === '/path-mapping') || path === '/nas-tree') {
+    const nasTreeHandled = await handleNasTreeRoutes(request, path, env, {
+      json: (body, status) => json(body, status, origin),
+      ok: (body) => ok(body, origin),
+    })
+    if (nasTreeHandled) return nasTreeHandled
+
+    // Path mapping rules
+    if (request.method === 'GET' && path === '/path-mapping') {
       const dbId = env.NOTION_PATH_MAPPING_DB_ID
       if (!dbId) {
-        if (path === '/nas-tree') return ok({ ok: true, items: [] }, origin)
         return ok({ ok: true, mappings: [] }, origin)
       }
       const notionHeaders = {
@@ -334,208 +340,16 @@ export default {
         if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
         return ''
       }
-      const loadAllPages = async () => queryNotionDatabaseAll(dbId, notionHeaders)
-      const loadTreePages = async () => {
-        const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-          method: 'POST',
-          headers: notionHeaders,
-          body: JSON.stringify({
-            page_size: 100,
-            filter: {
-              property: '키워드',
-              title: { equals: TREE_KEYWORD },
-            },
-          }),
-        })
-        const data: any = await res.json().catch(() => null)
-        if (!res.ok) {
-          const message = asString(data?.message) || asString(data?.code) || 'notion_query_failed'
-          throw new Error(`notion_query_failed:${message}`)
-        }
-        return Array.isArray(data?.results) ? data.results : []
-      }
-      const buildTreeMeta = (item: any) => JSON.stringify({
-        name: asString(item.name),
-        parentPath: asString(item.parentPath),
-        nodeType: asString(item.nodeType) || 'folder',
-        comment: asString(item.comment),
-        sortOrder: Number(item.sortOrder ?? 0),
-      })
-      const toTreeItem = (page: any) => {
+      const allPages = await queryNotionDatabaseAll(dbId, notionHeaders)
+      const mappings = allPages.map((page: any) => {
         const props = (page.properties ?? {}) as Record<string, any>
-        const keyword = getText(props['키워드'])
-        if (keyword !== TREE_KEYWORD) return null
-        const rawMeta = getText(props['비고'])
-        let meta: any = {}
-        try { meta = rawMeta ? JSON.parse(rawMeta) : {} } catch { meta = {} }
-        const pathValue = getText(props['추천 경로'])
-        const nameValue = asString(meta.name) ?? pathValue.split('/').filter(Boolean).at(-1) ?? ''
         return {
-          id: page.id,
-          path: pathValue,
-          name: nameValue,
-          parentPath: asString(meta.parentPath) ?? '',
-          nodeType: asString(meta.nodeType) || 'folder',
-          comment: asString(meta.comment),
-          sortOrder: Number(meta.sortOrder ?? 0),
-          updatedAt: page.last_edited_time ?? '',
+          keyword: getText(props['키워드']),
+          path: getText(props['추천 경로']),
+          note: getText(props['비고']),
         }
-      }
-      const isTreeItem = (item: any): item is SharedTreeNodeItem => (
-        !!item
-        && typeof item.path === 'string'
-        && item.path.length > 0
-        && typeof item.name === 'string'
-        && item.name.length > 0
-        && typeof item.parentPath === 'string'
-      )
-      const listTreeItems = async () => {
-        const allPages = await loadTreePages()
-        return allPages
-          .map((page: any) => toTreeItem(page))
-          .filter(isTreeItem)
-          .sort((a, b) => {
-            if (a.parentPath !== b.parentPath) return a.parentPath.localeCompare(b.parentPath)
-            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-            return a.path.localeCompare(b.path)
-          })
-      }
-      const notionJson = async (target: string, init: RequestInit, errorCode: string) => {
-        const res = await fetch(target, init)
-        const data: any = await res.json().catch(() => null)
-        if (!res.ok) {
-          const message = asString(data?.message) || asString(data?.code) || errorCode
-          throw new Error(`${errorCode}:${message}`)
-        }
-        return data
-      }
-
-      if (request.method === 'GET' && path === '/path-mapping') {
-        const allPages = await loadAllPages()
-        const mappings = allPages.map((page: any) => {
-          const props = (page.properties ?? {}) as Record<string, any>
-          return {
-            keyword: getText(props['키워드']),
-            path: getText(props['추천 경로']),
-            note: getText(props['비고']),
-          }
-        }).filter((m: any) => m.keyword && m.path && m.keyword !== TREE_KEYWORD)
-        return ok({ ok: true, mappings }, origin)
-      }
-
-      if (request.method === 'GET' && path === '/nas-tree') {
-        const items = await listTreeItems()
-        return ok({ ok: true, items }, origin)
-      }
-
-      if (request.method === 'PUT' && path === '/nas-tree') {
-        const body = await readJsonBody(request) as Record<string, unknown>
-        const items = Array.isArray(body.items) ? body.items : []
-        const normalized = items.map((item: any, index: number) => ({
-          path: asString(item.path),
-          name: asString(item.name),
-          parentPath: asString(item.parentPath),
-          nodeType: asString(item.nodeType) === 'file' ? 'file' : 'folder',
-          comment: asString(item.comment),
-          sortOrder: Number(item.sortOrder ?? index),
-        })).filter((item: any) => item.path && item.name)
-
-        const duplicatePath = normalized.find((item: any, index: number) => normalized.findIndex((candidate: any) => candidate.path === item.path) !== index)
-        if (duplicatePath) {
-          return json({ ok: false, error: 'duplicate_path', path: duplicatePath.path }, 400, origin)
-        }
-        const missingParent = normalized.find((item: any) => item.parentPath && !normalized.some((candidate: any) => candidate.path === item.parentPath))
-        if (missingParent) {
-          return json({ ok: false, error: 'missing_parent', path: missingParent.path, parentPath: missingParent.parentPath }, 400, origin)
-        }
-
-        const existingTreePages = await loadTreePages()
-        const existingByPath = new Map(existingTreePages.map((page: any) => {
-          const props = (page.properties ?? {}) as Record<string, any>
-          return [getText(props['추천 경로']), page]
-        }))
-        const submittedPaths = new Set(normalized.map((item: any) => item.path))
-
-        for (const item of normalized) {
-          const existing = existingByPath.get(item.path)
-          const nextMeta = buildTreeMeta(item)
-          if (existing) {
-            const props = (existing.properties ?? {}) as Record<string, any>
-            const prevMeta = getText(props['비고'])
-            const prevPath = getText(props['추천 경로'])
-            if (prevMeta === nextMeta && prevPath === item.path) continue
-            const updated = await notionJson(
-              `https://api.notion.com/v1/pages/${existing.id}`,
-              {
-                method: 'PATCH',
-                headers: notionHeaders,
-                body: JSON.stringify({
-                  properties: {
-                    '추천 경로': { rich_text: [{ text: { content: item.path } }] },
-                    '비고': { rich_text: [{ text: { content: nextMeta } }] },
-                  },
-                }),
-              },
-              'nas_tree_update_failed',
-            )
-            if (!updated?.id) throw new Error(`nas_tree_update_failed:${item.path}`)
-            continue
-          }
-
-          const created = await notionJson(
-            'https://api.notion.com/v1/pages',
-            {
-              method: 'POST',
-              headers: notionHeaders,
-              body: JSON.stringify({
-                parent: { database_id: dbId },
-                properties: {
-                  '키워드': { title: [{ text: { content: TREE_KEYWORD } }] },
-                  '추천 경로': { rich_text: [{ text: { content: item.path } }] },
-                  '비고': { rich_text: [{ text: { content: nextMeta } }] },
-                },
-              }),
-            },
-            'nas_tree_create_failed',
-          )
-          if (!created?.id) throw new Error(`nas_tree_create_failed:${item.path}`)
-        }
-
-        const syncedItems = await listTreeItems()
-        const syncedByPath = new Map(syncedItems.map((item: any) => [item.path, item]))
-        for (const item of normalized) {
-          const synced = syncedByPath.get(item.path)
-          if (!synced) throw new Error(`nas_tree_verify_missing:${item.path}`)
-          if (
-            synced.name !== item.name
-            || synced.parentPath !== item.parentPath
-            || synced.nodeType !== item.nodeType
-            || (synced.comment ?? '') !== (item.comment ?? '')
-            || Number(synced.sortOrder ?? 0) !== Number(item.sortOrder ?? 0)
-          ) {
-            throw new Error(`nas_tree_verify_mismatch:${item.path}`)
-          }
-        }
-
-        for (const page of existingTreePages) {
-          const props = (page.properties ?? {}) as Record<string, any>
-          const existingPath = getText(props['추천 경로'])
-          if (!submittedPaths.has(existingPath)) {
-            const archived = await notionJson(
-              `https://api.notion.com/v1/pages/${page.id}`,
-              {
-                method: 'PATCH',
-                headers: notionHeaders,
-                body: JSON.stringify({ archived: true }),
-              },
-              'nas_tree_archive_failed',
-            )
-            if (!archived?.id) throw new Error(`nas_tree_archive_failed:${existingPath}`)
-          }
-        }
-
-        return ok({ ok: true, count: normalized.length, items: syncedItems }, origin)
-      }
+      }).filter((m: any) => m.keyword && m.path && m.keyword !== TREE_KEYWORD)
+      return ok({ ok: true, mappings }, origin)
     }
 
     // Google Drive OAuth + API
