@@ -37,7 +37,8 @@ if [[ -n "${NAS_TREE_DB_ID:-}" ]]; then
   } >> "$TMP_CONFIG"
   echo "[run-worker] D1 binding enabled: NAS_TREE_DB (${DB_NAME})"
 else
-  echo "[run-worker] NAS_TREE_DB_ID is not set -> nas tree D1 disabled"
+  echo "[run-worker] ERROR: NAS_TREE_DB_ID is not set. Refusing to deploy because NAS_TREE_DB binding would be dropped."
+  exit 1
 fi
 
 if [[ -n "${MEETING_AUDIO_BUCKET_NAME:-}" ]]; then

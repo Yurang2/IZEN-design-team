@@ -82,9 +82,13 @@ MEETING_AUDIO_BUCKET_NAME = "izen-meeting-audio"
 REQUIRE_CF_ACCESS = "false"
 # ALLOWED_ACCESS_EMAILS = "user1@company.com,user2@company.com"
 
-# D1 binding is appended at runtime by `scripts/run-worker.sh` when:
+# D1 bindings are appended at runtime by `scripts/run-worker.sh` when:
 # - CHECKLIST_DB_ID is set
 # - CHECKLIST_DB_NAME (optional, default: izen-design-checklist)
+# - NAS_TREE_DB_ID is set
+# - NAS_TREE_DB_NAME (optional, default: izen-nas-tree)
+# The deploy script now fails fast if NAS_TREE_DB_ID is missing so the binding
+# cannot be silently dropped by a later deploy.
 
 [[r2_buckets]]
 binding = "MEETING_AUDIO_BUCKET"
