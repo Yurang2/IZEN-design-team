@@ -111,6 +111,46 @@ export default {
       jsonResponse(body, status, { requestOrigin: origin, corsOrigin: allowedOrigin, path: responsePath })
     const ok = (body: unknown, _origin?: string | null, responsePath = path): Response =>
       jsonResponse(body, 200, { requestOrigin: origin, corsOrigin: allowedOrigin, path: responsePath })
+    const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
+    const coerceNotionCursor = (value: unknown) => {
+      const raw = asString(value).trim()
+      if (!raw) return undefined
+      if (UUID_PATTERN.test(raw)) return raw.match(UUID_PATTERN)?.[0]
+      return undefined
+    }
+    const queryNotionDatabaseAll = async (
+      databaseId: string,
+      notionHeaders: Record<string, string>,
+      buildBody?: (cursor?: string) => Record<string, unknown>,
+    ) => {
+      const allPages: any[] = []
+      let cursor: string | undefined
+      let pageCount = 0
+      while (true) {
+        const body: Record<string, unknown> = buildBody?.(cursor) ?? { page_size: 100 }
+        const safeCursor = coerceNotionCursor(cursor)
+        if (safeCursor) body.start_cursor = safeCursor
+        const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+          method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
+        })
+        const data: any = await res.json().catch(() => null)
+        if (!res.ok) {
+          const message = asString(data?.message) || asString(data?.code) || 'notion_query_failed'
+          throw new Error(`notion_query_failed:${message}`)
+        }
+        allPages.push(...(Array.isArray(data?.results) ? data.results : []))
+        if (!data?.has_more) break
+        const nextCursor = coerceNotionCursor(data?.next_cursor)
+        if (!nextCursor) {
+          const preview = asString(data?.next_cursor).slice(0, 120)
+          throw new Error(`notion_invalid_next_cursor:${preview || 'empty'}`)
+        }
+        cursor = nextCursor
+        pageCount += 1
+        if (pageCount > 100) throw new Error('notion_query_failed:pagination_limit_exceeded')
+      }
+      return allPages
+    }
 
     if (request.method === 'OPTIONS') {
       if (!origin || !allowedOrigin) {
@@ -294,22 +334,7 @@ export default {
         if (p.type === 'rich_text') return (p.rich_text ?? []).map((t: any) => t.plain_text ?? '').join('')
         return ''
       }
-      const loadAllPages = async () => {
-        const allPages: any[] = []
-        let cursor: string | undefined
-        while (true) {
-          const body: any = { page_size: 100 }
-          if (cursor) body.start_cursor = cursor
-          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
-          })
-          const data: any = await res.json()
-          allPages.push(...(data.results ?? []))
-          if (!data.has_more) break
-          cursor = data.next_cursor
-        }
-        return allPages
-      }
+      const loadAllPages = async () => queryNotionDatabaseAll(dbId, notionHeaders)
       const buildTreeMeta = (item: any) => JSON.stringify({
         name: asString(item.name),
         parentPath: asString(item.parentPath),
@@ -621,19 +646,7 @@ export default {
 
       // GET /nas-issues — list all
       if (request.method === 'GET' && path === '/nas-issues') {
-        const allPages: any[] = []
-        let cursor: string | undefined
-        while (true) {
-          const body: any = { page_size: 100 }
-          if (cursor) body.start_cursor = cursor
-          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
-          })
-          const data: any = await res.json()
-          allPages.push(...(data.results ?? []))
-          if (!data.has_more) break
-          cursor = data.next_cursor
-        }
+        const allPages = await queryNotionDatabaseAll(dbId, notionHeaders)
         const items = allPages.map((page: any) => {
           const props = (page.properties ?? {}) as Record<string, any>
           return {
@@ -719,19 +732,7 @@ export default {
 
       // GET /work-manual-status — list all
       if (request.method === 'GET' && path === '/work-manual-status') {
-        const allPages: any[] = []
-        let cursor: string | undefined
-        while (true) {
-          const body: any = { page_size: 100 }
-          if (cursor) body.start_cursor = cursor
-          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
-          })
-          const data: any = await res.json()
-          allPages.push(...(data.results ?? []))
-          if (!data.has_more) break
-          cursor = data.next_cursor
-        }
+        const allPages = await queryNotionDatabaseAll(dbId, notionHeaders)
         const items = allPages.map((page: any) => {
           const props = (page.properties ?? {}) as Record<string, any>
           return {
@@ -819,19 +820,7 @@ export default {
       )
 
       if (request.method === 'GET' && path === '/folder-status') {
-        const allPages: any[] = []
-        let cursor: string | undefined
-        while (true) {
-          const body: any = { page_size: 100 }
-          if (cursor) body.start_cursor = cursor
-          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
-          })
-          const data: any = await res.json()
-          allPages.push(...(data.results ?? []))
-          if (!data.has_more) break
-          cursor = data.next_cursor
-        }
+        const allPages = await queryNotionDatabaseAll(dbId, notionHeaders)
         const items = allPages.map((page: any) => {
           const props = (page.properties ?? {}) as Record<string, any>
           return {
@@ -912,22 +901,13 @@ export default {
 
       if (request.method === 'GET' && path === '/work-manual-refs') {
         const workTypeFilter = asString(url.searchParams.get('workType'))
-        const allPages: any[] = []
-        let cursor: string | undefined
-        while (true) {
-          const body: any = { page_size: 100 }
-          if (cursor) body.start_cursor = cursor
+        const allPages = await queryNotionDatabaseAll(dbId, notionHeaders, () => {
+          const body: Record<string, unknown> = { page_size: 100 }
           if (workTypeFilter) {
             body.filter = { property: '업무구분', rich_text: { equals: workTypeFilter } }
           }
-          const res = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-            method: 'POST', headers: notionHeaders, body: JSON.stringify(body),
-          })
-          const data: any = await res.json()
-          allPages.push(...(data.results ?? []))
-          if (!data.has_more) break
-          cursor = data.next_cursor
-        }
+          return body
+        })
         const items = allPages.map((page: any) => {
           const props = (page.properties ?? {}) as Record<string, any>
           return {
