@@ -4414,15 +4414,20 @@ export function NasGuideView() {
       const savedTree = res?.items?.length ? buildTreeFromItems(res.items) : nextTree
       setSharedTree(savedTree)
       setTreeSaveMessage(`저장 완료 · ${reason}`)
-      await recordHistory({
-        kind: '폴더',
-        target: '업무별 매뉴얼 공통 트리',
-        action: '공통 트리 수정',
-        before: '',
-        after: '',
-        reason,
-      })
-      setHistoryVersion((v) => v + 1)
+      try {
+        await recordHistory({
+          kind: '폴더',
+          target: '업무별 매뉴얼 공통 트리',
+          action: '공통 트리 수정',
+          before: '',
+          after: '',
+          reason,
+        })
+        setHistoryVersion((v) => v + 1)
+      } catch (historyErr) {
+        const historyMessage = historyErr instanceof Error ? historyErr.message : '이력 기록 실패'
+        setTreeSaveMessage(`저장 완료 · ${reason} · 이력 기록 실패(${historyMessage})`)
+      }
     } catch (err) {
       setSharedTree(previousTree)
       const message = err instanceof Error ? err.message : '저장 실패'
