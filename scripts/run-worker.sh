@@ -27,6 +27,19 @@ else
   echo "[run-worker] CHECKLIST_DB_ID is not set -> cache mode"
 fi
 
+if [[ -n "${NAS_TREE_DB_ID:-}" ]]; then
+  DB_NAME="${NAS_TREE_DB_NAME:-izen-nas-tree}"
+  {
+    printf "\n[[d1_databases]]\n"
+    printf "binding = \"NAS_TREE_DB\"\n"
+    printf "database_name = \"%s\"\n" "$DB_NAME"
+    printf "database_id = \"%s\"\n" "$NAS_TREE_DB_ID"
+  } >> "$TMP_CONFIG"
+  echo "[run-worker] D1 binding enabled: NAS_TREE_DB (${DB_NAME})"
+else
+  echo "[run-worker] NAS_TREE_DB_ID is not set -> nas tree D1 disabled"
+fi
+
 if [[ -n "${MEETING_AUDIO_BUCKET_NAME:-}" ]]; then
   {
     printf "\n[[r2_buckets]]\n"

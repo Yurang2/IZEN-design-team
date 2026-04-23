@@ -60,6 +60,7 @@ export interface Env {
   ALLOWED_ACCESS_EMAILS?: string
   API_CACHE_TTL_SECONDS?: string
   CHECKLIST_DB?: ChecklistDbBinding
+  NAS_TREE_DB?: ChecklistDbBinding
   MEETING_AUDIO_BUCKET?: R2BucketBinding
   MEETING_AUDIO_BUCKET_NAME?: string
   R2_ACCOUNT_ID?: string
