@@ -356,23 +356,33 @@ export default {
         const rawMeta = getText(props['비고'])
         let meta: any = {}
         try { meta = rawMeta ? JSON.parse(rawMeta) : {} } catch { meta = {} }
+        const pathValue = getText(props['추천 경로'])
+        const nameValue = asString(meta.name) ?? pathValue.split('/').filter(Boolean).at(-1) ?? ''
         return {
           id: page.id,
-          path: getText(props['추천 경로']),
-          name: asString(meta.name),
-          parentPath: asString(meta.parentPath),
+          path: pathValue,
+          name: nameValue,
+          parentPath: asString(meta.parentPath) ?? '',
           nodeType: asString(meta.nodeType) || 'folder',
           comment: asString(meta.comment),
           sortOrder: Number(meta.sortOrder ?? 0),
           updatedAt: page.last_edited_time ?? '',
         }
       }
+      const isTreeItem = (item: any): item is SharedTreeNodeItem => (
+        !!item
+        && typeof item.path === 'string'
+        && item.path.length > 0
+        && typeof item.name === 'string'
+        && item.name.length > 0
+        && typeof item.parentPath === 'string'
+      )
       const listTreeItems = async () => {
         const allPages = await loadTreePages()
         return allPages
           .map((page: any) => toTreeItem(page))
-          .filter(Boolean)
-          .sort((a: any, b: any) => {
+          .filter(isTreeItem)
+          .sort((a, b) => {
             if (a.parentPath !== b.parentPath) return a.parentPath.localeCompare(b.parentPath)
             if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
             return a.path.localeCompare(b.path)
