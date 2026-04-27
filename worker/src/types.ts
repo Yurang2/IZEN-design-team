@@ -19,10 +19,16 @@ export type R2ObjectLike = {
   size?: number
   uploaded?: Date
   body?: R2ObjectBody | null
+  text?: () => Promise<string>
+  arrayBuffer?: () => Promise<ArrayBuffer>
 }
 
 export type R2BucketBinding = {
-  put: (key: string, value: ArrayBuffer | ArrayBufferView | ReadableStream | string | Blob, options?: Record<string, unknown>) => Promise<R2ObjectLike | null>
+  put: (
+    key: string,
+    value: ArrayBuffer | ArrayBufferView | ReadableStream | string | Blob,
+    options?: Record<string, unknown>,
+  ) => Promise<R2ObjectLike | null>
   get: (key: string, options?: Record<string, unknown>) => Promise<R2ObjectLike | null>
   delete: (key: string | string[]) => Promise<void>
 }
@@ -64,7 +70,9 @@ export interface Env {
   API_CACHE_TTL_SECONDS?: string
   CHECKLIST_DB?: ChecklistDbBinding
   NAS_TREE_DB?: ChecklistDbBinding
+  STORYBOARD_DB?: ChecklistDbBinding
   MEETING_AUDIO_BUCKET?: R2BucketBinding
+  STORYBOARD_ASSETS_BUCKET?: R2BucketBinding
   MEETING_AUDIO_BUCKET_NAME?: string
   R2_ACCOUNT_ID?: string
   R2_ACCESS_KEY_ID?: string

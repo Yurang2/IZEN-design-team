@@ -290,3 +290,9 @@
   "source": "db | sample"
 }
 ```
+
+## Storyboard Storage Rule
+- `GET/POST/PATCH /api/storyboards` keeps Notion as the human-facing metadata row.
+- Storyboard page/frame content is stored in D1 (`storyboard_documents`, `storyboard_frames`).
+- Storyboard image binaries are stored in R2 under the `storyboards/` prefix; D1 stores only image keys and metadata.
+- Notion `스토리보드 JSON` must not store full frame JSON or base64 image payloads.

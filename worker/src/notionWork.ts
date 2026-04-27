@@ -4,6 +4,7 @@ import type {
   ApiSchemaSummary,
   ChecklistAssignmentRow,
   ChecklistAssignmentStatus,
+  ChecklistDbBinding,
   ChecklistPreviewItem,
   CreateFeedbackInput,
   CreateProgramIssueInput,
@@ -24,6 +25,7 @@ import type {
   ReferenceSchema,
   ReferenceSourceType,
   ReferenceUsageType,
+  R2BucketBinding,
   StoryboardDocumentData,
   StoryboardDocumentRecord,
   StoryboardSchema,
@@ -496,7 +498,10 @@ function extractTextLike(props: AnyMap, field: FieldSchema, fallback = ''): stri
   }
 
   if (prop.type === 'multi_select') {
-    return (prop.multi_select ?? []).map((entry: any) => entry?.name).filter(Boolean).join(', ')
+    return (prop.multi_select ?? [])
+      .map((entry: any) => entry?.name)
+      .filter(Boolean)
+      .join(', ')
   }
 
   if (prop.type === 'url') {
@@ -547,14 +552,21 @@ function extractRelationIds(props: AnyMap, field: FieldSchema): string[] {
   return (prop.relation ?? []).map((entry: any) => entry?.id).filter(Boolean)
 }
 
-function extractRelationOrText(props: AnyMap, field: FieldSchema, relationNameMap: Record<string, string>, fallback = ''): string | undefined {
+function extractRelationOrText(
+  props: AnyMap,
+  field: FieldSchema,
+  relationNameMap: Record<string, string>,
+  fallback = '',
+): string | undefined {
   if (field.status === 'missing' || field.status === 'mismatch') return undefined
   const prop = props[field.actualName]
   if (!prop) return fallback || undefined
 
   if (prop.type === 'relation') {
     const labels = (prop.relation ?? [])
-      .map((entry: any) => normalizeText(relationNameMap[normalizeNotionId(entry?.id)] ?? relationNameMap[entry?.id] ?? ''))
+      .map((entry: any) =>
+        normalizeText(relationNameMap[normalizeNotionId(entry?.id)] ?? relationNameMap[entry?.id] ?? ''),
+      )
       .filter(Boolean)
     return labels.join(', ') || fallback || undefined
   }
@@ -628,15 +640,27 @@ function serializeScheduleInlineValue(value: any): string {
   if (typed.type === 'rich_text') return joinRichText(typed.rich_text ?? [])
   if (typed.type === 'number') return typed.number == null ? '' : String(typed.number)
   if (typed.type === 'select') return normalizeText(typed.select?.name)
-  if (typed.type === 'multi_select') return (typed.multi_select ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean).join(', ')
+  if (typed.type === 'multi_select')
+    return (typed.multi_select ?? [])
+      .map((entry: any) => normalizeText(entry?.name))
+      .filter(Boolean)
+      .join(', ')
   if (typed.type === 'status') return normalizeText(typed.status?.name)
   if (typed.type === 'date') return formatNotionDateRange(typed.date)
   if (typed.type === 'checkbox') return typed.checkbox === true ? 'true' : typed.checkbox === false ? 'false' : ''
   if (typed.type === 'url') return normalizeText(typed.url)
   if (typed.type === 'email') return normalizeText(typed.email)
   if (typed.type === 'phone_number') return normalizeText(typed.phone_number)
-  if (typed.type === 'people') return (typed.people ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean).join(', ')
-  if (typed.type === 'relation') return (typed.relation ?? []).map((entry: any) => normalizeText(entry?.id)).filter(Boolean).join(', ')
+  if (typed.type === 'people')
+    return (typed.people ?? [])
+      .map((entry: any) => normalizeText(entry?.name))
+      .filter(Boolean)
+      .join(', ')
+  if (typed.type === 'relation')
+    return (typed.relation ?? [])
+      .map((entry: any) => normalizeText(entry?.id))
+      .filter(Boolean)
+      .join(', ')
   if (typed.type === 'files') {
     return (typed.files ?? [])
       .map((entry: any) => firstNonEmptyText(entry?.name, extractFileUrl(entry)))
@@ -656,7 +680,8 @@ function serializeScheduleInlineValue(value: any): string {
   if (typed.type === 'formula') {
     if (typed.formula?.type === 'string') return normalizeText(typed.formula.string)
     if (typed.formula?.type === 'number') return typed.formula.number == null ? '' : String(typed.formula.number)
-    if (typed.formula?.type === 'boolean') return typed.formula.boolean === true ? 'true' : typed.formula.boolean === false ? 'false' : ''
+    if (typed.formula?.type === 'boolean')
+      return typed.formula.boolean === true ? 'true' : typed.formula.boolean === false ? 'false' : ''
     if (typed.formula?.type === 'date') return formatNotionDateRange(typed.formula.date)
     return ''
   }
@@ -689,11 +714,11 @@ function serializeScheduleCell(prop: any, column: ScheduleColumn): ScheduleCell 
           : prop?.type === 'files'
             ? (() => {
                 const firstFile = (prop.files ?? []).find((entry: any) => Boolean(extractFileUrl(entry)))
-                return firstFile ? extractFileUrl(firstFile) ?? null : null
+                return firstFile ? (extractFileUrl(firstFile) ?? null) : null
               })()
             : prop?.type === 'rich_text' || prop?.type === 'title'
               ? (() => {
-                  const entries = prop.type === 'rich_text' ? prop.rich_text ?? [] : prop.title ?? []
+                  const entries = prop.type === 'rich_text' ? (prop.rich_text ?? []) : (prop.title ?? [])
                   for (const entry of entries) {
                     const candidate = normalizeText(entry?.href)
                     if (candidate) return candidate
@@ -741,7 +766,10 @@ function normalizeEventGraphicsExternalFilesInput(value: unknown): Array<{ name:
         if (typeof entry === 'string') return buildEntry('', entry)
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
         const typed = entry as Record<string, unknown>
-        return buildEntry(typeof typed.name === 'string' ? typed.name : '', typeof typed.url === 'string' ? typed.url : '')
+        return buildEntry(
+          typeof typed.name === 'string' ? typed.name : '',
+          typeof typed.url === 'string' ? typed.url : '',
+        )
       })
       .filter((entry): entry is { name: string; url: string } => Boolean(entry))
   }
@@ -759,7 +787,10 @@ function normalizeEventGraphicsExternalFilesInput(value: unknown): Array<{ name:
 }
 
 function parseDbTitle(db: any): string {
-  return (db?.title ?? []).map((item: any) => item?.plain_text ?? '').join('').trim()
+  return (db?.title ?? [])
+    .map((item: any) => item?.plain_text ?? '')
+    .join('')
+    .trim()
 }
 
 const SCREENING_HISTORY_DATABASE_TITLE = '\uC0C1\uC601 \uC601\uC0C1 \uAE30\uB85D DB'
@@ -789,7 +820,10 @@ const SCREENING_PLAN_BASE_USAGE_MODE_FIELD = '\uAE30\uC900 \uD65C\uC6A9 \uBC29\u
 const SCREENING_PLAN_REVIEW_STATUS_FIELD = '\uCD5C\uC2E0\uD654 \uAC80\uD1A0 \uC0C1\uD0DC'
 const SCREENING_PLAN_REVIEW_NOTE_FIELD = '\uCD5C\uC2E0\uD654 \uAC80\uD1A0 \uBA54\uBAA8'
 
-const SCREENING_HISTORY_PLAYED_FILE_NAME_ALIASES = ['\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85', '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85']
+const SCREENING_HISTORY_PLAYED_FILE_NAME_ALIASES = [
+  '\uC2E4\uC81C \uC0C1\uC601 \uD30C\uC77C\uBA85',
+  '\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85',
+]
 const SCREENING_PLAN_ACTUAL_OUTPUT_ALIASES = ['\uBCC0\uD658 \uD6C4 \uD30C\uC77C\uBA85']
 
 const SCREENING_PLAN_STATUS_OPTIONS = [
@@ -935,7 +969,9 @@ type EventGraphicsImportResult = {
   total: number
 }
 
-function buildEventGraphicsTimetablePropertyDefinitions(projectDatabaseId: string): Array<{ name: string; definition: AnyMap }> {
+function buildEventGraphicsTimetablePropertyDefinitions(
+  projectDatabaseId: string,
+): Array<{ name: string; definition: AnyMap }> {
   return [
     {
       name: '귀속 프로젝트',
@@ -1007,7 +1043,10 @@ type ScreeningFieldDefinition = {
   aliases?: string[]
 }
 
-function buildScreeningHistoryPropertyDefinitions(projectDatabaseId: string, taskDatabaseId: string): ScreeningFieldDefinition[] {
+function buildScreeningHistoryPropertyDefinitions(
+  projectDatabaseId: string,
+  taskDatabaseId: string,
+): ScreeningFieldDefinition[] {
   return [
     {
       name: SCREENING_COMMON_PROJECT_FIELD,
@@ -1398,12 +1437,14 @@ function applyLongRichText(properties: AnyMap, field: FieldSchema, value: string
   }
 
   if (field.actualType === 'title') {
-    properties[field.actualName] = normalized ? { title: [{ text: { content: normalized.slice(0, 1900) } }] } : { title: [] }
+    properties[field.actualName] = normalized
+      ? { title: [{ text: { content: normalized.slice(0, 1900) } }] }
+      : { title: [] }
   }
 }
 
 const STORYBOARD_DATA_BLOCK_MARKER = 'IZEN_STORYBOARD_JSON_V1'
-const STORYBOARD_DATA_BLOCK_CHUNK_SIZE = 1700
+const STORYBOARD_D1_PROPERTY_MARKER = 'D1_STORYBOARD_DOCUMENT'
 
 function getBlockPlainText(block: any): string {
   const type = typeof block?.type === 'string' ? block.type : ''
@@ -1411,16 +1452,41 @@ function getBlockPlainText(block: any): string {
   return joinRichText(richText)
 }
 
-function stripStoryboardDataForProperty(data: StoryboardDocumentData): StoryboardDocumentData {
-  return {
-    meta: data.meta ?? {},
-    frames: Array.isArray(data.frames)
-      ? data.frames.map((frame) => ({
-          ...frame,
-          thumbnailDataUrl: '',
-        }))
-      : [],
+function storyboardDb(env: Env): ChecklistDbBinding | undefined {
+  return env.STORYBOARD_DB ?? env.NAS_TREE_DB
+}
+
+function storyboardAssetBucket(env: Env): R2BucketBinding | undefined {
+  return env.STORYBOARD_ASSETS_BUCKET ?? env.MEETING_AUDIO_BUCKET
+}
+
+function parseDataUrl(value: unknown): { contentType: string; bytes: Uint8Array } | null {
+  if (typeof value !== 'string') return null
+  const match = value.match(/^data:([^;,]+);base64,(.+)$/)
+  if (!match) return null
+  const binary = atob(match[2])
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
   }
+  return { contentType: match[1], bytes }
+}
+
+function imageExtension(contentType: string): string {
+  if (contentType.includes('png')) return 'png'
+  if (contentType.includes('webp')) return 'webp'
+  if (contentType.includes('gif')) return 'gif'
+  if (contentType.includes('jpeg') || contentType.includes('jpg')) return 'jpg'
+  return 'bin'
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let index = 0; index < bytes.length; index += 1) {
+    binary += String.fromCharCode(bytes[index])
+  }
+  return btoa(binary)
 }
 
 function applyUrlLike(properties: AnyMap, field: FieldSchema, value: string | null | undefined): void {
@@ -1433,7 +1499,9 @@ function applyUrlLike(properties: AnyMap, field: FieldSchema, value: string | nu
   }
 
   if (field.actualType === 'rich_text') {
-    properties[field.actualName] = normalized ? { rich_text: [{ text: { content: normalized, link: { url: normalized } } }] } : { rich_text: [] }
+    properties[field.actualName] = normalized
+      ? { rich_text: [{ text: { content: normalized, link: { url: normalized } } }] }
+      : { rich_text: [] }
     return
   }
 
@@ -1464,11 +1532,18 @@ function applyTitleLike(properties: AnyMap, field: FieldSchema, value: string): 
 function applyRelationIds(properties: AnyMap, field: FieldSchema, ids: string[]): void {
   if (!isKnownField(field)) return
   if (field.actualType !== 'relation') return
-  const relation = ids.map((id) => normalizeText(id)).filter(Boolean).map((id) => ({ id }))
+  const relation = ids
+    .map((id) => normalizeText(id))
+    .filter(Boolean)
+    .map((id) => ({ id }))
   properties[field.actualName] = { relation }
 }
 
-function applyFiles(properties: AnyMap, field: FieldSchema, files: Array<{ name: string; type: string; file_upload: { id: string } }>): void {
+function applyFiles(
+  properties: AnyMap,
+  field: FieldSchema,
+  files: Array<{ name: string; type: string; file_upload: { id: string } }>,
+): void {
   if (!isKnownField(field)) return
   if (field.actualType !== 'files') return
   properties[field.actualName] = { files }
@@ -1619,7 +1694,12 @@ export class NotionWorkService {
   private async ensureProjectDatabaseProperties(options?: { force?: boolean }): Promise<ProjectSchemaSyncResult> {
     const force = options?.force === true
     const now = Date.now()
-    if (!force && projectDbSchemaCheckedAt > 0 && now - projectDbSchemaCheckedAt < PROJECT_DB_SCHEMA_TTL_MS && projectDbSchemaLastResult) {
+    if (
+      !force &&
+      projectDbSchemaCheckedAt > 0 &&
+      now - projectDbSchemaCheckedAt < PROJECT_DB_SCHEMA_TTL_MS &&
+      projectDbSchemaLastResult
+    ) {
       return projectDbSchemaLastResult
     }
 
@@ -1673,18 +1753,23 @@ export class NotionWorkService {
   private buildTaskSchema(properties: Record<string, any>): TaskSchema {
     const relationFallback = (entries: Array<[string, any]>) => {
       const byTargetDb = entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+        ([, prop]) =>
+          prop?.type === 'relation' &&
+          normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
       )
       if (byTargetDb) return byTargetDb
 
       return entries.find(
         ([name, prop]) =>
-          prop?.type === 'relation' && (name.includes('귀속 프로젝트') || (name.includes('귀속') && name.includes('프로젝트'))),
+          prop?.type === 'relation' &&
+          (name.includes('귀속 프로젝트') || (name.includes('귀속') && name.includes('프로젝트'))),
       )
     }
 
     const projectSelectFallback = (entries: Array<[string, any]>) => {
-      const byName = entries.find(([name, prop]) => name.includes('프로젝트') && ['select', 'multi_select', 'rich_text'].includes(prop?.type))
+      const byName = entries.find(
+        ([name, prop]) => name.includes('프로젝트') && ['select', 'multi_select', 'rich_text'].includes(prop?.type),
+      )
       if (byName) return byName
       return findFirstByTypes(entries, ['select', 'multi_select'])
     }
@@ -1696,31 +1781,72 @@ export class NotionWorkService {
     }
 
     const assigneeFallback = (entries: Array<[string, any]>) => {
-      const byName = entries.find(([name, prop]) => name.includes('담당') && ['people', 'multi_select', 'rich_text', 'select', 'title'].includes(prop?.type))
+      const byName = entries.find(
+        ([name, prop]) =>
+          name.includes('담당') && ['people', 'multi_select', 'rich_text', 'select', 'title'].includes(prop?.type),
+      )
       if (byName) return byName
       return findFirstByTypes(entries, ['people', 'multi_select', 'select'])
     }
 
     const requesterFallback = (entries: Array<[string, any]>) => {
-      const byName = entries.find(([name, prop]) => name.includes('요청') && ['people', 'multi_select', 'rich_text', 'select'].includes(prop?.type))
+      const byName = entries.find(
+        ([name, prop]) =>
+          name.includes('요청') && ['people', 'multi_select', 'rich_text', 'select'].includes(prop?.type),
+      )
       if (byName) return byName
       return findFirstByTypes(entries, ['people', 'multi_select', 'select'])
     }
 
     return {
       fields: {
-        projectRelation: pickField('projectRelation', properties, '귀속 프로젝트', ['relation'], false, relationFallback),
-        projectSelect: pickField('projectSelect', properties, '프로젝트', ['select', 'multi_select', 'rich_text'], true, projectSelectFallback),
-        taskName: pickField('taskName', properties, '업무', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
-        workType: pickField('workType', properties, '업무구분', ['select', 'multi_select', 'rich_text', 'title'], false, (entries) => {
-          const byName = entries.find(([name, prop]) => name.includes('구분') && ['select', 'multi_select', 'rich_text', 'title'].includes(prop?.type))
-          if (byName) return byName
-          return findFirstByTypes(entries, ['select', 'multi_select', 'rich_text'])
-        }),
+        projectRelation: pickField(
+          'projectRelation',
+          properties,
+          '귀속 프로젝트',
+          ['relation'],
+          false,
+          relationFallback,
+        ),
+        projectSelect: pickField(
+          'projectSelect',
+          properties,
+          '프로젝트',
+          ['select', 'multi_select', 'rich_text'],
+          true,
+          projectSelectFallback,
+        ),
+        taskName: pickField('taskName', properties, '업무', ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
+        workType: pickField(
+          'workType',
+          properties,
+          '업무구분',
+          ['select', 'multi_select', 'rich_text', 'title'],
+          false,
+          (entries) => {
+            const byName = entries.find(
+              ([name, prop]) =>
+                name.includes('구분') && ['select', 'multi_select', 'rich_text', 'title'].includes(prop?.type),
+            )
+            if (byName) return byName
+            return findFirstByTypes(entries, ['select', 'multi_select', 'rich_text'])
+          },
+        ),
         status: pickField('status', properties, '상태', ['status', 'select', 'rich_text'], false, statusFallback),
-        assignee: pickField('assignee', properties, '담당자', ['people', 'multi_select', 'select', 'rich_text', 'title'], false, assigneeFallback),
+        assignee: pickField(
+          'assignee',
+          properties,
+          '담당자',
+          ['people', 'multi_select', 'select', 'rich_text', 'title'],
+          false,
+          assigneeFallback,
+        ),
         startDate: pickField('startDate', properties, '접수일', ['date'], false, (entries) => {
-          const byName = entries.find(([name, prop]) => prop?.type === 'date' && (name.includes('접수') || name.includes('시작')))
+          const byName = entries.find(
+            ([name, prop]) => prop?.type === 'date' && (name.includes('접수') || name.includes('시작')),
+          )
           if (byName) return byName
           return findFirstByTypes(entries, ['date'])
         }),
@@ -1733,7 +1859,9 @@ export class NotionWorkService {
           const byName = entries.find(
             ([name, prop]) =>
               prop?.type === 'date' &&
-              (name.includes('\uCC29\uC218') || name.includes('\uC2E4\uC81C \uCC29\uC218') || name.includes('\uC2E4\uC81C\uCC29\uC218')),
+              (name.includes('\uCC29\uC218') ||
+                name.includes('\uC2E4\uC81C \uCC29\uC218') ||
+                name.includes('\uC2E4\uC81C\uCC29\uC218')),
           )
           if (byName) return byName
           return entries.find(([name, prop]) => prop?.type === 'date' && name.includes('\uCC29\uC218'))
@@ -1742,29 +1870,48 @@ export class NotionWorkService {
           const byName = entries.find(
             ([name, prop]) =>
               prop?.type === 'date' &&
-              (name.includes('실제 종료') || name.includes('실제종료') || name.includes('실제 완료') || name.includes('실제완료') || name.includes('완료일')),
+              (name.includes('실제 종료') ||
+                name.includes('실제종료') ||
+                name.includes('실제 완료') ||
+                name.includes('실제완료') ||
+                name.includes('완료일')),
           )
           if (byName) return byName
           return entries.find(([name, prop]) => prop?.type === 'date' && name.includes('종료'))
         }),
         detail: pickField('detail', properties, '업무상세', ['rich_text', 'title'], false, (entries) => {
-          const byName = entries.find(([name, prop]) => name.includes('상세') && ['rich_text', 'title'].includes(prop?.type))
+          const byName = entries.find(
+            ([name, prop]) => name.includes('상세') && ['rich_text', 'title'].includes(prop?.type),
+          )
           if (byName) return byName
           return findFirstByTypes(entries, ['rich_text'])
         }),
-        requester: pickField('requester', properties, '요청주체', ['people', 'multi_select', 'select', 'rich_text'], true, requesterFallback),
+        requester: pickField(
+          'requester',
+          properties,
+          '요청주체',
+          ['people', 'multi_select', 'select', 'rich_text'],
+          true,
+          requesterFallback,
+        ),
         priority: pickField('priority', properties, '우선순위', ['select', 'status', 'rich_text'], true, (entries) => {
-          const byName = entries.find(([name, prop]) => name.includes('우선') && ['select', 'status', 'rich_text'].includes(prop?.type))
+          const byName = entries.find(
+            ([name, prop]) => name.includes('우선') && ['select', 'status', 'rich_text'].includes(prop?.type),
+          )
           if (byName) return byName
           return findFirstByTypes(entries, ['select'])
         }),
         urgent: pickField('urgent', properties, '긴급', ['checkbox', 'select', 'status'], true, (entries) => {
-          const byName = entries.find(([name, prop]) => name.includes('긴급') && ['checkbox', 'select', 'status'].includes(prop?.type))
+          const byName = entries.find(
+            ([name, prop]) => name.includes('긴급') && ['checkbox', 'select', 'status'].includes(prop?.type),
+          )
           if (byName) return byName
           return findFirstByTypes(entries, ['checkbox'])
         }),
         issue: pickField('issue', properties, '이슈', ['rich_text', 'title', 'select'], true, (entries) => {
-          const byName = entries.find(([name, prop]) => name.includes('이슈') && ['rich_text', 'title', 'select'].includes(prop?.type))
+          const byName = entries.find(
+            ([name, prop]) => name.includes('이슈') && ['rich_text', 'title', 'select'].includes(prop?.type),
+          )
           if (byName) return byName
           return findFirstByTypes(entries, ['rich_text'])
         }),
@@ -1775,16 +1922,18 @@ export class NotionWorkService {
           ['relation', 'rich_text', 'title', 'select'],
           true,
           (entries) => {
-          const byName = entries.find(
-            ([name, prop]) =>
-              (name.includes('\uC120\uD589') || name.includes('\uC120\uD589\uC791\uC5C5')) &&
-              ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
-          )
-          if (byName) return byName
-          return entries.find(
-            ([name, prop]) => name.includes('\uC120\uD589') && ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
-          )
-        }),
+            const byName = entries.find(
+              ([name, prop]) =>
+                (name.includes('\uC120\uD589') || name.includes('\uC120\uD589\uC791\uC5C5')) &&
+                ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
+            )
+            if (byName) return byName
+            return entries.find(
+              ([name, prop]) =>
+                name.includes('\uC120\uD589') && ['relation', 'rich_text', 'title', 'select'].includes(prop?.type),
+            )
+          },
+        ),
         predecessorPending: pickField(
           'predecessorPending',
           properties,
@@ -1792,22 +1941,31 @@ export class NotionWorkService {
           ['checkbox', 'formula', 'select', 'status', 'rich_text'],
           true,
           (entries) => {
-          const byName = entries.find(
-            ([name, prop]) =>
-              (name.includes('\uBBF8\uC644\uB8CC') || name.includes('\uC120\uD589')) &&
-              ['checkbox', 'formula', 'select', 'status', 'rich_text'].includes(prop?.type),
-          )
-          if (byName) return byName
-          return findFirstByTypes(entries, ['checkbox', 'formula'])
-        }),
-        outputLink: pickField('outputLink', properties, '\uC0B0\uCD9C\uBB3C \uB9C1\uD06C', ['url', 'rich_text', 'formula'], true, (entries) => {
-          const byName = entries.find(
-            ([name, prop]) =>
-              (name.includes('\uC0B0\uCD9C\uBB3C') || name.includes('\uB9C1\uD06C')) && ['url', 'rich_text', 'formula'].includes(prop?.type),
-          )
-          if (byName) return byName
-          return findFirstByTypes(entries, ['url'])
-        }),
+            const byName = entries.find(
+              ([name, prop]) =>
+                (name.includes('\uBBF8\uC644\uB8CC') || name.includes('\uC120\uD589')) &&
+                ['checkbox', 'formula', 'select', 'status', 'rich_text'].includes(prop?.type),
+            )
+            if (byName) return byName
+            return findFirstByTypes(entries, ['checkbox', 'formula'])
+          },
+        ),
+        outputLink: pickField(
+          'outputLink',
+          properties,
+          '\uC0B0\uCD9C\uBB3C \uB9C1\uD06C',
+          ['url', 'rich_text', 'formula'],
+          true,
+          (entries) => {
+            const byName = entries.find(
+              ([name, prop]) =>
+                (name.includes('\uC0B0\uCD9C\uBB3C') || name.includes('\uB9C1\uD06C')) &&
+                ['url', 'rich_text', 'formula'].includes(prop?.type),
+            )
+            if (byName) return byName
+            return findFirstByTypes(entries, ['url'])
+          },
+        ),
       },
     }
   }
@@ -1835,9 +1993,13 @@ export class NotionWorkService {
       Object.entries(schema.fields).map(([key, field]) => [key, fieldToApi(field)]),
     ) as Record<string, ApiSchemaField>
 
-    const unknownFields = Object.values(fields).filter((field) => field.status === 'missing' || field.status === 'mismatch')
+    const unknownFields = Object.values(fields).filter(
+      (field) => field.status === 'missing' || field.status === 'mismatch',
+    )
 
-    const projectBindingMode: 'relation' | 'unknown' = isKnownField(schema.fields.projectRelation) ? 'relation' : 'unknown'
+    const projectBindingMode: 'relation' | 'unknown' = isKnownField(schema.fields.projectRelation)
+      ? 'relation'
+      : 'unknown'
 
     return {
       fields,
@@ -1880,12 +2042,31 @@ export class NotionWorkService {
               '행사 구분',
               'event category',
             ])
-        const serialCodeProp = pickPropertyByNames(props, ['일련번호', '프로젝트 코드', '프로젝트코드', 'serial', 'serial code', 'project code'])
+        const serialCodeProp = pickPropertyByNames(props, [
+          '일련번호',
+          '프로젝트 코드',
+          '프로젝트코드',
+          'serial',
+          'serial code',
+          'project code',
+        ])
         const titleProp = pickPropertyByNames(props, ['프로젝트명', '프로젝트 이름', '이름', 'name'])
         const eventDateProp = pickPropertyByNames(props, ['행사진행일', '행사 진행일', '진행일', 'event date'])
-        const shippingDateProp = pickPropertyByNames(props, ['배송마감일', '배송 마감일', '배송일', '배송 일', '출고일', 'shipping date'])
+        const shippingDateProp = pickPropertyByNames(props, [
+          '배송마감일',
+          '배송 마감일',
+          '배송일',
+          '배송 일',
+          '출고일',
+          'shipping date',
+        ])
         const operationModeProp = pickPropertyByNames(props, ['운영방식', '운영 방식', '운영모드', 'operation mode'])
-        const fulfillmentModeProp = pickPropertyByNames(props, ['배송방식', '배송 방식', '배송모드', 'fulfillment mode'])
+        const fulfillmentModeProp = pickPropertyByNames(props, [
+          '배송방식',
+          '배송 방식',
+          '배송모드',
+          'fulfillment mode',
+        ])
 
         const name =
           titleProp?.type === 'title'
@@ -1893,9 +2074,13 @@ export class NotionWorkService {
             : parseDbTitle(page) || '(이름 없음 프로젝트)'
 
         const eventDateRaw =
-          eventDateProp?.type === 'date' ? eventDateProp.date?.start ?? undefined : extractTextFromProperty(eventDateProp)
+          eventDateProp?.type === 'date'
+            ? (eventDateProp.date?.start ?? undefined)
+            : extractTextFromProperty(eventDateProp)
         const shippingDateRaw =
-          shippingDateProp?.type === 'date' ? shippingDateProp.date?.start ?? undefined : extractTextFromProperty(shippingDateProp)
+          shippingDateProp?.type === 'date'
+            ? (shippingDateProp.date?.start ?? undefined)
+            : extractTextFromProperty(shippingDateProp)
 
         const eventDate = toIsoDateOnly(eventDateRaw)
         const shippingDate = toIsoDateOnly(shippingDateRaw)
@@ -1907,18 +2092,18 @@ export class NotionWorkService {
         const fulfillmentMode = parseFulfillmentMode(extractTextFromProperty(fulfillmentModeProp))
         const icon = page.icon
         const cover = page.cover
-        const iconEmoji = icon?.type === 'emoji' ? icon.emoji ?? undefined : undefined
+        const iconEmoji = icon?.type === 'emoji' ? (icon.emoji ?? undefined) : undefined
         const iconUrl =
           icon?.type === 'external'
-            ? icon.external?.url ?? undefined
+            ? (icon.external?.url ?? undefined)
             : icon?.type === 'file'
-              ? icon.file?.url ?? undefined
+              ? (icon.file?.url ?? undefined)
               : undefined
         const coverUrl =
           cover?.type === 'external'
-            ? cover.external?.url ?? undefined
+            ? (cover.external?.url ?? undefined)
             : cover?.type === 'file'
-              ? cover.file?.url ?? undefined
+              ? (cover.file?.url ?? undefined)
               : pickProjectCoverFromProperties(props)
 
         const serialCode = extractTextFromProperty(serialCodeProp) || undefined
@@ -1959,30 +2144,53 @@ export class NotionWorkService {
 
       const workCategoryProp = props['작업 분류']
       const finalDueProp = props['최종 완료 시점']
-      const applicableProjectTypesProp = pickPropertyByNames(props, ['적용 프로젝트 유형', '적용유형', '적용 프로젝트타입'])
-      const applicableEventCategoriesProp = pickPropertyByNames(props, ['적용 행사분류', '적용 행사 분류', '적용행사분류', '적용 행사구분', '적용행사구분'])
+      const applicableProjectTypesProp = pickPropertyByNames(props, [
+        '적용 프로젝트 유형',
+        '적용유형',
+        '적용 프로젝트타입',
+      ])
+      const applicableEventCategoriesProp = pickPropertyByNames(props, [
+        '적용 행사분류',
+        '적용 행사 분류',
+        '적용행사분류',
+        '적용 행사구분',
+        '적용행사구분',
+      ])
       const designLeadProp = pickPropertyByNames(props, ['디자인 소요 기간', '디자인 소요 기간(일)', '디자인소요기간'])
-      const productionLeadProp = pickPropertyByNames(props, ['실물 제작 소요 기간', '실물 제작 소요 기간(일)', '실물제작소요기간'])
+      const productionLeadProp = pickPropertyByNames(props, [
+        '실물 제작 소요 기간',
+        '실물 제작 소요 기간(일)',
+        '실물제작소요기간',
+      ])
       const bufferProp = pickPropertyByNames(props, ['버퍼', '버퍼(일)', '버퍼 기간', '버퍼기간'])
       const totalLeadProp = pickPropertyByNames(props, ['총 소요 기간', '총 소요 기간(일)', '총소요기간'])
       const dueBasisProp = pickPropertyByNames(props, ['최종 완료 기준', '완료 기준', '마감 기준'])
-      const defaultOffsetProp = pickPropertyByNames(props, ['기본 오프셋(영업일)', '기본 오프셋', '오프셋(영업일)', '마감 오프셋(영업일)'])
+      const defaultOffsetProp = pickPropertyByNames(props, [
+        '기본 오프셋(영업일)',
+        '기본 오프셋',
+        '오프셋(영업일)',
+        '마감 오프셋(영업일)',
+      ])
       const dealerOffsetProp = pickPropertyByNames(props, ['딜러 오프셋(영업일)', '딜러 오프셋'])
       const domesticOffsetProp = pickPropertyByNames(props, ['국내 오프셋(영업일)', '국내 오프셋'])
-      const overseasOffsetProp = pickPropertyByNames(props, ['해외 오프셋(영업일)', '해외 배송 오프셋(영업일)', '해외 오프셋'])
+      const overseasOffsetProp = pickPropertyByNames(props, [
+        '해외 오프셋(영업일)',
+        '해외 배송 오프셋(영업일)',
+        '해외 오프셋',
+      ])
 
       const workCategory =
         workCategoryProp?.type === 'rich_text'
           ? joinRichText(workCategoryProp.rich_text ?? [])
           : workCategoryProp?.type === 'select'
-            ? workCategoryProp.select?.name ?? ''
+            ? (workCategoryProp.select?.name ?? '')
             : ''
 
       const finalDueText =
         finalDueProp?.type === 'rich_text'
           ? joinRichText(finalDueProp.rich_text ?? [])
           : finalDueProp?.type === 'select'
-            ? finalDueProp.select?.name ?? ''
+            ? (finalDueProp.select?.name ?? '')
             : ''
 
       const designLeadDays = extractNumberFromProperty(designLeadProp)
@@ -2003,7 +2211,9 @@ export class NotionWorkService {
       const applicableProjectTypes = (() => {
         if (!applicableProjectTypesProp) return []
         if (applicableProjectTypesProp.type === 'multi_select') {
-          return (applicableProjectTypesProp.multi_select ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean)
+          return (applicableProjectTypesProp.multi_select ?? [])
+            .map((entry: any) => normalizeText(entry?.name))
+            .filter(Boolean)
         }
         if (applicableProjectTypesProp.type === 'select') {
           const value = normalizeText(applicableProjectTypesProp.select?.name)
@@ -2018,7 +2228,9 @@ export class NotionWorkService {
       const applicableEventCategories = (() => {
         if (!applicableEventCategoriesProp) return []
         if (applicableEventCategoriesProp.type === 'multi_select') {
-          return (applicableEventCategoriesProp.multi_select ?? []).map((entry: any) => normalizeText(entry?.name)).filter(Boolean)
+          return (applicableEventCategoriesProp.multi_select ?? [])
+            .map((entry: any) => normalizeText(entry?.name))
+            .filter(Boolean)
         }
         if (applicableEventCategoriesProp.type === 'select') {
           const value = normalizeText(applicableEventCategoriesProp.select?.name)
@@ -2168,7 +2380,9 @@ export class NotionWorkService {
       })
     }
 
-    return pages.map((page) => this.mapEquipmentCheckoutPage(page)).sort((a, b) => a.equipmentPageId.localeCompare(b.equipmentPageId))
+    return pages
+      .map((page) => this.mapEquipmentCheckoutPage(page))
+      .sort((a, b) => a.equipmentPageId.localeCompare(b.equipmentPageId))
   }
 
   private mapEquipmentCheckoutPage(page: any): EquipmentCheckoutRow {
@@ -2180,15 +2394,19 @@ export class NotionWorkService {
     const checkoutDateProp = props['반출일']
     const returnDateProp = props['반납일']
     const memoProp = props['메모']
-    const memoText = memoProp?.type === 'title'
-      ? (memoProp.title ?? []).map((t: any) => t?.plain_text ?? '').join('')
-      : ''
+    const memoText =
+      memoProp?.type === 'title' ? (memoProp.title ?? []).map((t: any) => t?.plain_text ?? '').join('') : ''
 
     const resolvedStatus: EquipmentCheckoutStatus =
-      status === '반출' || status === 'checked_out' ? 'checked_out' :
-      status === '반납' || status === 'returned' ? 'returned' :
-      status === '대기' || status === 'pending' ? 'pending' :
-      status === 'removed' ? 'removed' : 'pending'
+      status === '반출' || status === 'checked_out'
+        ? 'checked_out'
+        : status === '반납' || status === 'returned'
+          ? 'returned'
+          : status === '대기' || status === 'pending'
+            ? 'pending'
+            : status === 'removed'
+              ? 'removed'
+              : 'pending'
 
     return {
       id: page.id,
@@ -2235,10 +2453,10 @@ export class NotionWorkService {
     })
 
     const properties: AnyMap = {
-      '프로젝트': { relation: [{ id: projectPageId }] },
-      '장비': { relation: [{ id: equipmentPageId }] },
-      '상태': { select: { name: status === 'checked_out' ? '반출' : status === 'returned' ? '반납' : '대기' } },
-      '메모': { title: [{ text: { content: memo } }] },
+      프로젝트: { relation: [{ id: projectPageId }] },
+      장비: { relation: [{ id: equipmentPageId }] },
+      상태: { select: { name: status === 'checked_out' ? '반출' : status === 'returned' ? '반납' : '대기' } },
+      메모: { title: [{ text: { content: memo } }] },
     }
 
     if (checkoutDate) {
@@ -2449,7 +2667,9 @@ export class NotionWorkService {
   }
 
   private getScreeningHistoryDbId(): string {
-    return normalizeText(this.env.NOTION_SCREENING_HISTORY_DB_ID) || normalizeText(this.env.NOTION_SCREENING_VIDEO_DB_ID)
+    return (
+      normalizeText(this.env.NOTION_SCREENING_HISTORY_DB_ID) || normalizeText(this.env.NOTION_SCREENING_VIDEO_DB_ID)
+    )
   }
 
   private getScreeningPlanDbId(): string {
@@ -2609,7 +2829,10 @@ export class NotionWorkService {
       }
     }
 
-    const [planPages, historyPages] = await Promise.all([this.queryAll(planDatabaseId), this.queryAll(historyDatabaseId)])
+    const [planPages, historyPages] = await Promise.all([
+      this.queryAll(planDatabaseId),
+      this.queryAll(historyDatabaseId),
+    ])
     const historyBySourcePlanId = new Map<string, any>()
     for (const page of historyPages) {
       const props = (page.properties ?? {}) as AnyMap
@@ -2634,7 +2857,9 @@ export class NotionWorkService {
       const title = joinRichText(props[SCREENING_COMMON_TITLE_FIELD]?.title ?? []) || 'Untitled screening'
       const eventName = extractTextFromProperty(props[SCREENING_COMMON_EVENT_FIELD])
       const screeningDate =
-        props[SCREENING_COMMON_DATE_FIELD]?.type === 'date' ? props[SCREENING_COMMON_DATE_FIELD]?.date?.start ?? null : null
+        props[SCREENING_COMMON_DATE_FIELD]?.type === 'date'
+          ? (props[SCREENING_COMMON_DATE_FIELD]?.date?.start ?? null)
+          : null
       const plannedOrder = extractNumberFromProperty(props[SCREENING_COMMON_ORDER_FIELD])
       const actualOrder = extractNumberFromProperty(props[SCREENING_PLAN_ACTUAL_ORDER_FIELD])
       const screenLabel = extractTextFromProperty(props[SCREENING_COMMON_SCREEN_FIELD])
@@ -2650,11 +2875,17 @@ export class NotionWorkService {
         [SCREENING_COMMON_TITLE_FIELD]: { title: [{ text: { content: title } }] },
         [SCREENING_COMMON_PROJECT_FIELD]: { relation: projectIds.map((id) => ({ id })) },
         [SCREENING_COMMON_RELATED_TASK_FIELD]: { relation: taskIds.map((id) => ({ id })) },
-        [SCREENING_COMMON_EVENT_FIELD]: eventName ? { rich_text: [{ text: { content: eventName } }] } : { rich_text: [] },
+        [SCREENING_COMMON_EVENT_FIELD]: eventName
+          ? { rich_text: [{ text: { content: eventName } }] }
+          : { rich_text: [] },
         [SCREENING_COMMON_DATE_FIELD]: screeningDate ? { date: { start: screeningDate } } : { date: null },
         [SCREENING_COMMON_ORDER_FIELD]: { number: actualOrder ?? plannedOrder ?? null },
-        [SCREENING_COMMON_SCREEN_FIELD]: screenLabel ? { rich_text: [{ text: { content: screenLabel } }] } : { rich_text: [] },
-        [SCREENING_COMMON_SOURCE_NAME_FIELD]: sourceFileName ? { rich_text: [{ text: { content: sourceFileName } }] } : { rich_text: [] },
+        [SCREENING_COMMON_SCREEN_FIELD]: screenLabel
+          ? { rich_text: [{ text: { content: screenLabel } }] }
+          : { rich_text: [] },
+        [SCREENING_COMMON_SOURCE_NAME_FIELD]: sourceFileName
+          ? { rich_text: [{ text: { content: sourceFileName } }] }
+          : { rich_text: [] },
         [SCREENING_HISTORY_PLAYED_FILE_NAME_FIELD]: actualOutputFileName
           ? { rich_text: [{ text: { content: actualOutputFileName } }] }
           : { rich_text: [] },
@@ -2700,10 +2931,7 @@ export class NotionWorkService {
     }
   }
 
-  async importScreeningPlanFromHistory(params: {
-    sourceEventName: string
-    targetProjectId: string
-  }): Promise<{
+  async importScreeningPlanFromHistory(params: { sourceEventName: string; targetProjectId: string }): Promise<{
     configured: boolean
     planDatabaseId: string | null
     historyDatabaseId: string | null
@@ -2740,7 +2968,9 @@ export class NotionWorkService {
       this.queryAll(planDatabaseId),
       this.listProjects(),
     ])
-    const targetProject = projects.find((project) => normalizeNotionId(project.id) === normalizeNotionId(targetProjectId))
+    const targetProject = projects.find(
+      (project) => normalizeNotionId(project.id) === normalizeNotionId(targetProjectId),
+    )
     if (!targetProject) throw new Error('target_project_not_found')
     const targetEventName = normalizeText(targetProject.name)
     const targetDate = normalizeText(targetProject.eventDate)
@@ -2766,7 +2996,8 @@ export class NotionWorkService {
         const leftProps = (left.properties ?? {}) as AnyMap
         const rightProps = (right.properties ?? {}) as AnyMap
         const leftOrder = extractNumberFromProperty(leftProps[SCREENING_COMMON_ORDER_FIELD]) ?? Number.MAX_SAFE_INTEGER
-        const rightOrder = extractNumberFromProperty(rightProps[SCREENING_COMMON_ORDER_FIELD]) ?? Number.MAX_SAFE_INTEGER
+        const rightOrder =
+          extractNumberFromProperty(rightProps[SCREENING_COMMON_ORDER_FIELD]) ?? Number.MAX_SAFE_INTEGER
         if (leftOrder !== rightOrder) return leftOrder - rightOrder
         const leftTitle = joinRichText(leftProps[SCREENING_COMMON_TITLE_FIELD]?.title ?? [])
         const rightTitle = joinRichText(rightProps[SCREENING_COMMON_TITLE_FIELD]?.title ?? [])
@@ -2815,13 +3046,19 @@ export class NotionWorkService {
         [SCREENING_COMMON_EVENT_FIELD]: { rich_text: [{ text: { content: targetEventName } }] },
         [SCREENING_COMMON_DATE_FIELD]: targetDate ? { date: { start: targetDate } } : { date: null },
         [SCREENING_COMMON_ORDER_FIELD]: { number: plannedOrder ?? null },
-        [SCREENING_COMMON_SCREEN_FIELD]: screenLabel ? { rich_text: [{ text: { content: screenLabel } }] } : { rich_text: [] },
-        [SCREENING_COMMON_SOURCE_NAME_FIELD]: sourceFileName ? { rich_text: [{ text: { content: sourceFileName } }] } : { rich_text: [] },
+        [SCREENING_COMMON_SCREEN_FIELD]: screenLabel
+          ? { rich_text: [{ text: { content: screenLabel } }] }
+          : { rich_text: [] },
+        [SCREENING_COMMON_SOURCE_NAME_FIELD]: sourceFileName
+          ? { rich_text: [{ text: { content: sourceFileName } }] }
+          : { rich_text: [] },
         [SCREENING_PLAN_BASE_HISTORY_FIELD]: { relation: [{ id: historyPage.id }] },
         [SCREENING_PLAN_BASE_USAGE_MODE_FIELD]: { select: { name: 'reuse_with_edit' } },
         [SCREENING_PLAN_REVIEW_STATUS_FIELD]: { select: { name: 'pending' } },
         [SCREENING_PLAN_REVIEW_NOTE_FIELD]: { rich_text: [{ text: { content: reviewNote } }] },
-        [SCREENING_PLAN_TARGET_OUTPUT_FIELD]: playedFileName ? { rich_text: [{ text: { content: playedFileName } }] } : { rich_text: [] },
+        [SCREENING_PLAN_TARGET_OUTPUT_FIELD]: playedFileName
+          ? { rich_text: [{ text: { content: playedFileName } }] }
+          : { rich_text: [] },
         [SCREENING_PLAN_ACTUAL_OUTPUT_FIELD]: { rich_text: [] },
         [SCREENING_COMMON_ASPECT_RATIO_FIELD]: aspectRatio ? { select: { name: aspectRatio } } : { select: null },
         [SCREENING_PLAN_STATUS_FIELD]: { select: { name: 'planned' } },
@@ -3050,8 +3287,7 @@ export class NotionWorkService {
         operationKey ||
         (legacySourceDocument && legacySourceSheet && Number.isFinite(legacySourceRowNumber)
           ? `${legacySourceDocument}::${legacySourceSheet}::${legacySourceRowNumber}`
-          : title
-        )
+          : title)
       if (key) existingByKey.set(key, page)
       if (title && !existingByTitle.has(title)) existingByTitle.set(title, page)
     }
@@ -3098,8 +3334,7 @@ export class NotionWorkService {
         operationKey ||
         (legacySourceDocument && legacySourceSheet && legacySourceRowNumber != null
           ? `${legacySourceDocument}::${legacySourceSheet}::${legacySourceRowNumber}`
-          : title
-        )
+          : title)
 
       if (!key) {
         skipped += 1
@@ -3107,10 +3342,7 @@ export class NotionWorkService {
       }
 
       const eventName = readText('행사명')
-      const projectRelationId =
-        projectIdByName.get(eventName) ??
-        projectIdByName.get(eventName.toLowerCase()) ??
-        ''
+      const projectRelationId = projectIdByName.get(eventName) ?? projectIdByName.get(eventName.toLowerCase()) ?? ''
 
       const existingPage = existingByKey.get(key) ?? existingByTitle.get(title)
       const existingProps = (existingPage?.properties ?? {}) as AnyMap
@@ -3127,10 +3359,12 @@ export class NotionWorkService {
       })
       const properties: AnyMap = {
         '행 제목': {
-          title: buildRichText(title || `[${eventName || 'Event'}] ${String(readNumber('정렬 순서') ?? '').trim()}`.trim()),
+          title: buildRichText(
+            title || `[${eventName || 'Event'}] ${String(readNumber('정렬 순서') ?? '').trim()}`.trim(),
+          ),
         },
-        '행사명': { rich_text: buildRichText(eventName) },
-        '행사일': {
+        행사명: { rich_text: buildRichText(eventName) },
+        행사일: {
           date: readText('행사일') ? { start: readText('행사일') } : null,
         },
         '타임테이블 유형': {
@@ -3138,7 +3372,13 @@ export class NotionWorkService {
         },
         '운영 키': { rich_text: buildRichText(operationKey) },
         '정렬 순서': { number: readNumber('정렬 순서') ?? readNumber('Cue 순서') ?? readNumber('운영 순서') },
-        '카테고리': { select: readText('카테고리') ? { name: readText('카테고리') } : readText('Cue 유형') ? { name: readText('Cue 유형') } : null },
+        카테고리: {
+          select: readText('카테고리')
+            ? { name: readText('카테고리') }
+            : readText('Cue 유형')
+              ? { name: readText('Cue 유형') }
+              : null,
+        },
         'Cue 제목': { rich_text: buildRichText(readText('Cue 제목')) },
         '트리거 상황': { rich_text: buildRichText(readText('트리거 상황')) },
         '시작 시각': { rich_text: buildRichText(readText('시작 시각')) },
@@ -3146,9 +3386,11 @@ export class NotionWorkService {
         '시간 기준': { rich_text: buildRichText(readText('시간 기준')) },
         '러닝타임(분)': { number: readNumber('러닝타임(분)') },
         '무대 인원': { rich_text: buildRichText(readText('무대 인원')) },
-        '메인 화면': { rich_text: buildRichText(readText('메인 화면') || readText('그래픽 자산명') || readText('원본 Video')) },
+        '메인 화면': {
+          rich_text: buildRichText(readText('메인 화면') || readText('그래픽 자산명') || readText('원본 Video')),
+        },
         [EVENT_GRAPHICS_CAPTURE_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_CAPTURE_FILES_FIELD]),
-        '오디오': { rich_text: buildRichText(readText('오디오') || readText('원본 Audio')) },
+        오디오: { rich_text: buildRichText(readText('오디오') || readText('원본 Audio')) },
         [EVENT_GRAPHICS_AUDIO_FILES_FIELD]: buildExternalFiles(entry[EVENT_GRAPHICS_AUDIO_FILES_FIELD]),
         '미리보기 링크': { url: readText('미리보기 링크') || null },
         '자산 링크': { url: readText('자산 링크') || null },
@@ -3207,7 +3449,11 @@ export class NotionWorkService {
   private async ensureChecklistAssignmentDatabaseProperties(options?: { force?: boolean }): Promise<void> {
     const force = options?.force === true
     const now = Date.now()
-    if (!force && checklistAssignmentSchemaCheckedAt > 0 && now - checklistAssignmentSchemaCheckedAt < CHECKLIST_ASSIGNMENT_SCHEMA_TTL_MS) {
+    if (
+      !force &&
+      checklistAssignmentSchemaCheckedAt > 0 &&
+      now - checklistAssignmentSchemaCheckedAt < CHECKLIST_ASSIGNMENT_SCHEMA_TTL_MS
+    ) {
       return
     }
 
@@ -3261,7 +3507,10 @@ export class NotionWorkService {
         const normalizedName = normalizeFieldName(name)
         let score = 0
 
-        if (normalizedName === normalizeFieldName('할당 업무') || normalizedName === normalizeFieldName('assignment task')) {
+        if (
+          normalizedName === normalizeFieldName('할당 업무') ||
+          normalizedName === normalizeFieldName('assignment task')
+        ) {
           score += 120
         }
         if (
@@ -3339,17 +3588,24 @@ export class NotionWorkService {
           )
           return byName
         }),
-        assignmentStatus: pickField('assignmentStatus', properties, '할당상태', ['formula', 'rich_text', 'select', 'status'], true, (entries) => {
-          // Optional field: avoid falling back to unrelated select/rich_text columns.
-          const byName = entries.find(
-            ([name, prop]) =>
-              ['formula', 'rich_text', 'select', 'status'].includes(prop?.type) &&
-              (normalizeFieldName(name).includes('할당상태') ||
-                (normalizeFieldName(name).includes('할당') && normalizeFieldName(name).includes('상태')) ||
-                (normalizeFieldName(name).includes('assignment') && normalizeFieldName(name).includes('status'))),
-          )
-          return byName
-        }),
+        assignmentStatus: pickField(
+          'assignmentStatus',
+          properties,
+          '할당상태',
+          ['formula', 'rich_text', 'select', 'status'],
+          true,
+          (entries) => {
+            // Optional field: avoid falling back to unrelated select/rich_text columns.
+            const byName = entries.find(
+              ([name, prop]) =>
+                ['formula', 'rich_text', 'select', 'status'].includes(prop?.type) &&
+                (normalizeFieldName(name).includes('할당상태') ||
+                  (normalizeFieldName(name).includes('할당') && normalizeFieldName(name).includes('상태')) ||
+                  (normalizeFieldName(name).includes('assignment') && normalizeFieldName(name).includes('status'))),
+            )
+            return byName
+          },
+        ),
       },
     }
   }
@@ -3493,7 +3749,11 @@ export class NotionWorkService {
         applyRelationIds(properties, schema.fields.task, [])
       }
       applyCheckbox(properties, schema.fields.applicable, entry.applicable)
-      applySelectLike(properties, schema.fields.assignmentStatus, toChecklistStatusText(entry.applicable ? 'unassigned' : 'not_applicable'))
+      applySelectLike(
+        properties,
+        schema.fields.assignmentStatus,
+        toChecklistStatusText(entry.applicable ? 'unassigned' : 'not_applicable'),
+      )
 
       await this.api.createPage({
         parent: { database_id: this.getChecklistAssignmentDbId() },
@@ -3526,7 +3786,8 @@ export class NotionWorkService {
     const checklistItemPageId = normalizeText(params.checklistItemPageId)
     const key = this.checklistAssignmentKey(projectPageId, checklistItemPageId)
     const taskPageIdInput = normalizeText(params.taskPageId ?? '') || null
-    const assignmentStatus: ChecklistAssignmentStatus = params.assignmentStatus ?? (taskPageIdInput ? 'assigned' : 'unassigned')
+    const assignmentStatus: ChecklistAssignmentStatus =
+      params.assignmentStatus ?? (taskPageIdInput ? 'assigned' : 'unassigned')
     if (assignmentStatus === 'assigned' && !taskPageIdInput) {
       throw new Error('checklist_assignment_status_requires_task')
     }
@@ -3535,7 +3796,9 @@ export class NotionWorkService {
     let preferredLabel: string | undefined
     if (!shouldUseKeyAsTitle) {
       const checklists = await this.listChecklists()
-      preferredLabel = checklists.find((entry) => normalizeNotionId(entry.id) === normalizeNotionId(checklistItemPageId))?.productName
+      preferredLabel = checklists.find(
+        (entry) => normalizeNotionId(entry.id) === normalizeNotionId(checklistItemPageId),
+      )?.productName
     }
     const normalizedPreferredLabel = normalizeText(preferredLabel)
     const matchesAssignmentPage = (page: any): boolean => {
@@ -3635,11 +3898,11 @@ export class NotionWorkService {
     const relationProjectId = first(relationIds)
 
     const projectNameFromRelation = relationProjectId
-      ? projectNameMap[normalizeNotionId(relationProjectId)] ?? projectNameMap[relationProjectId] ?? relationProjectId
+      ? (projectNameMap[normalizeNotionId(relationProjectId)] ?? projectNameMap[relationProjectId] ?? relationProjectId)
       : undefined
     const projectName = projectNameFromRelation || '[UNKNOWN]'
     const projectSerialCode = relationProjectId
-      ? projectSerialCodeMap[normalizeNotionId(relationProjectId)] ?? projectSerialCodeMap[relationProjectId]
+      ? (projectSerialCodeMap[normalizeNotionId(relationProjectId)] ?? projectSerialCodeMap[relationProjectId])
       : undefined
 
     const projectSource: 'relation' | 'unknown' = projectNameFromRelation ? 'relation' : 'unknown'
@@ -3714,7 +3977,9 @@ export class NotionWorkService {
       taskNameMap[normalizedId] = title
     }
 
-    const tasks = taskPages.map((page) => this.mapTaskPage(page, schema, projectNameMap, taskNameMap, projectSerialCodeMap))
+    const tasks = taskPages.map((page) =>
+      this.mapTaskPage(page, schema, projectNameMap, taskNameMap, projectSerialCodeMap),
+    )
 
     return {
       projects,
@@ -3769,7 +4034,8 @@ export class NotionWorkService {
       throw new Error('task_name_type_[UNKNOWN]')
     }
 
-    const useRelation = isKnownField(schema.fields.projectRelation) && schema.fields.projectRelation.actualType === 'relation'
+    const useRelation =
+      isKnownField(schema.fields.projectRelation) && schema.fields.projectRelation.actualType === 'relation'
     if (useRelation && input.projectId) {
       properties[schema.fields.projectRelation.actualName] = { relation: [{ id: input.projectId }] }
     } else if (input.projectId) {
@@ -3810,8 +4076,12 @@ export class NotionWorkService {
       }
     }
 
-    if (hasOwn(patch as Record<string, unknown>, 'projectId') || hasOwn(patch as Record<string, unknown>, 'projectName')) {
-      const useRelation = isKnownField(schema.fields.projectRelation) && schema.fields.projectRelation.actualType === 'relation'
+    if (
+      hasOwn(patch as Record<string, unknown>, 'projectId') ||
+      hasOwn(patch as Record<string, unknown>, 'projectName')
+    ) {
+      const useRelation =
+        isKnownField(schema.fields.projectRelation) && schema.fields.projectRelation.actualType === 'relation'
       if (useRelation) {
         const value = normalizeText((patch.projectId ?? '') as string)
         properties[schema.fields.projectRelation.actualName] = value ? { relation: [{ id: value }] } : { relation: [] }
@@ -3860,7 +4130,10 @@ export class NotionWorkService {
       applyRichText(properties, schema.fields.issue, patch.issue)
     }
 
-    if (hasOwn(patch as Record<string, unknown>, 'changeReason') || hasOwn(patch as Record<string, unknown>, 'changeReasonAppend')) {
+    if (
+      hasOwn(patch as Record<string, unknown>, 'changeReason') ||
+      hasOwn(patch as Record<string, unknown>, 'changeReasonAppend')
+    ) {
       const page = await this.api.retrievePage(id)
       const pageProps = (page.properties ?? {}) as AnyMap
       const changeReasonProp = pickPropertyByNames(pageProps, ['수정사유', '수정 사유', 'change reason'])
@@ -3907,20 +4180,36 @@ export class NotionWorkService {
   private buildReferenceSchema(properties: Record<string, any>): ReferenceSchema {
     const relationFallback = (entries: Array<[string, any]>) =>
       entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_TASK_DB_ID),
+        ([, prop]) =>
+          prop?.type === 'relation' &&
+          normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_TASK_DB_ID),
       )
 
     return {
       fields: {
-        title: pickField('title', properties, REFERENCE_TITLE_FIELD, ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        title: pickField('title', properties, REFERENCE_TITLE_FIELD, ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
         project: pickField('project', properties, REFERENCE_TASK_FIELD, ['relation'], true, relationFallback),
-        projectName: pickField('projectName', properties, REFERENCE_PROJECT_NAME_FIELD, ['rich_text', 'title', 'select'], true),
+        projectName: pickField(
+          'projectName',
+          properties,
+          REFERENCE_PROJECT_NAME_FIELD,
+          ['rich_text', 'title', 'select'],
+          true,
+        ),
         sourceType: pickField('sourceType', properties, REFERENCE_SOURCE_TYPE_FIELD, ['select', 'rich_text'], true),
         usageType: pickField('usageType', properties, REFERENCE_USAGE_TYPE_FIELD, ['select', 'rich_text'], true),
         link: pickField('link', properties, REFERENCE_LINK_FIELD, ['url', 'rich_text'], true),
         image: pickField('image', properties, REFERENCE_IMAGE_FIELD, ['files'], true),
         memo: pickField('memo', properties, REFERENCE_MEMO_FIELD, ['rich_text', 'title'], true),
-        authorName: pickField('authorName', properties, REFERENCE_AUTHOR_NAME_FIELD, ['rich_text', 'title', 'select'], true),
+        authorName: pickField(
+          'authorName',
+          properties,
+          REFERENCE_AUTHOR_NAME_FIELD,
+          ['rich_text', 'title', 'select'],
+          true,
+        ),
         authorIp: pickField('authorIp', properties, REFERENCE_AUTHOR_IP_FIELD, ['rich_text', 'title'], true),
         tags: pickField('tags', properties, REFERENCE_TAGS_FIELD, ['multi_select', 'rich_text'], true),
         createdAt: pickField('createdAt', properties, REFERENCE_CREATED_AT_FIELD, ['date'], true),
@@ -3935,7 +4224,9 @@ export class NotionWorkService {
     return this.buildReferenceSchema((db.properties ?? {}) as Record<string, any>)
   }
 
-  private async uploadReferenceImage(input: CreateReferenceInput | UpdateReferenceInput): Promise<Array<{ name: string; type: string; file_upload: { id: string } }>> {
+  private async uploadReferenceImage(
+    input: CreateReferenceInput | UpdateReferenceInput,
+  ): Promise<Array<{ name: string; type: string; file_upload: { id: string } }>> {
     const dataUrl = normalizeText(input.imageDataUrl)
     if (!dataUrl) return []
     const parsed = parseDataUrlFile(dataUrl)
@@ -3953,25 +4244,42 @@ export class NotionWorkService {
     const normalizedProjectId = normalizeText(projectId)
     if (!normalizedProjectId) return ''
     const projects = await this.listProjects()
-    const found = projects.find((project) => project.id === normalizedProjectId || normalizeNotionId(project.id) === normalizeNotionId(normalizedProjectId))
+    const found = projects.find(
+      (project) =>
+        project.id === normalizedProjectId || normalizeNotionId(project.id) === normalizeNotionId(normalizedProjectId),
+    )
     return found?.name ?? ''
   }
 
-  private mapReferencePage(page: any, schema: ReferenceSchema, projectNameMap: Record<string, string>): ReferenceRecord {
+  private mapReferencePage(
+    page: any,
+    schema: ReferenceSchema,
+    projectNameMap: Record<string, string>,
+  ): ReferenceRecord {
     const props = (page.properties ?? {}) as AnyMap
     const projectId = first(extractRelationIds(props, schema.fields.project))
     const storedProjectName = extractTextLike(props, schema.fields.projectName, '')
     const files = isKnownField(schema.fields.image) ? serializeScheduleFiles(props[schema.fields.image.actualName]) : []
     const firstImage = files[0]
-    const sourceType = extractTextLike(props, schema.fields.sourceType, DEFAULT_REFERENCE_SOURCE_TYPE) as ReferenceSourceType
-    const usageType = extractTextLike(props, schema.fields.usageType, DEFAULT_REFERENCE_USAGE_TYPE) as ReferenceUsageType
+    const sourceType = extractTextLike(
+      props,
+      schema.fields.sourceType,
+      DEFAULT_REFERENCE_SOURCE_TYPE,
+    ) as ReferenceSourceType
+    const usageType = extractTextLike(
+      props,
+      schema.fields.usageType,
+      DEFAULT_REFERENCE_USAGE_TYPE,
+    ) as ReferenceUsageType
 
     return {
       id: page.id,
       url: page.url,
       title: extractTitle(props, schema.fields.title),
       projectId: projectId || undefined,
-      projectName: storedProjectName || (projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined),
+      projectName:
+        storedProjectName ||
+        (projectId ? (projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId]) : undefined),
       sourceType: sourceType || DEFAULT_REFERENCE_SOURCE_TYPE,
       usageType: usageType || DEFAULT_REFERENCE_USAGE_TYPE,
       link: extractUrlLike(props, schema.fields.link),
@@ -3989,7 +4297,11 @@ export class NotionWorkService {
   async listReferences(): Promise<ReferenceRecord[]> {
     const dbId = this.env.NOTION_REFERENCE_DB_ID
     if (!dbId) return []
-    const [schema, projects, pages] = await Promise.all([this.getReferenceSchema(), this.listProjects(), this.queryAll(dbId)])
+    const [schema, projects, pages] = await Promise.all([
+      this.getReferenceSchema(),
+      this.listProjects(),
+      this.queryAll(dbId),
+    ])
     const projectNameMap: Record<string, string> = {}
     for (const project of projects) {
       projectNameMap[project.id] = project.name
@@ -3999,7 +4311,11 @@ export class NotionWorkService {
   }
 
   async getReference(id: string): Promise<ReferenceRecord> {
-    const [schema, projects, page] = await Promise.all([this.getReferenceSchema(), this.listProjects(), this.api.retrievePage(id)])
+    const [schema, projects, page] = await Promise.all([
+      this.getReferenceSchema(),
+      this.listProjects(),
+      this.api.retrievePage(id),
+    ])
     const projectNameMap: Record<string, string> = {}
     for (const project of projects) {
       projectNameMap[project.id] = project.name
@@ -4017,7 +4333,7 @@ export class NotionWorkService {
     const properties: AnyMap = {}
     applyTitleLike(properties, schema.fields.title, title)
     applyRelationIds(properties, schema.fields.project, input.projectId ? [input.projectId] : [])
-    const projectName = normalizeText(input.projectName) || await this.resolveProjectName(input.projectId)
+    const projectName = normalizeText(input.projectName) || (await this.resolveProjectName(input.projectId))
     applyRichText(properties, schema.fields.projectName, projectName)
     applySelectLike(properties, schema.fields.sourceType, input.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
     applySelectLike(properties, schema.fields.usageType, input.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
@@ -4031,7 +4347,10 @@ export class NotionWorkService {
     const files = await this.uploadReferenceImage(input)
     if (files.length > 0) applyFiles(properties, schema.fields.image, files)
 
-    const created: any = await this.api.createPage({ parent: { database_id: this.env.NOTION_REFERENCE_DB_ID! }, properties })
+    const created: any = await this.api.createPage({
+      parent: { database_id: this.env.NOTION_REFERENCE_DB_ID! },
+      properties,
+    })
     return this.getReference(created.id)
   }
 
@@ -4046,17 +4365,22 @@ export class NotionWorkService {
     if (hasOwn(patch as Record<string, unknown>, 'projectId')) {
       const taskId = normalizeText(patch.projectId ?? '')
       applyRelationIds(properties, schema.fields.project, taskId ? [taskId] : [])
-      const projectName = normalizeText(patch.projectName) || await this.resolveProjectName(patch.projectId)
+      const projectName = normalizeText(patch.projectName) || (await this.resolveProjectName(patch.projectId))
       applyRichText(properties, schema.fields.projectName, projectName)
     }
-    if (hasOwn(patch as Record<string, unknown>, 'sourceType')) applySelectLike(properties, schema.fields.sourceType, patch.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
-    if (hasOwn(patch as Record<string, unknown>, 'usageType')) applySelectLike(properties, schema.fields.usageType, patch.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
+    if (hasOwn(patch as Record<string, unknown>, 'sourceType'))
+      applySelectLike(properties, schema.fields.sourceType, patch.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
+    if (hasOwn(patch as Record<string, unknown>, 'usageType'))
+      applySelectLike(properties, schema.fields.usageType, patch.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
     if (hasOwn(patch as Record<string, unknown>, 'link')) applyUrlLike(properties, schema.fields.link, patch.link)
     if (hasOwn(patch as Record<string, unknown>, 'memo')) applyRichText(properties, schema.fields.memo, patch.memo)
-    if (hasOwn(patch as Record<string, unknown>, 'authorName')) applyRichText(properties, schema.fields.authorName, patch.authorName)
-    if (hasOwn(patch as Record<string, unknown>, 'authorIp')) applyRichText(properties, schema.fields.authorIp, patch.authorIp)
+    if (hasOwn(patch as Record<string, unknown>, 'authorName'))
+      applyRichText(properties, schema.fields.authorName, patch.authorName)
+    if (hasOwn(patch as Record<string, unknown>, 'authorIp'))
+      applyRichText(properties, schema.fields.authorIp, patch.authorIp)
     if (hasOwn(patch as Record<string, unknown>, 'tags')) applyStringArray(properties, schema.fields.tags, patch.tags)
-    if (hasOwn(patch as Record<string, unknown>, 'createdAt')) applyDate(properties, schema.fields.createdAt, patch.createdAt)
+    if (hasOwn(patch as Record<string, unknown>, 'createdAt'))
+      applyDate(properties, schema.fields.createdAt, patch.createdAt)
     if (hasOwn(patch as Record<string, unknown>, 'imageDataUrl')) {
       const files = await this.uploadReferenceImage(patch)
       applyFiles(properties, schema.fields.image, files)
@@ -4077,18 +4401,40 @@ export class NotionWorkService {
   private buildStoryboardSchema(properties: Record<string, any>): StoryboardSchema {
     const relationFallback = (entries: Array<[string, any]>) =>
       entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_TASK_DB_ID),
+        ([, prop]) =>
+          prop?.type === 'relation' &&
+          normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_TASK_DB_ID),
       )
 
     return {
       fields: {
-        title: pickField('title', properties, STORYBOARD_TITLE_FIELD, ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        title: pickField('title', properties, STORYBOARD_TITLE_FIELD, ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
         project: pickField('project', properties, STORYBOARD_TASK_FIELD, ['relation'], true, relationFallback),
-        projectName: pickField('projectName', properties, STORYBOARD_PROJECT_NAME_FIELD, ['rich_text', 'title', 'select'], true),
-        versionName: pickField('versionName', properties, STORYBOARD_VERSION_FIELD, ['rich_text', 'title', 'select'], true),
+        projectName: pickField(
+          'projectName',
+          properties,
+          STORYBOARD_PROJECT_NAME_FIELD,
+          ['rich_text', 'title', 'select'],
+          true,
+        ),
+        versionName: pickField(
+          'versionName',
+          properties,
+          STORYBOARD_VERSION_FIELD,
+          ['rich_text', 'title', 'select'],
+          true,
+        ),
         memo: pickField('memo', properties, STORYBOARD_MEMO_FIELD, ['rich_text', 'title'], true),
         data: pickField('data', properties, STORYBOARD_DATA_FIELD, ['rich_text'], true),
-        exportedFileNames: pickField('exportedFileNames', properties, STORYBOARD_EXPORT_HISTORY_FIELD, ['rich_text'], true),
+        exportedFileNames: pickField(
+          'exportedFileNames',
+          properties,
+          STORYBOARD_EXPORT_HISTORY_FIELD,
+          ['rich_text'],
+          true,
+        ),
         updatedAt: pickField('updatedAt', properties, STORYBOARD_UPDATED_AT_FIELD, ['date'], true),
       },
     }
@@ -4101,14 +4447,235 @@ export class NotionWorkService {
     return this.buildStoryboardSchema((db.properties ?? {}) as Record<string, any>)
   }
 
-  private async resolveProjectIdForStoryboard(input: Pick<CreateStoryboardDocumentInput, 'projectId' | 'projectName'>): Promise<string> {
+  private async resolveProjectIdForStoryboard(
+    input: Pick<CreateStoryboardDocumentInput, 'projectId' | 'projectName'>,
+  ): Promise<string> {
     const direct = normalizeText(input.projectId)
     if (direct) return direct
     const projectName = normalizeText(input.projectName)
     if (!projectName) return ''
     const projects = await this.listProjects()
-    const found = projects.find((project) => project.name === projectName || project.name.toLowerCase() === projectName.toLowerCase())
+    const found = projects.find(
+      (project) => project.name === projectName || project.name.toLowerCase() === projectName.toLowerCase(),
+    )
     return found?.id ?? ''
+  }
+
+  private async ensureStoryboardD1Tables(): Promise<void> {
+    const db = storyboardDb(this.env)
+    if (!db) throw new Error('storyboard_d1_not_configured')
+
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS storyboard_documents (
+        id TEXT PRIMARY KEY,
+        notion_page_id TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        project_id TEXT,
+        project_name TEXT,
+        version_name TEXT,
+        memo TEXT,
+        meta_json TEXT NOT NULL,
+        exported_file_names_json TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT,
+        created_at INTEGER NOT NULL,
+        modified_at INTEGER NOT NULL
+      )`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS storyboard_frames (
+        document_id TEXT NOT NULL,
+        frame_id TEXT NOT NULL,
+        frame_order INTEGER NOT NULL,
+        frame_json TEXT NOT NULL,
+        image_key TEXT,
+        image_name TEXT,
+        image_content_type TEXT,
+        image_width INTEGER,
+        image_height INTEGER,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (document_id, frame_id)
+      )`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_storyboard_documents_notion_page_id ON storyboard_documents(notion_page_id)`,
+      )
+      .bind()
+      .run()
+    await db
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS idx_storyboard_frames_document_order ON storyboard_frames(document_id, frame_order)`,
+      )
+      .bind()
+      .run()
+  }
+
+  private async writeStoryboardDataToD1(
+    notionPageId: string,
+    input: CreateStoryboardDocumentInput,
+    documentId = notionPageId,
+  ): Promise<void> {
+    await this.ensureStoryboardD1Tables()
+    const db = storyboardDb(this.env)!
+    const bucket = storyboardAssetBucket(this.env)
+    const now = Date.now()
+    const frames = Array.isArray(input.data.frames) ? input.data.frames : []
+
+    await db
+      .prepare(
+        `INSERT INTO storyboard_documents (
+        id, notion_page_id, title, project_id, project_name, version_name, memo,
+        meta_json, exported_file_names_json, updated_at, created_at, modified_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(notion_page_id) DO UPDATE SET
+        id = excluded.id,
+        title = excluded.title,
+        project_id = excluded.project_id,
+        project_name = excluded.project_name,
+        version_name = excluded.version_name,
+        memo = excluded.memo,
+        meta_json = excluded.meta_json,
+        exported_file_names_json = excluded.exported_file_names_json,
+        updated_at = excluded.updated_at,
+        modified_at = excluded.modified_at`,
+      )
+      .bind(
+        documentId,
+        notionPageId,
+        input.title,
+        input.projectId ?? '',
+        input.projectName ?? '',
+        input.versionName ?? '',
+        input.memo ?? '',
+        JSON.stringify(input.data.meta ?? {}),
+        JSON.stringify(input.exportedFileNames ?? []),
+        input.updatedAt ?? new Date().toISOString().slice(0, 10),
+        now,
+        now,
+      )
+      .run()
+
+    await db.prepare(`DELETE FROM storyboard_frames WHERE document_id = ?`).bind(documentId).run()
+
+    for (let index = 0; index < frames.length; index += 1) {
+      const rawFrame = frames[index] ?? {}
+      const frame =
+        rawFrame && typeof rawFrame === 'object' && !Array.isArray(rawFrame) ? { ...(rawFrame as AnyMap) } : {}
+      const frameId = normalizeText(frame.id) || crypto.randomUUID()
+      frame.id = frameId
+
+      let imageKey = normalizeText(frame.thumbnailImageKey)
+      let imageContentType = normalizeText(frame.thumbnailContentType)
+      const imagePayload = parseDataUrl(frame.thumbnailDataUrl)
+      if (imagePayload) {
+        if (!bucket) throw new Error('storyboard_assets_bucket_not_configured')
+        imageContentType = imagePayload.contentType
+        imageKey =
+          imageKey ||
+          `storyboards/${documentId}/${frameId}/${crypto.randomUUID()}.${imageExtension(imagePayload.contentType)}`
+        await bucket.put(imageKey, imagePayload.bytes, {
+          httpMetadata: { contentType: imagePayload.contentType },
+        })
+      }
+
+      const imageName = normalizeText(frame.thumbnailName)
+      const imageWidth = Number(frame.thumbnailWidth ?? 0)
+      const imageHeight = Number(frame.thumbnailHeight ?? 0)
+      frame.thumbnailDataUrl = ''
+      frame.thumbnailImageKey = imageKey
+      frame.thumbnailContentType = imageContentType
+
+      await db
+        .prepare(
+          `INSERT INTO storyboard_frames (
+          document_id, frame_id, frame_order, frame_json, image_key, image_name,
+          image_content_type, image_width, image_height, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          documentId,
+          frameId,
+          index,
+          JSON.stringify(frame),
+          imageKey,
+          imageName,
+          imageContentType,
+          Number.isFinite(imageWidth) ? imageWidth : 0,
+          Number.isFinite(imageHeight) ? imageHeight : 0,
+          now,
+        )
+        .run()
+    }
+  }
+
+  private async readStoryboardDataFromD1(
+    notionPageId: string,
+  ): Promise<{ data: StoryboardDocumentData; exportedFileNames: string[] } | null> {
+    const db = storyboardDb(this.env)
+    if (!db) return null
+    await this.ensureStoryboardD1Tables()
+
+    const document = await db
+      .prepare(
+        `SELECT id, meta_json, exported_file_names_json
+       FROM storyboard_documents
+       WHERE notion_page_id = ?
+       LIMIT 1`,
+      )
+      .bind(notionPageId)
+      .first<{ id?: unknown; meta_json?: unknown; exported_file_names_json?: unknown }>()
+    const documentId = normalizeText(document?.id)
+    if (!documentId) return null
+
+    const result = await db
+      .prepare(
+        `SELECT frame_json, image_key, image_content_type
+       FROM storyboard_frames
+       WHERE document_id = ?
+       ORDER BY frame_order ASC`,
+      )
+      .bind(documentId)
+      .all<{ frame_json?: unknown; image_key?: unknown; image_content_type?: unknown }>()
+    const bucket = storyboardAssetBucket(this.env)
+    const frames: AnyMap[] = []
+
+    for (const row of result.results ?? []) {
+      const frame = normalizeStoredJson<AnyMap>(typeof row.frame_json === 'string' ? row.frame_json : '', {})
+      const imageKey = normalizeText(row.image_key)
+      const imageContentType = normalizeText(row.image_content_type) || 'image/jpeg'
+      if (imageKey && bucket) {
+        const object = await bucket.get(imageKey)
+        const buffer = object?.arrayBuffer
+          ? await object.arrayBuffer()
+          : object?.body?.arrayBuffer
+            ? await object.body.arrayBuffer()
+            : null
+        if (buffer) frame.thumbnailDataUrl = `data:${imageContentType};base64,${arrayBufferToBase64(buffer)}`
+      }
+      frames.push(frame)
+    }
+
+    return {
+      data: {
+        meta: normalizeStoredJson<Record<string, unknown>>(
+          typeof document?.meta_json === 'string' ? document.meta_json : '',
+          {},
+        ),
+        frames,
+      },
+      exportedFileNames: normalizeStoredJson<string[]>(
+        typeof document?.exported_file_names_json === 'string' ? document.exported_file_names_json : '',
+        [],
+      ),
+    }
   }
 
   private async listAllBlockChildren(blockId: string): Promise<any[]> {
@@ -4122,37 +4689,6 @@ export class NotionWorkService {
     return blocks
   }
 
-  private buildStoryboardDataBlocks(dataJson: string, groupId: string): AnyMap[] {
-    const chunks: string[] = []
-    for (let index = 0; index < dataJson.length; index += STORYBOARD_DATA_BLOCK_CHUNK_SIZE) {
-      chunks.push(dataJson.slice(index, index + STORYBOARD_DATA_BLOCK_CHUNK_SIZE))
-    }
-    if (chunks.length === 0) chunks.push('')
-
-    return chunks.map((chunk, index) => ({
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [
-          {
-            type: 'text',
-            text: {
-              content: `${STORYBOARD_DATA_BLOCK_MARKER}|${groupId}|${index}|${chunks.length}\n${chunk}`,
-            },
-          },
-        ],
-      },
-    }))
-  }
-
-  private async appendStoryboardDataBlocks(pageId: string, dataJson: string): Promise<string> {
-    const groupId = `${Date.now()}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
-    const blocks = this.buildStoryboardDataBlocks(dataJson, groupId)
-    for (let index = 0; index < blocks.length; index += 80) {
-      await this.api.appendBlockChildren(pageId, blocks.slice(index, index + 80))
-    }
-    return groupId
-  }
-
   private async archiveOldStoryboardDataBlocks(pageId: string, keepGroupId: string): Promise<void> {
     const blocks = await this.listAllBlockChildren(pageId)
     const oldBlocks = blocks.filter((block) => {
@@ -4164,6 +4700,10 @@ export class NotionWorkService {
     for (const block of oldBlocks) {
       await this.api.updateBlock(block.id, { archived: true })
     }
+  }
+
+  private async archiveStoryboardDataBlocks(pageId: string): Promise<void> {
+    await this.archiveOldStoryboardDataBlocks(pageId, '')
   }
 
   private async readStoryboardDataJsonFromBlocks(pageId: string): Promise<string> {
@@ -4195,29 +4735,27 @@ export class NotionWorkService {
     return Array.from({ length: latest.total }, (_, index) => latest.chunks.get(index) ?? '').join('')
   }
 
-  private async replaceStoryboardDataBlocks(pageId: string, dataJson: string): Promise<void> {
-    const groupId = await this.appendStoryboardDataBlocks(pageId, dataJson)
-    await this.archiveOldStoryboardDataBlocks(pageId, groupId)
-  }
-
   private mapStoryboardPage(
     page: any,
     schema: StoryboardSchema,
     projectNameMap: Record<string, string>,
     dataJsonOverride?: string,
+    exportJsonOverride?: string,
   ): StoryboardDocumentRecord {
     const props = (page.properties ?? {}) as AnyMap
     const projectId = first(extractRelationIds(props, schema.fields.project))
     const storedProjectName = extractTextLike(props, schema.fields.projectName, '')
     const dataJson = dataJsonOverride || extractTextLike(props, schema.fields.data, '')
-    const exportJson = extractTextLike(props, schema.fields.exportedFileNames, '')
+    const exportJson = exportJsonOverride || extractTextLike(props, schema.fields.exportedFileNames, '')
 
     return {
       id: page.id,
       url: page.url,
       title: extractTitle(props, schema.fields.title),
       projectId: projectId || undefined,
-      projectName: storedProjectName || (projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined),
+      projectName:
+        storedProjectName ||
+        (projectId ? (projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId]) : undefined),
       versionName: extractTextLike(props, schema.fields.versionName, '') || undefined,
       memo: extractTextLike(props, schema.fields.memo, '') || undefined,
       data: normalizeStoredJson<StoryboardDocumentData>(dataJson, { meta: {}, frames: [] }),
@@ -4229,7 +4767,11 @@ export class NotionWorkService {
   async listStoryboards(): Promise<StoryboardDocumentRecord[]> {
     const dbId = this.env.NOTION_STORYBOARD_DB_ID
     if (!dbId) return []
-    const [schema, projects, pages] = await Promise.all([this.getStoryboardSchema(), this.listProjects(), this.queryAll(dbId)])
+    const [schema, projects, pages] = await Promise.all([
+      this.getStoryboardSchema(),
+      this.listProjects(),
+      this.queryAll(dbId),
+    ])
     const projectNameMap: Record<string, string> = {}
     for (const project of projects) {
       projectNameMap[project.id] = project.name
@@ -4239,14 +4781,52 @@ export class NotionWorkService {
   }
 
   async getStoryboard(id: string): Promise<StoryboardDocumentRecord> {
-    const [schema, projects, page] = await Promise.all([this.getStoryboardSchema(), this.listProjects(), this.api.retrievePage(id)])
+    const [schema, projects, page] = await Promise.all([
+      this.getStoryboardSchema(),
+      this.listProjects(),
+      this.api.retrievePage(id),
+    ])
     const projectNameMap: Record<string, string> = {}
     for (const project of projects) {
       projectNameMap[project.id] = project.name
       projectNameMap[normalizeNotionId(project.id)] = project.name
     }
-    const blockDataJson = await this.readStoryboardDataJsonFromBlocks(id)
-    return this.mapStoryboardPage(page, schema, projectNameMap, blockDataJson || undefined)
+
+    const d1Record = await this.readStoryboardDataFromD1(id)
+    if (d1Record) {
+      return this.mapStoryboardPage(
+        page,
+        schema,
+        projectNameMap,
+        JSON.stringify(d1Record.data),
+        JSON.stringify(d1Record.exportedFileNames),
+      )
+    }
+
+    const legacyRecord = this.mapStoryboardPage(
+      page,
+      schema,
+      projectNameMap,
+      (await this.readStoryboardDataJsonFromBlocks(id)) || undefined,
+    )
+    if (legacyRecord.data.frames.length > 0 && storyboardDb(this.env)) {
+      await this.writeStoryboardDataToD1(id, {
+        title: legacyRecord.title,
+        projectId: legacyRecord.projectId,
+        projectName: legacyRecord.projectName,
+        versionName: legacyRecord.versionName,
+        memo: legacyRecord.memo,
+        data: legacyRecord.data,
+        exportedFileNames: legacyRecord.exportedFileNames,
+        updatedAt: legacyRecord.updatedAt,
+      })
+      const markerProperties: AnyMap = {}
+      applyLongRichText(markerProperties, schema.fields.data, `${STORYBOARD_D1_PROPERTY_MARKER}:${id}`)
+      if (Object.keys(markerProperties).length > 0) await this.api.updatePage(id, { properties: markerProperties })
+      await this.archiveStoryboardDataBlocks(id)
+    }
+
+    return legacyRecord
   }
 
   async createStoryboard(input: CreateStoryboardDocumentInput): Promise<StoryboardDocumentRecord> {
@@ -4254,7 +4834,7 @@ export class NotionWorkService {
     if (!isKnownField(schema.fields.title)) throw new Error('storyboard_title_property_missing')
     const title = normalizeText(input.title)
     if (!title) throw new Error('title_required')
-    const projectName = normalizeText(input.projectName) || await this.resolveProjectName(input.projectId)
+    const projectName = normalizeText(input.projectName) || (await this.resolveProjectName(input.projectId))
 
     const properties: AnyMap = {}
     applyTitleLike(properties, schema.fields.title, title)
@@ -4262,35 +4842,49 @@ export class NotionWorkService {
     applyRichText(properties, schema.fields.projectName, projectName)
     applyRichText(properties, schema.fields.versionName, input.versionName)
     applyRichText(properties, schema.fields.memo, input.memo)
-    applyLongRichText(properties, schema.fields.data, JSON.stringify(stripStoryboardDataForProperty(input.data)))
+    applyLongRichText(properties, schema.fields.data, `${STORYBOARD_D1_PROPERTY_MARKER}:pending`)
     applyLongRichText(properties, schema.fields.exportedFileNames, JSON.stringify(input.exportedFileNames ?? []))
     applyDate(properties, schema.fields.updatedAt, input.updatedAt || new Date().toISOString().slice(0, 10))
 
-    const created: any = await this.api.createPage({ parent: { database_id: this.env.NOTION_STORYBOARD_DB_ID! }, properties })
-    await this.replaceStoryboardDataBlocks(created.id, JSON.stringify(input.data))
+    const created: any = await this.api.createPage({
+      parent: { database_id: this.env.NOTION_STORYBOARD_DB_ID! },
+      properties,
+    })
+    await this.writeStoryboardDataToD1(created.id, { ...input, projectName })
+    const markerProperties: AnyMap = {}
+    applyLongRichText(markerProperties, schema.fields.data, `${STORYBOARD_D1_PROPERTY_MARKER}:${created.id}`)
+    if (Object.keys(markerProperties).length > 0)
+      await this.api.updatePage(created.id, { properties: markerProperties })
     return this.getStoryboard(created.id)
   }
 
   async updateStoryboard(id: string, patch: UpdateStoryboardDocumentInput): Promise<StoryboardDocumentRecord> {
     const schema = await this.getStoryboardSchema()
     const properties: AnyMap = {}
+    const shouldUpdateD1 =
+      hasOwn(patch as Record<string, unknown>, 'data') || hasOwn(patch as Record<string, unknown>, 'exportedFileNames')
+    const existingRecord = shouldUpdateD1 ? await this.getStoryboard(id) : null
 
     if (hasOwn(patch as Record<string, unknown>, 'title')) {
       const title = normalizeText(patch.title ?? '')
       if (title) applyTitleLike(properties, schema.fields.title, title)
     }
-    if (hasOwn(patch as Record<string, unknown>, 'projectId') || hasOwn(patch as Record<string, unknown>, 'projectName')) {
+    if (
+      hasOwn(patch as Record<string, unknown>, 'projectId') ||
+      hasOwn(patch as Record<string, unknown>, 'projectName')
+    ) {
       if (hasOwn(patch as Record<string, unknown>, 'projectId')) {
         const taskId = normalizeText(patch.projectId ?? '')
         applyRelationIds(properties, schema.fields.project, taskId ? [taskId] : [])
       }
-      const projectName = normalizeText(patch.projectName) || await this.resolveProjectName(patch.projectId)
+      const projectName = normalizeText(patch.projectName) || (await this.resolveProjectName(patch.projectId))
       applyRichText(properties, schema.fields.projectName, projectName)
     }
-    if (hasOwn(patch as Record<string, unknown>, 'versionName')) applyRichText(properties, schema.fields.versionName, patch.versionName)
+    if (hasOwn(patch as Record<string, unknown>, 'versionName'))
+      applyRichText(properties, schema.fields.versionName, patch.versionName)
     if (hasOwn(patch as Record<string, unknown>, 'memo')) applyRichText(properties, schema.fields.memo, patch.memo)
     if (hasOwn(patch as Record<string, unknown>, 'data') && patch.data) {
-      applyLongRichText(properties, schema.fields.data, JSON.stringify(stripStoryboardDataForProperty(patch.data)))
+      applyLongRichText(properties, schema.fields.data, `${STORYBOARD_D1_PROPERTY_MARKER}:${id}`)
     }
     if (hasOwn(patch as Record<string, unknown>, 'exportedFileNames')) {
       applyLongRichText(properties, schema.fields.exportedFileNames, JSON.stringify(patch.exportedFileNames ?? []))
@@ -4298,14 +4892,38 @@ export class NotionWorkService {
     applyDate(properties, schema.fields.updatedAt, patch.updatedAt || new Date().toISOString().slice(0, 10))
 
     await this.api.updatePage(id, { properties })
-    if (hasOwn(patch as Record<string, unknown>, 'data') && patch.data) {
-      await this.replaceStoryboardDataBlocks(id, JSON.stringify(patch.data))
+    if (shouldUpdateD1 && existingRecord) {
+      await this.writeStoryboardDataToD1(id, {
+        title: normalizeText(patch.title) || existingRecord.title,
+        projectId: hasOwn(patch as Record<string, unknown>, 'projectId')
+          ? normalizeText(patch.projectId)
+          : existingRecord.projectId,
+        projectName: hasOwn(patch as Record<string, unknown>, 'projectName')
+          ? normalizeText(patch.projectName) || (await this.resolveProjectName(patch.projectId))
+          : existingRecord.projectName,
+        versionName: hasOwn(patch as Record<string, unknown>, 'versionName')
+          ? normalizeText(patch.versionName)
+          : existingRecord.versionName,
+        memo: hasOwn(patch as Record<string, unknown>, 'memo') ? normalizeText(patch.memo) : existingRecord.memo,
+        data: patch.data ?? existingRecord.data,
+        exportedFileNames: hasOwn(patch as Record<string, unknown>, 'exportedFileNames')
+          ? (patch.exportedFileNames ?? [])
+          : existingRecord.exportedFileNames,
+        updatedAt: normalizeText(patch.updatedAt) || new Date().toISOString().slice(0, 10),
+      })
+      await this.archiveStoryboardDataBlocks(id)
     }
     return this.getStoryboard(id)
   }
 
   async archiveStoryboard(id: string): Promise<void> {
     await this.api.updatePage(id, { archived: true })
+    const db = storyboardDb(this.env)
+    if (db) {
+      await this.ensureStoryboardD1Tables()
+      await db.prepare(`DELETE FROM storyboard_frames WHERE document_id = ?`).bind(id).run()
+      await db.prepare(`DELETE FROM storyboard_documents WHERE notion_page_id = ?`).bind(id).run()
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -4315,21 +4933,37 @@ export class NotionWorkService {
   private buildFeedbackSchema(properties: Record<string, any>): FeedbackSchema {
     const relationFallback = (entries: Array<[string, any]>) => {
       const byTargetDb = entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+        ([, prop]) =>
+          prop?.type === 'relation' &&
+          normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
       )
       return byTargetDb
     }
 
     return {
       fields: {
-        content: pickField('content', properties, '피드백 내용', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        content: pickField('content', properties, '피드백 내용', ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
         sourceProject: pickField('sourceProject', properties, '출처 행사', ['relation'], true, relationFallback),
-        eventCategory: pickField('eventCategory', properties, '행사분류', ['select', 'multi_select', 'rich_text'], true),
+        eventCategory: pickField(
+          'eventCategory',
+          properties,
+          '행사분류',
+          ['select', 'multi_select', 'rich_text'],
+          true,
+        ),
         domain: pickField('domain', properties, '도메인', ['multi_select', 'select', 'rich_text'], true),
         reporter: pickField('reporter', properties, '제보자', ['rich_text', 'title', 'select'], true),
         collectionMethod: pickField('collectionMethod', properties, '수집방법', ['select', 'rich_text'], true),
         priority: pickField('priority', properties, '우선순위', ['select', 'status', 'rich_text'], true),
-        reflectionStatus: pickField('reflectionStatus', properties, '반영상태', ['select', 'status', 'rich_text'], true),
+        reflectionStatus: pickField(
+          'reflectionStatus',
+          properties,
+          '반영상태',
+          ['select', 'status', 'rich_text'],
+          true,
+        ),
         appliedProject: pickField('appliedProject', properties, '반영 행사', ['relation'], true, relationFallback),
         recurring: pickField('recurring', properties, '반복발생', ['checkbox', 'select'], true),
         notes: pickField('notes', properties, '비고', ['rich_text', 'title'], true),
@@ -4346,23 +4980,19 @@ export class NotionWorkService {
     return this.buildFeedbackSchema(properties)
   }
 
-  private mapFeedbackPage(
-    page: any,
-    schema: FeedbackSchema,
-    projectNameMap: Record<string, string>,
-  ): FeedbackRecord {
+  private mapFeedbackPage(page: any, schema: FeedbackSchema, projectNameMap: Record<string, string>): FeedbackRecord {
     const props = (page.properties ?? {}) as AnyMap
 
     const sourceRelationIds = extractRelationIds(props, schema.fields.sourceProject)
     const sourceProjectId = first(sourceRelationIds)
     const sourceProjectName = sourceProjectId
-      ? projectNameMap[normalizeNotionId(sourceProjectId)] ?? projectNameMap[sourceProjectId]
+      ? (projectNameMap[normalizeNotionId(sourceProjectId)] ?? projectNameMap[sourceProjectId])
       : undefined
 
     const appliedRelationIds = extractRelationIds(props, schema.fields.appliedProject)
     const appliedProjectId = first(appliedRelationIds)
     const appliedProjectName = appliedProjectId
-      ? projectNameMap[normalizeNotionId(appliedProjectId)] ?? projectNameMap[appliedProjectId]
+      ? (projectNameMap[normalizeNotionId(appliedProjectId)] ?? projectNameMap[appliedProjectId])
       : undefined
 
     return {
@@ -4527,7 +5157,9 @@ export class NotionWorkService {
   private buildProgramIssueSchema(properties: Record<string, any>): ProgramIssueSchema {
     return {
       fields: {
-        title: pickField('title', properties, '이슈 제목', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        title: pickField('title', properties, '이슈 제목', ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
         description: pickField('description', properties, '상세 내용', ['rich_text', 'title'], true),
         issueType: pickField('issueType', properties, '구분', ['select', 'status', 'rich_text'], true),
         screenName: pickField('screenName', properties, '화면/기능', ['rich_text', 'title', 'select'], true),
@@ -4688,14 +5320,18 @@ export class NotionWorkService {
   private buildSubtitleVideoSchema(properties: Record<string, any>): SubtitleVideoSchema {
     const projectRelationFallback = (entries: Array<[string, any]>) => {
       const byTargetDb = entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+        ([, prop]) =>
+          prop?.type === 'relation' &&
+          normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
       )
       return byTargetDb
     }
 
     return {
       fields: {
-        videoName: pickField('videoName', properties, '영상명', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        videoName: pickField('videoName', properties, '영상명', ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
         videoCode: pickField('videoCode', properties, '영상 코드', ['rich_text'], true),
         category: pickField('category', properties, '카테고리', ['select', 'rich_text'], true),
         resolution: pickField('resolution', properties, '원본 해상도', ['select', 'rich_text'], true),
@@ -4734,7 +5370,9 @@ export class NotionWorkService {
 
     const eventRelationIds = extractRelationIds(props, schema.fields.event)
     const eventIds = eventRelationIds.filter(Boolean)
-    const eventNames = eventIds.map((id) => projectNameMap[normalizeNotionId(id)] ?? projectNameMap[id] ?? '').filter(Boolean)
+    const eventNames = eventIds
+      .map((id) => projectNameMap[normalizeNotionId(id)] ?? projectNameMap[id] ?? '')
+      .filter(Boolean)
 
     const revNum = extractNumberFromProperty((props as any)[schema.fields.revision.actualName])
 
@@ -4823,14 +5461,17 @@ export class NotionWorkService {
       const byTargetDb = entries.find(
         ([, prop]) =>
           prop?.type === 'relation' &&
-          normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_SUBTITLE_VIDEO_DB_ID ?? ''),
+          normalizeNotionId(prop?.relation?.database_id) ===
+            normalizeNotionId(this.env.NOTION_SUBTITLE_VIDEO_DB_ID ?? ''),
       )
       return byTargetDb
     }
 
     return {
       fields: {
-        revisionName: pickField('revisionName', properties, '리비전명', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        revisionName: pickField('revisionName', properties, '리비전명', ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
         video: pickField('video', properties, '영상', ['relation'], true, videoRelationFallback),
         revisionNumber: pickField('revisionNumber', properties, '리비전 번호', ['number'], true),
         modifiedDate: pickField('modifiedDate', properties, '수정일', ['date'], true),
@@ -4858,7 +5499,7 @@ export class NotionWorkService {
 
     const videoRelationIds = extractRelationIds(props, schema.fields.video)
     const videoId = first(videoRelationIds)
-    const videoName = videoId ? videoNameMap[normalizeNotionId(videoId)] ?? videoNameMap[videoId] : undefined
+    const videoName = videoId ? (videoNameMap[normalizeNotionId(videoId)] ?? videoNameMap[videoId]) : undefined
 
     const snapshotRaw = extractTextLike(props, schema.fields.snapshotData, '')
     let snapshot: SubtitleSnapshotData = { segments: [] }
@@ -4971,7 +5612,9 @@ export class NotionWorkService {
   private buildVideoManualSchema(properties: Record<string, any>): VideoManualSchema {
     return {
       fields: {
-        itemName: pickField('itemName', properties, '항목명', ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        itemName: pickField('itemName', properties, '항목명', ['title', 'rich_text'], false, (entries) =>
+          findFirstByTypes(entries, ['title']),
+        ),
         category: pickField('category', properties, '카테고리', ['select', 'rich_text'], false),
         sortOrder: pickField('sortOrder', properties, '순서', ['number'], true),
         description: pickField('description', properties, '설명', ['rich_text'], true),
