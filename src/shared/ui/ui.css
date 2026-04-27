@@ -3533,6 +3533,26 @@ button.dashboardNavButton {
   grid-column: 1 / -1;
 }
 
+.storyboardPptxVersionField {
+  background: linear-gradient(180deg, var(--primary-soft) 0%, var(--surface) 100%);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.storyboardPptxVersionField input {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+  color: var(--primary-strong);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.storyboardPptxVersionField input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
 .storyboardPptxMemoField textarea {
   min-height: 64px;
   resize: vertical;

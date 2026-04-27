@@ -797,9 +797,9 @@ export function StoryboardPptxView() {
           프로젝트명
           <input value={meta.projectName} onChange={(event) => updateMeta('projectName', event.target.value)} placeholder="행사명 또는 영상명" />
         </label>
-        <label>
+        <label className="storyboardPptxVersionField">
           버전명
-          <input value={meta.versionName} onChange={(event) => updateMeta('versionName', event.target.value)} placeholder="v1" />
+          <input value={meta.versionName} onChange={(event) => updateMeta('versionName', event.target.value)} placeholder="v1, v2, v3" />
         </label>
         <label className="storyboardPptxMemoField">
           메모
@@ -991,7 +991,7 @@ export function StoryboardPptxView() {
           <section className="storyboardPptxConfirmDialog" role="dialog" aria-modal="true" aria-label="중복 파일명 확인">
             <h3>정말 이 버전명으로 내보내실건가요?</h3>
             <p>
-              <mark>{duplicateExportFileName}</mark> 이 이미 있습니다.
+              <mark>{duplicateExportFileName}</mark> 을 이미 내보내기한 기록이 있습니다.
             </p>
             <div className="storyboardPptxConfirmActions">
               <Button type="button" variant="secondary" onClick={() => setDuplicateExportFileName(null)}>
