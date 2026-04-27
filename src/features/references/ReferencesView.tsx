@@ -437,7 +437,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
           const youtubeId = item.link ? extractYoutubeId(item.link) : ''
           const sourceMeta = SOURCE_META[item.sourceType]
           const relatedTask = item.projectId ? taskById.get(item.projectId) : undefined
-          const workTypeLabel = relatedTask?.workType || item.projectName || ''
+          const relatedTaskLabel = relatedTask?.taskName || item.projectName || ''
           return (
             <article className={viewMode === 'grid' ? 'referenceCard' : 'referenceListItem'} key={item.id}>
               <div className="referenceMedia">
@@ -469,7 +469,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
                   ))}
                 </div>
                 <h3>{item.title}</h3>
-                {workTypeLabel ? <p>{workTypeLabel}</p> : null}
+                {relatedTaskLabel ? <p>{relatedTaskLabel}</p> : null}
                 {item.memo ? <p>{item.memo}</p> : null}
               </div>
             </article>
