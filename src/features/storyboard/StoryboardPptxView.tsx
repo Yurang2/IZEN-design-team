@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import PptxGenJS from 'pptxgenjs'
 import { Button, UiGlyph } from '../../shared/ui'
 
@@ -19,6 +19,20 @@ type StoryboardMeta = {
   deckTitle: string
   projectName: string
   versionNote: string
+}
+
+type SavedStoryboard = {
+  id: string
+  title: string
+  updatedAt: string
+  meta: StoryboardMeta
+  frames: StoryboardFrame[]
+  selectedFrameId: string
+}
+
+type StoryboardStore = {
+  activeId: string
+  items: SavedStoryboard[]
 }
 
 type ImagePayload = {
@@ -43,6 +57,11 @@ const DEFAULT_TIME_RANGE: TimeRangeParts = {
   endMinute: 0,
   endSecond: 5,
 }
+
+const STORYBOARD_STORAGE_KEY = 'izen_storyboard_pptx_store_v1'
+const STORYBOARD_AUTOSAVE_DELAY_MS = 350
+const STORYBOARD_IMAGE_SCALE = 0.5
+const STORYBOARD_IMAGE_QUALITY = 0.72
 
 const DEFAULT_META: StoryboardMeta = {
   deckTitle: '스토리보드',
@@ -127,6 +146,103 @@ const STARTER_FRAMES: StoryboardFrame[] = [
   },
 ]
 
+function cloneStarterFrames(): StoryboardFrame[] {
+  return STARTER_FRAMES.map((frame) => ({
+    ...frame,
+    id: crypto.randomUUID(),
+  }))
+}
+
+function createStoryboardTitle(meta: StoryboardMeta): string {
+  return meta.projectName.trim() || meta.deckTitle.trim() || '새 스토리보드'
+}
+
+function createSavedStoryboard(): SavedStoryboard {
+  const frames = cloneStarterFrames()
+  return {
+    id: crypto.randomUUID(),
+    title: createStoryboardTitle(DEFAULT_META),
+    updatedAt: new Date().toISOString(),
+    meta: { ...DEFAULT_META },
+    frames,
+    selectedFrameId: frames[0]?.id ?? '',
+  }
+}
+
+function normalizeSavedStoryboard(value: unknown): SavedStoryboard | null {
+  if (!value || typeof value !== 'object') return null
+  const item = value as Partial<SavedStoryboard>
+  if (!item.id || typeof item.id !== 'string') return null
+  if (!item.meta || !Array.isArray(item.frames)) return null
+
+  const frames = item.frames.filter((frame): frame is StoryboardFrame => {
+    return Boolean(frame && typeof frame.id === 'string' && typeof frame.timecode === 'string')
+  })
+  if (frames.length === 0) return null
+
+  const meta: StoryboardMeta = {
+    deckTitle: typeof item.meta.deckTitle === 'string' ? item.meta.deckTitle : DEFAULT_META.deckTitle,
+    projectName: typeof item.meta.projectName === 'string' ? item.meta.projectName : '',
+    versionNote: typeof item.meta.versionNote === 'string' ? item.meta.versionNote : '',
+  }
+
+  return {
+    id: item.id,
+    title: typeof item.title === 'string' ? item.title : createStoryboardTitle(meta),
+    updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
+    meta,
+    frames,
+    selectedFrameId:
+      typeof item.selectedFrameId === 'string' && frames.some((frame) => frame.id === item.selectedFrameId)
+        ? item.selectedFrameId
+        : frames[0]?.id ?? '',
+  }
+}
+
+function readStoryboardStore(): StoryboardStore {
+  if (typeof window === 'undefined') {
+    const item = createSavedStoryboard()
+    return { activeId: item.id, items: [item] }
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(STORYBOARD_STORAGE_KEY)
+    if (!rawValue) {
+      const item = createSavedStoryboard()
+      return { activeId: item.id, items: [item] }
+    }
+
+    const parsed = JSON.parse(rawValue) as Partial<StoryboardStore>
+    const items = Array.isArray(parsed.items)
+      ? parsed.items.map((item) => normalizeSavedStoryboard(item)).filter((item): item is SavedStoryboard => Boolean(item))
+      : []
+    if (items.length === 0) {
+      const item = createSavedStoryboard()
+      return { activeId: item.id, items: [item] }
+    }
+
+    const activeId = typeof parsed.activeId === 'string' && items.some((item) => item.id === parsed.activeId)
+      ? parsed.activeId
+      : items[0].id
+    return { activeId, items }
+  } catch {
+    const item = createSavedStoryboard()
+    return { activeId: item.id, items: [item] }
+  }
+}
+
+function formatSavedAt(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
 const COLORS = {
   ink: '172033',
   muted: '5F6F85',
@@ -174,11 +290,31 @@ function readImageFile(file: File): Promise<ImagePayload> {
       const dataUrl = String(reader.result ?? '')
       const image = new Image()
       image.onload = () => {
+        const canvas = document.createElement('canvas')
+        const width = Math.max(1, Math.round(image.naturalWidth * STORYBOARD_IMAGE_SCALE))
+        const height = Math.max(1, Math.round(image.naturalHeight * STORYBOARD_IMAGE_SCALE))
+        canvas.width = width
+        canvas.height = height
+        const context = canvas.getContext('2d')
+        if (!context) {
+          resolve({
+            dataUrl,
+            name: file.name,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          })
+          return
+        }
+
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, width, height)
+        context.drawImage(image, 0, 0, width, height)
+
         resolve({
-          dataUrl,
+          dataUrl: canvas.toDataURL('image/jpeg', STORYBOARD_IMAGE_QUALITY),
           name: file.name,
-          width: image.naturalWidth,
-          height: image.naturalHeight,
+          width,
+          height,
         })
       }
       image.onerror = () => reject(new Error('이미지를 읽지 못했습니다. 다른 파일을 선택해 주세요.'))
@@ -376,11 +512,16 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
 }
 
 export function StoryboardPptxView() {
-  const [meta, setMeta] = useState<StoryboardMeta>(DEFAULT_META)
-  const [frames, setFrames] = useState<StoryboardFrame[]>(STARTER_FRAMES)
-  const [selectedFrameId, setSelectedFrameId] = useState(STARTER_FRAMES[0]?.id ?? '')
+  const [initialStore] = useState<StoryboardStore>(() => readStoryboardStore())
+  const initialStoryboard = initialStore.items.find((item) => item.id === initialStore.activeId) ?? initialStore.items[0]
+  const [savedStoryboards, setSavedStoryboards] = useState<SavedStoryboard[]>(initialStore.items)
+  const [activeStoryboardId, setActiveStoryboardId] = useState(initialStore.activeId)
+  const [meta, setMeta] = useState<StoryboardMeta>(initialStoryboard?.meta ?? DEFAULT_META)
+  const [frames, setFrames] = useState<StoryboardFrame[]>(initialStoryboard?.frames ?? cloneStarterFrames())
+  const [selectedFrameId, setSelectedFrameId] = useState(initialStoryboard?.selectedFrameId ?? initialStoryboard?.frames[0]?.id ?? '')
   const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [storageError, setStorageError] = useState<string | null>(null)
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -390,6 +531,52 @@ export function StoryboardPptxView() {
     () => parseTimeRange(selectedFrame?.timecode ?? ''),
     [selectedFrame?.timecode],
   )
+  const activeSavedStoryboard = useMemo(
+    () => savedStoryboards.find((item) => item.id === activeStoryboardId) ?? savedStoryboards[0],
+    [activeStoryboardId, savedStoryboards],
+  )
+
+  useEffect(() => {
+    const updatedAt = new Date().toISOString()
+    const snapshot: SavedStoryboard = {
+      id: activeStoryboardId,
+      title: createStoryboardTitle(meta),
+      updatedAt,
+      meta,
+      frames,
+      selectedFrameId: selectedFrame?.id ?? frames[0]?.id ?? '',
+    }
+
+    setSavedStoryboards((current) => {
+      let found = false
+      const next = current.map((item) => {
+        if (item.id !== activeStoryboardId) return item
+        found = true
+        return snapshot
+      })
+      return found ? next : [snapshot, ...next]
+    })
+  }, [activeStoryboardId, frames, meta, selectedFrame?.id])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          STORYBOARD_STORAGE_KEY,
+          JSON.stringify({
+            activeId: activeStoryboardId,
+            items: savedStoryboards,
+          }),
+        )
+        setStorageError(null)
+      } catch {
+        setStorageError('브라우저 저장공간이 부족해 자동저장하지 못했습니다. 큰 썸네일 이미지를 줄이거나 일부 페이지를 삭제해 주세요.')
+      }
+    }, STORYBOARD_AUTOSAVE_DELAY_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [activeStoryboardId, savedStoryboards])
 
   const updateMeta = (key: keyof StoryboardMeta, value: string) => {
     setMeta((current) => ({ ...current, [key]: value }))
@@ -405,6 +592,40 @@ export function StoryboardPptxView() {
       [key]: normalizeTimeNumber(value, key.endsWith('Second') ? 59 : undefined),
     }
     updateFrame(id, { timecode: formatTimeRange(nextParts) })
+  }
+
+  const loadSavedStoryboard = (storyboardId: string) => {
+    const nextStoryboard = savedStoryboards.find((item) => item.id === storyboardId)
+    if (!nextStoryboard) return
+
+    setActiveStoryboardId(nextStoryboard.id)
+    setMeta(nextStoryboard.meta)
+    setFrames(nextStoryboard.frames)
+    setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
+    setMessage(null)
+  }
+
+  const createNewSavedStoryboard = () => {
+    const nextStoryboard = createSavedStoryboard()
+    setSavedStoryboards((current) => [nextStoryboard, ...current])
+    setActiveStoryboardId(nextStoryboard.id)
+    setMeta(nextStoryboard.meta)
+    setFrames(nextStoryboard.frames)
+    setSelectedFrameId(nextStoryboard.selectedFrameId)
+    setMessage('새 스토리보드를 만들었습니다. 이후 입력 내용은 자동저장됩니다.')
+  }
+
+  const deleteSavedStoryboard = () => {
+    if (!activeSavedStoryboard) return
+    const remaining = savedStoryboards.filter((item) => item.id !== activeSavedStoryboard.id)
+    const nextStoryboard = remaining[0] ?? createSavedStoryboard()
+
+    setSavedStoryboards(remaining.length > 0 ? remaining : [nextStoryboard])
+    setActiveStoryboardId(nextStoryboard.id)
+    setMeta(nextStoryboard.meta)
+    setFrames(nextStoryboard.frames)
+    setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
+    setMessage('선택한 저장본을 삭제했습니다.')
   }
 
   const addFrame = () => {
@@ -512,6 +733,33 @@ export function StoryboardPptxView() {
       </section>
 
       {message ? <p className="storyboardPptxMessage">{message}</p> : null}
+      {storageError ? <p className="storyboardPptxMessage is-error">{storageError}</p> : null}
+
+      <section className="storyboardPptxSavePanel" aria-label="스토리보드 저장본">
+        <div className="storyboardPptxSaveInfo">
+          <strong>웹페이지 자동저장</strong>
+          <span>
+            {activeSavedStoryboard?.updatedAt
+              ? `저장됨 ${formatSavedAt(activeSavedStoryboard.updatedAt)}`
+              : '현재 브라우저에 자동저장됩니다.'}
+          </span>
+        </div>
+        <select value={activeStoryboardId} onChange={(event) => loadSavedStoryboard(event.target.value)}>
+          {savedStoryboards.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title} · {item.frames.length}p
+            </option>
+          ))}
+        </select>
+        <div className="storyboardPptxSaveActions">
+          <Button type="button" variant="secondary" size="mini" onClick={createNewSavedStoryboard} icon={<UiGlyph name="plus" />}>
+            새 저장본
+          </Button>
+          <Button type="button" variant="secondary" size="mini" onClick={deleteSavedStoryboard}>
+            저장본 삭제
+          </Button>
+        </div>
+      </section>
 
       <section className="storyboardPptxMeta" aria-label="문서 정보">
         <label>

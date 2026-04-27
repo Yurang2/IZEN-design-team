@@ -3482,6 +3482,47 @@ button.dashboardNavButton {
   padding: 10px 12px;
 }
 
+.storyboardPptxMessage.is-error {
+  background: var(--danger-bg);
+  border-color: color-mix(in srgb, var(--danger-text) 18%, var(--border));
+  color: var(--danger-text);
+}
+
+.storyboardPptxSavePanel {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) auto;
+  padding: 12px;
+}
+
+.storyboardPptxSaveInfo {
+  display: grid;
+  gap: 4px;
+}
+
+.storyboardPptxSaveInfo strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.storyboardPptxSaveInfo span {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.storyboardPptxSaveActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .storyboardPptxMeta {
   display: grid;
   gap: 10px;
@@ -3819,9 +3860,18 @@ button.dashboardNavButton {
   }
 
   .storyboardPptxMeta,
+  .storyboardPptxSavePanel,
   .storyboardPptxWorkspace,
   .storyboardPptxFormGrid {
     grid-template-columns: 1fr;
+  }
+
+  .storyboardPptxSaveActions {
+    justify-content: stretch;
+  }
+
+  .storyboardPptxSaveActions button {
+    flex: 1;
   }
 
   .storyboardPptxFrameList {
