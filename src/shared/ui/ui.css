@@ -4158,11 +4158,16 @@ button.dashboardNavButton {
   color: var(--text-sub, #637083);
 }
 
-.referenceMedia img,
+.referenceMedia img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: 0;
+}
+
 .referenceMedia iframe {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   border: 0;
 }
 
