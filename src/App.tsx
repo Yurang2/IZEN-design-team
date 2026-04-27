@@ -2108,7 +2108,7 @@ function App() {
           <span className="workspaceMark">IZ</span>
           <div className="workspaceMeta">
             <strong>IZEN Design Team</strong>
-            <span>Cloudflare + Notion Workspace</span>
+            <span title={`현재 커밋 ${currentBuild.id}`}>commit {currentBuild.id.slice(0, 7)}</span>
           </div>
           <button
             type="button"
