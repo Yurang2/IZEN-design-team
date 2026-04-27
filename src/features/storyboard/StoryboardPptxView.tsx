@@ -376,6 +376,11 @@ function fitRect(sourceWidth: number, sourceHeight: number, box: { x: number; y:
 }
 
 function addTextBox(slide: PptxSlide, label: string, value: string, x: number, y: number, w: number, h: number) {
+  if (h <= 0.72) {
+    addInlineTextBox(slide, label, value, x, y, w, 0.42, 0.42)
+    return
+  }
+
   slide.addShape('rect', {
     x,
     y,
@@ -407,6 +412,47 @@ function addTextBox(slide: PptxSlide, label: string, value: string, x: number, y
     fit: 'shrink',
     margin: 0.02,
     valign: 'top',
+  })
+}
+
+function addInlineTextBox(slide: PptxSlide, label: string, value: string, x: number, y: number, w: number, h: number, labelWidth: number) {
+  const paddingX = 0.15
+  const gap = 0.12
+  const bodyX = x + paddingX + labelWidth + gap
+  slide.addShape('rect', {
+    x,
+    y,
+    w,
+    h,
+    fill: { color: COLORS.soft },
+    line: { color: 'BFD1F6', width: 1 },
+  })
+  slide.addText(label, {
+    x: x + paddingX,
+    y: y + 0.13,
+    w: labelWidth,
+    h: h - 0.22,
+    color: COLORS.primary,
+    fontFace: 'Malgun Gothic',
+    fontSize: SLIDE_TITLE_FONT_SIZE,
+    bold: true,
+    breakLine: false,
+    fit: 'shrink',
+    margin: 0,
+    valign: 'middle',
+  })
+  slide.addText(value || '-', {
+    x: bodyX,
+    y: y + 0.1,
+    w: w - (bodyX - x) - paddingX,
+    h: h - 0.18,
+    color: COLORS.ink,
+    fontFace: 'Malgun Gothic',
+    fontSize: SLIDE_BODY_FONT_SIZE,
+    breakLine: false,
+    fit: 'shrink',
+    margin: 0,
+    valign: 'middle',
   })
 }
 
@@ -461,31 +507,34 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   slide.addText('시간 초수', {
     x: 0.62,
     y: 1.09,
-    w: 0.7,
+    w: 0.92,
     h: 0.14,
     color: COLORS.primary,
     fontFace: 'Malgun Gothic',
     fontSize: SLIDE_TITLE_FONT_SIZE,
     bold: true,
+    breakLine: false,
+    fit: 'shrink',
     margin: 0,
   })
   slide.addText(frame.timecode || '-', {
-    x: 1.7,
+    x: 1.54,
     y: 1.05,
-    w: 1.1,
+    w: 1.28,
     h: 0.22,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
     fontSize: SLIDE_BODY_FONT_SIZE,
     bold: true,
     align: 'right',
+    breakLine: false,
     fit: 'shrink',
     margin: 0,
   })
 
   addTextBox(slide, '목적', frame.purpose, 3.35, 0.98, 9.5, 0.72)
 
-  const imageBox = { x: 0.46, y: 1.9, w: 6.65, h: 4.78 }
+  const imageBox = { x: 0.46, y: 1.62, w: 6.65, h: 5.06 }
   slide.addShape('rect', {
     ...imageBox,
     fill: { color: COLORS.panel },
@@ -531,9 +580,9 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     })
   }
 
-  addTextBox(slide, '화면구성', frame.screenComposition, 7.42, 1.9, 5.43, 1.38)
-  addTextBox(slide, '자막 / 카피', frame.copy, 7.42, 3.46, 5.43, 1.58)
-  addTextBox(slide, '사운드', frame.sound, 7.42, 5.22, 5.43, 1.46)
+  addTextBox(slide, '화면구성', frame.screenComposition, 7.42, 1.62, 5.43, 1.54)
+  addTextBox(slide, '자막 / 카피', frame.copy, 7.42, 3.34, 5.43, 1.66)
+  addTextBox(slide, '사운드', frame.sound, 7.42, 5.18, 5.43, 1.5)
 
   slide.addShape('line', { x: 0.46, y: 6.88, w: 12.38, h: 0, line: { color: COLORS.line, width: 1 } })
   slide.addText(`CUT ${String(index + 1).padStart(2, '0')}`, {
