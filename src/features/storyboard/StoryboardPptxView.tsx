@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from 'react'
 import PptxGenJS from 'pptxgenjs'
 import { api } from '../../shared/api/client'
 import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse, TaskRecord } from '../../shared/types'
@@ -616,6 +616,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionSaving, setNotionSaving] = useState(false)
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
+  const [draggingFrameId, setDraggingFrameId] = useState<string | null>(null)
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -629,6 +630,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     () => savedStoryboards.find((item) => item.id === activeStoryboardId) ?? savedStoryboards[0],
     [activeStoryboardId, savedStoryboards],
   )
+  const activeWorkingSourceLabel = activeNotionId ? 'DB 저장본' : '웹페이지 자동저장'
   const projectOptions = useMemo(() => {
     const names = uniqueProjectNames(projects)
     if (meta.projectName && !names.includes(meta.projectName)) return [meta.projectName, ...names]
@@ -642,7 +644,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
       const response = await api<StoryboardListResponse>('/storyboards')
       setNotionStoryboards(response.items)
     } catch (error) {
-      setStorageError(error instanceof Error ? error.message : 'Notion 저장본을 불러오지 못했습니다.')
+      setStorageError(error instanceof Error ? error.message : 'DB 저장본을 불러오지 못했습니다.')
     } finally {
       setNotionLoading(false)
     }
@@ -766,12 +768,12 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
       const next = current.filter((saved) => saved.id !== normalized.id)
       return [normalized, ...next]
     })
-    setMessage('Notion 저장본을 불러왔습니다.')
+    setMessage('DB 저장본을 불러왔습니다.')
   }
 
   const saveNotionStoryboard = async () => {
     if (!configured) {
-      setStorageError('NOTION_STORYBOARD_DB_ID가 연결되면 Notion 저장을 사용할 수 있습니다.')
+      setStorageError('NOTION_STORYBOARD_DB_ID가 연결되면 DB 저장을 사용할 수 있습니다.')
       return
     }
     setNotionSaving(true)
@@ -798,9 +800,9 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
           })
       setActiveNotionId(response.item.id)
       await fetchNotionStoryboards()
-      setMessage('Notion에 저장했습니다.')
+      setMessage('DB에 저장했습니다.')
     } catch (error) {
-      setStorageError(error instanceof Error ? error.message : 'Notion 저장에 실패했습니다.')
+      setStorageError(error instanceof Error ? error.message : 'DB 저장에 실패했습니다.')
     } finally {
       setNotionSaving(false)
     }
@@ -808,11 +810,11 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
 
   const deleteNotionStoryboard = async () => {
     if (!activeNotionId) return
-    if (!window.confirm('현재 Notion 저장본을 삭제할까요?')) return
+    if (!window.confirm('현재 DB 저장본을 삭제할까요?')) return
     await api(`/storyboards/${encodeURIComponent(activeNotionId)}`, { method: 'DELETE' })
     setActiveNotionId(null)
     await fetchNotionStoryboards()
-    setMessage('Notion 저장본을 삭제했습니다.')
+    setMessage('DB 저장본을 삭제했습니다.')
   }
 
   const createNewSavedStoryboard = () => {
@@ -881,9 +883,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     })
   }
 
-  const onImageChange = async (frameId: string, event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
+  const attachImageFile = async (frameId: string, file: File | undefined) => {
     if (!file) return
 
     try {
@@ -898,6 +898,27 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '이미지 업로드에 실패했습니다.')
     }
+  }
+
+  const onImageChange = async (frameId: string, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    await attachImageFile(frameId, file)
+  }
+
+  const onThumbnailDragOver = (frameId: string, event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    if (event.dataTransfer.types.includes('Files')) {
+      event.dataTransfer.dropEffect = 'copy'
+      setDraggingFrameId(frameId)
+    }
+  }
+
+  const onThumbnailDrop = async (frameId: string, event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDraggingFrameId(null)
+    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith('image/'))
+    await attachImageFile(frameId, file)
   }
 
   const exportPptx = async (options?: { bypassDuplicateCheck?: boolean }) => {
@@ -953,6 +974,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
 
       {message ? <p className="storyboardPptxMessage">{message}</p> : null}
       {storageError ? <p className="storyboardPptxMessage is-error">{storageError}</p> : null}
+      <p className="storyboardPptxMessage is-neutral">현재 작업 기준: {activeWorkingSourceLabel}</p>
 
       <section className="storyboardPptxSavePanel" aria-label="스토리보드 저장본">
         <div className="storyboardPptxSaveInfo">
@@ -980,19 +1002,19 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
         </div>
       </section>
 
-      <section className="storyboardPptxSavePanel" aria-label="Notion 저장본">
+      <section className="storyboardPptxSavePanel" aria-label="DB 저장본">
         <div className="storyboardPptxSaveInfo">
-          <strong>Notion 저장본</strong>
+          <strong>DB 저장본</strong>
           <span>
             {configured
               ? activeNotionId
-                ? '현재 문서가 Notion 저장본과 연결되어 있습니다.'
-                : 'Notion에 저장하면 다른 브라우저에서도 이어서 수정할 수 있습니다.'
+                ? '현재 문서가 DB 저장본과 연결되어 있습니다.'
+                : 'DB에 저장하면 다른 브라우저에서도 이어서 수정할 수 있습니다.'
               : 'NOTION_STORYBOARD_DB_ID 연결 전까지는 브라우저 자동저장만 사용합니다.'}
           </span>
         </div>
         <select value={activeNotionId ?? ''} onChange={(event) => loadNotionStoryboard(event.target.value)} disabled={!configured || notionLoading}>
-          <option value="">Notion 저장본 선택</option>
+          <option value="">DB 저장본 선택</option>
           {notionStoryboards.map((item) => (
             <option key={item.id} value={item.id}>
               {item.title} {item.versionName ? `· ${item.versionName}` : ''}
@@ -1006,10 +1028,10 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
             </a>
           ) : null}
           <Button type="button" variant="secondary" size="mini" onClick={() => void saveNotionStoryboard()} disabled={!configured || notionSaving}>
-            {notionSaving ? '저장 중' : 'Notion 저장'}
+            {notionSaving ? '저장 중' : 'DB 저장'}
           </Button>
           <Button type="button" variant="secondary" size="mini" onClick={() => void deleteNotionStoryboard()} disabled={!activeNotionId}>
-            Notion 삭제
+            DB 삭제
           </Button>
         </div>
       </section>
@@ -1204,7 +1226,13 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
                 이미지 선택
                 <input type="file" accept="image/*" onChange={(event) => void onImageChange(selectedFrame.id, event)} />
               </label>
-              <div className="storyboardPptxThumbnailPreview">
+              <div
+                className={draggingFrameId === selectedFrame.id ? 'storyboardPptxThumbnailPreview is-dragging' : 'storyboardPptxThumbnailPreview'}
+                onDragEnter={(event) => onThumbnailDragOver(selectedFrame.id, event)}
+                onDragOver={(event) => onThumbnailDragOver(selectedFrame.id, event)}
+                onDragLeave={() => setDraggingFrameId(null)}
+                onDrop={(event) => void onThumbnailDrop(selectedFrame.id, event)}
+              >
                 {selectedFrame.thumbnailDataUrl ? (
                   <img src={selectedFrame.thumbnailDataUrl} alt="" />
                 ) : (
