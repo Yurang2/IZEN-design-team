@@ -75,8 +75,8 @@ const STORYBOARD_STORAGE_KEY = 'izen_storyboard_pptx_store_v1'
 const STORYBOARD_AUTOSAVE_DELAY_MS = 350
 const STORYBOARD_IMAGE_SCALE = 0.5
 const STORYBOARD_IMAGE_QUALITY = 0.72
-const SLIDE_TITLE_FONT_SIZE = 15
-const SLIDE_BODY_FONT_SIZE = 10
+const SLIDE_TITLE_FONT_SIZE = 8
+const SLIDE_BODY_FONT_SIZE = 14
 
 const DEFAULT_META: StoryboardMeta = {
   deckTitle: '스토리보드',
