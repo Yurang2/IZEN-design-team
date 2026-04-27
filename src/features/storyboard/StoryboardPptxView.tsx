@@ -738,8 +738,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     setMessage(null)
   }
 
-  const loadNotionStoryboard = (storyboardId: string) => {
-    const item = notionStoryboards.find((storyboard) => storyboard.id === storyboardId)
+  const applyNotionStoryboard = (item: StoryboardDocumentRecord) => {
     if (!item) return
     const normalized = normalizeSavedStoryboard({
       id: item.id,
@@ -769,6 +768,23 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
       return [normalized, ...next]
     })
     setMessage('DB 저장본을 불러왔습니다.')
+  }
+
+  const loadNotionStoryboard = async (storyboardId: string) => {
+    const listItem = notionStoryboards.find((storyboard) => storyboard.id === storyboardId)
+    if (!listItem) return
+
+    setNotionLoading(true)
+    setStorageError(null)
+    try {
+      const response = await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(storyboardId)}`)
+      applyNotionStoryboard(response.item)
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'DB 저장본을 불러오지 못했습니다.')
+      applyNotionStoryboard(listItem)
+    } finally {
+      setNotionLoading(false)
+    }
   }
 
   const saveNotionStoryboard = async () => {
@@ -1013,7 +1029,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
               : 'NOTION_STORYBOARD_DB_ID 연결 전까지는 브라우저 자동저장만 사용합니다.'}
           </span>
         </div>
-        <select value={activeNotionId ?? ''} onChange={(event) => loadNotionStoryboard(event.target.value)} disabled={!configured || notionLoading}>
+        <select value={activeNotionId ?? ''} onChange={(event) => void loadNotionStoryboard(event.target.value)} disabled={!configured || notionLoading}>
           <option value="">DB 저장본 선택</option>
           {notionStoryboards.map((item) => (
             <option key={item.id} value={item.id}>

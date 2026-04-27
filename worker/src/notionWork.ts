@@ -1402,6 +1402,27 @@ function applyLongRichText(properties: AnyMap, field: FieldSchema, value: string
   }
 }
 
+const STORYBOARD_DATA_BLOCK_MARKER = 'IZEN_STORYBOARD_JSON_V1'
+const STORYBOARD_DATA_BLOCK_CHUNK_SIZE = 1700
+
+function getBlockPlainText(block: any): string {
+  const type = typeof block?.type === 'string' ? block.type : ''
+  const richText = type && Array.isArray(block?.[type]?.rich_text) ? block[type].rich_text : []
+  return joinRichText(richText)
+}
+
+function stripStoryboardDataForProperty(data: StoryboardDocumentData): StoryboardDocumentData {
+  return {
+    meta: data.meta ?? {},
+    frames: Array.isArray(data.frames)
+      ? data.frames.map((frame) => ({
+          ...frame,
+          thumbnailDataUrl: '',
+        }))
+      : [],
+  }
+}
+
 function applyUrlLike(properties: AnyMap, field: FieldSchema, value: string | null | undefined): void {
   if (!isKnownField(field)) return
   const normalized = normalizeText(value ?? '')
@@ -4090,11 +4111,105 @@ export class NotionWorkService {
     return found?.id ?? ''
   }
 
-  private mapStoryboardPage(page: any, schema: StoryboardSchema, projectNameMap: Record<string, string>): StoryboardDocumentRecord {
+  private async listAllBlockChildren(blockId: string): Promise<any[]> {
+    const blocks: any[] = []
+    let cursor: string | undefined
+    do {
+      const response = await this.api.listBlockChildren(blockId, cursor)
+      if (Array.isArray(response?.results)) blocks.push(...response.results)
+      cursor = response?.has_more ? String(response.next_cursor ?? '') : undefined
+    } while (cursor)
+    return blocks
+  }
+
+  private buildStoryboardDataBlocks(dataJson: string, groupId: string): AnyMap[] {
+    const chunks: string[] = []
+    for (let index = 0; index < dataJson.length; index += STORYBOARD_DATA_BLOCK_CHUNK_SIZE) {
+      chunks.push(dataJson.slice(index, index + STORYBOARD_DATA_BLOCK_CHUNK_SIZE))
+    }
+    if (chunks.length === 0) chunks.push('')
+
+    return chunks.map((chunk, index) => ({
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: {
+              content: `${STORYBOARD_DATA_BLOCK_MARKER}|${groupId}|${index}|${chunks.length}\n${chunk}`,
+            },
+          },
+        ],
+      },
+    }))
+  }
+
+  private async appendStoryboardDataBlocks(pageId: string, dataJson: string): Promise<string> {
+    const groupId = `${Date.now()}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
+    const blocks = this.buildStoryboardDataBlocks(dataJson, groupId)
+    for (let index = 0; index < blocks.length; index += 80) {
+      await this.api.appendBlockChildren(pageId, blocks.slice(index, index + 80))
+    }
+    return groupId
+  }
+
+  private async archiveOldStoryboardDataBlocks(pageId: string, keepGroupId: string): Promise<void> {
+    const blocks = await this.listAllBlockChildren(pageId)
+    const oldBlocks = blocks.filter((block) => {
+      const text = getBlockPlainText(block)
+      if (!text.startsWith(`${STORYBOARD_DATA_BLOCK_MARKER}|`)) return false
+      const [, groupId] = text.split('|', 3)
+      return groupId !== keepGroupId
+    })
+    for (const block of oldBlocks) {
+      await this.api.updateBlock(block.id, { archived: true })
+    }
+  }
+
+  private async readStoryboardDataJsonFromBlocks(pageId: string): Promise<string> {
+    const blocks = await this.listAllBlockChildren(pageId)
+    const groups = new Map<string, { total: number; chunks: Map<number, string> }>()
+
+    for (const block of blocks) {
+      const text = getBlockPlainText(block)
+      if (!text.startsWith(`${STORYBOARD_DATA_BLOCK_MARKER}|`)) continue
+      const separatorIndex = text.indexOf('\n')
+      if (separatorIndex < 0) continue
+      const header = text.slice(0, separatorIndex)
+      const chunk = text.slice(separatorIndex + 1)
+      const [, groupId, indexText, totalText] = header.split('|')
+      const chunkIndex = Number(indexText)
+      const total = Number(totalText)
+      if (!groupId || !Number.isFinite(chunkIndex) || !Number.isFinite(total)) continue
+      const group = groups.get(groupId) ?? { total, chunks: new Map<number, string>() }
+      group.total = total
+      group.chunks.set(chunkIndex, chunk)
+      groups.set(groupId, group)
+    }
+
+    const latest = [...groups.entries()]
+      .filter(([, group]) => group.total > 0 && group.chunks.size >= group.total)
+      .sort(([left], [right]) => Number(right) - Number(left))[0]?.[1]
+    if (!latest) return ''
+
+    return Array.from({ length: latest.total }, (_, index) => latest.chunks.get(index) ?? '').join('')
+  }
+
+  private async replaceStoryboardDataBlocks(pageId: string, dataJson: string): Promise<void> {
+    const groupId = await this.appendStoryboardDataBlocks(pageId, dataJson)
+    await this.archiveOldStoryboardDataBlocks(pageId, groupId)
+  }
+
+  private mapStoryboardPage(
+    page: any,
+    schema: StoryboardSchema,
+    projectNameMap: Record<string, string>,
+    dataJsonOverride?: string,
+  ): StoryboardDocumentRecord {
     const props = (page.properties ?? {}) as AnyMap
     const projectId = first(extractRelationIds(props, schema.fields.project))
     const storedProjectName = extractTextLike(props, schema.fields.projectName, '')
-    const dataJson = extractTextLike(props, schema.fields.data, '')
+    const dataJson = dataJsonOverride || extractTextLike(props, schema.fields.data, '')
     const exportJson = extractTextLike(props, schema.fields.exportedFileNames, '')
 
     return {
@@ -4130,7 +4245,8 @@ export class NotionWorkService {
       projectNameMap[project.id] = project.name
       projectNameMap[normalizeNotionId(project.id)] = project.name
     }
-    return this.mapStoryboardPage(page, schema, projectNameMap)
+    const blockDataJson = await this.readStoryboardDataJsonFromBlocks(id)
+    return this.mapStoryboardPage(page, schema, projectNameMap, blockDataJson || undefined)
   }
 
   async createStoryboard(input: CreateStoryboardDocumentInput): Promise<StoryboardDocumentRecord> {
@@ -4146,11 +4262,12 @@ export class NotionWorkService {
     applyRichText(properties, schema.fields.projectName, projectName)
     applyRichText(properties, schema.fields.versionName, input.versionName)
     applyRichText(properties, schema.fields.memo, input.memo)
-    applyLongRichText(properties, schema.fields.data, JSON.stringify(input.data))
+    applyLongRichText(properties, schema.fields.data, JSON.stringify(stripStoryboardDataForProperty(input.data)))
     applyLongRichText(properties, schema.fields.exportedFileNames, JSON.stringify(input.exportedFileNames ?? []))
     applyDate(properties, schema.fields.updatedAt, input.updatedAt || new Date().toISOString().slice(0, 10))
 
     const created: any = await this.api.createPage({ parent: { database_id: this.env.NOTION_STORYBOARD_DB_ID! }, properties })
+    await this.replaceStoryboardDataBlocks(created.id, JSON.stringify(input.data))
     return this.getStoryboard(created.id)
   }
 
@@ -4172,13 +4289,18 @@ export class NotionWorkService {
     }
     if (hasOwn(patch as Record<string, unknown>, 'versionName')) applyRichText(properties, schema.fields.versionName, patch.versionName)
     if (hasOwn(patch as Record<string, unknown>, 'memo')) applyRichText(properties, schema.fields.memo, patch.memo)
-    if (hasOwn(patch as Record<string, unknown>, 'data') && patch.data) applyLongRichText(properties, schema.fields.data, JSON.stringify(patch.data))
+    if (hasOwn(patch as Record<string, unknown>, 'data') && patch.data) {
+      applyLongRichText(properties, schema.fields.data, JSON.stringify(stripStoryboardDataForProperty(patch.data)))
+    }
     if (hasOwn(patch as Record<string, unknown>, 'exportedFileNames')) {
       applyLongRichText(properties, schema.fields.exportedFileNames, JSON.stringify(patch.exportedFileNames ?? []))
     }
     applyDate(properties, schema.fields.updatedAt, patch.updatedAt || new Date().toISOString().slice(0, 10))
 
     await this.api.updatePage(id, { properties })
+    if (hasOwn(patch as Record<string, unknown>, 'data') && patch.data) {
+      await this.replaceStoryboardDataBlocks(id, JSON.stringify(patch.data))
+    }
     return this.getStoryboard(id)
   }
 
