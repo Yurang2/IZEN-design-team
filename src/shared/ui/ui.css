@@ -4111,9 +4111,12 @@ button.dashboardNavButton {
 }
 
 .referenceCard.is-portrait.is-compact-info {
-  grid-template-columns: 120px minmax(128px, 168px);
-  justify-self: start;
-  width: min(100%, 288px);
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+
+.referenceCard.is-portrait.is-compact-info .referenceBody {
+  align-content: center;
+  max-width: 220px;
 }
 
 .referencesList {
@@ -4187,17 +4190,18 @@ button.dashboardNavButton {
 }
 
 .referenceMedia img {
-  width: 100%;
-  height: 100%;
   border: 0;
+  display: block;
+  height: auto;
+  max-height: 100%;
+  max-width: 100%;
   object-fit: contain;
   object-position: center;
+  width: auto;
 }
 
 .referenceCard.is-portrait .referenceMedia img {
   background: #f8fafc;
-  height: 100%;
-  width: 100%;
 }
 
 .referenceMedia iframe {
