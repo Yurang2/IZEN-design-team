@@ -4098,9 +4098,15 @@ button.dashboardNavButton {
 }
 
 .referenceCard {
+  aspect-ratio: 1 / 1;
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: minmax(0, 9fr) minmax(0, 7fr);
   overflow: hidden;
+}
+
+.referenceCard.is-portrait {
+  grid-template-columns: minmax(0, 9fr) minmax(0, 7fr);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .referencesList {
@@ -4154,18 +4160,24 @@ button.dashboardNavButton {
   overflow: hidden;
   place-items: center;
   position: relative;
-  aspect-ratio: 1.92 / 1;
   color: var(--text-sub, #637083);
+}
+
+.referenceCard.is-portrait .referenceMedia {
+  border-radius: 8px 0 0 8px;
 }
 
 .referenceMedia img {
   width: 100%;
   height: 100%;
+  aspect-ratio: 16 / 9;
   object-fit: contain;
   border: 0;
 }
 
 .referenceCard.is-portrait .referenceMedia img {
+  aspect-ratio: 9 / 16;
+  background: #f8fafc;
   height: 100%;
   max-width: 100%;
   width: auto;
@@ -4180,7 +4192,10 @@ button.dashboardNavButton {
 .referenceBody {
   display: grid;
   gap: 5px;
+  align-content: start;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 10px 12px;
 }
 
