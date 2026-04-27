@@ -832,7 +832,8 @@ const PHOTO_GUIDE_SUMMARY_TEXT_FIELD = '\uC694\uC57D'
 const PHOTO_GUIDE_CHECKED_FIELD = '촬영완료'
 
 const REFERENCE_TITLE_FIELD = '\uC81C\uBAA9'
-const REFERENCE_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const REFERENCE_TASK_FIELD = '\uAD00\uB828 \uC5C5\uBB34'
+const REFERENCE_PROJECT_NAME_FIELD = '\uD504\uB85C\uC81D\uD2B8\uBA85'
 const REFERENCE_SOURCE_TYPE_FIELD = '\uCD9C\uCC98 \uC720\uD615'
 const REFERENCE_USAGE_TYPE_FIELD = '\uB808\uD37C\uB7F0\uC2A4 \uD615\uD0DC'
 const REFERENCE_LINK_FIELD = '\uB9C1\uD06C'
@@ -842,7 +843,8 @@ const REFERENCE_TAGS_FIELD = '\uD0DC\uADF8'
 const REFERENCE_CREATED_AT_FIELD = '\uB4F1\uB85D\uC77C'
 
 const STORYBOARD_TITLE_FIELD = '\uC81C\uBAA9'
-const STORYBOARD_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const STORYBOARD_TASK_FIELD = '\uAD00\uB828 \uC5C5\uBB34'
+const STORYBOARD_PROJECT_NAME_FIELD = '\uD504\uB85C\uC81D\uD2B8\uBA85'
 const STORYBOARD_VERSION_FIELD = '\uBC84\uC804\uBA85'
 const STORYBOARD_MEMO_FIELD = '\uBA54\uBAA8'
 const STORYBOARD_DATA_FIELD = '\uC2A4\uD1A0\uB9AC\uBCF4\uB4DC JSON'
@@ -3882,13 +3884,14 @@ export class NotionWorkService {
   private buildReferenceSchema(properties: Record<string, any>): ReferenceSchema {
     const relationFallback = (entries: Array<[string, any]>) =>
       entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_TASK_DB_ID),
       )
 
     return {
       fields: {
         title: pickField('title', properties, REFERENCE_TITLE_FIELD, ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
-        project: pickField('project', properties, REFERENCE_PROJECT_FIELD, ['relation'], true, relationFallback),
+        project: pickField('project', properties, REFERENCE_TASK_FIELD, ['relation'], true, relationFallback),
+        projectName: pickField('projectName', properties, REFERENCE_PROJECT_NAME_FIELD, ['rich_text', 'title', 'select'], true),
         sourceType: pickField('sourceType', properties, REFERENCE_SOURCE_TYPE_FIELD, ['select', 'rich_text'], true),
         usageType: pickField('usageType', properties, REFERENCE_USAGE_TYPE_FIELD, ['select', 'rich_text'], true),
         link: pickField('link', properties, REFERENCE_LINK_FIELD, ['url', 'rich_text'], true),
@@ -3921,9 +3924,18 @@ export class NotionWorkService {
     return [{ name: filename, type: 'file_upload', file_upload: { id: fileUploadId } }]
   }
 
+  private async resolveProjectName(projectId: string | null | undefined): Promise<string> {
+    const normalizedProjectId = normalizeText(projectId)
+    if (!normalizedProjectId) return ''
+    const projects = await this.listProjects()
+    const found = projects.find((project) => project.id === normalizedProjectId || normalizeNotionId(project.id) === normalizeNotionId(normalizedProjectId))
+    return found?.name ?? ''
+  }
+
   private mapReferencePage(page: any, schema: ReferenceSchema, projectNameMap: Record<string, string>): ReferenceRecord {
     const props = (page.properties ?? {}) as AnyMap
     const projectId = first(extractRelationIds(props, schema.fields.project))
+    const storedProjectName = extractTextLike(props, schema.fields.projectName, '')
     const files = isKnownField(schema.fields.image) ? serializeScheduleFiles(props[schema.fields.image.actualName]) : []
     const firstImage = files[0]
     const sourceType = extractTextLike(props, schema.fields.sourceType, DEFAULT_REFERENCE_SOURCE_TYPE) as ReferenceSourceType
@@ -3934,7 +3946,7 @@ export class NotionWorkService {
       url: page.url,
       title: extractTitle(props, schema.fields.title),
       projectId: projectId || undefined,
-      projectName: projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined,
+      projectName: storedProjectName || (projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined),
       sourceType: sourceType || DEFAULT_REFERENCE_SOURCE_TYPE,
       usageType: usageType || DEFAULT_REFERENCE_USAGE_TYPE,
       link: extractUrlLike(props, schema.fields.link),
@@ -3977,7 +3989,8 @@ export class NotionWorkService {
 
     const properties: AnyMap = {}
     applyTitleLike(properties, schema.fields.title, title)
-    applyRelationIds(properties, schema.fields.project, input.projectId ? [input.projectId] : [])
+    const projectName = await this.resolveProjectName(input.projectId)
+    applyRichText(properties, schema.fields.projectName, projectName)
     applySelectLike(properties, schema.fields.sourceType, input.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
     applySelectLike(properties, schema.fields.usageType, input.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
     applyUrlLike(properties, schema.fields.link, input.link)
@@ -4001,8 +4014,8 @@ export class NotionWorkService {
       if (value) applyTitleLike(properties, schema.fields.title, value)
     }
     if (hasOwn(patch as Record<string, unknown>, 'projectId')) {
-      const projectId = normalizeText(patch.projectId ?? '')
-      applyRelationIds(properties, schema.fields.project, projectId ? [projectId] : [])
+      const projectName = await this.resolveProjectName(patch.projectId)
+      applyRichText(properties, schema.fields.projectName, projectName)
     }
     if (hasOwn(patch as Record<string, unknown>, 'sourceType')) applySelectLike(properties, schema.fields.sourceType, patch.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
     if (hasOwn(patch as Record<string, unknown>, 'usageType')) applySelectLike(properties, schema.fields.usageType, patch.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
@@ -4030,13 +4043,14 @@ export class NotionWorkService {
   private buildStoryboardSchema(properties: Record<string, any>): StoryboardSchema {
     const relationFallback = (entries: Array<[string, any]>) =>
       entries.find(
-        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_TASK_DB_ID),
       )
 
     return {
       fields: {
         title: pickField('title', properties, STORYBOARD_TITLE_FIELD, ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
-        project: pickField('project', properties, STORYBOARD_PROJECT_FIELD, ['relation'], true, relationFallback),
+        project: pickField('project', properties, STORYBOARD_TASK_FIELD, ['relation'], true, relationFallback),
+        projectName: pickField('projectName', properties, STORYBOARD_PROJECT_NAME_FIELD, ['rich_text', 'title', 'select'], true),
         versionName: pickField('versionName', properties, STORYBOARD_VERSION_FIELD, ['rich_text', 'title', 'select'], true),
         memo: pickField('memo', properties, STORYBOARD_MEMO_FIELD, ['rich_text', 'title'], true),
         data: pickField('data', properties, STORYBOARD_DATA_FIELD, ['rich_text'], true),
@@ -4066,6 +4080,7 @@ export class NotionWorkService {
   private mapStoryboardPage(page: any, schema: StoryboardSchema, projectNameMap: Record<string, string>): StoryboardDocumentRecord {
     const props = (page.properties ?? {}) as AnyMap
     const projectId = first(extractRelationIds(props, schema.fields.project))
+    const storedProjectName = extractTextLike(props, schema.fields.projectName, '')
     const dataJson = extractTextLike(props, schema.fields.data, '')
     const exportJson = extractTextLike(props, schema.fields.exportedFileNames, '')
 
@@ -4074,7 +4089,7 @@ export class NotionWorkService {
       url: page.url,
       title: extractTitle(props, schema.fields.title),
       projectId: projectId || undefined,
-      projectName: projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined,
+      projectName: storedProjectName || (projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined),
       versionName: extractTextLike(props, schema.fields.versionName, '') || undefined,
       memo: extractTextLike(props, schema.fields.memo, '') || undefined,
       data: normalizeStoredJson<StoryboardDocumentData>(dataJson, { meta: {}, frames: [] }),
@@ -4110,11 +4125,11 @@ export class NotionWorkService {
     if (!isKnownField(schema.fields.title)) throw new Error('storyboard_title_property_missing')
     const title = normalizeText(input.title)
     if (!title) throw new Error('title_required')
-    const projectId = await this.resolveProjectIdForStoryboard(input)
+    const projectName = normalizeText(input.projectName) || await this.resolveProjectName(input.projectId)
 
     const properties: AnyMap = {}
     applyTitleLike(properties, schema.fields.title, title)
-    applyRelationIds(properties, schema.fields.project, projectId ? [projectId] : [])
+    applyRichText(properties, schema.fields.projectName, projectName)
     applyRichText(properties, schema.fields.versionName, input.versionName)
     applyRichText(properties, schema.fields.memo, input.memo)
     applyLongRichText(properties, schema.fields.data, JSON.stringify(input.data))
@@ -4134,8 +4149,8 @@ export class NotionWorkService {
       if (title) applyTitleLike(properties, schema.fields.title, title)
     }
     if (hasOwn(patch as Record<string, unknown>, 'projectId') || hasOwn(patch as Record<string, unknown>, 'projectName')) {
-      const projectId = await this.resolveProjectIdForStoryboard(patch)
-      applyRelationIds(properties, schema.fields.project, projectId ? [projectId] : [])
+      const projectName = normalizeText(patch.projectName) || await this.resolveProjectName(patch.projectId)
+      applyRichText(properties, schema.fields.projectName, projectName)
     }
     if (hasOwn(patch as Record<string, unknown>, 'versionName')) applyRichText(properties, schema.fields.versionName, patch.versionName)
     if (hasOwn(patch as Record<string, unknown>, 'memo')) applyRichText(properties, schema.fields.memo, patch.memo)

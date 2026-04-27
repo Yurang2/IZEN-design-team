@@ -11,7 +11,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const TOKEN = process.env.NOTION_TOKEN
-const PROJECT_DB_ID = process.env.NOTION_PROJECT_DB_ID
+const TASK_DB_ID = process.env.NOTION_TASK_DB_ID || '23ec1cc7ec2781afabb6ca25fb3ee56c'
 const PARENT_PAGE_ID = '23ec1cc7-ec27-803a-9567-f6b5ebc7cb36'
 
 if (!TOKEN) {
@@ -25,11 +25,11 @@ const headers = {
   'Content-Type': 'application/json',
 }
 
-function projectRelationProperty() {
-  if (!PROJECT_DB_ID) return { rich_text: {} }
+function taskRelationProperty() {
+  if (!TASK_DB_ID) return { rich_text: {} }
   return {
     relation: {
-      database_id: PROJECT_DB_ID,
+      database_id: TASK_DB_ID,
       type: 'single_property',
       single_property: {},
     },
@@ -59,7 +59,8 @@ async function createDatabase(title, properties) {
 async function main() {
   const referenceDbId = await createDatabase('레퍼런스 자료함', {
     제목: { title: {} },
-    '귀속 프로젝트': projectRelationProperty(),
+    '관련 업무': taskRelationProperty(),
+    프로젝트명: { rich_text: {} },
     '출처 유형': {
       select: {
         options: [
@@ -88,7 +89,8 @@ async function main() {
 
   const storyboardDbId = await createDatabase('스토리보드 문서', {
     제목: { title: {} },
-    '귀속 프로젝트': projectRelationProperty(),
+    '관련 업무': taskRelationProperty(),
+    프로젝트명: { rich_text: {} },
     버전명: { rich_text: {} },
     메모: { rich_text: {} },
     '스토리보드 JSON': { rich_text: {} },
@@ -99,6 +101,7 @@ async function main() {
   console.log('\nAdd these to worker/wrangler.toml or Cloudflare Worker variables:')
   console.log(`NOTION_REFERENCE_DB_ID = "${referenceDbId.replace(/-/g, '')}"`)
   console.log(`NOTION_STORYBOARD_DB_ID = "${storyboardDbId.replace(/-/g, '')}"`)
+  console.log(`\nRelated task DB: ${TASK_DB_ID}`)
 }
 
 main().catch((error) => {

@@ -226,6 +226,7 @@ export type ReferenceSchema = {
   fields: {
     title: FieldSchema
     project: FieldSchema
+    projectName: FieldSchema
     sourceType: FieldSchema
     usageType: FieldSchema
     link: FieldSchema
@@ -273,6 +274,7 @@ export type StoryboardSchema = {
   fields: {
     title: FieldSchema
     project: FieldSchema
+    projectName: FieldSchema
     versionName: FieldSchema
     memo: FieldSchema
     data: FieldSchema

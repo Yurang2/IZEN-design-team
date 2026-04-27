@@ -5,14 +5,16 @@
 - 스토리보드 문서는 PPTX export 전 웹 편집 상태를 Notion에 저장한다.
 
 ## Environment
-- `NOTION_REFERENCE_DB_ID`: 레퍼런스 자료함 DB
-- `NOTION_STORYBOARD_DB_ID`: 스토리보드 문서 DB
+- `NOTION_REFERENCE_DB_ID`: `34fc1cc7ec278178bf5ec4c5a7c1491f`
+- `NOTION_STORYBOARD_DB_ID`: `34fc1cc7ec2781af9ed3d8d3327cd00f`
+- Related task DB: `23ec1cc7ec2781afabb6ca25fb3ee56c`
 
 ## Reference DB
 | field | type | note |
 |---|---|---|
 | 제목 | title | required |
-| 귀속 프로젝트 | relation -> Project DB | optional |
+| 관련 업무 | relation -> Task DB | optional |
+| 프로젝트명 | rich_text | web selection label |
 | 출처 유형 | select | `image`, `youtube`, `link`, `other` |
 | 레퍼런스 형태 | select | `단순저장`, `모작`, `아이디어` |
 | 링크 | url | optional |
@@ -25,7 +27,8 @@
 | field | type | note |
 |---|---|---|
 | 제목 | title | required |
-| 귀속 프로젝트 | relation -> Project DB | optional |
+| 관련 업무 | relation -> Task DB | optional |
+| 프로젝트명 | rich_text | web selection label |
 | 버전명 | rich_text | export filename suffix |
 | 메모 | rich_text | web-only, not exported |
 | 스토리보드 JSON | rich_text | `meta` + `frames` |
@@ -41,4 +44,4 @@
 ## Creation
 - Run `node scripts/create-reference-storyboard-dbs.cjs`.
 - The script uses parent page `23ec1cc7-ec27-803a-9567-f6b5ebc7cb36`.
-- If `NOTION_PROJECT_DB_ID` is present, project fields are created as relations.
+- The relation fields point to `NOTION_TASK_DB_ID`.
