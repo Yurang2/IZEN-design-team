@@ -31,12 +31,15 @@ export function parseReferenceCreateBody(body: unknown): CreateReferenceInput {
   return {
     title,
     projectId: asString(payload.projectId),
+    projectName: asString(payload.projectName),
     sourceType: normalizeSourceType(payload.sourceType),
     usageType: normalizeUsageType(payload.usageType),
     link: asString(payload.link),
     imageDataUrl: asString(payload.imageDataUrl),
     imageName: asString(payload.imageName),
     memo: asString(payload.memo),
+    authorName: asString(payload.authorName),
+    authorIp: asString(payload.authorIp),
     tags: parseStringArray(payload.tags),
     createdAt: createdAt === null ? undefined : createdAt,
   }
@@ -49,12 +52,15 @@ export function parseReferenceUpdateBody(body: unknown): UpdateReferenceInput {
 
   if (hasOwn(payload, 'title')) parsed.title = payload.title === null ? null : asString(payload.title)
   if (hasOwn(payload, 'projectId')) parsed.projectId = payload.projectId === null ? null : asString(payload.projectId)
+  if (hasOwn(payload, 'projectName')) parsed.projectName = payload.projectName === null ? null : asString(payload.projectName)
   if (hasOwn(payload, 'sourceType')) parsed.sourceType = payload.sourceType === null ? null : normalizeSourceType(payload.sourceType)
   if (hasOwn(payload, 'usageType')) parsed.usageType = payload.usageType === null ? null : normalizeUsageType(payload.usageType)
   if (hasOwn(payload, 'link')) parsed.link = payload.link === null ? null : asString(payload.link)
   if (hasOwn(payload, 'imageDataUrl')) parsed.imageDataUrl = payload.imageDataUrl === null ? null : asString(payload.imageDataUrl)
   if (hasOwn(payload, 'imageName')) parsed.imageName = payload.imageName === null ? null : asString(payload.imageName)
   if (hasOwn(payload, 'memo')) parsed.memo = payload.memo === null ? null : asString(payload.memo)
+  if (hasOwn(payload, 'authorName')) parsed.authorName = payload.authorName === null ? null : asString(payload.authorName)
+  if (hasOwn(payload, 'authorIp')) parsed.authorIp = payload.authorIp === null ? null : asString(payload.authorIp)
   if (hasOwn(payload, 'tags')) parsed.tags = payload.tags === null ? null : parseStringArray(payload.tags)
   if (hasOwn(payload, 'createdAt')) parsed.createdAt = parseDate(payload.createdAt)
 

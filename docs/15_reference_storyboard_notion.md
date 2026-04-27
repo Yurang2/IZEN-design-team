@@ -20,6 +20,8 @@
 | 링크 | url | optional |
 | 첨부 이미지 | files | pasted/uploaded image |
 | 메모 | rich_text | optional |
+| 저장자 | rich_text | auto-filled from IP mapping |
+| 저장자 IP | rich_text | `CF-Connecting-IP` |
 | 태그 | multi_select | optional |
 | 등록일 | date | optional |
 
@@ -40,6 +42,7 @@
 - `GET|PATCH|DELETE /api/references/:id`
 - `GET|POST /api/storyboards`
 - `GET|PATCH|DELETE /api/storyboards/:id`
+- Reference saves default to `REFERENCE_DEFAULT_AUTHOR_NAME=조정훈`.
 
 ## Creation
 - Run `node scripts/create-reference-storyboard-dbs.cjs`.

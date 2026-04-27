@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import PptxGenJS from 'pptxgenjs'
 import { api } from '../../shared/api/client'
-import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse } from '../../shared/types'
+import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse, TaskRecord } from '../../shared/types'
 import { Button, UiGlyph } from '../../shared/ui'
 
 type StoryboardFrame = {
@@ -20,6 +20,7 @@ type StoryboardFrame = {
 type StoryboardMeta = {
   deckTitle: string
   projectName: string
+  relatedTaskId: string
   versionName: string
   memo: string
 }
@@ -41,6 +42,7 @@ type StoryboardStore = {
 
 type StoryboardPptxViewProps = {
   projects: ProjectRecord[]
+  tasks: TaskRecord[]
   configured?: boolean
   databaseUrl?: string | null
 }
@@ -78,6 +80,7 @@ const SLIDE_BODY_FONT_SIZE = 10
 const DEFAULT_META: StoryboardMeta = {
   deckTitle: '스토리보드',
   projectName: '',
+  relatedTaskId: '',
   versionName: '',
   memo: '',
 }
@@ -196,6 +199,7 @@ function normalizeSavedStoryboard(value: unknown): SavedStoryboard | null {
   const meta: StoryboardMeta = {
     deckTitle: typeof item.meta.deckTitle === 'string' ? item.meta.deckTitle : DEFAULT_META.deckTitle,
     projectName: typeof item.meta.projectName === 'string' ? item.meta.projectName : '',
+    relatedTaskId: typeof item.meta.relatedTaskId === 'string' ? item.meta.relatedTaskId : '',
     versionName:
       typeof item.meta.versionName === 'string'
         ? item.meta.versionName
@@ -544,7 +548,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   })
 }
 
-export function StoryboardPptxView({ projects, configured = false, databaseUrl }: StoryboardPptxViewProps) {
+export function StoryboardPptxView({ projects, tasks, configured = false, databaseUrl }: StoryboardPptxViewProps) {
   const [initialStore] = useState<StoryboardStore>(() => readStoryboardStore())
   const initialStoryboard = initialStore.items.find((item) => item.id === initialStore.activeId) ?? initialStore.items[0]
   const [savedStoryboards, setSavedStoryboards] = useState<SavedStoryboard[]>(initialStore.items)
@@ -579,11 +583,10 @@ export function StoryboardPptxView({ projects, configured = false, databaseUrl }
     if (meta.projectName && !names.includes(meta.projectName)) return [meta.projectName, ...names]
     return names
   }, [meta.projectName, projects])
-  const selectedProject = useMemo(
-    () => projects.find((project) => project.name === meta.projectName),
-    [meta.projectName, projects],
-  )
-
+  const relatedTaskOptions = useMemo(() => {
+    const filtered = meta.projectName ? tasks.filter((task) => task.projectName === meta.projectName) : tasks
+    return [...filtered].sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko'))
+  }, [meta.projectName, tasks])
   const fetchNotionStoryboards = useCallback(async () => {
     if (!configured) return
     setNotionLoading(true)
@@ -683,6 +686,7 @@ export function StoryboardPptxView({ projects, configured = false, databaseUrl }
         ...DEFAULT_META,
         ...(item.data.meta as Partial<StoryboardMeta>),
         projectName: item.projectName ?? String(item.data.meta.projectName ?? ''),
+        relatedTaskId: item.projectId ?? String(item.data.meta.relatedTaskId ?? ''),
         versionName: item.versionName ?? String(item.data.meta.versionName ?? ''),
         memo: item.memo ?? String(item.data.meta.memo ?? ''),
       },
@@ -714,7 +718,7 @@ export function StoryboardPptxView({ projects, configured = false, databaseUrl }
     try {
       const payload = {
         title: createStoryboardTitle(meta),
-        projectId: selectedProject?.id,
+        projectId: meta.relatedTaskId || undefined,
         projectName: meta.projectName,
         versionName: meta.versionName,
         memo: meta.memo,
@@ -961,6 +965,17 @@ export function StoryboardPptxView({ projects, configured = false, databaseUrl }
             {projectOptions.map((projectName) => (
               <option key={projectName} value={projectName}>
                 {projectName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          관련 업무
+          <select value={meta.relatedTaskId} onChange={(event) => updateMeta('relatedTaskId', event.target.value)}>
+            <option value="">업무 선택</option>
+            {relatedTaskOptions.map((task) => (
+              <option key={task.id} value={task.id}>
+                [{task.projectName}] {task.taskName}
               </option>
             ))}
           </select>

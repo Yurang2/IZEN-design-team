@@ -83,6 +83,8 @@ async function main() {
     링크: { url: {} },
     '첨부 이미지': { files: {} },
     메모: { rich_text: {} },
+    저장자: { rich_text: {} },
+    '저장자 IP': { rich_text: {} },
     태그: { multi_select: {} },
     등록일: { date: {} },
   })

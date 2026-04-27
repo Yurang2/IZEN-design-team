@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type FormEvent } from 'react'
 import { api } from '../../shared/api/client'
 import type {
-  ProjectRecord,
   ReferenceListResponse,
   ReferenceRecord,
   ReferenceResponse,
   ReferenceSourceType,
   ReferenceUsageType,
+  TaskRecord,
 } from '../../shared/types'
 import { Button, EmptyState, UiGlyph } from '../../shared/ui'
 
 type ReferencesViewProps = {
-  projects: ProjectRecord[]
+  tasks: TaskRecord[]
   configured: boolean
   databaseUrl?: string | null
 }
 
 type ReferenceForm = {
   title: string
-  projectId: string
+  relatedTaskId: string
   link: string
   sourceType: ReferenceSourceType
   usageType: ReferenceUsageType
@@ -39,7 +39,7 @@ const USAGE_TYPES: ReferenceUsageType[] = ['단순저장', '모작', '아이디�
 
 const EMPTY_FORM: ReferenceForm = {
   title: '',
-  projectId: '',
+  relatedTaskId: '',
   link: '',
   sourceType: 'other',
   usageType: '단순저장',
@@ -108,7 +108,7 @@ function readCompressedImage(file: File): Promise<{ dataUrl: string; name: strin
 function formFromRecord(item: ReferenceRecord): ReferenceForm {
   return {
     title: item.title,
-    projectId: item.projectId ?? '',
+    relatedTaskId: item.projectId ?? '',
     link: item.link ?? '',
     sourceType: item.sourceType,
     usageType: item.usageType,
@@ -119,9 +119,9 @@ function formFromRecord(item: ReferenceRecord): ReferenceForm {
   }
 }
 
-export function ReferencesView({ projects, configured, databaseUrl }: ReferencesViewProps) {
+export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesViewProps) {
   const [items, setItems] = useState<ReferenceRecord[]>([])
-  const [filters, setFilters] = useState({ q: '', projectId: '', sourceType: '', usageType: '' })
+  const [filters, setFilters] = useState({ q: '', sourceType: '', usageType: '' })
   const [form, setForm] = useState<ReferenceForm>(EMPTY_FORM)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -130,7 +130,7 @@ export function ReferencesView({ projects, configured, databaseUrl }: References
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const filteredProjects = useMemo(() => [...projects].sort((a, b) => a.name.localeCompare(b.name)), [projects])
+  const taskOptions = useMemo(() => [...tasks].sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')), [tasks])
 
   const fetchReferences = useCallback(async () => {
     if (!configured) return
@@ -139,7 +139,6 @@ export function ReferencesView({ projects, configured, databaseUrl }: References
     try {
       const params = new URLSearchParams()
       if (filters.q) params.set('q', filters.q)
-      if (filters.projectId) params.set('projectId', filters.projectId)
       if (filters.sourceType) params.set('sourceType', filters.sourceType)
       if (filters.usageType) params.set('usageType', filters.usageType)
       const response = await api<ReferenceListResponse>(`/references${params.size ? `?${params.toString()}` : ''}`)
@@ -149,7 +148,7 @@ export function ReferencesView({ projects, configured, databaseUrl }: References
     } finally {
       setLoading(false)
     }
-  }, [configured, filters.projectId, filters.q, filters.sourceType, filters.usageType])
+  }, [configured, filters.q, filters.sourceType, filters.usageType])
 
   useEffect(() => {
     void fetchReferences()
@@ -206,7 +205,8 @@ export function ReferencesView({ projects, configured, databaseUrl }: References
     try {
       const payload = {
         title: form.title.trim(),
-        projectId: form.projectId || undefined,
+        projectId: form.relatedTaskId || undefined,
+        projectName: taskOptions.find((task) => task.id === form.relatedTaskId)?.projectName || undefined,
         sourceType: form.sourceType,
         usageType: form.usageType,
         link: form.link || undefined,
@@ -283,12 +283,12 @@ export function ReferencesView({ projects, configured, databaseUrl }: References
             <input value={form.title} onChange={(event) => updateForm({ title: event.target.value })} placeholder="레퍼런스 제목" />
           </label>
           <label>
-            프로젝트
-            <select value={form.projectId} onChange={(event) => updateForm({ projectId: event.target.value })}>
-              <option value="">프로젝트 선택</option>
-              {filteredProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
+            관련 업무
+            <select value={form.relatedTaskId} onChange={(event) => updateForm({ relatedTaskId: event.target.value })}>
+              <option value="">업무 선택</option>
+              {taskOptions.map((task) => (
+                <option key={task.id} value={task.id}>
+                  [{task.projectName}] {task.taskName}
                 </option>
               ))}
             </select>
@@ -356,14 +356,6 @@ export function ReferencesView({ projects, configured, databaseUrl }: References
 
       <section className="referencesToolbar" aria-label="레퍼런스 필터">
         <input value={filters.q} onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))} placeholder="검색" />
-        <select value={filters.projectId} onChange={(event) => setFilters((current) => ({ ...current, projectId: event.target.value }))}>
-          <option value="">모든 프로젝트</option>
-          {filteredProjects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
-        </select>
         <select value={filters.sourceType} onChange={(event) => setFilters((current) => ({ ...current, sourceType: event.target.value }))}>
           <option value="">모든 자료</option>
           {Object.entries(SOURCE_LABELS).map(([value, label]) => (

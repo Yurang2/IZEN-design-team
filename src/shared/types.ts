@@ -267,6 +267,8 @@ export type ReferenceRecord = {
   imageUrl?: string
   imageName?: string
   memo?: string
+  authorName?: string
+  authorIp?: string
   tags: string[]
   createdAt?: string
   updatedAt?: string

@@ -839,6 +839,8 @@ const REFERENCE_USAGE_TYPE_FIELD = '\uB808\uD37C\uB7F0\uC2A4 \uD615\uD0DC'
 const REFERENCE_LINK_FIELD = '\uB9C1\uD06C'
 const REFERENCE_IMAGE_FIELD = '\uCCA8\uBD80 \uC774\uBBF8\uC9C0'
 const REFERENCE_MEMO_FIELD = '\uBA54\uBAA8'
+const REFERENCE_AUTHOR_NAME_FIELD = '\uC800\uC7A5\uC790'
+const REFERENCE_AUTHOR_IP_FIELD = '\uC800\uC7A5\uC790 IP'
 const REFERENCE_TAGS_FIELD = '\uD0DC\uADF8'
 const REFERENCE_CREATED_AT_FIELD = '\uB4F1\uB85D\uC77C'
 
@@ -3897,6 +3899,8 @@ export class NotionWorkService {
         link: pickField('link', properties, REFERENCE_LINK_FIELD, ['url', 'rich_text'], true),
         image: pickField('image', properties, REFERENCE_IMAGE_FIELD, ['files'], true),
         memo: pickField('memo', properties, REFERENCE_MEMO_FIELD, ['rich_text', 'title'], true),
+        authorName: pickField('authorName', properties, REFERENCE_AUTHOR_NAME_FIELD, ['rich_text', 'title', 'select'], true),
+        authorIp: pickField('authorIp', properties, REFERENCE_AUTHOR_IP_FIELD, ['rich_text', 'title'], true),
         tags: pickField('tags', properties, REFERENCE_TAGS_FIELD, ['multi_select', 'rich_text'], true),
         createdAt: pickField('createdAt', properties, REFERENCE_CREATED_AT_FIELD, ['date'], true),
       },
@@ -3953,6 +3957,8 @@ export class NotionWorkService {
       imageUrl: firstImage?.url,
       imageName: firstImage?.name,
       memo: extractTextLike(props, schema.fields.memo, '') || undefined,
+      authorName: extractTextLike(props, schema.fields.authorName, '') || undefined,
+      authorIp: extractTextLike(props, schema.fields.authorIp, '') || undefined,
       tags: extractStringArray(props, schema.fields.tags).filter((tag) => tag !== '[UNKNOWN]'),
       createdAt: extractDate(props, schema.fields.createdAt),
       updatedAt: page.last_edited_time ?? undefined,
@@ -3989,12 +3995,15 @@ export class NotionWorkService {
 
     const properties: AnyMap = {}
     applyTitleLike(properties, schema.fields.title, title)
-    const projectName = await this.resolveProjectName(input.projectId)
+    applyRelationIds(properties, schema.fields.project, input.projectId ? [input.projectId] : [])
+    const projectName = normalizeText(input.projectName) || await this.resolveProjectName(input.projectId)
     applyRichText(properties, schema.fields.projectName, projectName)
     applySelectLike(properties, schema.fields.sourceType, input.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
     applySelectLike(properties, schema.fields.usageType, input.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
     applyUrlLike(properties, schema.fields.link, input.link)
     applyRichText(properties, schema.fields.memo, input.memo)
+    applyRichText(properties, schema.fields.authorName, input.authorName)
+    applyRichText(properties, schema.fields.authorIp, input.authorIp)
     applyStringArray(properties, schema.fields.tags, input.tags)
     applyDate(properties, schema.fields.createdAt, input.createdAt || new Date().toISOString().slice(0, 10))
 
@@ -4014,13 +4023,17 @@ export class NotionWorkService {
       if (value) applyTitleLike(properties, schema.fields.title, value)
     }
     if (hasOwn(patch as Record<string, unknown>, 'projectId')) {
-      const projectName = await this.resolveProjectName(patch.projectId)
+      const taskId = normalizeText(patch.projectId ?? '')
+      applyRelationIds(properties, schema.fields.project, taskId ? [taskId] : [])
+      const projectName = normalizeText(patch.projectName) || await this.resolveProjectName(patch.projectId)
       applyRichText(properties, schema.fields.projectName, projectName)
     }
     if (hasOwn(patch as Record<string, unknown>, 'sourceType')) applySelectLike(properties, schema.fields.sourceType, patch.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
     if (hasOwn(patch as Record<string, unknown>, 'usageType')) applySelectLike(properties, schema.fields.usageType, patch.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
     if (hasOwn(patch as Record<string, unknown>, 'link')) applyUrlLike(properties, schema.fields.link, patch.link)
     if (hasOwn(patch as Record<string, unknown>, 'memo')) applyRichText(properties, schema.fields.memo, patch.memo)
+    if (hasOwn(patch as Record<string, unknown>, 'authorName')) applyRichText(properties, schema.fields.authorName, patch.authorName)
+    if (hasOwn(patch as Record<string, unknown>, 'authorIp')) applyRichText(properties, schema.fields.authorIp, patch.authorIp)
     if (hasOwn(patch as Record<string, unknown>, 'tags')) applyStringArray(properties, schema.fields.tags, patch.tags)
     if (hasOwn(patch as Record<string, unknown>, 'createdAt')) applyDate(properties, schema.fields.createdAt, patch.createdAt)
     if (hasOwn(patch as Record<string, unknown>, 'imageDataUrl')) {
@@ -4129,6 +4142,7 @@ export class NotionWorkService {
 
     const properties: AnyMap = {}
     applyTitleLike(properties, schema.fields.title, title)
+    applyRelationIds(properties, schema.fields.project, input.projectId ? [input.projectId] : [])
     applyRichText(properties, schema.fields.projectName, projectName)
     applyRichText(properties, schema.fields.versionName, input.versionName)
     applyRichText(properties, schema.fields.memo, input.memo)
@@ -4149,6 +4163,10 @@ export class NotionWorkService {
       if (title) applyTitleLike(properties, schema.fields.title, title)
     }
     if (hasOwn(patch as Record<string, unknown>, 'projectId') || hasOwn(patch as Record<string, unknown>, 'projectName')) {
+      if (hasOwn(patch as Record<string, unknown>, 'projectId')) {
+        const taskId = normalizeText(patch.projectId ?? '')
+        applyRelationIds(properties, schema.fields.project, taskId ? [taskId] : [])
+      }
       const projectName = normalizeText(patch.projectName) || await this.resolveProjectName(patch.projectId)
       applyRichText(properties, schema.fields.projectName, projectName)
     }

@@ -4026,7 +4026,7 @@ button.dashboardNavButton {
 
 .referencesToolbar {
   display: grid;
-  grid-template-columns: 1.4fr repeat(3, minmax(150px, 0.7fr));
+  grid-template-columns: 1.4fr repeat(2, minmax(150px, 0.7fr));
   gap: 10px;
   padding: 12px;
 }

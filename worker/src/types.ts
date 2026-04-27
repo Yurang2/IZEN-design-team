@@ -46,6 +46,8 @@ export interface Env {
   NOTION_PROGRAM_ISSUES_DB_ID?: string
   NOTION_REFERENCE_DB_ID?: string
   NOTION_STORYBOARD_DB_ID?: string
+  REFERENCE_DEFAULT_AUTHOR_NAME?: string
+  REFERENCE_AUTHOR_BY_IP?: string
   NOTION_SUBTITLE_VIDEO_DB_ID?: string
   NOTION_SUBTITLE_REVISION_DB_ID?: string
   NOTION_VIDEO_MANUAL_DB_ID?: string
@@ -217,6 +219,8 @@ export type ReferenceRecord = {
   imageUrl?: string
   imageName?: string
   memo?: string
+  authorName?: string
+  authorIp?: string
   tags: string[]
   createdAt?: string
   updatedAt?: string
@@ -232,6 +236,8 @@ export type ReferenceSchema = {
     link: FieldSchema
     image: FieldSchema
     memo: FieldSchema
+    authorName: FieldSchema
+    authorIp: FieldSchema
     tags: FieldSchema
     createdAt: FieldSchema
   }
@@ -240,12 +246,15 @@ export type ReferenceSchema = {
 export type CreateReferenceInput = {
   title: string
   projectId?: string
+  projectName?: string
   sourceType?: ReferenceSourceType
   usageType?: ReferenceUsageType
   link?: string
   imageDataUrl?: string
   imageName?: string
   memo?: string
+  authorName?: string
+  authorIp?: string
   tags?: string[]
   createdAt?: string
 }

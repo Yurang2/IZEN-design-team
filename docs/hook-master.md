@@ -185,6 +185,37 @@
 }
 ```
 
+### 4.10 ReferenceRecord
+```json
+{
+  "id": "string",
+  "title": "string",
+  "sourceType": "image | youtube | link | other",
+  "usageType": "simple | copy-study | idea",
+  "link": "string",
+  "imageUrl": "string",
+  "projectName": "string",
+  "authorName": "string",
+  "authorIp": "string",
+  "tags": ["string"]
+}
+```
+- `projectId` in reference/storyboard APIs is the related Task page ID.
+- `authorName` and `authorIp` are server-filled on reference create.
+
+### 4.11 StoryboardDocumentRecord
+```json
+{
+  "id": "string",
+  "title": "string",
+  "projectId": "related task page id",
+  "projectName": "string",
+  "versionName": "string",
+  "memo": "string",
+  "data": { "meta": {}, "frames": [] },
+  "exportedFileNames": ["string"]
+}
+```
 ## 5) 내부 공용 JSON 구조 예시
 - 아래 구조는 팀 내부 문서/훅 계약에서 공용 예시로 사용한다.
 

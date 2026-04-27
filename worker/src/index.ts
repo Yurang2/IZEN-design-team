@@ -162,6 +162,28 @@ export default {
       }
       return allPages
     }
+    const getClientIp = () => {
+      const cfIp = asString(request.headers.get('CF-Connecting-IP'))
+      if (cfIp) return cfIp
+      const forwarded = asString(request.headers.get('X-Forwarded-For'))
+      return forwarded?.split(',')[0]?.trim() || ''
+    }
+    const getReferenceAuthorName = (clientIp: string) => {
+      const rawMap = asString(env.REFERENCE_AUTHOR_BY_IP)
+      if (rawMap) {
+        try {
+          const parsed = JSON.parse(rawMap) as Record<string, unknown>
+          const mapped = asString(parsed[clientIp])
+          if (mapped) return mapped
+        } catch {
+          for (const entry of rawMap.split(',')) {
+            const [ip, name] = entry.split('=').map((part) => part.trim())
+            if (ip === clientIp && name) return name
+          }
+        }
+      }
+      return asString(env.REFERENCE_DEFAULT_AUTHOR_NAME) || '조정훈'
+    }
 
     if (request.method === 'OPTIONS') {
       if (!origin || !allowedOrigin) {
@@ -2025,6 +2047,9 @@ export default {
         } catch (error: any) {
           return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
         }
+        const clientIp = getClientIp()
+        payload.authorIp = clientIp
+        payload.authorName = getReferenceAuthorName(clientIp)
 
         const created = await service.createReference(payload)
         return json({ ok: true, item: created }, 201, origin)

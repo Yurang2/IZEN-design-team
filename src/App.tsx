@@ -2646,11 +2646,11 @@ function App() {
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
 
       {activeView === 'references' ? (
-        <ReferencesView projects={projects} configured={Boolean(dbLinks.reference)} databaseUrl={dbLinks.reference} />
+        <ReferencesView tasks={tasks} configured={Boolean(dbLinks.reference)} databaseUrl={dbLinks.reference} />
       ) : null}
 
       {activeView === 'storyboardPptx' ? (
-        <StoryboardPptxView projects={projects} configured={Boolean(dbLinks.storyboard)} databaseUrl={dbLinks.storyboard} />
+        <StoryboardPptxView projects={projects} tasks={tasks} configured={Boolean(dbLinks.storyboard)} databaseUrl={dbLinks.storyboard} />
       ) : null}
 
       {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}
