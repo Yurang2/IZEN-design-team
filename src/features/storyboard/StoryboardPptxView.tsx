@@ -30,16 +30,74 @@ type ImagePayload = {
 
 type PptxSlide = ReturnType<PptxGenJS['addSlide']>
 
+type TimeRangeParts = {
+  startMinute: number
+  startSecond: number
+  endMinute: number
+  endSecond: number
+}
+
+const DEFAULT_TIME_RANGE: TimeRangeParts = {
+  startMinute: 0,
+  startSecond: 0,
+  endMinute: 0,
+  endSecond: 5,
+}
+
 const DEFAULT_META: StoryboardMeta = {
   deckTitle: '스토리보드',
   projectName: '',
   versionNote: '',
 }
 
+function secondsToTimeParts(totalSeconds: number): { minute: number; second: number } {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds))
+  return {
+    minute: Math.floor(safeSeconds / 60),
+    second: safeSeconds % 60,
+  }
+}
+
+function formatTimeRange(parts: TimeRangeParts): string {
+  return `${parts.startMinute}분 ${parts.startSecond}초 ~ ${parts.endMinute}분 ${parts.endSecond}초`
+}
+
+function parseTimeRange(value: string): TimeRangeParts {
+  const normalized = value.trim()
+  const koreanMatch = normalized.match(/(\d+)\s*분\s*(\d+)\s*초\s*[~-]\s*(\d+)\s*분\s*(\d+)\s*초/)
+  if (koreanMatch) {
+    return {
+      startMinute: Number(koreanMatch[1]),
+      startSecond: Number(koreanMatch[2]),
+      endMinute: Number(koreanMatch[3]),
+      endSecond: Number(koreanMatch[4]),
+    }
+  }
+
+  const clockMatch = normalized.match(/(\d+):(\d+)\s*[~-]\s*(\d+):(\d+)/)
+  if (clockMatch) {
+    return {
+      startMinute: Number(clockMatch[1]),
+      startSecond: Number(clockMatch[2]),
+      endMinute: Number(clockMatch[3]),
+      endSecond: Number(clockMatch[4]),
+    }
+  }
+
+  return DEFAULT_TIME_RANGE
+}
+
+function normalizeTimeNumber(value: string, max?: number): number {
+  const parsed = Number(value.replace(/\D/g, ''))
+  if (!Number.isFinite(parsed)) return 0
+  const safeValue = Math.max(0, Math.floor(parsed))
+  return typeof max === 'number' ? Math.min(max, safeValue) : safeValue
+}
+
 const STARTER_FRAMES: StoryboardFrame[] = [
   {
     id: crypto.randomUUID(),
-    timecode: '00:00-00:05',
+    timecode: formatTimeRange(DEFAULT_TIME_RANGE),
     thumbnailDataUrl: '',
     thumbnailName: '',
     screenComposition: '인트로 화면 / 로고 또는 대표 비주얼',
@@ -49,7 +107,7 @@ const STARTER_FRAMES: StoryboardFrame[] = [
   },
   {
     id: crypto.randomUUID(),
-    timecode: '00:05-00:10',
+    timecode: formatTimeRange({ startMinute: 0, startSecond: 5, endMinute: 0, endSecond: 10 }),
     thumbnailDataUrl: '',
     thumbnailName: '',
     screenComposition: '',
@@ -59,7 +117,7 @@ const STARTER_FRAMES: StoryboardFrame[] = [
   },
   {
     id: crypto.randomUUID(),
-    timecode: '00:10-00:15',
+    timecode: formatTimeRange({ startMinute: 0, startSecond: 10, endMinute: 0, endSecond: 15 }),
     thumbnailDataUrl: '',
     thumbnailName: '',
     screenComposition: '',
@@ -85,11 +143,16 @@ function sanitizeFileName(value: string): string {
 }
 
 function createBlankFrame(index: number): StoryboardFrame {
-  const start = index * 5
-  const end = start + 5
+  const start = secondsToTimeParts(index * 5)
+  const end = secondsToTimeParts(index * 5 + 5)
   return {
     id: crypto.randomUUID(),
-    timecode: `00:${String(start).padStart(2, '0')}-00:${String(end).padStart(2, '0')}`,
+    timecode: formatTimeRange({
+      startMinute: start.minute,
+      startSecond: start.second,
+      endMinute: end.minute,
+      endSecond: end.second,
+    }),
     thumbnailDataUrl: '',
     thumbnailName: '',
     screenComposition: '',
@@ -323,6 +386,10 @@ export function StoryboardPptxView() {
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
     [frames, selectedFrameId],
   )
+  const selectedTimeRange = useMemo(
+    () => parseTimeRange(selectedFrame?.timecode ?? ''),
+    [selectedFrame?.timecode],
+  )
 
   const updateMeta = (key: keyof StoryboardMeta, value: string) => {
     setMeta((current) => ({ ...current, [key]: value }))
@@ -330,6 +397,14 @@ export function StoryboardPptxView() {
 
   const updateFrame = (id: string, patch: Partial<StoryboardFrame>) => {
     setFrames((current) => current.map((frame) => (frame.id === id ? { ...frame, ...patch } : frame)))
+  }
+
+  const updateFrameTimeRange = (id: string, key: keyof TimeRangeParts, value: string) => {
+    const nextParts = {
+      ...parseTimeRange(frames.find((frame) => frame.id === id)?.timecode ?? ''),
+      [key]: normalizeTimeNumber(value, key.endsWith('Second') ? 59 : undefined),
+    }
+    updateFrame(id, { timecode: formatTimeRange(nextParts) })
   }
 
   const addFrame = () => {
@@ -499,14 +574,57 @@ export function StoryboardPptxView() {
             </div>
 
             <div className="storyboardPptxFormGrid">
-              <label className="storyboardPptxTimeField">
-                시간 초수
-                <input
-                  value={selectedFrame.timecode}
-                  onChange={(event) => updateFrame(selectedFrame.id, { timecode: event.target.value })}
-                  placeholder="00:00-00:05"
-                />
-              </label>
+              <div className="storyboardPptxTimeField">
+                <span className="storyboardPptxFieldLabel">시간 초수</span>
+                <div className="storyboardPptxTimeControls" aria-label="시간 초수">
+                  <div className="storyboardPptxTimeGroup">
+                    <span>시작</span>
+                    <label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={selectedTimeRange.startMinute}
+                        onChange={(event) => updateFrameTimeRange(selectedFrame.id, 'startMinute', event.target.value)}
+                      />
+                      분
+                    </label>
+                    <label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={selectedTimeRange.startSecond}
+                        onChange={(event) => updateFrameTimeRange(selectedFrame.id, 'startSecond', event.target.value)}
+                      />
+                      초
+                    </label>
+                  </div>
+                  <span className="storyboardPptxTimeSeparator">~</span>
+                  <div className="storyboardPptxTimeGroup">
+                    <span>종료</span>
+                    <label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={selectedTimeRange.endMinute}
+                        onChange={(event) => updateFrameTimeRange(selectedFrame.id, 'endMinute', event.target.value)}
+                      />
+                      분
+                    </label>
+                    <label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={selectedTimeRange.endSecond}
+                        onChange={(event) => updateFrameTimeRange(selectedFrame.id, 'endSecond', event.target.value)}
+                      />
+                      초
+                    </label>
+                  </div>
+                </div>
+                <span className="storyboardPptxTimePreview">{selectedFrame.timecode}</span>
+              </div>
               <label>
                 화면구성
                 <textarea

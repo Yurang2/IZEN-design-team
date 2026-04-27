@@ -3590,7 +3590,75 @@ button.dashboardNavButton {
 }
 
 .storyboardPptxTimeField {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
   grid-column: 1 / -1;
+  padding: 10px;
+}
+
+.storyboardPptxFieldLabel {
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.storyboardPptxTimeControls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.storyboardPptxTimeGroup {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.storyboardPptxTimeGroup > span,
+.storyboardPptxTimePreview {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.storyboardPptxTimeGroup label {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-main);
+  display: inline-flex;
+  flex-direction: row;
+  gap: 5px;
+  min-height: 38px;
+  padding: 4px 8px;
+}
+
+.storyboardPptxTimeGroup input {
+  border: 0;
+  box-shadow: none;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  min-height: 28px;
+  padding: 0;
+  text-align: right;
+  width: 54px;
+}
+
+.storyboardPptxTimeGroup input:focus {
+  box-shadow: none;
+}
+
+.storyboardPptxTimeSeparator {
+  color: var(--text-sub);
+  font-size: 16px;
+  font-weight: 900;
 }
 
 .storyboardPptxFormGrid textarea {
