@@ -4158,6 +4158,10 @@ button.dashboardNavButton {
   color: var(--text-sub, #637083);
 }
 
+.referenceCard.is-portrait .referenceMedia {
+  aspect-ratio: 3 / 4;
+}
+
 .referenceMedia img {
   width: 100%;
   height: 100%;

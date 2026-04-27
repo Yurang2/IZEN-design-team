@@ -140,6 +140,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [imageOrientations, setImageOrientations] = useState<Record<string, 'portrait' | 'landscape'>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -279,6 +280,11 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
     if (!window.confirm(`"${item.title}" 레퍼런스를 삭제할까요?`)) return
     await api(`/references/${encodeURIComponent(item.id)}`, { method: 'DELETE' })
     await fetchReferences()
+  }
+
+  const rememberImageOrientation = (itemId: string, image: HTMLImageElement) => {
+    const nextOrientation = image.naturalHeight > image.naturalWidth ? 'portrait' : 'landscape'
+    setImageOrientations((current) => (current[itemId] === nextOrientation ? current : { ...current, [itemId]: nextOrientation }))
   }
 
   if (!configured) {
@@ -438,10 +444,12 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
           const sourceMeta = SOURCE_META[item.sourceType]
           const relatedTask = item.projectId ? taskById.get(item.projectId) : undefined
           const relatedTaskLabel = relatedTask?.taskName || item.projectName || ''
+          const orientationClass = imageOrientations[item.id] === 'portrait' ? 'is-portrait' : ''
+          const cardClassName = [viewMode === 'grid' ? 'referenceCard' : 'referenceListItem', orientationClass].filter(Boolean).join(' ')
           return (
-            <article className={viewMode === 'grid' ? 'referenceCard' : 'referenceListItem'} key={item.id}>
+            <article className={cardClassName} key={item.id}>
               <div className="referenceMedia">
-                {item.imageUrl ? <img src={item.imageUrl} alt={item.title} /> : null}
+                {item.imageUrl ? <img src={item.imageUrl} alt={item.title} onLoad={(event) => rememberImageOrientation(item.id, event.currentTarget)} /> : null}
                 {!item.imageUrl && youtubeId ? (
                   <iframe title={item.title} src={`https://www.youtube.com/embed/${youtubeId}`} loading="lazy" />
                 ) : null}
