@@ -552,6 +552,8 @@ export async function mockApiRequest<T>(pathWithQuery: string, init?: RequestIni
         task: { id: 'mock-task-db', url: 'https://www.notion.so/mock-task-db' },
         checklist: { id: 'mock-checklist-db', url: 'https://www.notion.so/mock-checklist-db' },
         schedule: { id: 'mock-schedule-db', url: 'https://www.notion.so/mock-schedule-db' },
+        reference: { id: 'mock-reference-db', url: 'https://www.notion.so/mock-reference-db' },
+        storyboard: { id: 'mock-storyboard-db', url: 'https://www.notion.so/mock-storyboard-db' },
       },
     } as T
   }
@@ -756,4 +758,3 @@ export async function mockApiRequest<T>(pathWithQuery: string, init?: RequestIni
 
   notFound(path)
 }
-

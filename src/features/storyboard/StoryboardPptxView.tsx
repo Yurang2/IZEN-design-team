@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import PptxGenJS from 'pptxgenjs'
-import type { ProjectRecord } from '../../shared/types'
+import { api } from '../../shared/api/client'
+import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse } from '../../shared/types'
 import { Button, UiGlyph } from '../../shared/ui'
 
 type StoryboardFrame = {
@@ -40,6 +41,8 @@ type StoryboardStore = {
 
 type StoryboardPptxViewProps = {
   projects: ProjectRecord[]
+  configured?: boolean
+  databaseUrl?: string | null
 }
 
 type ImagePayload = {
@@ -69,6 +72,8 @@ const STORYBOARD_STORAGE_KEY = 'izen_storyboard_pptx_store_v1'
 const STORYBOARD_AUTOSAVE_DELAY_MS = 350
 const STORYBOARD_IMAGE_SCALE = 0.5
 const STORYBOARD_IMAGE_QUALITY = 0.72
+const SLIDE_TITLE_FONT_SIZE = 15
+const SLIDE_BODY_FONT_SIZE = 10
 
 const DEFAULT_META: StoryboardMeta = {
   deckTitle: '스토리보드',
@@ -381,18 +386,18 @@ function addTextBox(slide: PptxSlide, label: string, value: string, x: number, y
     h: 0.22,
     color: COLORS.primary,
     fontFace: 'Malgun Gothic',
-    fontSize: 8,
+    fontSize: SLIDE_TITLE_FONT_SIZE,
     bold: true,
     margin: 0,
   })
   slide.addText(value || '-', {
     x: x + 0.15,
-    y: y + 0.42,
+    y: y + 0.5,
     w: w - 0.3,
-    h: h - 0.54,
+    h: h - 0.62,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
-    fontSize: 12,
+    fontSize: SLIDE_BODY_FONT_SIZE,
     breakLine: false,
     fit: 'shrink',
     margin: 0.02,
@@ -412,7 +417,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     h: 0.32,
     color: COLORS.white,
     fontFace: 'Malgun Gothic',
-    fontSize: 18,
+    fontSize: SLIDE_TITLE_FONT_SIZE,
     bold: true,
     margin: 0,
   })
@@ -434,7 +439,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     h: 0.32,
     color: COLORS.white,
     fontFace: 'Malgun Gothic',
-    fontSize: 11,
+    fontSize: SLIDE_TITLE_FONT_SIZE,
     bold: true,
     align: 'right',
     margin: 0,
@@ -455,18 +460,18 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     h: 0.14,
     color: COLORS.primary,
     fontFace: 'Malgun Gothic',
-    fontSize: 7,
+    fontSize: SLIDE_TITLE_FONT_SIZE,
     bold: true,
     margin: 0,
   })
   slide.addText(frame.timecode || '-', {
-    x: 1.36,
+    x: 1.7,
     y: 1.05,
-    w: 1.45,
+    w: 1.1,
     h: 0.22,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
-    fontSize: 10,
+    fontSize: SLIDE_BODY_FONT_SIZE,
     bold: true,
     align: 'right',
     fit: 'shrink',
@@ -488,7 +493,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     h: 0.2,
     color: COLORS.primary,
     fontFace: 'Malgun Gothic',
-    fontSize: 8,
+    fontSize: SLIDE_TITLE_FONT_SIZE,
     bold: true,
     margin: 0,
   })
@@ -539,7 +544,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   })
 }
 
-export function StoryboardPptxView({ projects }: StoryboardPptxViewProps) {
+export function StoryboardPptxView({ projects, configured = false, databaseUrl }: StoryboardPptxViewProps) {
   const [initialStore] = useState<StoryboardStore>(() => readStoryboardStore())
   const initialStoryboard = initialStore.items.find((item) => item.id === initialStore.activeId) ?? initialStore.items[0]
   const [savedStoryboards, setSavedStoryboards] = useState<SavedStoryboard[]>(initialStore.items)
@@ -552,6 +557,10 @@ export function StoryboardPptxView({ projects }: StoryboardPptxViewProps) {
   const [message, setMessage] = useState<string | null>(null)
   const [storageError, setStorageError] = useState<string | null>(null)
   const [duplicateExportFileName, setDuplicateExportFileName] = useState<string | null>(null)
+  const [notionStoryboards, setNotionStoryboards] = useState<StoryboardDocumentRecord[]>([])
+  const [activeNotionId, setActiveNotionId] = useState<string | null>(null)
+  const [notionLoading, setNotionLoading] = useState(false)
+  const [notionSaving, setNotionSaving] = useState(false)
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -570,6 +579,27 @@ export function StoryboardPptxView({ projects }: StoryboardPptxViewProps) {
     if (meta.projectName && !names.includes(meta.projectName)) return [meta.projectName, ...names]
     return names
   }, [meta.projectName, projects])
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.name === meta.projectName),
+    [meta.projectName, projects],
+  )
+
+  const fetchNotionStoryboards = useCallback(async () => {
+    if (!configured) return
+    setNotionLoading(true)
+    try {
+      const response = await api<StoryboardListResponse>('/storyboards')
+      setNotionStoryboards(response.items)
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Notion 저장본을 불러오지 못했습니다.')
+    } finally {
+      setNotionLoading(false)
+    }
+  }, [configured])
+
+  useEffect(() => {
+    void fetchNotionStoryboards()
+  }, [fetchNotionStoryboards])
 
   useEffect(() => {
     const updatedAt = new Date().toISOString()
@@ -638,13 +668,93 @@ export function StoryboardPptxView({ projects }: StoryboardPptxViewProps) {
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
+    setActiveNotionId(null)
     setMessage(null)
+  }
+
+  const loadNotionStoryboard = (storyboardId: string) => {
+    const item = notionStoryboards.find((storyboard) => storyboard.id === storyboardId)
+    if (!item) return
+    const normalized = normalizeSavedStoryboard({
+      id: item.id,
+      title: item.title,
+      updatedAt: item.updatedAt ?? new Date().toISOString(),
+      meta: {
+        ...DEFAULT_META,
+        ...(item.data.meta as Partial<StoryboardMeta>),
+        projectName: item.projectName ?? String(item.data.meta.projectName ?? ''),
+        versionName: item.versionName ?? String(item.data.meta.versionName ?? ''),
+        memo: item.memo ?? String(item.data.meta.memo ?? ''),
+      },
+      frames: item.data.frames,
+      selectedFrameId: String(item.data.frames[0]?.id ?? ''),
+    })
+    if (!normalized) return
+
+    setActiveNotionId(item.id)
+    setActiveStoryboardId(normalized.id)
+    setMeta(normalized.meta)
+    setFrames(normalized.frames)
+    setSelectedFrameId(normalized.selectedFrameId || normalized.frames[0]?.id || '')
+    setExportedFileNames(item.exportedFileNames)
+    setSavedStoryboards((current) => {
+      const next = current.filter((saved) => saved.id !== normalized.id)
+      return [normalized, ...next]
+    })
+    setMessage('Notion 저장본을 불러왔습니다.')
+  }
+
+  const saveNotionStoryboard = async () => {
+    if (!configured) {
+      setStorageError('NOTION_STORYBOARD_DB_ID가 연결되면 Notion 저장을 사용할 수 있습니다.')
+      return
+    }
+    setNotionSaving(true)
+    setStorageError(null)
+    try {
+      const payload = {
+        title: createStoryboardTitle(meta),
+        projectId: selectedProject?.id,
+        projectName: meta.projectName,
+        versionName: meta.versionName,
+        memo: meta.memo,
+        data: { meta, frames },
+        exportedFileNames,
+        updatedAt: new Date().toISOString().slice(0, 10),
+      }
+      const response = activeNotionId
+        ? await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(activeNotionId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+          })
+        : await api<StoryboardResponse>('/storyboards', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+      setActiveNotionId(response.item.id)
+      await fetchNotionStoryboards()
+      setMessage('Notion에 저장했습니다.')
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Notion 저장에 실패했습니다.')
+    } finally {
+      setNotionSaving(false)
+    }
+  }
+
+  const deleteNotionStoryboard = async () => {
+    if (!activeNotionId) return
+    if (!window.confirm('현재 Notion 저장본을 삭제할까요?')) return
+    await api(`/storyboards/${encodeURIComponent(activeNotionId)}`, { method: 'DELETE' })
+    setActiveNotionId(null)
+    await fetchNotionStoryboards()
+    setMessage('Notion 저장본을 삭제했습니다.')
   }
 
   const createNewSavedStoryboard = () => {
     const nextStoryboard = createSavedStoryboard()
     setSavedStoryboards((current) => [nextStoryboard, ...current])
     setActiveStoryboardId(nextStoryboard.id)
+    setActiveNotionId(null)
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId)
@@ -658,6 +768,7 @@ export function StoryboardPptxView({ projects }: StoryboardPptxViewProps) {
 
     setSavedStoryboards(remaining.length > 0 ? remaining : [nextStoryboard])
     setActiveStoryboardId(nextStoryboard.id)
+    setActiveNotionId(null)
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
@@ -800,6 +911,40 @@ export function StoryboardPptxView({ projects }: StoryboardPptxViewProps) {
           </Button>
           <Button type="button" variant="secondary" size="mini" onClick={deleteSavedStoryboard}>
             저장본 삭제
+          </Button>
+        </div>
+      </section>
+
+      <section className="storyboardPptxSavePanel" aria-label="Notion 저장본">
+        <div className="storyboardPptxSaveInfo">
+          <strong>Notion 저장본</strong>
+          <span>
+            {configured
+              ? activeNotionId
+                ? '현재 문서가 Notion 저장본과 연결되어 있습니다.'
+                : 'Notion에 저장하면 다른 브라우저에서도 이어서 수정할 수 있습니다.'
+              : 'NOTION_STORYBOARD_DB_ID 연결 전까지는 브라우저 자동저장만 사용합니다.'}
+          </span>
+        </div>
+        <select value={activeNotionId ?? ''} onChange={(event) => loadNotionStoryboard(event.target.value)} disabled={!configured || notionLoading}>
+          <option value="">Notion 저장본 선택</option>
+          {notionStoryboards.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title} {item.versionName ? `· ${item.versionName}` : ''}
+            </option>
+          ))}
+        </select>
+        <div className="storyboardPptxSaveActions">
+          {databaseUrl ? (
+            <a className="uiButton secondary mini" href={databaseUrl} target="_blank" rel="noreferrer">
+              DB 열기
+            </a>
+          ) : null}
+          <Button type="button" variant="secondary" size="mini" onClick={() => void saveNotionStoryboard()} disabled={!configured || notionSaving}>
+            {notionSaving ? '저장 중' : 'Notion 저장'}
+          </Button>
+          <Button type="button" variant="secondary" size="mini" onClick={() => void deleteNotionStoryboard()} disabled={!activeNotionId}>
+            Notion 삭제
           </Button>
         </div>
       </section>

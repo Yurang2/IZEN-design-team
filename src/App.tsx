@@ -16,6 +16,7 @@ const MeetingsView = lazy(() => import('./features/meetings/MeetingsView').then(
 const PhotoGuideSharePage = lazy(() => import('./features/photoGuide/PhotoGuideSharePage').then((m) => ({ default: m.PhotoGuideSharePage })))
 const PhotoGuideView = lazy(() => import('./features/photoGuide/PhotoGuideView').then((m) => ({ default: m.PhotoGuideView })))
 const EquipmentView = lazy(() => import('./features/equipment/EquipmentView').then((m) => ({ default: m.EquipmentView })))
+const ReferencesView = lazy(() => import('./features/references/ReferencesView').then((m) => ({ default: m.ReferencesView })))
 const ProjectsView = lazy(() => import('./features/projects/ProjectsView').then((m) => ({ default: m.ProjectsView })))
 const ScheduleView = lazy(() => import('./features/schedule/ScheduleView').then((m) => ({ default: m.ScheduleView })))
 const ScreeningDbView = lazy(() => import('./features/screening/ScreeningDbView').then((m) => ({ default: m.ScreeningDbView })))
@@ -181,6 +182,8 @@ function App() {
     screeningVideo: string | null
     feedback: string | null
     programIssues: string | null
+    reference: string | null
+    storyboard: string | null
   }>({
     project: null,
     task: null,
@@ -188,6 +191,8 @@ function App() {
     screeningVideo: null,
     feedback: null,
     programIssues: null,
+    reference: null,
+    storyboard: null,
   })
 
   const debouncedFilterQ = useDebouncedValue(filters.q, 250)
@@ -357,6 +362,8 @@ function App() {
         screeningVideo: response.databases.screeningVideo?.url ?? toNotionUrlById(response.databases.screeningVideo?.id ?? undefined),
         feedback: response.databases.feedback?.url ?? toNotionUrlById(response.databases.feedback?.id ?? undefined),
         programIssues: response.databases.programIssues?.url ?? toNotionUrlById(response.databases.programIssues?.id ?? undefined),
+        reference: response.databases.reference?.url ?? toNotionUrlById(response.databases.reference?.id ?? undefined),
+        storyboard: response.databases.storyboard?.url ?? toNotionUrlById(response.databases.storyboard?.id ?? undefined),
       })
     } catch {
       // Ignore meta failures; app can run without DB deep-links.
@@ -1377,8 +1384,10 @@ function App() {
     if (activeView === 'checklist') return dbLinks.checklist
     if (activeView === 'feedback') return dbLinks.feedback
     if (activeView === 'programIssues') return dbLinks.programIssues
+    if (activeView === 'references') return dbLinks.reference
+    if (activeView === 'storyboardPptx') return dbLinks.storyboard
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.programIssues, dbLinks.project, dbLinks.task, equipment.databaseUrl, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
+  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.programIssues, dbLinks.project, dbLinks.reference, dbLinks.storyboard, dbLinks.task, equipment.databaseUrl, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -1437,6 +1446,7 @@ function App() {
         { view: 'nasExplorer', title: 'NAS 탐색기', label: 'NAS 탐색기', icon: 'search' },
         { view: 'gdrive', title: '구글 드라이브', label: '구글 드라이브', icon: 'external' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
+        { view: 'references', title: '레퍼런스 자료함', label: '레퍼런스', icon: 'grid', test: true },
         { view: 'storyboardPptx', title: '스토리보드 PPTX 생성', label: '스토리보드 PPTX', icon: 'download' },
         { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list', test: true },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
@@ -2635,7 +2645,13 @@ function App() {
 
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
 
-      {activeView === 'storyboardPptx' ? <StoryboardPptxView projects={projects} /> : null}
+      {activeView === 'references' ? (
+        <ReferencesView projects={projects} configured={Boolean(dbLinks.reference)} databaseUrl={dbLinks.reference} />
+      ) : null}
+
+      {activeView === 'storyboardPptx' ? (
+        <StoryboardPptxView projects={projects} configured={Boolean(dbLinks.storyboard)} databaseUrl={dbLinks.storyboard} />
+      ) : null}
 
       {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}
 

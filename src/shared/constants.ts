@@ -168,6 +168,20 @@ export const GUIDE_DB_ROWS: GuideConfigRow[] = [
     billing: '없음',
     impact: '교체하면 publish 결과가 다른 회의록 DB에 쌓입니다.',
   },
+  {
+    name: 'NOTION_REFERENCE_DB_ID',
+    location: '레퍼런스 자료함',
+    secret: '아니오',
+    billing: '없음',
+    impact: '비우거나 잘못 넣으면 이미지/링크 레퍼런스 저장과 조회가 비활성화됩니다.',
+  },
+  {
+    name: 'NOTION_STORYBOARD_DB_ID',
+    location: '스토리보드 PPTX 저장본',
+    secret: '아니오',
+    billing: '없음',
+    impact: '비우거나 잘못 넣으면 스토리보드 웹 저장본을 다른 브라우저에서 이어서 불러올 수 없습니다.',
+  },
 ]
 
 export const DEFAULT_FILTERS: Filters = {

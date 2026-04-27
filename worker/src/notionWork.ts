@@ -7,7 +7,9 @@ import type {
   ChecklistPreviewItem,
   CreateFeedbackInput,
   CreateProgramIssueInput,
+  CreateReferenceInput,
   CreateShotSlotInput,
+  CreateStoryboardDocumentInput,
   CreateSubtitleRevisionInput,
   CreateTaskInput,
   Env,
@@ -18,6 +20,13 @@ import type {
   ProgramIssueRecord,
   ProgramIssueSchema,
   ProjectRecord,
+  ReferenceRecord,
+  ReferenceSchema,
+  ReferenceSourceType,
+  ReferenceUsageType,
+  StoryboardDocumentData,
+  StoryboardDocumentRecord,
+  StoryboardSchema,
   SubtitleRevisionRecord,
   SubtitleRevisionSchema,
   SubtitleSnapshotData,
@@ -27,6 +36,8 @@ import type {
   VideoManualSchema,
   UpdateFeedbackInput,
   UpdateProgramIssueInput,
+  UpdateReferenceInput,
+  UpdateStoryboardDocumentInput,
   ScheduleCell,
   ScheduleColumn,
   ScheduleRow,
@@ -820,6 +831,27 @@ const PHOTO_GUIDE_ROW_TYPE_FIELD = '\uD589 \uC720\uD615'
 const PHOTO_GUIDE_SUMMARY_TEXT_FIELD = '\uC694\uC57D'
 const PHOTO_GUIDE_CHECKED_FIELD = '촬영완료'
 
+const REFERENCE_TITLE_FIELD = '\uC81C\uBAA9'
+const REFERENCE_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const REFERENCE_SOURCE_TYPE_FIELD = '\uCD9C\uCC98 \uC720\uD615'
+const REFERENCE_USAGE_TYPE_FIELD = '\uB808\uD37C\uB7F0\uC2A4 \uD615\uD0DC'
+const REFERENCE_LINK_FIELD = '\uB9C1\uD06C'
+const REFERENCE_IMAGE_FIELD = '\uCCA8\uBD80 \uC774\uBBF8\uC9C0'
+const REFERENCE_MEMO_FIELD = '\uBA54\uBAA8'
+const REFERENCE_TAGS_FIELD = '\uD0DC\uADF8'
+const REFERENCE_CREATED_AT_FIELD = '\uB4F1\uB85D\uC77C'
+
+const STORYBOARD_TITLE_FIELD = '\uC81C\uBAA9'
+const STORYBOARD_PROJECT_FIELD = '\uADC0\uC18D \uD504\uB85C\uC81D\uD2B8'
+const STORYBOARD_VERSION_FIELD = '\uBC84\uC804\uBA85'
+const STORYBOARD_MEMO_FIELD = '\uBA54\uBAA8'
+const STORYBOARD_DATA_FIELD = '\uC2A4\uD1A0\uB9AC\uBCF4\uB4DC JSON'
+const STORYBOARD_EXPORT_HISTORY_FIELD = '\uB0B4\uBCF4\uB0B4\uAE30 \uD30C\uC77C\uBA85 \uAE30\uB85D'
+const STORYBOARD_UPDATED_AT_FIELD = '\uC218\uC815\uC77C'
+
+const DEFAULT_REFERENCE_SOURCE_TYPE: ReferenceSourceType = 'other'
+const DEFAULT_REFERENCE_USAGE_TYPE: ReferenceUsageType = '\uB2E8\uC21C\uC800\uC7A5'
+
 // Backward-compatible aliases for the older screening-video naming.
 const SCREENING_VIDEO_DATABASE_TITLE = SCREENING_HISTORY_DATABASE_TITLE
 const SCREENING_VIDEO_TITLE_FIELD = SCREENING_COMMON_TITLE_FIELD
@@ -1342,6 +1374,49 @@ function applyRichText(properties: AnyMap, field: FieldSchema, value: string | n
   }
 }
 
+function toRichTextChunks(value: string | null | undefined): Array<{ text: { content: string } }> {
+  const normalized = value ?? ''
+  if (!normalized) return []
+  const chunks: Array<{ text: { content: string } }> = []
+  for (let index = 0; index < normalized.length; index += 1900) {
+    chunks.push({ text: { content: normalized.slice(index, index + 1900) } })
+  }
+  return chunks
+}
+
+function applyLongRichText(properties: AnyMap, field: FieldSchema, value: string | null | undefined): void {
+  if (!isKnownField(field)) return
+  const normalized = value ?? ''
+
+  if (field.actualType === 'rich_text') {
+    properties[field.actualName] = { rich_text: toRichTextChunks(normalized) }
+    return
+  }
+
+  if (field.actualType === 'title') {
+    properties[field.actualName] = normalized ? { title: [{ text: { content: normalized.slice(0, 1900) } }] } : { title: [] }
+  }
+}
+
+function applyUrlLike(properties: AnyMap, field: FieldSchema, value: string | null | undefined): void {
+  if (!isKnownField(field)) return
+  const normalized = normalizeText(value ?? '')
+
+  if (field.actualType === 'url') {
+    properties[field.actualName] = { url: normalized || null }
+    return
+  }
+
+  if (field.actualType === 'rich_text') {
+    properties[field.actualName] = normalized ? { rich_text: [{ text: { content: normalized, link: { url: normalized } } }] } : { rich_text: [] }
+    return
+  }
+
+  if (field.actualType === 'title' && normalized) {
+    properties[field.actualName] = { title: [{ text: { content: normalized } }] }
+  }
+}
+
 function applyCheckbox(properties: AnyMap, field: FieldSchema, value: boolean | null | undefined): void {
   if (!isKnownField(field)) return
   if (field.actualType !== 'checkbox') return
@@ -1366,6 +1441,38 @@ function applyRelationIds(properties: AnyMap, field: FieldSchema, ids: string[])
   if (field.actualType !== 'relation') return
   const relation = ids.map((id) => normalizeText(id)).filter(Boolean).map((id) => ({ id }))
   properties[field.actualName] = { relation }
+}
+
+function applyFiles(properties: AnyMap, field: FieldSchema, files: Array<{ name: string; type: string; file_upload: { id: string } }>): void {
+  if (!isKnownField(field)) return
+  if (field.actualType !== 'files') return
+  properties[field.actualName] = { files }
+}
+
+function parseDataUrlFile(value: string): { bytes: ArrayBuffer; contentType: string } | null {
+  const match = value.match(/^data:([^;,]+);base64,(.+)$/)
+  if (!match) return null
+  const contentType = normalizeText(match[1]) || 'application/octet-stream'
+  const binary = atob(match[2])
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  return { bytes: bytes.buffer, contentType }
+}
+
+function fileExtensionFromContentType(contentType: string): string {
+  if (contentType.includes('jpeg')) return 'jpg'
+  if (contentType.includes('png')) return 'png'
+  if (contentType.includes('webp')) return 'webp'
+  if (contentType.includes('gif')) return 'gif'
+  return 'bin'
+}
+
+function normalizeStoredJson<T>(value: string, fallback: T): T {
+  if (!value) return fallback
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return fallback
+  }
 }
 
 function createFallbackField(
@@ -3766,6 +3873,284 @@ export class NotionWorkService {
 
     await this.api.updatePage(id, { properties })
     return this.getTask(id)
+  }
+
+  // ---------------------------------------------------------------------------
+  // References
+  // ---------------------------------------------------------------------------
+
+  private buildReferenceSchema(properties: Record<string, any>): ReferenceSchema {
+    const relationFallback = (entries: Array<[string, any]>) =>
+      entries.find(
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+      )
+
+    return {
+      fields: {
+        title: pickField('title', properties, REFERENCE_TITLE_FIELD, ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        project: pickField('project', properties, REFERENCE_PROJECT_FIELD, ['relation'], true, relationFallback),
+        sourceType: pickField('sourceType', properties, REFERENCE_SOURCE_TYPE_FIELD, ['select', 'rich_text'], true),
+        usageType: pickField('usageType', properties, REFERENCE_USAGE_TYPE_FIELD, ['select', 'rich_text'], true),
+        link: pickField('link', properties, REFERENCE_LINK_FIELD, ['url', 'rich_text'], true),
+        image: pickField('image', properties, REFERENCE_IMAGE_FIELD, ['files'], true),
+        memo: pickField('memo', properties, REFERENCE_MEMO_FIELD, ['rich_text', 'title'], true),
+        tags: pickField('tags', properties, REFERENCE_TAGS_FIELD, ['multi_select', 'rich_text'], true),
+        createdAt: pickField('createdAt', properties, REFERENCE_CREATED_AT_FIELD, ['date'], true),
+      },
+    }
+  }
+
+  private async getReferenceSchema(): Promise<ReferenceSchema> {
+    const dbId = this.env.NOTION_REFERENCE_DB_ID
+    if (!dbId) throw new Error('NOTION_REFERENCE_DB_ID_not_configured')
+    const db: any = await this.api.retrieveDatabase(dbId)
+    return this.buildReferenceSchema((db.properties ?? {}) as Record<string, any>)
+  }
+
+  private async uploadReferenceImage(input: CreateReferenceInput | UpdateReferenceInput): Promise<Array<{ name: string; type: string; file_upload: { id: string } }>> {
+    const dataUrl = normalizeText(input.imageDataUrl)
+    if (!dataUrl) return []
+    const parsed = parseDataUrlFile(dataUrl)
+    if (!parsed) throw new Error('reference_image_data_url_invalid')
+    const fallbackName = `reference-${Date.now()}.${fileExtensionFromContentType(parsed.contentType)}`
+    const filename = normalizeText(input.imageName) || fallbackName
+    const created = await this.api.createFileUpload(filename, parsed.contentType)
+    const fileUploadId = normalizeText(created?.id)
+    if (!fileUploadId) throw new Error('notion_file_upload_create_failed')
+    await this.api.sendFileUpload(fileUploadId, parsed.bytes, filename, parsed.contentType)
+    return [{ name: filename, type: 'file_upload', file_upload: { id: fileUploadId } }]
+  }
+
+  private mapReferencePage(page: any, schema: ReferenceSchema, projectNameMap: Record<string, string>): ReferenceRecord {
+    const props = (page.properties ?? {}) as AnyMap
+    const projectId = first(extractRelationIds(props, schema.fields.project))
+    const files = isKnownField(schema.fields.image) ? serializeScheduleFiles(props[schema.fields.image.actualName]) : []
+    const firstImage = files[0]
+    const sourceType = extractTextLike(props, schema.fields.sourceType, DEFAULT_REFERENCE_SOURCE_TYPE) as ReferenceSourceType
+    const usageType = extractTextLike(props, schema.fields.usageType, DEFAULT_REFERENCE_USAGE_TYPE) as ReferenceUsageType
+
+    return {
+      id: page.id,
+      url: page.url,
+      title: extractTitle(props, schema.fields.title),
+      projectId: projectId || undefined,
+      projectName: projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined,
+      sourceType: sourceType || DEFAULT_REFERENCE_SOURCE_TYPE,
+      usageType: usageType || DEFAULT_REFERENCE_USAGE_TYPE,
+      link: extractUrlLike(props, schema.fields.link),
+      imageUrl: firstImage?.url,
+      imageName: firstImage?.name,
+      memo: extractTextLike(props, schema.fields.memo, '') || undefined,
+      tags: extractStringArray(props, schema.fields.tags).filter((tag) => tag !== '[UNKNOWN]'),
+      createdAt: extractDate(props, schema.fields.createdAt),
+      updatedAt: page.last_edited_time ?? undefined,
+    }
+  }
+
+  async listReferences(): Promise<ReferenceRecord[]> {
+    const dbId = this.env.NOTION_REFERENCE_DB_ID
+    if (!dbId) return []
+    const [schema, projects, pages] = await Promise.all([this.getReferenceSchema(), this.listProjects(), this.queryAll(dbId)])
+    const projectNameMap: Record<string, string> = {}
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
+    }
+    return pages.map((page) => this.mapReferencePage(page, schema, projectNameMap))
+  }
+
+  async getReference(id: string): Promise<ReferenceRecord> {
+    const [schema, projects, page] = await Promise.all([this.getReferenceSchema(), this.listProjects(), this.api.retrievePage(id)])
+    const projectNameMap: Record<string, string> = {}
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
+    }
+    return this.mapReferencePage(page, schema, projectNameMap)
+  }
+
+  async createReference(input: CreateReferenceInput): Promise<ReferenceRecord> {
+    const schema = await this.getReferenceSchema()
+    if (!isKnownField(schema.fields.title)) throw new Error('reference_title_property_missing')
+    const title = normalizeText(input.title)
+    if (!title) throw new Error('title_required')
+
+    const properties: AnyMap = {}
+    applyTitleLike(properties, schema.fields.title, title)
+    applyRelationIds(properties, schema.fields.project, input.projectId ? [input.projectId] : [])
+    applySelectLike(properties, schema.fields.sourceType, input.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
+    applySelectLike(properties, schema.fields.usageType, input.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
+    applyUrlLike(properties, schema.fields.link, input.link)
+    applyRichText(properties, schema.fields.memo, input.memo)
+    applyStringArray(properties, schema.fields.tags, input.tags)
+    applyDate(properties, schema.fields.createdAt, input.createdAt || new Date().toISOString().slice(0, 10))
+
+    const files = await this.uploadReferenceImage(input)
+    if (files.length > 0) applyFiles(properties, schema.fields.image, files)
+
+    const created: any = await this.api.createPage({ parent: { database_id: this.env.NOTION_REFERENCE_DB_ID! }, properties })
+    return this.getReference(created.id)
+  }
+
+  async updateReference(id: string, patch: UpdateReferenceInput): Promise<ReferenceRecord> {
+    const schema = await this.getReferenceSchema()
+    const properties: AnyMap = {}
+
+    if (hasOwn(patch as Record<string, unknown>, 'title')) {
+      const value = normalizeText(patch.title ?? '')
+      if (value) applyTitleLike(properties, schema.fields.title, value)
+    }
+    if (hasOwn(patch as Record<string, unknown>, 'projectId')) {
+      const projectId = normalizeText(patch.projectId ?? '')
+      applyRelationIds(properties, schema.fields.project, projectId ? [projectId] : [])
+    }
+    if (hasOwn(patch as Record<string, unknown>, 'sourceType')) applySelectLike(properties, schema.fields.sourceType, patch.sourceType || DEFAULT_REFERENCE_SOURCE_TYPE)
+    if (hasOwn(patch as Record<string, unknown>, 'usageType')) applySelectLike(properties, schema.fields.usageType, patch.usageType || DEFAULT_REFERENCE_USAGE_TYPE)
+    if (hasOwn(patch as Record<string, unknown>, 'link')) applyUrlLike(properties, schema.fields.link, patch.link)
+    if (hasOwn(patch as Record<string, unknown>, 'memo')) applyRichText(properties, schema.fields.memo, patch.memo)
+    if (hasOwn(patch as Record<string, unknown>, 'tags')) applyStringArray(properties, schema.fields.tags, patch.tags)
+    if (hasOwn(patch as Record<string, unknown>, 'createdAt')) applyDate(properties, schema.fields.createdAt, patch.createdAt)
+    if (hasOwn(patch as Record<string, unknown>, 'imageDataUrl')) {
+      const files = await this.uploadReferenceImage(patch)
+      applyFiles(properties, schema.fields.image, files)
+    }
+
+    await this.api.updatePage(id, { properties })
+    return this.getReference(id)
+  }
+
+  async archiveReference(id: string): Promise<void> {
+    await this.api.updatePage(id, { archived: true })
+  }
+
+  // ---------------------------------------------------------------------------
+  // Storyboards
+  // ---------------------------------------------------------------------------
+
+  private buildStoryboardSchema(properties: Record<string, any>): StoryboardSchema {
+    const relationFallback = (entries: Array<[string, any]>) =>
+      entries.find(
+        ([, prop]) => prop?.type === 'relation' && normalizeNotionId(prop?.relation?.database_id) === normalizeNotionId(this.env.NOTION_PROJECT_DB_ID),
+      )
+
+    return {
+      fields: {
+        title: pickField('title', properties, STORYBOARD_TITLE_FIELD, ['title', 'rich_text'], false, (entries) => findFirstByTypes(entries, ['title'])),
+        project: pickField('project', properties, STORYBOARD_PROJECT_FIELD, ['relation'], true, relationFallback),
+        versionName: pickField('versionName', properties, STORYBOARD_VERSION_FIELD, ['rich_text', 'title', 'select'], true),
+        memo: pickField('memo', properties, STORYBOARD_MEMO_FIELD, ['rich_text', 'title'], true),
+        data: pickField('data', properties, STORYBOARD_DATA_FIELD, ['rich_text'], true),
+        exportedFileNames: pickField('exportedFileNames', properties, STORYBOARD_EXPORT_HISTORY_FIELD, ['rich_text'], true),
+        updatedAt: pickField('updatedAt', properties, STORYBOARD_UPDATED_AT_FIELD, ['date'], true),
+      },
+    }
+  }
+
+  private async getStoryboardSchema(): Promise<StoryboardSchema> {
+    const dbId = this.env.NOTION_STORYBOARD_DB_ID
+    if (!dbId) throw new Error('NOTION_STORYBOARD_DB_ID_not_configured')
+    const db: any = await this.api.retrieveDatabase(dbId)
+    return this.buildStoryboardSchema((db.properties ?? {}) as Record<string, any>)
+  }
+
+  private async resolveProjectIdForStoryboard(input: Pick<CreateStoryboardDocumentInput, 'projectId' | 'projectName'>): Promise<string> {
+    const direct = normalizeText(input.projectId)
+    if (direct) return direct
+    const projectName = normalizeText(input.projectName)
+    if (!projectName) return ''
+    const projects = await this.listProjects()
+    const found = projects.find((project) => project.name === projectName || project.name.toLowerCase() === projectName.toLowerCase())
+    return found?.id ?? ''
+  }
+
+  private mapStoryboardPage(page: any, schema: StoryboardSchema, projectNameMap: Record<string, string>): StoryboardDocumentRecord {
+    const props = (page.properties ?? {}) as AnyMap
+    const projectId = first(extractRelationIds(props, schema.fields.project))
+    const dataJson = extractTextLike(props, schema.fields.data, '')
+    const exportJson = extractTextLike(props, schema.fields.exportedFileNames, '')
+
+    return {
+      id: page.id,
+      url: page.url,
+      title: extractTitle(props, schema.fields.title),
+      projectId: projectId || undefined,
+      projectName: projectId ? projectNameMap[normalizeNotionId(projectId)] ?? projectNameMap[projectId] : undefined,
+      versionName: extractTextLike(props, schema.fields.versionName, '') || undefined,
+      memo: extractTextLike(props, schema.fields.memo, '') || undefined,
+      data: normalizeStoredJson<StoryboardDocumentData>(dataJson, { meta: {}, frames: [] }),
+      exportedFileNames: normalizeStoredJson<string[]>(exportJson, []),
+      updatedAt: extractDate(props, schema.fields.updatedAt) || page.last_edited_time || undefined,
+    }
+  }
+
+  async listStoryboards(): Promise<StoryboardDocumentRecord[]> {
+    const dbId = this.env.NOTION_STORYBOARD_DB_ID
+    if (!dbId) return []
+    const [schema, projects, pages] = await Promise.all([this.getStoryboardSchema(), this.listProjects(), this.queryAll(dbId)])
+    const projectNameMap: Record<string, string> = {}
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
+    }
+    return pages.map((page) => this.mapStoryboardPage(page, schema, projectNameMap))
+  }
+
+  async getStoryboard(id: string): Promise<StoryboardDocumentRecord> {
+    const [schema, projects, page] = await Promise.all([this.getStoryboardSchema(), this.listProjects(), this.api.retrievePage(id)])
+    const projectNameMap: Record<string, string> = {}
+    for (const project of projects) {
+      projectNameMap[project.id] = project.name
+      projectNameMap[normalizeNotionId(project.id)] = project.name
+    }
+    return this.mapStoryboardPage(page, schema, projectNameMap)
+  }
+
+  async createStoryboard(input: CreateStoryboardDocumentInput): Promise<StoryboardDocumentRecord> {
+    const schema = await this.getStoryboardSchema()
+    if (!isKnownField(schema.fields.title)) throw new Error('storyboard_title_property_missing')
+    const title = normalizeText(input.title)
+    if (!title) throw new Error('title_required')
+    const projectId = await this.resolveProjectIdForStoryboard(input)
+
+    const properties: AnyMap = {}
+    applyTitleLike(properties, schema.fields.title, title)
+    applyRelationIds(properties, schema.fields.project, projectId ? [projectId] : [])
+    applyRichText(properties, schema.fields.versionName, input.versionName)
+    applyRichText(properties, schema.fields.memo, input.memo)
+    applyLongRichText(properties, schema.fields.data, JSON.stringify(input.data))
+    applyLongRichText(properties, schema.fields.exportedFileNames, JSON.stringify(input.exportedFileNames ?? []))
+    applyDate(properties, schema.fields.updatedAt, input.updatedAt || new Date().toISOString().slice(0, 10))
+
+    const created: any = await this.api.createPage({ parent: { database_id: this.env.NOTION_STORYBOARD_DB_ID! }, properties })
+    return this.getStoryboard(created.id)
+  }
+
+  async updateStoryboard(id: string, patch: UpdateStoryboardDocumentInput): Promise<StoryboardDocumentRecord> {
+    const schema = await this.getStoryboardSchema()
+    const properties: AnyMap = {}
+
+    if (hasOwn(patch as Record<string, unknown>, 'title')) {
+      const title = normalizeText(patch.title ?? '')
+      if (title) applyTitleLike(properties, schema.fields.title, title)
+    }
+    if (hasOwn(patch as Record<string, unknown>, 'projectId') || hasOwn(patch as Record<string, unknown>, 'projectName')) {
+      const projectId = await this.resolveProjectIdForStoryboard(patch)
+      applyRelationIds(properties, schema.fields.project, projectId ? [projectId] : [])
+    }
+    if (hasOwn(patch as Record<string, unknown>, 'versionName')) applyRichText(properties, schema.fields.versionName, patch.versionName)
+    if (hasOwn(patch as Record<string, unknown>, 'memo')) applyRichText(properties, schema.fields.memo, patch.memo)
+    if (hasOwn(patch as Record<string, unknown>, 'data') && patch.data) applyLongRichText(properties, schema.fields.data, JSON.stringify(patch.data))
+    if (hasOwn(patch as Record<string, unknown>, 'exportedFileNames')) {
+      applyLongRichText(properties, schema.fields.exportedFileNames, JSON.stringify(patch.exportedFileNames ?? []))
+    }
+    applyDate(properties, schema.fields.updatedAt, patch.updatedAt || new Date().toISOString().slice(0, 10))
+
+    await this.api.updatePage(id, { properties })
+    return this.getStoryboard(id)
+  }
+
+  async archiveStoryboard(id: string): Promise<void> {
+    await this.api.updatePage(id, { archived: true })
   }
 
   // ---------------------------------------------------------------------------

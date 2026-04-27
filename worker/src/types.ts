@@ -44,6 +44,8 @@ export interface Env {
   NOTION_CHECKLIST_ASSIGNMENT_DB_ID?: string
   NOTION_FEEDBACK_DB_ID?: string
   NOTION_PROGRAM_ISSUES_DB_ID?: string
+  NOTION_REFERENCE_DB_ID?: string
+  NOTION_STORYBOARD_DB_ID?: string
   NOTION_SUBTITLE_VIDEO_DB_ID?: string
   NOTION_SUBTITLE_REVISION_DB_ID?: string
   NOTION_VIDEO_MANUAL_DB_ID?: string
@@ -199,6 +201,98 @@ export type TaskSnapshot = {
   schema: TaskSchema
   updatedAt: number
 }
+
+export type ReferenceSourceType = 'image' | 'youtube' | 'link' | 'other'
+export type ReferenceUsageType = '단순저장' | '모작' | '아이디어'
+
+export type ReferenceRecord = {
+  id: string
+  url: string
+  title: string
+  projectId?: string
+  projectName?: string
+  sourceType: ReferenceSourceType
+  usageType: ReferenceUsageType
+  link?: string
+  imageUrl?: string
+  imageName?: string
+  memo?: string
+  tags: string[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type ReferenceSchema = {
+  fields: {
+    title: FieldSchema
+    project: FieldSchema
+    sourceType: FieldSchema
+    usageType: FieldSchema
+    link: FieldSchema
+    image: FieldSchema
+    memo: FieldSchema
+    tags: FieldSchema
+    createdAt: FieldSchema
+  }
+}
+
+export type CreateReferenceInput = {
+  title: string
+  projectId?: string
+  sourceType?: ReferenceSourceType
+  usageType?: ReferenceUsageType
+  link?: string
+  imageDataUrl?: string
+  imageName?: string
+  memo?: string
+  tags?: string[]
+  createdAt?: string
+}
+
+export type UpdateReferenceInput = Partial<CreateReferenceInput>
+
+export type StoryboardDocumentData = {
+  meta: Record<string, unknown>
+  frames: Array<Record<string, unknown>>
+}
+
+export type StoryboardDocumentRecord = {
+  id: string
+  url: string
+  title: string
+  projectId?: string
+  projectName?: string
+  versionName?: string
+  memo?: string
+  data: StoryboardDocumentData
+  exportedFileNames: string[]
+  updatedAt?: string
+}
+
+export type StoryboardSchema = {
+  fields: {
+    title: FieldSchema
+    project: FieldSchema
+    versionName: FieldSchema
+    memo: FieldSchema
+    data: FieldSchema
+    exportedFileNames: FieldSchema
+    updatedAt: FieldSchema
+  }
+}
+
+export type CreateStoryboardDocumentInput = {
+  title: string
+  projectId?: string
+  projectName?: string
+  versionName?: string
+  memo?: string
+  data: StoryboardDocumentData
+  exportedFileNames?: string[]
+  updatedAt?: string
+}
+
+export type UpdateStoryboardDocumentInput = Partial<CreateStoryboardDocumentInput>
 
 export type ScheduleColumn = {
   id: string

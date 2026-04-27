@@ -4,10 +4,14 @@ import type {
   ChecklistAssignmentStatus,
   CreateFeedbackInput,
   CreateProgramIssueInput,
+  CreateReferenceInput,
+  CreateStoryboardDocumentInput,
   CreateTaskInput,
   Env,
   UpdateFeedbackInput,
   UpdateProgramIssueInput,
+  UpdateReferenceInput,
+  UpdateStoryboardDocumentInput,
   UpdateTaskInput,
 } from './types'
 import {
@@ -91,10 +95,16 @@ import {
   checklistAppliesToProject,
   filterFeedback,
   filterProgramIssues,
+  filterReferences,
+  filterStoryboards,
   parseFeedbackCreateBody,
   parseFeedbackUpdateBody,
   parseProgramIssueCreateBody,
   parseProgramIssueUpdateBody,
+  parseReferenceCreateBody,
+  parseReferenceUpdateBody,
+  parseStoryboardCreateBody,
+  parseStoryboardUpdateBody,
   parseShotSlotCreateBody,
   parseSubtitleRevisionCreateBody,
   toPhotoGuideUploadErrorStatus,
@@ -1013,6 +1023,14 @@ export default {
               programIssues: {
                 id: env.NOTION_PROGRAM_ISSUES_DB_ID ?? null,
                 url: notionDatabaseUrl(env.NOTION_PROGRAM_ISSUES_DB_ID),
+              },
+              reference: {
+                id: env.NOTION_REFERENCE_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_REFERENCE_DB_ID),
+              },
+              storyboard: {
+                id: env.NOTION_STORYBOARD_DB_ID ?? null,
+                url: notionDatabaseUrl(env.NOTION_STORYBOARD_DB_ID),
               },
               subtitleVideo: {
                 id: env.NOTION_SUBTITLE_VIDEO_DB_ID ?? null,
@@ -1975,6 +1993,116 @@ export default {
         return json({ ok: true, revision: created }, 201, origin)
       }
 
+      // ---- References CRUD ----
+
+      const referenceMatch = path.match(/^\/references\/([^/]+)$/)
+
+      if (request.method === 'GET' && path === '/references') {
+        const sourceType = asString(url.searchParams.get('sourceType'))
+        const usageType = asString(url.searchParams.get('usageType'))
+        const projectId = asString(url.searchParams.get('projectId'))
+        const q = asString(url.searchParams.get('q'))
+        const cursor = asString(url.searchParams.get('cursor'))
+        const pageSize = parsePageSize(url.searchParams.get('pageSize'))
+
+        const allItems = await service.listReferences()
+        const filtered = filterReferences(allItems, sourceType, usageType, projectId, q)
+        const paged = paginate(filtered, cursor, pageSize)
+
+        return ok({ ok: true, items: paged.items, nextCursor: paged.nextCursor, hasMore: paged.hasMore, cacheTtlMs }, origin)
+      }
+
+      if (request.method === 'GET' && referenceMatch) {
+        const id = decodeURIComponent(referenceMatch[1])
+        const item = await service.getReference(id)
+        return ok({ ok: true, item }, origin)
+      }
+
+      if (request.method === 'POST' && path === '/references') {
+        let payload: CreateReferenceInput
+        try {
+          payload = parseReferenceCreateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+
+        const created = await service.createReference(payload)
+        return json({ ok: true, item: created }, 201, origin)
+      }
+
+      if (request.method === 'PATCH' && referenceMatch) {
+        const id = decodeURIComponent(referenceMatch[1])
+        let patch: UpdateReferenceInput
+        try {
+          patch = parseReferenceUpdateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_patch' }, 400, origin)
+        }
+
+        const updated = await service.updateReference(id, patch)
+        return ok({ ok: true, item: updated }, origin)
+      }
+
+      if (request.method === 'DELETE' && referenceMatch) {
+        const id = decodeURIComponent(referenceMatch[1])
+        await service.archiveReference(id)
+        return ok({ ok: true }, origin)
+      }
+
+      // ---- Storyboard documents CRUD ----
+
+      const storyboardMatch = path.match(/^\/storyboards\/([^/]+)$/)
+
+      if (request.method === 'GET' && path === '/storyboards') {
+        const projectId = asString(url.searchParams.get('projectId'))
+        const q = asString(url.searchParams.get('q'))
+        const cursor = asString(url.searchParams.get('cursor'))
+        const pageSize = parsePageSize(url.searchParams.get('pageSize'))
+
+        const allItems = await service.listStoryboards()
+        const filtered = filterStoryboards(allItems, projectId, q)
+        const paged = paginate(filtered, cursor, pageSize)
+
+        return ok({ ok: true, items: paged.items, nextCursor: paged.nextCursor, hasMore: paged.hasMore, cacheTtlMs }, origin)
+      }
+
+      if (request.method === 'GET' && storyboardMatch) {
+        const id = decodeURIComponent(storyboardMatch[1])
+        const item = await service.getStoryboard(id)
+        return ok({ ok: true, item }, origin)
+      }
+
+      if (request.method === 'POST' && path === '/storyboards') {
+        let payload: CreateStoryboardDocumentInput
+        try {
+          payload = parseStoryboardCreateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_request' }, 400, origin)
+        }
+
+        const created = await service.createStoryboard(payload)
+        return json({ ok: true, item: created }, 201, origin)
+      }
+
+      if (request.method === 'PATCH' && storyboardMatch) {
+        const id = decodeURIComponent(storyboardMatch[1])
+        let patch: UpdateStoryboardDocumentInput
+        try {
+          patch = parseStoryboardUpdateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_patch' }, 400, origin)
+        }
+
+        const updated = await service.updateStoryboard(id, patch)
+        return ok({ ok: true, item: updated }, origin)
+      }
+
+      if (request.method === 'DELETE' && storyboardMatch) {
+        const id = decodeURIComponent(storyboardMatch[1])
+        await service.archiveStoryboard(id)
+        return ok({ ok: true }, origin)
+      }
+
       // ---- Feedback CRUD ----
 
       const feedbackMatch = path.match(/^\/feedback\/([^/]+)$/)
@@ -2172,6 +2300,16 @@ export default {
               'GET /api/feedback/:id',
               'POST /api/feedback',
               'PATCH /api/feedback/:id',
+              'GET /api/references?sourceType=...&usageType=...&projectId=...&q=...',
+              'GET /api/references/:id',
+              'POST /api/references',
+              'PATCH /api/references/:id',
+              'DELETE /api/references/:id',
+              'GET /api/storyboards?projectId=...&q=...',
+              'GET /api/storyboards/:id',
+              'POST /api/storyboards',
+              'PATCH /api/storyboards/:id',
+              'DELETE /api/storyboards/:id',
               'GET /api/program-issues?status=...&issueType=...&priority=...&q=...',
               'GET /api/program-issues/:id',
               'POST /api/program-issues',
@@ -2221,5 +2359,3 @@ export default {
     }
   },
 }
-
-

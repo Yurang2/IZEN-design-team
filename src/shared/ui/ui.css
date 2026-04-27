@@ -3802,7 +3802,7 @@ button.dashboardNavButton {
   background: #172033;
   color: #ffffff;
   display: flex;
-  font-size: 12px;
+  font-size: 15px;
   gap: 8px;
   justify-content: space-between;
   padding: 8px 10px;
@@ -3824,7 +3824,7 @@ button.dashboardNavButton {
   border-radius: 6px;
   color: #172033;
   display: flex;
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 800;
   justify-content: center;
   min-width: 0;
@@ -3849,7 +3849,7 @@ button.dashboardNavButton {
   border-radius: 6px;
   color: #5f6f85;
   display: flex;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   justify-content: center;
   overflow: hidden;
@@ -3915,6 +3915,186 @@ button.dashboardNavButton {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.referencesView {
+  display: grid;
+  gap: 18px;
+}
+
+.referencesHeader,
+.referencesPanel,
+.referencesToolbar,
+.referenceCard {
+  border: 1px solid var(--line, #d8dee8);
+  background: var(--surface, #fff);
+  border-radius: 8px;
+}
+
+.referencesHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+.referencesHeader h2 {
+  margin: 0 0 6px;
+  font-size: 1.4rem;
+}
+
+.referencesHeader p,
+.referenceBody p {
+  margin: 0;
+  color: var(--text-sub, #637083);
+}
+
+.referencesMessage {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eef6ff;
+  color: #165da8;
+}
+
+.referencesMessage.is-error {
+  background: #fff0f0;
+  color: #b42318;
+}
+
+.referencesPanel {
+  padding: 16px;
+}
+
+.referencesForm {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.referencesForm label,
+.referencesToolbar {
+  font-size: 0.82rem;
+  color: var(--text-sub, #637083);
+}
+
+.referencesForm input,
+.referencesForm select,
+.referencesForm textarea,
+.referencesToolbar input,
+.referencesToolbar select {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--line, #d8dee8);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: var(--surface, #fff);
+  color: var(--text, #111827);
+}
+
+.referencesMemo {
+  grid-column: span 2;
+}
+
+.referencesPasteZone {
+  grid-column: span 2;
+  min-height: 154px;
+  border: 1px dashed var(--line, #c8d1df);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 12px;
+  color: var(--text-sub, #637083);
+  background: #f8fafc;
+}
+
+.referencesPasteZone img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.referencesActions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.referencesToolbar {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, minmax(150px, 0.7fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.referencesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.referenceCard {
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 190px auto;
+}
+
+.referenceMedia {
+  background: #edf1f6;
+  display: grid;
+  place-items: center;
+  color: var(--text-sub, #637083);
+}
+
+.referenceMedia img,
+.referenceMedia iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+}
+
+.referenceBody {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.referenceBody h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.referenceMetaLine,
+.referenceActions,
+.referenceTags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.referenceMetaLine {
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-sub, #637083);
+}
+
+.referenceMetaLine strong,
+.referenceTags span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #edf5ff;
+  color: #24527a;
+  font-size: 0.75rem;
+}
+
+.referenceActions {
+  margin-top: 4px;
 }
 
 [data-theme='v2'] .storyboardPptxHeader {

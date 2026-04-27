@@ -246,8 +246,74 @@ export type MetaResponse = {
     meeting?: { id: string; url: string | null }
     feedback?: { id: string | null; url: string | null }
     programIssues?: { id: string | null; url: string | null }
+    reference?: { id: string | null; url: string | null }
+    storyboard?: { id: string | null; url: string | null }
     videoManual?: { id: string | null; url: string | null }
   }
+}
+
+export type ReferenceSourceType = 'image' | 'youtube' | 'link' | 'other'
+export type ReferenceUsageType = '단순저장' | '모작' | '아이디어'
+
+export type ReferenceRecord = {
+  id: string
+  url: string
+  title: string
+  projectId?: string
+  projectName?: string
+  sourceType: ReferenceSourceType
+  usageType: ReferenceUsageType
+  link?: string
+  imageUrl?: string
+  imageName?: string
+  memo?: string
+  tags: string[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type ReferenceListResponse = {
+  ok: boolean
+  items: ReferenceRecord[]
+  nextCursor?: string
+  hasMore: boolean
+  cacheTtlMs?: number
+}
+
+export type ReferenceResponse = {
+  ok: boolean
+  item: ReferenceRecord
+}
+
+export type StoryboardDocumentData = {
+  meta: Record<string, unknown>
+  frames: Array<Record<string, unknown>>
+}
+
+export type StoryboardDocumentRecord = {
+  id: string
+  url: string
+  title: string
+  projectId?: string
+  projectName?: string
+  versionName?: string
+  memo?: string
+  data: StoryboardDocumentData
+  exportedFileNames: string[]
+  updatedAt?: string
+}
+
+export type StoryboardListResponse = {
+  ok: boolean
+  items: StoryboardDocumentRecord[]
+  nextCursor?: string
+  hasMore: boolean
+  cacheTtlMs?: number
+}
+
+export type StoryboardResponse = {
+  ok: boolean
+  item: StoryboardDocumentRecord
 }
 
 export type Filters = {
@@ -468,6 +534,7 @@ export type TopView =
   | 'checklist'
   | 'meetings'
   | 'snsPost'
+  | 'references'
   | 'storyboardPptx'
   | 'geminiImageTest'
   | 'mailTemplate'
