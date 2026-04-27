@@ -4142,7 +4142,7 @@ button.dashboardNavButton {
 }
 
 .referenceListItem .referenceBody p,
-.referenceListItem .referenceTags {
+.referenceListItem .referenceBadges {
   margin: 0;
 }
 
@@ -4182,30 +4182,27 @@ button.dashboardNavButton {
   white-space: nowrap;
 }
 
-.referenceMetaLine,
-.referenceTags {
+.referenceBadges {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
   align-items: center;
 }
 
-.referenceMetaLine {
-  font-size: 11px;
-  color: var(--text-sub, #637083);
-}
-
-.referenceMetaLine strong,
-.referenceTags span {
+.referenceBadges strong,
+.referenceBadges span {
   padding: 2px 7px;
   border-radius: 4px;
-  background: #edf5ff;
-  color: #24527a;
   font-size: 11px;
   font-weight: 800;
 }
 
-.referenceTags span {
+.referenceBadges strong {
+  background: #edf5ff;
+  color: #24527a;
+}
+
+.referenceBadges span {
   background: #f1f5f9;
   color: #64748b;
 }

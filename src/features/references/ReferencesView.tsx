@@ -148,6 +148,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const selectedTaskOption = useMemo(() => tasks.find((task) => task.id === form.relatedTaskId), [form.relatedTaskId, tasks])
+  const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks])
 
   const fetchReferences = useCallback(async () => {
     if (!configured) return
@@ -435,6 +436,8 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
         {items.map((item) => {
           const youtubeId = item.link ? extractYoutubeId(item.link) : ''
           const sourceMeta = SOURCE_META[item.sourceType]
+          const relatedTask = item.projectId ? taskById.get(item.projectId) : undefined
+          const workTypeLabel = relatedTask?.workType || item.projectName || ''
           return (
             <article className={viewMode === 'grid' ? 'referenceCard' : 'referenceListItem'} key={item.id}>
               <div className="referenceMedia">
@@ -459,13 +462,15 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
                 </div>
               </div>
               <div className="referenceBody">
-                <div className="referenceMetaLine">
+                <div className="referenceBadges">
                   <strong>{USAGE_LABELS[item.usageType] ?? item.usageType}</strong>
+                  {item.tags.map((tag) => (
+                    <span key={tag}>#{tag}</span>
+                  ))}
                 </div>
                 <h3>{item.title}</h3>
-                {item.projectName ? <p>{item.projectName}</p> : null}
+                {workTypeLabel ? <p>{workTypeLabel}</p> : null}
                 {item.memo ? <p>{item.memo}</p> : null}
-                {item.tags.length > 0 ? <div className="referenceTags">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
               </div>
             </article>
           )
