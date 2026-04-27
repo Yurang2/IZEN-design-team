@@ -9,7 +9,7 @@ import type {
   TaskRecord,
 } from '../../shared/types'
 import { Button, EmptyState, UiGlyph } from '../../shared/ui'
-import { formatTaskOptionLabel, getTaskAssigneeOptions, isActiveTaskOption, matchesTaskAssignee } from '../../shared/utils/taskOptions'
+import { RelatedTaskPickerModal } from '../tasks/RelatedTaskPickerModal'
 
 type ReferencesViewProps = {
   tasks: TaskRecord[]
@@ -129,23 +129,10 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('')
+  const [taskPickerOpen, setTaskPickerOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const activeTaskOptions = useMemo(() => tasks.filter(isActiveTaskOption), [tasks])
-  const taskAssigneeOptions = useMemo(() => getTaskAssigneeOptions(activeTaskOptions), [activeTaskOptions])
-  const taskOptions = useMemo(
-    () =>
-      activeTaskOptions
-        .filter((task) => matchesTaskAssignee(task, taskAssigneeFilter))
-        .sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')),
-    [activeTaskOptions, taskAssigneeFilter],
-  )
-  const selectedTaskOption = useMemo(() => activeTaskOptions.find((task) => task.id === form.relatedTaskId), [activeTaskOptions, form.relatedTaskId])
-  const visibleTaskOptions = useMemo(
-    () => (selectedTaskOption && !taskOptions.some((task) => task.id === selectedTaskOption.id) ? [selectedTaskOption, ...taskOptions] : taskOptions),
-    [selectedTaskOption, taskOptions],
-  )
+  const selectedTaskOption = useMemo(() => tasks.find((task) => task.id === form.relatedTaskId), [form.relatedTaskId, tasks])
 
   const fetchReferences = useCallback(async () => {
     if (!configured) return
@@ -294,30 +281,19 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
       <section className="referencesPanel" aria-label="레퍼런스 저장">
         <form className="referencesForm" onSubmit={submit}>
           <label>
-            담당자 필터
-            <select value={taskAssigneeFilter} onChange={(event) => setTaskAssigneeFilter(event.target.value)}>
-              <option value="">전체 담당자</option>
-              {taskAssigneeOptions.map((assignee) => (
-                <option key={assignee} value={assignee}>
-                  {assignee}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
             제목
             <input value={form.title} onChange={(event) => updateForm({ title: event.target.value })} placeholder="레퍼런스 제목" />
           </label>
-          <label>
+          <label className="relatedTaskField">
             관련 업무
-            <select value={form.relatedTaskId} onChange={(event) => updateForm({ relatedTaskId: event.target.value })}>
-              <option value="">업무 선택</option>
-              {visibleTaskOptions.map((task) => (
-                <option key={task.id} value={task.id}>
-                  {formatTaskOptionLabel(task)}
-                </option>
-              ))}
-            </select>
+            <button type="button" className="relatedTaskPickButton" onClick={() => setTaskPickerOpen(true)}>
+              {selectedTaskOption ? selectedTaskOption.taskName : '업무 선택'}
+            </button>
+            {selectedTaskOption ? (
+              <span className="relatedTaskSelectedSummary">
+                [{selectedTaskOption.projectName}] · 담당자 {selectedTaskOption.assignee.length > 0 ? selectedTaskOption.assignee.join(', ') : '-'}
+              </span>
+            ) : null}
           </label>
           <label>
             링크
@@ -379,6 +355,14 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
           </div>
         </form>
       </section>
+
+      <RelatedTaskPickerModal
+        open={taskPickerOpen}
+        tasks={tasks}
+        selectedTaskId={form.relatedTaskId}
+        onClose={() => setTaskPickerOpen(false)}
+        onSelect={(taskId) => updateForm({ relatedTaskId: taskId })}
+      />
 
       <section className="referencesToolbar" aria-label="레퍼런스 필터">
         <input value={filters.q} onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))} placeholder="검색" />

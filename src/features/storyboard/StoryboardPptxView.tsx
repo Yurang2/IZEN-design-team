@@ -3,7 +3,7 @@ import PptxGenJS from 'pptxgenjs'
 import { api } from '../../shared/api/client'
 import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse, TaskRecord } from '../../shared/types'
 import { Button, UiGlyph } from '../../shared/ui'
-import { formatTaskOptionLabel, getTaskAssigneeOptions, isActiveTaskOption, matchesTaskAssignee } from '../../shared/utils/taskOptions'
+import { RelatedTaskPickerModal } from '../tasks/RelatedTaskPickerModal'
 
 type StoryboardFrame = {
   id: string
@@ -566,7 +566,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
   const [activeNotionId, setActiveNotionId] = useState<string | null>(null)
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionSaving, setNotionSaving] = useState(false)
-  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('')
+  const [taskPickerOpen, setTaskPickerOpen] = useState(false)
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -585,24 +585,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     if (meta.projectName && !names.includes(meta.projectName)) return [meta.projectName, ...names]
     return names
   }, [meta.projectName, projects])
-  const activeTaskOptions = useMemo(() => tasks.filter(isActiveTaskOption), [tasks])
-  const projectFilteredTaskOptions = useMemo(
-    () => (meta.projectName ? activeTaskOptions.filter((task) => task.projectName === meta.projectName) : activeTaskOptions),
-    [activeTaskOptions, meta.projectName],
-  )
-  const taskAssigneeOptions = useMemo(() => getTaskAssigneeOptions(projectFilteredTaskOptions), [projectFilteredTaskOptions])
-  const relatedTaskOptions = useMemo(
-    () =>
-      projectFilteredTaskOptions
-        .filter((task) => matchesTaskAssignee(task, taskAssigneeFilter))
-        .sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')),
-    [projectFilteredTaskOptions, taskAssigneeFilter],
-  )
-  const selectedRelatedTask = useMemo(() => activeTaskOptions.find((task) => task.id === meta.relatedTaskId), [activeTaskOptions, meta.relatedTaskId])
-  const visibleRelatedTaskOptions = useMemo(
-    () => (selectedRelatedTask && !relatedTaskOptions.some((task) => task.id === selectedRelatedTask.id) ? [selectedRelatedTask, ...relatedTaskOptions] : relatedTaskOptions),
-    [relatedTaskOptions, selectedRelatedTask],
-  )
+  const selectedRelatedTask = useMemo(() => tasks.find((task) => task.id === meta.relatedTaskId), [meta.relatedTaskId, tasks])
   const fetchNotionStoryboards = useCallback(async () => {
     if (!configured) return
     setNotionLoading(true)
@@ -668,12 +651,11 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
   }
 
   const updateProjectName = (value: string) => {
-    setTaskAssigneeFilter('')
     setMeta((current) => ({ ...current, projectName: value, relatedTaskId: '' }))
   }
 
   const updateRelatedTask = (taskId: string) => {
-    const task = activeTaskOptions.find((item) => item.id === taskId)
+    const task = tasks.find((item) => item.id === taskId)
     setMeta((current) => ({
       ...current,
       relatedTaskId: taskId,
@@ -999,27 +981,16 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
             ))}
           </select>
         </label>
-        <label>
-          담당자 필터
-          <select value={taskAssigneeFilter} onChange={(event) => setTaskAssigneeFilter(event.target.value)}>
-            <option value="">전체 담당자</option>
-            {taskAssigneeOptions.map((assignee) => (
-              <option key={assignee} value={assignee}>
-                {assignee}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
+        <label className="relatedTaskField">
           관련 업무
-          <select value={meta.relatedTaskId} onChange={(event) => updateRelatedTask(event.target.value)}>
-            <option value="">업무 선택</option>
-            {visibleRelatedTaskOptions.map((task) => (
-              <option key={task.id} value={task.id}>
-                {formatTaskOptionLabel(task, !meta.projectName)}
-              </option>
-            ))}
-          </select>
+          <button type="button" className="relatedTaskPickButton" onClick={() => setTaskPickerOpen(true)}>
+            {selectedRelatedTask ? selectedRelatedTask.taskName : '업무 선택'}
+          </button>
+          {selectedRelatedTask ? (
+            <span className="relatedTaskSelectedSummary">
+              [{selectedRelatedTask.projectName}] · 담당자 {selectedRelatedTask.assignee.length > 0 ? selectedRelatedTask.assignee.join(', ') : '-'}
+            </span>
+          ) : null}
         </label>
         <label className="storyboardPptxVersionField">
           버전명
@@ -1030,6 +1001,15 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
           <textarea value={meta.memo} onChange={(event) => updateMeta('memo', event.target.value)} placeholder="내부 참고용 메모" rows={2} />
         </label>
       </section>
+
+      <RelatedTaskPickerModal
+        open={taskPickerOpen}
+        tasks={tasks}
+        selectedTaskId={meta.relatedTaskId}
+        projectNameFilter={meta.projectName}
+        onClose={() => setTaskPickerOpen(false)}
+        onSelect={updateRelatedTask}
+      />
 
       <section className="storyboardPptxWorkspace">
         <aside className="storyboardPptxFrameList" aria-label="페이지 목록">
