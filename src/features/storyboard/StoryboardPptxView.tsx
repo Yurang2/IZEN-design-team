@@ -3,6 +3,7 @@ import PptxGenJS from 'pptxgenjs'
 import { api } from '../../shared/api/client'
 import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse, TaskRecord } from '../../shared/types'
 import { Button, UiGlyph } from '../../shared/ui'
+import { formatTaskOptionLabel, getTaskAssigneeOptions, isActiveTaskOption, matchesTaskAssignee } from '../../shared/utils/taskOptions'
 
 type StoryboardFrame = {
   id: string
@@ -565,6 +566,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
   const [activeNotionId, setActiveNotionId] = useState<string | null>(null)
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionSaving, setNotionSaving] = useState(false)
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('')
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -583,10 +585,24 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     if (meta.projectName && !names.includes(meta.projectName)) return [meta.projectName, ...names]
     return names
   }, [meta.projectName, projects])
-  const relatedTaskOptions = useMemo(() => {
-    const filtered = meta.projectName ? tasks.filter((task) => task.projectName === meta.projectName) : tasks
-    return [...filtered].sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko'))
-  }, [meta.projectName, tasks])
+  const activeTaskOptions = useMemo(() => tasks.filter(isActiveTaskOption), [tasks])
+  const projectFilteredTaskOptions = useMemo(
+    () => (meta.projectName ? activeTaskOptions.filter((task) => task.projectName === meta.projectName) : activeTaskOptions),
+    [activeTaskOptions, meta.projectName],
+  )
+  const taskAssigneeOptions = useMemo(() => getTaskAssigneeOptions(projectFilteredTaskOptions), [projectFilteredTaskOptions])
+  const relatedTaskOptions = useMemo(
+    () =>
+      projectFilteredTaskOptions
+        .filter((task) => matchesTaskAssignee(task, taskAssigneeFilter))
+        .sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')),
+    [projectFilteredTaskOptions, taskAssigneeFilter],
+  )
+  const selectedRelatedTask = useMemo(() => activeTaskOptions.find((task) => task.id === meta.relatedTaskId), [activeTaskOptions, meta.relatedTaskId])
+  const visibleRelatedTaskOptions = useMemo(
+    () => (selectedRelatedTask && !relatedTaskOptions.some((task) => task.id === selectedRelatedTask.id) ? [selectedRelatedTask, ...relatedTaskOptions] : relatedTaskOptions),
+    [relatedTaskOptions, selectedRelatedTask],
+  )
   const fetchNotionStoryboards = useCallback(async () => {
     if (!configured) return
     setNotionLoading(true)
@@ -649,6 +665,20 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
 
   const updateMeta = (key: keyof StoryboardMeta, value: string) => {
     setMeta((current) => ({ ...current, [key]: value }))
+  }
+
+  const updateProjectName = (value: string) => {
+    setTaskAssigneeFilter('')
+    setMeta((current) => ({ ...current, projectName: value, relatedTaskId: '' }))
+  }
+
+  const updateRelatedTask = (taskId: string) => {
+    const task = activeTaskOptions.find((item) => item.id === taskId)
+    setMeta((current) => ({
+      ...current,
+      relatedTaskId: taskId,
+      projectName: task?.projectName ?? current.projectName,
+    }))
   }
 
   const updateFrame = (id: string, patch: Partial<StoryboardFrame>) => {
@@ -718,8 +748,8 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     try {
       const payload = {
         title: createStoryboardTitle(meta),
-        projectId: meta.relatedTaskId || undefined,
-        projectName: meta.projectName,
+        projectId: selectedRelatedTask?.id || undefined,
+        projectName: selectedRelatedTask?.projectName ?? meta.projectName,
         versionName: meta.versionName,
         memo: meta.memo,
         data: { meta, frames },
@@ -960,7 +990,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
         </label>
         <label>
           프로젝트명
-          <select value={meta.projectName} onChange={(event) => updateMeta('projectName', event.target.value)}>
+          <select value={meta.projectName} onChange={(event) => updateProjectName(event.target.value)}>
             <option value="">프로젝트 선택</option>
             {projectOptions.map((projectName) => (
               <option key={projectName} value={projectName}>
@@ -970,12 +1000,23 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
           </select>
         </label>
         <label>
+          담당자 필터
+          <select value={taskAssigneeFilter} onChange={(event) => setTaskAssigneeFilter(event.target.value)}>
+            <option value="">전체 담당자</option>
+            {taskAssigneeOptions.map((assignee) => (
+              <option key={assignee} value={assignee}>
+                {assignee}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           관련 업무
-          <select value={meta.relatedTaskId} onChange={(event) => updateMeta('relatedTaskId', event.target.value)}>
+          <select value={meta.relatedTaskId} onChange={(event) => updateRelatedTask(event.target.value)}>
             <option value="">업무 선택</option>
-            {relatedTaskOptions.map((task) => (
+            {visibleRelatedTaskOptions.map((task) => (
               <option key={task.id} value={task.id}>
-                [{task.projectName}] {task.taskName}
+                {formatTaskOptionLabel(task, !meta.projectName)}
               </option>
             ))}
           </select>

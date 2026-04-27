@@ -9,6 +9,7 @@ import type {
   TaskRecord,
 } from '../../shared/types'
 import { Button, EmptyState, UiGlyph } from '../../shared/ui'
+import { formatTaskOptionLabel, getTaskAssigneeOptions, isActiveTaskOption, matchesTaskAssignee } from '../../shared/utils/taskOptions'
 
 type ReferencesViewProps = {
   tasks: TaskRecord[]
@@ -128,9 +129,23 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const taskOptions = useMemo(() => [...tasks].sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')), [tasks])
+  const activeTaskOptions = useMemo(() => tasks.filter(isActiveTaskOption), [tasks])
+  const taskAssigneeOptions = useMemo(() => getTaskAssigneeOptions(activeTaskOptions), [activeTaskOptions])
+  const taskOptions = useMemo(
+    () =>
+      activeTaskOptions
+        .filter((task) => matchesTaskAssignee(task, taskAssigneeFilter))
+        .sort((a, b) => `${a.projectName} ${a.taskName}`.localeCompare(`${b.projectName} ${b.taskName}`, 'ko')),
+    [activeTaskOptions, taskAssigneeFilter],
+  )
+  const selectedTaskOption = useMemo(() => activeTaskOptions.find((task) => task.id === form.relatedTaskId), [activeTaskOptions, form.relatedTaskId])
+  const visibleTaskOptions = useMemo(
+    () => (selectedTaskOption && !taskOptions.some((task) => task.id === selectedTaskOption.id) ? [selectedTaskOption, ...taskOptions] : taskOptions),
+    [selectedTaskOption, taskOptions],
+  )
 
   const fetchReferences = useCallback(async () => {
     if (!configured) return
@@ -205,8 +220,8 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
     try {
       const payload = {
         title: form.title.trim(),
-        projectId: form.relatedTaskId || undefined,
-        projectName: taskOptions.find((task) => task.id === form.relatedTaskId)?.projectName || undefined,
+        projectId: selectedTaskOption?.id || undefined,
+        projectName: selectedTaskOption?.projectName || undefined,
         sourceType: form.sourceType,
         usageType: form.usageType,
         link: form.link || undefined,
@@ -279,6 +294,17 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
       <section className="referencesPanel" aria-label="레퍼런스 저장">
         <form className="referencesForm" onSubmit={submit}>
           <label>
+            담당자 필터
+            <select value={taskAssigneeFilter} onChange={(event) => setTaskAssigneeFilter(event.target.value)}>
+              <option value="">전체 담당자</option>
+              {taskAssigneeOptions.map((assignee) => (
+                <option key={assignee} value={assignee}>
+                  {assignee}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             제목
             <input value={form.title} onChange={(event) => updateForm({ title: event.target.value })} placeholder="레퍼런스 제목" />
           </label>
@@ -286,9 +312,9 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
             관련 업무
             <select value={form.relatedTaskId} onChange={(event) => updateForm({ relatedTaskId: event.target.value })}>
               <option value="">업무 선택</option>
-              {taskOptions.map((task) => (
+              {visibleTaskOptions.map((task) => (
                 <option key={task.id} value={task.id}>
-                  [{task.projectName}] {task.taskName}
+                  {formatTaskOptionLabel(task)}
                 </option>
               ))}
             </select>
