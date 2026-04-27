@@ -3529,6 +3529,15 @@ button.dashboardNavButton {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.storyboardPptxMemoField {
+  grid-column: 1 / -1;
+}
+
+.storyboardPptxMemoField textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
 .storyboardPptxWorkspace {
   align-items: start;
   display: grid;
@@ -3826,6 +3835,62 @@ button.dashboardNavButton {
   display: grid;
   gap: 6px;
   grid-template-columns: 1fr;
+}
+
+.storyboardPptxModalBackdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 20px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 80;
+}
+
+.storyboardPptxConfirmDialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  gap: 12px;
+  max-width: 440px;
+  padding: 18px;
+  width: min(100%, 440px);
+}
+
+.storyboardPptxConfirmDialog h3 {
+  color: var(--text-main);
+  font-size: 18px;
+  margin: 0;
+}
+
+.storyboardPptxConfirmDialog p {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.storyboardPptxConfirmDialog mark {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  display: inline-block;
+  font-weight: 800;
+  margin-right: 4px;
+  padding: 2px 6px;
+}
+
+.storyboardPptxConfirmActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 [data-theme='v2'] .storyboardPptxHeader {

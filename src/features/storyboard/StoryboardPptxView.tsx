@@ -18,7 +18,8 @@ type StoryboardFrame = {
 type StoryboardMeta = {
   deckTitle: string
   projectName: string
-  versionNote: string
+  versionName: string
+  memo: string
 }
 
 type SavedStoryboard = {
@@ -33,6 +34,7 @@ type SavedStoryboard = {
 type StoryboardStore = {
   activeId: string
   items: SavedStoryboard[]
+  exportedFileNames: string[]
 }
 
 type ImagePayload = {
@@ -66,7 +68,8 @@ const STORYBOARD_IMAGE_QUALITY = 0.72
 const DEFAULT_META: StoryboardMeta = {
   deckTitle: '스토리보드',
   projectName: '',
-  versionNote: '',
+  versionName: '',
+  memo: '',
 }
 
 function secondsToTimeParts(totalSeconds: number): { minute: number; second: number } {
@@ -183,7 +186,13 @@ function normalizeSavedStoryboard(value: unknown): SavedStoryboard | null {
   const meta: StoryboardMeta = {
     deckTitle: typeof item.meta.deckTitle === 'string' ? item.meta.deckTitle : DEFAULT_META.deckTitle,
     projectName: typeof item.meta.projectName === 'string' ? item.meta.projectName : '',
-    versionNote: typeof item.meta.versionNote === 'string' ? item.meta.versionNote : '',
+    versionName:
+      typeof item.meta.versionName === 'string'
+        ? item.meta.versionName
+        : typeof (item.meta as Partial<{ versionNote: string }>).versionNote === 'string'
+          ? (item.meta as Partial<{ versionNote: string }>).versionNote ?? ''
+          : '',
+    memo: typeof item.meta.memo === 'string' ? item.meta.memo : '',
   }
 
   return {
@@ -202,14 +211,14 @@ function normalizeSavedStoryboard(value: unknown): SavedStoryboard | null {
 function readStoryboardStore(): StoryboardStore {
   if (typeof window === 'undefined') {
     const item = createSavedStoryboard()
-    return { activeId: item.id, items: [item] }
+    return { activeId: item.id, items: [item], exportedFileNames: [] }
   }
 
   try {
     const rawValue = window.localStorage.getItem(STORYBOARD_STORAGE_KEY)
     if (!rawValue) {
       const item = createSavedStoryboard()
-      return { activeId: item.id, items: [item] }
+      return { activeId: item.id, items: [item], exportedFileNames: [] }
     }
 
     const parsed = JSON.parse(rawValue) as Partial<StoryboardStore>
@@ -218,16 +227,19 @@ function readStoryboardStore(): StoryboardStore {
       : []
     if (items.length === 0) {
       const item = createSavedStoryboard()
-      return { activeId: item.id, items: [item] }
+      return { activeId: item.id, items: [item], exportedFileNames: [] }
     }
 
     const activeId = typeof parsed.activeId === 'string' && items.some((item) => item.id === parsed.activeId)
       ? parsed.activeId
       : items[0].id
-    return { activeId, items }
+    const exportedFileNames = Array.isArray(parsed.exportedFileNames)
+      ? parsed.exportedFileNames.filter((item): item is string => typeof item === 'string')
+      : []
+    return { activeId, items, exportedFileNames }
   } catch {
     const item = createSavedStoryboard()
-    return { activeId: item.id, items: [item] }
+    return { activeId: item.id, items: [item], exportedFileNames: [] }
   }
 }
 
@@ -256,6 +268,11 @@ const COLORS = {
 function sanitizeFileName(value: string): string {
   const normalized = value.trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '_')
   return normalized || 'storyboard'
+}
+
+function createExportFileName(meta: StoryboardMeta): string {
+  const baseName = sanitizeFileName([meta.projectName, meta.deckTitle, meta.versionName].filter(Boolean).join('_'))
+  return `${baseName}.pptx`
 }
 
 function createBlankFrame(index: number): StoryboardFrame {
@@ -388,7 +405,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     bold: true,
     margin: 0,
   })
-  slide.addText([meta.projectName, meta.versionNote].filter(Boolean).join(' / '), {
+  slide.addText([meta.projectName, meta.versionName].filter(Boolean).join(' / '), {
     x: 7.0,
     y: 0.25,
     w: 3.45,
@@ -515,6 +532,7 @@ export function StoryboardPptxView() {
   const [initialStore] = useState<StoryboardStore>(() => readStoryboardStore())
   const initialStoryboard = initialStore.items.find((item) => item.id === initialStore.activeId) ?? initialStore.items[0]
   const [savedStoryboards, setSavedStoryboards] = useState<SavedStoryboard[]>(initialStore.items)
+  const [exportedFileNames, setExportedFileNames] = useState<string[]>(initialStore.exportedFileNames)
   const [activeStoryboardId, setActiveStoryboardId] = useState(initialStore.activeId)
   const [meta, setMeta] = useState<StoryboardMeta>(initialStoryboard?.meta ?? DEFAULT_META)
   const [frames, setFrames] = useState<StoryboardFrame[]>(initialStoryboard?.frames ?? cloneStarterFrames())
@@ -522,6 +540,7 @@ export function StoryboardPptxView() {
   const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [storageError, setStorageError] = useState<string | null>(null)
+  const [duplicateExportFileName, setDuplicateExportFileName] = useState<string | null>(null)
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -567,6 +586,7 @@ export function StoryboardPptxView() {
           JSON.stringify({
             activeId: activeStoryboardId,
             items: savedStoryboards,
+            exportedFileNames,
           }),
         )
         setStorageError(null)
@@ -576,7 +596,7 @@ export function StoryboardPptxView() {
     }, STORYBOARD_AUTOSAVE_DELAY_MS)
 
     return () => window.clearTimeout(timer)
-  }, [activeStoryboardId, savedStoryboards])
+  }, [activeStoryboardId, exportedFileNames, savedStoryboards])
 
   const updateMeta = (key: keyof StoryboardMeta, value: string) => {
     setMeta((current) => ({ ...current, [key]: value }))
@@ -688,9 +708,16 @@ export function StoryboardPptxView() {
     }
   }
 
-  const exportPptx = async () => {
+  const exportPptx = async (options?: { bypassDuplicateCheck?: boolean }) => {
+    const fileName = createExportFileName(meta)
+    if (!options?.bypassDuplicateCheck && exportedFileNames.includes(fileName)) {
+      setDuplicateExportFileName(fileName)
+      return
+    }
+
     setExporting(true)
     setMessage(null)
+    setDuplicateExportFileName(null)
     try {
       const pptx = new PptxGenJS()
       pptx.layout = 'LAYOUT_WIDE'
@@ -705,8 +732,8 @@ export function StoryboardPptxView() {
 
       frames.forEach((frame, index) => addStoryboardSlide(pptx, frame, meta, index, frames.length))
 
-      const baseName = sanitizeFileName([meta.projectName, meta.deckTitle].filter(Boolean).join('_'))
-      await pptx.writeFile({ fileName: `${baseName}.pptx`, compression: true })
+      await pptx.writeFile({ fileName, compression: true })
+      setExportedFileNames((current) => (current.includes(fileName) ? current : [...current, fileName]))
       setMessage(`${frames.length}페이지 PPTX를 생성했습니다.`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'PPTX 생성에 실패했습니다.')
@@ -771,8 +798,12 @@ export function StoryboardPptxView() {
           <input value={meta.projectName} onChange={(event) => updateMeta('projectName', event.target.value)} placeholder="행사명 또는 영상명" />
         </label>
         <label>
-          버전 / 메모
-          <input value={meta.versionNote} onChange={(event) => updateMeta('versionNote', event.target.value)} placeholder="v1 / 1차 공유용" />
+          버전명
+          <input value={meta.versionName} onChange={(event) => updateMeta('versionName', event.target.value)} placeholder="v1" />
+        </label>
+        <label className="storyboardPptxMemoField">
+          메모
+          <textarea value={meta.memo} onChange={(event) => updateMeta('memo', event.target.value)} placeholder="내부 참고용 메모" rows={2} />
         </label>
       </section>
 
@@ -954,6 +985,25 @@ export function StoryboardPptxView() {
           </div>
         </section>
       </section>
+
+      {duplicateExportFileName ? (
+        <div className="storyboardPptxModalBackdrop" role="presentation">
+          <section className="storyboardPptxConfirmDialog" role="dialog" aria-modal="true" aria-label="중복 파일명 확인">
+            <h3>정말 이 버전명으로 내보내실건가요?</h3>
+            <p>
+              <mark>{duplicateExportFileName}</mark> 이 이미 있습니다.
+            </p>
+            <div className="storyboardPptxConfirmActions">
+              <Button type="button" variant="secondary" onClick={() => setDuplicateExportFileName(null)}>
+                취소
+              </Button>
+              <Button type="button" onClick={() => void exportPptx({ bypassDuplicateCheck: true })} disabled={exporting}>
+                그래도 내보내기
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   )
 }
