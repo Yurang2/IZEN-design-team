@@ -4119,6 +4119,14 @@ button.dashboardNavButton {
   max-width: 220px;
 }
 
+.referenceCard.is-youtube {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.referenceCard.is-youtube .referenceMedia {
+  aspect-ratio: 16 / 9;
+}
+
 .referencesList {
   display: grid;
   gap: 0;
@@ -4137,6 +4145,10 @@ button.dashboardNavButton {
   padding: 9px 16px;
 }
 
+.referenceListItem.is-youtube {
+  grid-template-columns: 86px minmax(0, 1fr);
+}
+
 .referenceListItem + .referenceListItem {
   border-top: 1px solid var(--border);
 }
@@ -4145,6 +4157,10 @@ button.dashboardNavButton {
   aspect-ratio: 1;
   border-radius: 8px;
   min-height: 0;
+}
+
+.referenceListItem.is-youtube .referenceMedia {
+  aspect-ratio: 16 / 9;
 }
 
 .referenceListItem .referenceBody {
@@ -4206,10 +4222,8 @@ button.dashboardNavButton {
 
 .referenceMedia iframe {
   border: 0;
-  aspect-ratio: 16 / 9;
   height: 100%;
-  max-width: 100%;
-  width: auto;
+  width: 100%;
 }
 
 .referenceBody {
