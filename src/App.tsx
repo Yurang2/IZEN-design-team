@@ -2635,7 +2635,7 @@ function App() {
 
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
 
-      {activeView === 'storyboardPptx' ? <StoryboardPptxView /> : null}
+      {activeView === 'storyboardPptx' ? <StoryboardPptxView projects={projects} /> : null}
 
       {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}
 

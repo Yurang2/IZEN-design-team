@@ -3529,28 +3529,32 @@ button.dashboardNavButton {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.storyboardPptxMeta > label {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
 .storyboardPptxMemoField {
   grid-column: 1 / -1;
 }
 
 .storyboardPptxVersionField {
-  background: linear-gradient(180deg, var(--primary-soft) 0%, var(--surface) 100%);
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
-  border-radius: 10px;
-  padding: 10px;
+  background: var(--surface-soft);
+  border-color: var(--border);
 }
 
 .storyboardPptxVersionField input {
   background: var(--surface);
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
-  color: var(--primary-strong);
+  border-color: var(--border);
+  color: var(--text-main);
   font-size: 15px;
   font-weight: 900;
 }
 
 .storyboardPptxVersionField input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  border-color: var(--border-strong);
 }
 
 .storyboardPptxMemoField textarea {

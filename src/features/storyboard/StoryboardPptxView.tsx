@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import PptxGenJS from 'pptxgenjs'
+import type { ProjectRecord } from '../../shared/types'
 import { Button, UiGlyph } from '../../shared/ui'
 
 type StoryboardFrame = {
@@ -35,6 +36,10 @@ type StoryboardStore = {
   activeId: string
   items: SavedStoryboard[]
   exportedFileNames: string[]
+}
+
+type StoryboardPptxViewProps = {
+  projects: ProjectRecord[]
 }
 
 type ImagePayload = {
@@ -273,6 +278,12 @@ function sanitizeFileName(value: string): string {
 function createExportFileName(meta: StoryboardMeta): string {
   const baseName = sanitizeFileName([meta.projectName, meta.deckTitle, meta.versionName].filter(Boolean).join('_'))
   return `${baseName}.pptx`
+}
+
+function uniqueProjectNames(projects: ProjectRecord[]): string[] {
+  return Array.from(new Set(projects.map((project) => project.name.trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, 'ko-KR'),
+  )
 }
 
 function createBlankFrame(index: number): StoryboardFrame {
@@ -528,7 +539,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   })
 }
 
-export function StoryboardPptxView() {
+export function StoryboardPptxView({ projects }: StoryboardPptxViewProps) {
   const [initialStore] = useState<StoryboardStore>(() => readStoryboardStore())
   const initialStoryboard = initialStore.items.find((item) => item.id === initialStore.activeId) ?? initialStore.items[0]
   const [savedStoryboards, setSavedStoryboards] = useState<SavedStoryboard[]>(initialStore.items)
@@ -554,6 +565,11 @@ export function StoryboardPptxView() {
     () => savedStoryboards.find((item) => item.id === activeStoryboardId) ?? savedStoryboards[0],
     [activeStoryboardId, savedStoryboards],
   )
+  const projectOptions = useMemo(() => {
+    const names = uniqueProjectNames(projects)
+    if (meta.projectName && !names.includes(meta.projectName)) return [meta.projectName, ...names]
+    return names
+  }, [meta.projectName, projects])
 
   useEffect(() => {
     const updatedAt = new Date().toISOString()
@@ -795,7 +811,14 @@ export function StoryboardPptxView() {
         </label>
         <label>
           프로젝트명
-          <input value={meta.projectName} onChange={(event) => updateMeta('projectName', event.target.value)} placeholder="행사명 또는 영상명" />
+          <select value={meta.projectName} onChange={(event) => updateMeta('projectName', event.target.value)}>
+            <option value="">프로젝트 선택</option>
+            {projectOptions.map((projectName) => (
+              <option key={projectName} value={projectName}>
+                {projectName}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="storyboardPptxVersionField">
           버전명
