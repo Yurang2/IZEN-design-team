@@ -8,7 +8,7 @@ import type {
   ReferenceUsageType,
   TaskRecord,
 } from '../../shared/types'
-import { Button, EmptyState, UiGlyph } from '../../shared/ui'
+import { Button, EmptyState, Modal, UiGlyph } from '../../shared/ui'
 import { RelatedTaskPickerModal } from '../tasks/RelatedTaskPickerModal'
 
 type ReferencesViewProps = {
@@ -146,6 +146,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
+  const [previewImage, setPreviewImage] = useState<{ title: string; imageUrl: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const selectedTaskOption = useMemo(() => tasks.find((task) => task.id === form.relatedTaskId), [form.relatedTaskId, tasks])
@@ -456,6 +457,11 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
                 {!item.imageUrl && !youtubeId ? <span className={`referenceTypeThumb ${sourceMeta.className}`}>{sourceMeta.shortLabel}</span> : null}
                 <span className="referenceMediaBadge">{sourceMeta.label}</span>
                 <div className="referenceHoverActions">
+                  {item.imageUrl ? (
+                    <button type="button" onClick={() => setPreviewImage({ title: item.title, imageUrl: item.imageUrl ?? '' })}>
+                      확대
+                    </button>
+                  ) : null}
                   {item.link ? (
                     <a href={item.link} target="_blank" rel="noreferrer">
                       열기
@@ -485,6 +491,16 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
         })}
         {!loading && items.length === 0 ? <EmptyState title="저장된 레퍼런스가 없습니다." message="이미지를 붙여넣거나 링크를 입력해 저장해주세요." /> : null}
       </section>
+
+      <Modal open={Boolean(previewImage)} onClose={() => setPreviewImage(null)} className="referenceImageModal">
+        <div className="referenceImageModalHeader">
+          <h3>{previewImage?.title ?? '이미지 미리보기'}</h3>
+          <Button type="button" variant="secondary" size="mini" onClick={() => setPreviewImage(null)}>
+            닫기
+          </Button>
+        </div>
+        {previewImage ? <img src={previewImage.imageUrl} alt={previewImage.title} /> : null}
+      </Modal>
     </section>
   )
 }

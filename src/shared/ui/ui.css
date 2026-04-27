@@ -4331,6 +4331,37 @@ button.dashboardNavButton {
   color: #dc2626;
 }
 
+.referenceImageModal {
+  max-width: min(1080px, calc(100vw - 32px));
+  padding: 14px;
+}
+
+.referenceImageModalHeader {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.referenceImageModalHeader h3 {
+  font-size: 15px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referenceImageModal img {
+  background: #f8fafc;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto;
+  max-height: 78vh;
+  max-width: 100%;
+  object-fit: contain;
+}
+
 [data-theme='v2'] .storyboardPptxHeader {
   background: linear-gradient(180deg, #18243a 0%, #111827 100%);
   border-color: #30415f;
