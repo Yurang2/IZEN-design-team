@@ -174,6 +174,10 @@ function createStoryboardTitle(meta: StoryboardMeta): string {
   return meta.projectName.trim() || meta.deckTitle.trim() || '새 스토리보드'
 }
 
+function createStoryboardDbTitle(meta: StoryboardMeta): string {
+  return meta.deckTitle.trim() || meta.projectName.trim() || '새 스토리보드'
+}
+
 function createSavedStoryboard(): SavedStoryboard {
   const frames = cloneStarterFrames()
   return {
@@ -796,7 +800,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
     setStorageError(null)
     try {
       const payload = {
-        title: createStoryboardTitle(meta),
+        title: createStoryboardDbTitle(meta),
         projectId: selectedRelatedTask?.id || undefined,
         projectName: selectedRelatedTask?.projectName ?? meta.projectName,
         versionName: meta.versionName,
