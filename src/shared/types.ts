@@ -468,6 +468,7 @@ export type TopView =
   | 'checklist'
   | 'meetings'
   | 'snsPost'
+  | 'storyboardPptx'
   | 'geminiImageTest'
   | 'mailTemplate'
   | 'feedback'

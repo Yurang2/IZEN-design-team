@@ -20,6 +20,7 @@ const ProjectsView = lazy(() => import('./features/projects/ProjectsView').then(
 const ScheduleView = lazy(() => import('./features/schedule/ScheduleView').then((m) => ({ default: m.ScheduleView })))
 const ScreeningDbView = lazy(() => import('./features/screening/ScreeningDbView').then((m) => ({ default: m.ScreeningDbView })))
 const SnsPostGeneratorView = lazy(() => import('./features/snsPost/SnsPostGeneratorView').then((m) => ({ default: m.SnsPostGeneratorView })))
+const StoryboardPptxView = lazy(() => import('./features/storyboard/StoryboardPptxView').then((m) => ({ default: m.StoryboardPptxView })))
 const TaskDetailView = lazy(() => import('./features/taskDetail/TaskDetailView').then((m) => ({ default: m.TaskDetailView })))
 const TasksView = lazy(() => import('./features/tasks/TasksView').then((m) => ({ default: m.TasksView })))
 const WorkflowProcessView = lazy(() => import('./features/process/WorkflowProcessView').then((m) => ({ default: m.WorkflowProcessView })))
@@ -1436,6 +1437,7 @@ function App() {
         { view: 'nasExplorer', title: 'NAS 탐색기', label: 'NAS 탐색기', icon: 'search' },
         { view: 'gdrive', title: '구글 드라이브', label: '구글 드라이브', icon: 'external' },
         { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
+        { view: 'storyboardPptx', title: '스토리보드 PPTX 생성', label: '스토리보드 PPTX', icon: 'download' },
         { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list', test: true },
         { view: 'mailTemplate', title: '메일 템플릿', label: '메일 템플릿', icon: 'list' },
         { view: 'guide', title: '사용법', label: '사용법', icon: 'list', test: true },
@@ -2633,6 +2635,8 @@ function App() {
 
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
 
+      {activeView === 'storyboardPptx' ? <StoryboardPptxView /> : null}
+
       {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}
 
       {activeView === 'mailTemplate' ? <MailTemplateView onCopy={copyText} /> : null}
@@ -3044,4 +3048,3 @@ function App() {
 }
 
 export default App
-

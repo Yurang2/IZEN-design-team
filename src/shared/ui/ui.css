@@ -3434,6 +3434,307 @@ button.dashboardNavButton {
   background: color-mix(in srgb, var(--primary) 14%, var(--surface2));
 }
 
+.storyboardPptxView {
+  display: grid;
+  gap: 12px;
+}
+
+.storyboardPptxHeader {
+  align-items: flex-start;
+  background: linear-gradient(180deg, #f3f7ff 0%, #fbfdff 100%);
+  border: 1px solid #cbdcff;
+  border-radius: 12px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.storyboardPptxHeader h2 {
+  color: var(--text-main);
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.storyboardPptxHeader p {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.storyboardPptxHeaderActions,
+.storyboardPptxEditorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.storyboardPptxMessage {
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.storyboardPptxMeta {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.storyboardPptxWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 180px minmax(420px, 1fr) minmax(280px, 0.8fr);
+}
+
+.storyboardPptxFrameList,
+.storyboardPptxEditor,
+.storyboardPptxPreview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.storyboardPptxFrameList {
+  position: sticky;
+  top: 14px;
+}
+
+.storyboardPptxFrameListHeader,
+.storyboardPptxEditorHeader,
+.storyboardPptxThumbnailPanel > div:first-child {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.storyboardPptxFrameListHeader strong,
+.storyboardPptxThumbnailPanel strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.storyboardPptxFrameListHeader span,
+.storyboardPptxThumbnailPanel span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.storyboardPptxFrameButton {
+  align-items: stretch;
+  background: var(--surface-soft);
+  border-color: var(--border);
+  box-shadow: none;
+  color: var(--text-main);
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  min-height: 58px;
+  padding: 9px 10px;
+  text-align: left;
+  white-space: normal;
+}
+
+.storyboardPptxFrameButton:hover {
+  background: var(--control-soft-hover);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+
+.storyboardPptxFrameButton.is-active {
+  background: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+}
+
+.storyboardPptxFrameButton span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.storyboardPptxFrameButton strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.storyboardPptxEditorHeader h3 {
+  color: var(--text-main);
+  font-size: 18px;
+  margin: 2px 0 0;
+}
+
+.storyboardPptxKicker {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.storyboardPptxFormGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.storyboardPptxTimeField {
+  grid-column: 1 / -1;
+}
+
+.storyboardPptxFormGrid textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.storyboardPptxThumbnailPanel {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.storyboardPptxUploadButton {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-main);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 38px;
+  padding: 9px 12px;
+  width: fit-content;
+}
+
+.storyboardPptxUploadButton input {
+  display: none;
+}
+
+.storyboardPptxThumbnailPreview {
+  align-items: center;
+  aspect-ratio: 16 / 9;
+  background: var(--surface-soft);
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-sub);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.storyboardPptxThumbnailPreview img,
+.storyboardPptxPreviewImage img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.storyboardPptxSlidePreview {
+  aspect-ratio: 16 / 9;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.03);
+  display: grid;
+  grid-template-rows: 15% 1fr;
+  overflow: hidden;
+}
+
+.storyboardPptxSlidePreview header {
+  align-items: center;
+  background: #172033;
+  color: #ffffff;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.storyboardPptxPreviewBody {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 45% 1fr;
+  padding: 10px;
+}
+
+.storyboardPptxPreviewImage,
+.storyboardPptxPreviewCells span {
+  align-items: center;
+  background: #f3f6fb;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  color: #5f6f85;
+  display: flex;
+  font-size: 11px;
+  font-weight: 800;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.storyboardPptxPreviewCells {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-theme='v2'] .storyboardPptxHeader {
+  background: linear-gradient(180deg, #18243a 0%, #111827 100%);
+  border-color: #30415f;
+}
+
+[data-theme='v2'] .storyboardPptxUploadButton,
+[data-theme='v2'] .storyboardPptxFrameButton {
+  background: var(--surface2);
+}
+
+@media (max-width: 1280px) {
+  .storyboardPptxWorkspace {
+    grid-template-columns: 170px minmax(0, 1fr);
+  }
+
+  .storyboardPptxPreview {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .storyboardPptxHeader {
+    flex-direction: column;
+  }
+
+  .storyboardPptxHeaderActions,
+  .storyboardPptxHeaderActions .uiButton,
+  .storyboardPptxHeaderActions button {
+    width: 100%;
+  }
+
+  .storyboardPptxMeta,
+  .storyboardPptxWorkspace,
+  .storyboardPptxFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .storyboardPptxFrameList {
+    position: static;
+  }
+}
+
 .mailTemplateView {
   display: grid;
   gap: 12px;
@@ -9771,4 +10072,3 @@ tr:hover td {
     padding: 6px 6px;
   }
 }
-
