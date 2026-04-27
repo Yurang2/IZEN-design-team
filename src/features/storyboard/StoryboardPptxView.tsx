@@ -189,7 +189,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     bold: true,
     margin: 0,
   })
-  slide.addText([meta.projectName, meta.versionNote].filter(Boolean).join(' / ') || 'IZEN Design Team', {
+  slide.addText([meta.projectName, meta.versionNote].filter(Boolean).join(' / '), {
     x: 7.0,
     y: 0.25,
     w: 3.45,
@@ -216,7 +216,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   slide.addShape('rect', {
     x: 0.46,
     y: 0.98,
-    w: 1.7,
+    w: 2.65,
     h: 0.42,
     fill: { color: COLORS.soft },
     line: { color: 'BFD1F6', width: 1 },
@@ -224,7 +224,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   slide.addText('시간 초수', {
     x: 0.62,
     y: 1.09,
-    w: 0.58,
+    w: 0.7,
     h: 0.14,
     color: COLORS.primary,
     fontFace: 'Malgun Gothic',
@@ -233,19 +233,22 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     margin: 0,
   })
   slide.addText(frame.timecode || '-', {
-    x: 1.18,
+    x: 1.36,
     y: 1.05,
-    w: 0.74,
+    w: 1.45,
     h: 0.22,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
     fontSize: 10,
     bold: true,
     align: 'right',
+    fit: 'shrink',
     margin: 0,
   })
 
-  const imageBox = { x: 0.46, y: 1.58, w: 5.45, h: 3.42 }
+  addTextBox(slide, '목적', frame.purpose, 3.35, 0.98, 9.5, 0.72)
+
+  const imageBox = { x: 0.46, y: 1.9, w: 6.65, h: 4.78 }
   slide.addShape('rect', {
     ...imageBox,
     fill: { color: COLORS.panel },
@@ -291,10 +294,9 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     })
   }
 
-  addTextBox(slide, '화면구성', frame.screenComposition, 6.22, 1.58, 3.05, 1.58)
-  addTextBox(slide, '자막 / 카피', frame.copy, 9.5, 1.58, 3.35, 1.58)
-  addTextBox(slide, '사운드', frame.sound, 6.22, 3.42, 3.05, 1.58)
-  addTextBox(slide, '목적', frame.purpose, 9.5, 3.42, 3.35, 1.58)
+  addTextBox(slide, '화면구성', frame.screenComposition, 7.42, 1.9, 5.43, 1.38)
+  addTextBox(slide, '자막 / 카피', frame.copy, 7.42, 3.46, 5.43, 1.58)
+  addTextBox(slide, '사운드', frame.sound, 7.42, 5.22, 5.43, 1.46)
 
   slide.addShape('line', { x: 0.46, y: 6.88, w: 12.38, h: 0, line: { color: COLORS.line, width: 1 } })
   slide.addText(`CUT ${String(index + 1).padStart(2, '0')}`, {
@@ -306,17 +308,6 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     fontFace: 'Malgun Gothic',
     fontSize: 8,
     bold: true,
-    margin: 0,
-  })
-  slide.addText('모든 페이지는 동일 템플릿으로 생성됩니다.', {
-    x: 9.5,
-    y: 6.98,
-    w: 3.35,
-    h: 0.18,
-    color: COLORS.muted,
-    fontFace: 'Malgun Gothic',
-    fontSize: 8,
-    align: 'right',
     margin: 0,
   })
 }
@@ -407,7 +398,7 @@ export function StoryboardPptxView() {
     try {
       const pptx = new PptxGenJS()
       pptx.layout = 'LAYOUT_WIDE'
-      pptx.author = 'IZEN Design Team'
+      pptx.author = ''
       pptx.company = 'IZEN'
       pptx.subject = 'Storyboard'
       pptx.title = meta.deckTitle || '스토리보드'
@@ -580,6 +571,10 @@ export function StoryboardPptxView() {
               <strong>{meta.deckTitle || '스토리보드'}</strong>
               <span>PAGE {selectedFrame ? frames.findIndex((frame) => frame.id === selectedFrame.id) + 1 : 1}</span>
             </header>
+            <div className="storyboardPptxPreviewTop">
+              <span>{selectedFrame?.timecode || '시간 초수'}</span>
+              <strong>목적</strong>
+            </div>
             <div className="storyboardPptxPreviewBody">
               <div className="storyboardPptxPreviewImage">
                 {selectedFrame?.thumbnailDataUrl ? <img src={selectedFrame.thumbnailDataUrl} alt="" /> : <span>썸네일</span>}
@@ -588,7 +583,6 @@ export function StoryboardPptxView() {
                 <span>화면구성</span>
                 <span>자막 / 카피</span>
                 <span>사운드</span>
-                <span>목적</span>
               </div>
             </div>
           </div>
