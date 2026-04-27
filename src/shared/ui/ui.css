@@ -3919,12 +3919,15 @@ button.dashboardNavButton {
 
 .referencesView {
   display: grid;
-  gap: 18px;
+  gap: 12px;
+  margin: 0 auto;
+  max-width: 960px;
 }
 
 .referencesHeader,
 .referencesPanel,
 .referencesToolbar,
+.referencesList,
 .referenceCard {
   border: 1px solid var(--line, #d8dee8);
   background: var(--surface, #fff);
@@ -3932,22 +3935,79 @@ button.dashboardNavButton {
 }
 
 .referencesHeader {
+  align-items: center;
   display: flex;
-  justify-content: space-between;
   gap: 16px;
-  align-items: flex-start;
-  padding: 20px;
+  justify-content: space-between;
+  padding: 14px 16px;
 }
 
-.referencesHeader h2 {
-  margin: 0 0 6px;
-  font-size: 1.4rem;
+.referencesTitleGroup {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.referencesTitleLine {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.referencesTitleLine h2 {
+  color: var(--text-main);
+  font-size: 16px;
+  margin: 0;
+}
+
+.referencesTitleLine span {
+  background: var(--surface-soft);
+  border-radius: 999px;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 8px;
 }
 
 .referencesHeader p,
 .referenceBody p {
   margin: 0;
   color: var(--text-sub, #637083);
+}
+
+.referencesHeaderActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.referencesViewToggle {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: inline-flex;
+  overflow: hidden;
+}
+
+.referencesViewToggle button {
+  background: var(--surface);
+  border: 0;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 5px 9px;
+}
+
+.referencesViewToggle button + button {
+  border-left: 1px solid var(--border);
+}
+
+.referencesViewToggle button.is-active {
+  background: var(--surface-soft);
+  color: var(--text-main);
 }
 
 .referencesMessage {
@@ -3964,13 +4024,13 @@ button.dashboardNavButton {
 }
 
 .referencesPanel {
-  padding: 16px;
+  padding: 14px 16px 16px;
 }
 
 .referencesForm {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 2fr 1.4fr 2fr 1fr 1fr;
+  gap: 10px;
 }
 
 .referencesForm label,
@@ -3985,10 +4045,10 @@ button.dashboardNavButton {
 .referencesToolbar input,
 .referencesToolbar select {
   width: 100%;
-  margin-top: 6px;
   border: 1px solid var(--line, #d8dee8);
-  border-radius: 8px;
-  padding: 10px 11px;
+  border-radius: 6px;
+  min-height: 35px;
+  padding: 7px 10px;
   background: var(--surface, #fff);
   color: var(--text, #111827);
 }
@@ -3998,55 +4058,103 @@ button.dashboardNavButton {
 }
 
 .referencesPasteZone {
-  grid-column: span 2;
-  min-height: 154px;
+  align-items: center;
   border: 1px dashed var(--line, #c8d1df);
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  gap: 10px;
-  padding: 12px;
-  color: var(--text-sub, #637083);
   background: #f8fafc;
+  border-radius: 6px;
+  color: var(--text-sub, #637083);
+  display: flex;
+  gap: 8px;
+  min-height: 35px;
+  padding: 7px 10px;
 }
 
 .referencesPasteZone img {
-  width: 100%;
-  max-height: 180px;
+  height: 32px;
+  width: 48px;
   object-fit: contain;
   border-radius: 6px;
 }
 
 .referencesActions {
-  grid-column: 1 / -1;
+  align-items: flex-end;
   display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
 
 .referencesToolbar {
+  align-items: center;
   display: grid;
-  grid-template-columns: 1.4fr repeat(2, minmax(150px, 0.7fr));
-  gap: 10px;
-  padding: 12px;
+  grid-template-columns: 1fr repeat(2, minmax(140px, 0.28fr));
+  gap: 8px;
+  padding: 12px 16px;
 }
 
 .referencesGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .referenceCard {
-  overflow: hidden;
   display: grid;
-  grid-template-rows: 190px auto;
+  grid-template-rows: auto auto;
+  overflow: hidden;
+}
+
+.referencesList {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+}
+
+.referenceListItem {
+  align-items: center;
+  background: var(--surface);
+  border-radius: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  min-height: 62px;
+  overflow: visible;
+  padding: 9px 16px;
+}
+
+.referenceListItem + .referenceListItem {
+  border-top: 1px solid var(--border);
+}
+
+.referenceListItem .referenceMedia {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  min-height: 0;
+}
+
+.referenceListItem .referenceBody {
+  align-items: center;
+  grid-template-columns: minmax(160px, 1.2fr) auto auto minmax(0, 1fr);
+  padding: 0;
+}
+
+.referenceListItem .referenceBody h3 {
+  grid-column: 1;
+}
+
+.referenceListItem .referenceBody p,
+.referenceListItem .referenceTags {
+  margin: 0;
 }
 
 .referenceMedia {
   background: #edf1f6;
+  border-radius: 8px 8px 0 0;
   display: grid;
+  min-height: 0;
+  overflow: hidden;
   place-items: center;
+  position: relative;
+  aspect-ratio: 1.92 / 1;
   color: var(--text-sub, #637083);
 }
 
@@ -4060,41 +4168,133 @@ button.dashboardNavButton {
 
 .referenceBody {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 12px;
 }
 
 .referenceBody h3 {
   margin: 0;
-  font-size: 1rem;
+  color: var(--text-main);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .referenceMetaLine,
-.referenceActions,
 .referenceTags {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   flex-wrap: wrap;
   align-items: center;
 }
 
 .referenceMetaLine {
-  justify-content: space-between;
-  font-size: 0.78rem;
+  font-size: 11px;
   color: var(--text-sub, #637083);
 }
 
 .referenceMetaLine strong,
 .referenceTags span {
-  padding: 3px 7px;
-  border-radius: 999px;
+  padding: 2px 7px;
+  border-radius: 4px;
   background: #edf5ff;
   color: #24527a;
-  font-size: 0.75rem;
+  font-size: 11px;
+  font-weight: 800;
 }
 
-.referenceActions {
-  margin-top: 4px;
+.referenceTags span {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.referenceBody p {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referenceTypeThumb {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  font-size: 20px;
+  font-weight: 900;
+  height: 72px;
+  justify-content: center;
+  letter-spacing: 0;
+  width: 72px;
+}
+
+.referenceTypeThumb.source-youtube {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.referenceTypeThumb.source-image {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.referenceTypeThumb.source-link {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.referenceTypeThumb.source-other {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.referenceMediaBadge {
+  background: rgba(15, 23, 42, 0.62);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  left: 8px;
+  padding: 3px 7px;
+  position: absolute;
+  top: 8px;
+}
+
+.referenceHoverActions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  transition: opacity 150ms ease;
+}
+
+.referenceCard:hover .referenceHoverActions,
+.referenceListItem:hover .referenceHoverActions {
+  opacity: 1;
+}
+
+.referenceHoverActions a,
+.referenceHoverActions button {
+  background: rgba(255, 255, 255, 0.92);
+  border: 0;
+  border-radius: 5px;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  text-decoration: none;
+}
+
+.referenceHoverActions button {
+  color: #475569;
+}
+
+.referenceHoverActions button.is-danger {
+  color: #dc2626;
 }
 
 [data-theme='v2'] .storyboardPptxHeader {
@@ -4118,6 +4318,36 @@ button.dashboardNavButton {
 }
 
 @media (max-width: 820px) {
+  .referencesHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .referencesHeaderActions {
+    justify-content: flex-start;
+  }
+
+  .referencesForm,
+  .referencesToolbar,
+  .referencesGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .referencesMemo,
+  .referencesPasteZone,
+  .referencesActions {
+    grid-column: auto;
+  }
+
+  .referenceListItem,
+  .referenceListItem .referenceBody {
+    grid-template-columns: 1fr;
+  }
+
+  .referenceListItem .referenceMedia {
+    display: none;
+  }
+
   .storyboardPptxHeader {
     flex-direction: column;
   }

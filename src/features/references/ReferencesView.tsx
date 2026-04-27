@@ -38,6 +38,19 @@ const SOURCE_LABELS: Record<ReferenceSourceType, string> = {
 
 const USAGE_TYPES: ReferenceUsageType[] = ['단순저장', '모작', '아이디어']
 
+const USAGE_LABELS: Record<ReferenceUsageType, string> = {
+  단순저장: '단순저장',
+  모작: '모작',
+  아이디어: '아이디어',
+}
+
+const SOURCE_META: Record<ReferenceSourceType, { label: string; shortLabel: string; className: string }> = {
+  image: { label: '이미지', shortLabel: 'IMG', className: 'source-image' },
+  youtube: { label: 'YouTube', shortLabel: '▶', className: 'source-youtube' },
+  link: { label: '링크', shortLabel: 'LINK', className: 'source-link' },
+  other: { label: '기타 자료', shortLabel: 'FILE', className: 'source-other' },
+}
+
 const EMPTY_FORM: ReferenceForm = {
   title: '',
   relatedTaskId: '',
@@ -125,6 +138,8 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const [filters, setFilters] = useState({ q: '', sourceType: '', usageType: '' })
   const [form, setForm] = useState<ReferenceForm>(EMPTY_FORM)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -166,7 +181,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
     })
   }
 
-  const handlePaste = async (event: ClipboardEvent<HTMLDivElement>) => {
+  const handlePaste = async (event: ClipboardEvent<HTMLElement>) => {
     const imageFile = Array.from(event.clipboardData.files).find((file) => file.type.startsWith('image/'))
     if (!imageFile) return
     event.preventDefault()
@@ -192,6 +207,19 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const resetForm = () => {
     setForm(EMPTY_FORM)
     setEditingId(null)
+    setFormOpen(false)
+    setMessage(null)
+    setError(null)
+  }
+
+  const openNewForm = () => {
+    if (formOpen && !editingId) {
+      setFormOpen(false)
+      return
+    }
+    setForm(EMPTY_FORM)
+    setEditingId(null)
+    setFormOpen(true)
     setMessage(null)
     setError(null)
   }
@@ -242,6 +270,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   const startEdit = (item: ReferenceRecord) => {
     setEditingId(item.id)
     setForm(formFromRecord(item))
+    setFormOpen(true)
     setMessage('기존 이미지는 유지됩니다. 새 이미지를 붙여넣거나 업로드하면 교체됩니다.')
   }
 
@@ -264,22 +293,39 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
   return (
     <section className="referencesView" aria-label="레퍼런스 자료함">
       <header className="referencesHeader">
-        <div>
-          <h2>레퍼런스 자료함</h2>
-          <p>이미지는 붙여넣기/업로드로 저장하고, YouTube 링크는 영상 레퍼런스로 자동 분류합니다.</p>
+        <div className="referencesTitleGroup">
+          <div className="referencesTitleLine">
+            <h2>레퍼런스 모음집</h2>
+            <span>{items.length}</span>
+          </div>
+          <p>이미지, 영상, 링크 자료를 빠르게 저장하고 검색합니다.</p>
         </div>
-        {databaseUrl ? (
-          <a className="uiButton secondary mini" href={databaseUrl} target="_blank" rel="noreferrer">
-            Notion DB
-          </a>
-        ) : null}
+        <div className="referencesHeaderActions">
+          <div className="referencesViewToggle" aria-label="보기 방식">
+            <button type="button" className={viewMode === 'grid' ? 'is-active' : ''} onClick={() => setViewMode('grid')}>
+              격자
+            </button>
+            <button type="button" className={viewMode === 'list' ? 'is-active' : ''} onClick={() => setViewMode('list')}>
+              목록
+            </button>
+          </div>
+          {databaseUrl ? (
+            <a className="uiButton secondary mini" href={databaseUrl} target="_blank" rel="noreferrer">
+              Notion DB
+            </a>
+          ) : null}
+          <Button type="button" size="mini" onClick={openNewForm} icon={<UiGlyph name="plus" />}>
+            {formOpen && !editingId ? '접기' : '추가'}
+          </Button>
+        </div>
       </header>
 
       {message ? <p className="referencesMessage">{message}</p> : null}
       {error ? <p className="referencesMessage is-error">{error}</p> : null}
 
+      {formOpen ? (
       <section className="referencesPanel" aria-label="레퍼런스 저장">
-        <form className="referencesForm" onSubmit={submit}>
+        <form className="referencesForm" onSubmit={submit} onPaste={handlePaste}>
           <label>
             제목
             <input value={form.title} onChange={(event) => updateForm({ title: event.target.value })} placeholder="레퍼런스 제목" />
@@ -325,7 +371,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
           </label>
           <label className="referencesMemo">
             메모
-            <textarea value={form.memo} onChange={(event) => updateForm({ memo: event.target.value })} rows={3} />
+            <input value={form.memo} onChange={(event) => updateForm({ memo: event.target.value })} placeholder="간단한 메모" />
           </label>
           <div className="referencesPasteZone" onPaste={handlePaste}>
             <input
@@ -345,7 +391,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
           </div>
           <div className="referencesActions">
             <Button type="submit" disabled={saving}>
-              {saving ? '저장 중' : editingId ? '수정 저장' : '레퍼런스 저장'}
+              {saving ? '저장 중' : editingId ? '수정 저장' : '저장'}
             </Button>
             {editingId ? (
               <Button type="button" variant="secondary" onClick={resetForm}>
@@ -355,6 +401,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
           </div>
         </form>
       </section>
+      ) : null}
 
       <RelatedTaskPickerModal
         open={taskPickerOpen}
@@ -365,7 +412,7 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
       />
 
       <section className="referencesToolbar" aria-label="레퍼런스 필터">
-        <input value={filters.q} onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))} placeholder="검색" />
+        <input value={filters.q} onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))} placeholder="제목, 태그, 프로젝트로 검색" />
         <select value={filters.sourceType} onChange={(event) => setFilters((current) => ({ ...current, sourceType: event.target.value }))}>
           <option value="">모든 자료</option>
           {Object.entries(SOURCE_LABELS).map(([value, label]) => (
@@ -384,40 +431,41 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
         </select>
       </section>
 
-      <section className="referencesGrid" aria-busy={loading}>
+      <section className={viewMode === 'grid' ? 'referencesGrid' : 'referencesList'} aria-busy={loading}>
         {items.map((item) => {
           const youtubeId = item.link ? extractYoutubeId(item.link) : ''
+          const sourceMeta = SOURCE_META[item.sourceType]
           return (
-            <article className="referenceCard" key={item.id}>
+            <article className={viewMode === 'grid' ? 'referenceCard' : 'referenceListItem'} key={item.id}>
               <div className="referenceMedia">
                 {item.imageUrl ? <img src={item.imageUrl} alt={item.title} /> : null}
                 {!item.imageUrl && youtubeId ? (
                   <iframe title={item.title} src={`https://www.youtube.com/embed/${youtubeId}`} loading="lazy" />
                 ) : null}
-                {!item.imageUrl && !youtubeId ? <span>{SOURCE_LABELS[item.sourceType]}</span> : null}
+                {!item.imageUrl && !youtubeId ? <span className={`referenceTypeThumb ${sourceMeta.className}`}>{sourceMeta.shortLabel}</span> : null}
+                <span className="referenceMediaBadge">{sourceMeta.label}</span>
+                <div className="referenceHoverActions">
+                  {item.link ? (
+                    <a href={item.link} target="_blank" rel="noreferrer">
+                      열기
+                    </a>
+                  ) : null}
+                  <button type="button" onClick={() => startEdit(item)}>
+                    수정
+                  </button>
+                  <button type="button" className="is-danger" onClick={() => void remove(item)}>
+                    삭제
+                  </button>
+                </div>
               </div>
               <div className="referenceBody">
                 <div className="referenceMetaLine">
-                  <span>{SOURCE_LABELS[item.sourceType]}</span>
-                  <strong>{item.usageType}</strong>
+                  <strong>{USAGE_LABELS[item.usageType] ?? item.usageType}</strong>
                 </div>
                 <h3>{item.title}</h3>
                 {item.projectName ? <p>{item.projectName}</p> : null}
                 {item.memo ? <p>{item.memo}</p> : null}
                 {item.tags.length > 0 ? <div className="referenceTags">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
-                <div className="referenceActions">
-                  {item.link ? (
-                    <a className="uiButton secondary mini" href={item.link} target="_blank" rel="noreferrer">
-                      링크 열기
-                    </a>
-                  ) : null}
-                  <Button type="button" variant="secondary" size="mini" onClick={() => startEdit(item)}>
-                    수정
-                  </Button>
-                  <Button type="button" variant="secondary" size="mini" onClick={() => void remove(item)}>
-                    삭제
-                  </Button>
-                </div>
               </div>
             </article>
           )
