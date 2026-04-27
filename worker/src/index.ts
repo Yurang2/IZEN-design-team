@@ -168,20 +168,8 @@ export default {
       const forwarded = asString(request.headers.get('X-Forwarded-For'))
       return forwarded?.split(',')[0]?.trim() || ''
     }
-    const getReferenceAuthorName = (clientIp: string) => {
-      const rawMap = asString(env.REFERENCE_AUTHOR_BY_IP)
-      if (rawMap) {
-        try {
-          const parsed = JSON.parse(rawMap) as Record<string, unknown>
-          const mapped = asString(parsed[clientIp])
-          if (mapped) return mapped
-        } catch {
-          for (const entry of rawMap.split(',')) {
-            const [ip, name] = entry.split('=').map((part) => part.trim())
-            if (ip === clientIp && name) return name
-          }
-        }
-      }
+    const getReferenceAuthorName = () => {
+      // Replace this with the authenticated user name when login-based authoring is enabled.
       return asString(env.REFERENCE_DEFAULT_AUTHOR_NAME) || '조정훈'
     }
 
@@ -2049,7 +2037,7 @@ export default {
         }
         const clientIp = getClientIp()
         payload.authorIp = clientIp
-        payload.authorName = getReferenceAuthorName(clientIp)
+        payload.authorName = getReferenceAuthorName()
 
         const created = await service.createReference(payload)
         return json({ ok: true, item: created }, 201, origin)
