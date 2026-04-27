@@ -446,7 +446,8 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
           const relatedTask = item.projectId ? taskById.get(item.projectId) : undefined
           const relatedTaskLabel = relatedTask?.taskName || item.projectName || ''
           const orientationClass = imageOrientations[item.id] === 'portrait' ? 'is-portrait' : ''
-          const cardClassName = [viewMode === 'grid' ? 'referenceCard' : 'referenceListItem', orientationClass].filter(Boolean).join(' ')
+          const compactInfoClass = orientationClass && !relatedTaskLabel && !item.memo && item.tags.length === 0 ? 'is-compact-info' : ''
+          const cardClassName = [viewMode === 'grid' ? 'referenceCard' : 'referenceListItem', orientationClass, compactInfoClass].filter(Boolean).join(' ')
           return (
             <article className={cardClassName} key={item.id}>
               <div className="referenceMedia">
@@ -483,8 +484,8 @@ export function ReferencesView({ tasks, configured, databaseUrl }: ReferencesVie
                   ))}
                 </div>
                 <h3>{item.title}</h3>
-                {relatedTaskLabel ? <p>{relatedTaskLabel}</p> : null}
-                {item.memo ? <p>{item.memo}</p> : null}
+                {relatedTaskLabel ? <p className="referenceTaskLabel">{relatedTaskLabel}</p> : null}
+                {item.memo ? <p className="referenceMemoText">{item.memo}</p> : null}
               </div>
             </article>
           )

@@ -4110,6 +4110,12 @@ button.dashboardNavButton {
   min-height: 190px;
 }
 
+.referenceCard.is-portrait.is-compact-info {
+  grid-template-columns: 120px minmax(128px, 168px);
+  justify-self: start;
+  width: min(100%, 288px);
+}
+
 .referencesList {
   display: grid;
   gap: 0;
@@ -4140,12 +4146,24 @@ button.dashboardNavButton {
 
 .referenceListItem .referenceBody {
   align-items: center;
-  grid-template-columns: minmax(160px, 1.2fr) auto auto minmax(0, 1fr);
+  grid-template-columns: minmax(140px, 1.1fr) auto minmax(120px, 0.8fr) minmax(160px, 1fr);
   padding: 0;
 }
 
 .referenceListItem .referenceBody h3 {
   grid-column: 1;
+}
+
+.referenceListItem .referenceBadges {
+  grid-column: 2;
+}
+
+.referenceListItem .referenceTaskLabel {
+  grid-column: 3;
+}
+
+.referenceListItem .referenceMemoText {
+  grid-column: 4;
 }
 
 .referenceListItem .referenceBody p,
@@ -4247,8 +4265,18 @@ button.dashboardNavButton {
   white-space: nowrap;
 }
 
-.referenceBody p + p {
-  display: none;
+.referenceMemoText {
+  color: #475569;
+  display: -webkit-box;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
+.referenceListItem .referenceMemoText {
+  display: block;
+  white-space: nowrap;
 }
 
 .referenceTypeThumb {
@@ -4407,6 +4435,13 @@ button.dashboardNavButton {
   .referenceListItem,
   .referenceListItem .referenceBody {
     grid-template-columns: 1fr;
+  }
+
+  .referenceListItem .referenceBody h3,
+  .referenceListItem .referenceBadges,
+  .referenceListItem .referenceTaskLabel,
+  .referenceListItem .referenceMemoText {
+    grid-column: 1;
   }
 
   .referenceListItem .referenceMedia {
