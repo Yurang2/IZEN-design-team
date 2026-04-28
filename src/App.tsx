@@ -1385,9 +1385,9 @@ function App() {
     if (activeView === 'feedback') return dbLinks.feedback
     if (activeView === 'programIssues') return dbLinks.programIssues
     if (activeView === 'references') return dbLinks.reference
-    if (activeView === 'storyboardPptx') return dbLinks.storyboard
+    if (activeView === 'storyboardPptx') return null
     return null
-  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.programIssues, dbLinks.project, dbLinks.reference, dbLinks.storyboard, dbLinks.task, equipment.databaseUrl, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
+  }, [activeView, dbLinks.checklist, dbLinks.feedback, dbLinks.programIssues, dbLinks.project, dbLinks.reference, dbLinks.task, equipment.databaseUrl, eventGraphics.databaseUrl, photoGuide.databaseUrl, schedule.databaseUrl, screeningHistory.databaseUrl, screeningPlan.databaseUrl])
 
   const unknownMessages = schemaUnknownMessage(schema)
   const assignmentTargetCurrentTaskId = assignmentTarget
@@ -2650,7 +2650,7 @@ function App() {
       ) : null}
 
       {activeView === 'storyboardPptx' ? (
-        <StoryboardPptxView projects={projects} tasks={tasks} configured={Boolean(dbLinks.storyboard)} databaseUrl={dbLinks.storyboard} />
+        <StoryboardPptxView projects={projects} tasks={tasks} configured={Boolean(dbLinks.storyboard)} />
       ) : null}
 
       {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}

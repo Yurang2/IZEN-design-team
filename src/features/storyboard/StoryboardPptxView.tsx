@@ -45,7 +45,6 @@ type StoryboardPptxViewProps = {
   projects: ProjectRecord[]
   tasks: TaskRecord[]
   configured?: boolean
-  databaseUrl?: string | null
 }
 
 type ImagePayload = {
@@ -602,7 +601,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   })
 }
 
-export function StoryboardPptxView({ projects, tasks, configured = false, databaseUrl }: StoryboardPptxViewProps) {
+export function StoryboardPptxView({ projects, tasks, configured = false }: StoryboardPptxViewProps) {
   const [initialStore] = useState<StoryboardStore>(() => readStoryboardStore())
   const initialStoryboard = initialStore.items.find((item) => item.id === initialStore.activeId) ?? initialStore.items[0]
   const [savedStoryboards, setSavedStoryboards] = useState<SavedStoryboard[]>(initialStore.items)
@@ -1042,11 +1041,6 @@ export function StoryboardPptxView({ projects, tasks, configured = false, databa
           ))}
         </select>
         <div className="storyboardPptxSaveActions">
-          {databaseUrl ? (
-            <a className="uiButton secondary mini" href={databaseUrl} target="_blank" rel="noreferrer">
-              DB 열기
-            </a>
-          ) : null}
           <Button type="button" variant="secondary" size="mini" onClick={() => void saveNotionStoryboard()} disabled={!configured || notionSaving}>
             {notionSaving ? '저장 중' : 'DB 저장'}
           </Button>
