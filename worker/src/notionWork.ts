@@ -4782,6 +4782,33 @@ export class NotionWorkService {
     return this.mapStoryboardD1Document(row, data?.data, data?.exportedFileNames)
   }
 
+  async getStoryboardAsset(key: string): Promise<{ bytes: ArrayBuffer; contentType: string } | null> {
+    const imageKey = normalizeText(key)
+    if (!imageKey) return null
+    const bucket = storyboardAssetBucket(this.env)
+    if (!bucket) return null
+    const object = await bucket.get(imageKey)
+    if (!object) return null
+    const bytes = object.arrayBuffer
+      ? await object.arrayBuffer()
+      : object.body?.arrayBuffer
+        ? await object.body.arrayBuffer()
+        : null
+    if (!bytes) return null
+
+    let contentType = normalizeText((object as any)?.httpMetadata?.contentType)
+    const db = storyboardDb(this.env)
+    if (!contentType && db) {
+      await this.ensureStoryboardD1Tables()
+      const row = await db
+        .prepare(`SELECT image_content_type FROM storyboard_frames WHERE image_key = ? LIMIT 1`)
+        .bind(imageKey)
+        .first<{ image_content_type?: unknown }>()
+      contentType = normalizeText(String(row?.image_content_type ?? ''))
+    }
+    return { bytes, contentType: contentType || 'image/jpeg' }
+  }
+
   private async updateStoryboardD1Metadata(
     documentKey: string,
     patch: UpdateStoryboardDocumentInput,
@@ -5023,7 +5050,7 @@ export class NotionWorkService {
   }
 
   async getStoryboard(id: string): Promise<StoryboardDocumentRecord> {
-    const d1OnlyRecord = await this.getStoryboardFromD1(id, { includeImages: true })
+    const d1OnlyRecord = await this.getStoryboardFromD1(id, { includeImages: false })
     if (d1OnlyRecord) return d1OnlyRecord
     if (!this.env.NOTION_STORYBOARD_DB_ID) throw new Error('storyboard_not_found')
 

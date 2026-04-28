@@ -294,5 +294,5 @@
 ## Storyboard Storage Rule
 - `GET/POST/PATCH /api/storyboards` uses D1 as the storyboard document source of truth.
 - Storyboard metadata and page/frame content are stored in D1 (`storyboard_documents`, `storyboard_frames`).
-- Storyboard image binaries are stored in R2 under the `storyboards/` prefix; D1 stores only image keys and metadata.
+- Storyboard image binaries are stored in R2 under the `storyboards/` prefix; D1 stores only image keys and metadata. Detail reads return image keys, and `GET /api/storyboards/assets/:imageKey` serves images on demand.
 - Notion is not required for storyboard documents.

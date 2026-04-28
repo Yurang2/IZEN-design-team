@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import PptxGenJS from 'pptxgenjs'
-import { api } from '../../shared/api/client'
+import { API_BASE_URL, api } from '../../shared/api/client'
 import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse, TaskRecord } from '../../shared/types'
 import { Button, UiGlyph } from '../../shared/ui'
 import { RelatedTaskPickerModal } from '../tasks/RelatedTaskPickerModal'
@@ -343,6 +343,32 @@ function mergeServerFrameKeys(frames: StoryboardFrame[], serverFrames: Array<Rec
         typeof serverFrame.thumbnailContentType === 'string' ? serverFrame.thumbnailContentType : frame.thumbnailContentType,
     }
   })
+}
+
+function storyboardImageUrl(key: string | undefined): string {
+  return key ? `${API_BASE_URL}/storyboards/assets/${encodeURIComponent(key)}` : ''
+}
+
+function frameImageSrc(frame: StoryboardFrame | undefined): string {
+  if (!frame) return ''
+  return frame.thumbnailDataUrl || storyboardImageUrl(frame.thumbnailImageKey)
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function resolveFrameImageForExport(frame: StoryboardFrame): Promise<StoryboardFrame> {
+  if (frame.thumbnailDataUrl || !frame.thumbnailImageKey) return frame
+  const response = await fetch(storyboardImageUrl(frame.thumbnailImageKey), { credentials: 'include' })
+  if (!response.ok) return frame
+  const dataUrl = await blobToDataUrl(await response.blob())
+  return { ...frame, thumbnailDataUrl: dataUrl }
 }
 
 function readImageFile(file: File): Promise<ImagePayload> {
@@ -1243,8 +1269,9 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
         bodyFontFace: 'Malgun Gothic',
       }
 
-      addStoryboardSummarySlide(pptx, frames, meta)
-      frames.forEach((frame, index) => addStoryboardSlide(pptx, frame, meta, index, frames.length))
+      const exportFrames = await Promise.all(frames.map(resolveFrameImageForExport))
+      addStoryboardSummarySlide(pptx, exportFrames, meta)
+      exportFrames.forEach((frame, index) => addStoryboardSlide(pptx, frame, meta, index, exportFrames.length))
 
       await pptx.writeFile({ fileName, compression: true })
       setExportedFileNames((current) => (current.includes(fileName) ? current : [...current, fileName]))
@@ -1529,8 +1556,8 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
                 onDragLeave={() => setDraggingFrameId(null)}
                 onDrop={(event) => void onThumbnailDrop(selectedFrame.id, event)}
               >
-                {selectedFrame.thumbnailDataUrl ? (
-                  <img src={selectedFrame.thumbnailDataUrl} alt="" />
+                {frameImageSrc(selectedFrame) ? (
+                  <img src={frameImageSrc(selectedFrame)} alt="" />
                 ) : (
                   <span>썸네일 미리보기</span>
                 )}
@@ -1551,7 +1578,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
             </div>
             <div className="storyboardPptxPreviewBody">
               <div className="storyboardPptxPreviewImage">
-                {selectedFrame?.thumbnailDataUrl ? <img src={selectedFrame.thumbnailDataUrl} alt="" /> : <span>썸네일</span>}
+                {frameImageSrc(selectedFrame) ? <img src={frameImageSrc(selectedFrame)} alt="" /> : <span>썸네일</span>}
               </div>
               <div className="storyboardPptxPreviewCells">
                 <span>화면구성</span>

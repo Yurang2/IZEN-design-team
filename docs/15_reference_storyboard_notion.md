@@ -39,6 +39,7 @@
 - `GET|POST /api/storyboards`
 - `GET|PATCH|DELETE /api/storyboards/:id`
 - `PATCH /api/storyboards/:id/frames/:frameId`
+- `GET /api/storyboards/assets/:imageKey`
 - Reference saves default to `REFERENCE_DEFAULT_AUTHOR_NAME=조정훈`; later login can replace this author source.
 
 ## Creation

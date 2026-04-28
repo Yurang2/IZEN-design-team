@@ -2065,8 +2065,24 @@ export default {
 
       // ---- Storyboard documents CRUD ----
 
+      const storyboardAssetMatch = path.match(/^\/storyboards\/assets\/(.+)$/)
       const storyboardFrameMatch = path.match(/^\/storyboards\/([^/]+)\/frames\/([^/]+)$/)
       const storyboardMatch = path.match(/^\/storyboards\/([^/]+)$/)
+
+      if (request.method === 'GET' && storyboardAssetMatch) {
+        const asset = await service.getStoryboardAsset(decodeURIComponent(storyboardAssetMatch[1]))
+        if (!asset) return json({ ok: false, error: 'storyboard_asset_not_found' }, 404, origin)
+        const response = new Response(asset.bytes, {
+          status: 200,
+          headers: {
+            'Content-Type': asset.contentType,
+            'Cache-Control': 'private, max-age=3600',
+          },
+        })
+        if (allowedOrigin) response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+        response.headers.set('Vary', 'Origin')
+        return response
+      }
 
       if (request.method === 'GET' && path === '/storyboards') {
         const projectId = asString(url.searchParams.get('projectId'))
@@ -2339,6 +2355,7 @@ export default {
               'POST /api/storyboards',
               'PATCH /api/storyboards/:id',
               'PATCH /api/storyboards/:id/frames/:frameId',
+              'GET /api/storyboards/assets/:imageKey',
               'DELETE /api/storyboards/:id',
               'GET /api/program-issues?status=...&issueType=...&priority=...&q=...',
               'GET /api/program-issues/:id',
