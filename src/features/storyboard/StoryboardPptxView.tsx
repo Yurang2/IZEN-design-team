@@ -489,6 +489,11 @@ function summaryText(value: string): string {
   return value.trim().replace(/\r?\n/g, '\n') || '-'
 }
 
+function formatSummaryTimecode(value: string): string {
+  const parts = parseTimeRange(value)
+  return `${parts.startMinute}:${String(parts.startSecond).padStart(2, '0')}~${parts.endMinute}:${String(parts.endSecond).padStart(2, '0')}`
+}
+
 function addSummaryTextCell(
   slide: PptxSlide,
   value: string,
@@ -647,7 +652,7 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
 
     const [timeCol, thumbCol, screenCol, copyCol, soundCol, purposeCol] = columns
     let contentX = tableX
-    addSummaryTextCell(slide, frame.timecode, contentX, y, timeCol.w, rowH, { bold: true, color: COLORS.primary, fontSize: 5.6, align: 'center' })
+    addSummaryTextCell(slide, formatSummaryTimecode(frame.timecode), contentX, y, timeCol.w, rowH, { bold: true, color: COLORS.primary, fontSize: 5.8, align: 'center' })
     contentX += timeCol.w
     addSummaryThumbnailCell(slide, frame, contentX, y, thumbCol.w, rowH)
     contentX += thumbCol.w
