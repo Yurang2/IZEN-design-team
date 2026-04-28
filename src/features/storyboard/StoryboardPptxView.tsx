@@ -485,132 +485,65 @@ function addInlineTextBox(slide: PptxSlide, label: string, value: string, x: num
   })
 }
 
-function summarizeCopy(value: string): string {
-  const lines = value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-  return lines[0] || '핵심 카피'
+function summaryText(value: string): string {
+  return value.trim().replace(/\r?\n/g, '\n') || '-'
 }
 
-function summarizePurpose(value: string): string {
-  const normalized = value.trim().replace(/\s*\/\s*/g, ' / ')
-  return normalized || '목적 입력'
-}
-
-function compactTimecode(value: string): string {
-  const parts = parseTimeRange(value)
-  return `${parts.startMinute}:${String(parts.startSecond).padStart(2, '0')}-${parts.endMinute}:${String(parts.endSecond).padStart(2, '0')}`
-}
-
-function addSummaryFrameCard(slide: PptxSlide, frame: StoryboardFrame, index: number, total: number) {
-  const gap = 0.14
-  const startX = 0.46
-  const y = 1.68
-  const cardW = (12.42 - gap * (total - 1)) / total
-  const cardH = 3.9
-  const x = startX + index * (cardW + gap)
-  const imageBox = { x: x + 0.08, y: y + 0.53, w: cardW - 0.16, h: 1.35 }
-
-  slide.addShape('roundRect', {
-    x,
-    y,
-    w: cardW,
-    h: cardH,
-    rectRadius: 0.08,
-    fill: { color: index % 2 === 0 ? COLORS.white : 'F8FBFF' },
-    line: { color: 'C9D7EA', width: 1 },
-  })
-  slide.addShape('rect', {
-    x,
-    y,
-    w: cardW,
-    h: 0.38,
-    fill: { color: COLORS.ink },
-    line: { color: COLORS.ink, transparency: 100 },
-  })
-  slide.addText(`SCENE ${String(index + 1).padStart(2, '0')}`, {
-    x: x + 0.09,
-    y: y + 0.11,
-    w: cardW - 0.18,
-    h: 0.13,
-    color: COLORS.white,
+function addSummaryTextCell(
+  slide: PptxSlide,
+  value: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  options?: { bold?: boolean; color?: string; fontSize?: number; align?: 'left' | 'center' | 'right' },
+) {
+  slide.addText(summaryText(value), {
+    x: x + 0.06,
+    y: y + 0.06,
+    w: w - 0.12,
+    h: h - 0.12,
+    color: options?.color ?? COLORS.ink,
     fontFace: 'Malgun Gothic',
-    fontSize: 6,
-    bold: true,
+    fontSize: options?.fontSize ?? 5.8,
+    bold: options?.bold,
+    align: options?.align ?? 'left',
+    valign: 'middle',
     margin: 0,
-    align: 'center',
+    breakLine: false,
     fit: 'shrink',
   })
-  slide.addText(compactTimecode(frame.timecode), {
-    x: x + 0.12,
-    y: y + 0.43,
-    w: cardW - 0.24,
-    h: 0.14,
-    color: COLORS.primary,
-    fontFace: 'Malgun Gothic',
-    fontSize: 6.5,
-    bold: true,
-    margin: 0,
-    align: 'center',
-    fit: 'shrink',
-  })
+}
 
+function addSummaryThumbnailCell(slide: PptxSlide, frame: StoryboardFrame, x: number, y: number, w: number, h: number) {
+  const imageBox = { x: x + 0.06, y: y + 0.06, w: w - 0.12, h: h - 0.12 }
   slide.addShape('rect', {
     ...imageBox,
     fill: { color: COLORS.panel },
-    line: { color: COLORS.line, width: 0.7 },
+    line: { color: COLORS.line, width: 0.5 },
   })
-  if (frame.thumbnailDataUrl) {
-    const fitted = fitRect(frame.thumbnailWidth ?? 0, frame.thumbnailHeight ?? 0, imageBox)
-    slide.addImage({
-      data: frame.thumbnailDataUrl,
-      x: fitted.x,
-      y: fitted.y,
-      w: fitted.w,
-      h: fitted.h,
-      altText: frame.thumbnailName || `summary thumbnail ${index + 1}`,
-    })
-  } else {
-    slide.addText('IMAGE', {
+  if (!frame.thumbnailDataUrl) {
+    slide.addText('썸네일', {
       ...imageBox,
       color: COLORS.muted,
       fontFace: 'Malgun Gothic',
-      fontSize: 8,
+      fontSize: 6,
       bold: true,
       align: 'center',
       valign: 'middle',
       margin: 0,
     })
+    return
   }
 
-  slide.addText(summarizeCopy(frame.copy), {
-    x: x + 0.11,
-    y: y + 2.04,
-    w: cardW - 0.22,
-    h: 0.48,
-    color: COLORS.ink,
-    fontFace: 'Malgun Gothic',
-    fontSize: 8.5,
-    bold: true,
-    align: 'center',
-    valign: 'middle',
-    margin: 0.01,
-    fit: 'shrink',
-  })
-  slide.addShape('line', { x: x + 0.22, y: y + 2.64, w: cardW - 0.44, h: 0, line: { color: COLORS.line, width: 1 } })
-  slide.addText(summarizePurpose(frame.purpose), {
-    x: x + 0.12,
-    y: y + 2.82,
-    w: cardW - 0.24,
-    h: 0.78,
-    color: COLORS.muted,
-    fontFace: 'Malgun Gothic',
-    fontSize: 7.2,
-    align: 'center',
-    valign: 'middle',
-    margin: 0.01,
-    fit: 'shrink',
+  const fitted = fitRect(frame.thumbnailWidth ?? 0, frame.thumbnailHeight ?? 0, imageBox)
+  slide.addImage({
+    data: frame.thumbnailDataUrl,
+    x: fitted.x,
+    y: fitted.y,
+    w: fitted.w,
+    h: fitted.h,
+    altText: frame.thumbnailName || 'summary thumbnail',
   })
 }
 
@@ -618,13 +551,27 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
   const slide = pptx.addSlide()
   slide.background = { color: COLORS.white }
   const visibleFrames = frames.slice(0, 7)
+  const pageW = 13.333
+  const marginX = 0.32
+  const tableX = marginX
+  const tableY = 1.18
+  const headerH = 0.34
+  const rowH = 0.77
+  const columns = [
+    { key: 'time', label: '시간', w: 0.78 },
+    { key: 'thumbnail', label: '비디오\n썸네일', w: 1.28 },
+    { key: 'screen', label: '화면구성', w: 3.02 },
+    { key: 'copy', label: '자막 / 카피', w: 2.42 },
+    { key: 'sound', label: '사운드', w: 1.55 },
+    { key: 'purpose', label: '목적', w: 2.98 },
+  ]
 
-  slide.addShape('rect', { x: 0, y: 0, w: 13.333, h: 0.72, fill: { color: COLORS.ink }, line: { color: COLORS.ink } })
-  slide.addText('전체 영상 구조', {
-    x: 0.46,
-    y: 0.2,
-    w: 3.0,
-    h: 0.24,
+  slide.addShape('rect', { x: 0, y: 0, w: pageW, h: 0.72, fill: { color: COLORS.ink }, line: { color: COLORS.ink } })
+  slide.addText('전체 영상 구조 요약', {
+    x: 0.42,
+    y: 0.19,
+    w: 3.8,
+    h: 0.26,
     color: COLORS.white,
     fontFace: 'Malgun Gothic',
     fontSize: 12,
@@ -634,7 +581,7 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
   slide.addText([meta.projectName, meta.versionName].filter(Boolean).join(' / '), {
     x: 6.8,
     y: 0.25,
-    w: 6.08,
+    w: 6.12,
     h: 0.18,
     color: 'DDE7F5',
     fontFace: 'Malgun Gothic',
@@ -643,81 +590,106 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
     margin: 0,
     fit: 'shrink',
   })
-
   slide.addText(meta.deckTitle || '스토리보드', {
-    x: 0.52,
-    y: 0.98,
-    w: 4.6,
-    h: 0.34,
+    x: 0.38,
+    y: 0.86,
+    w: 12.58,
+    h: 0.24,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
-    fontSize: 17,
+    fontSize: 14,
     bold: true,
     margin: 0,
     fit: 'shrink',
   })
-  slide.addText('각 신별 입력값과 썸네일을 자동 재조립한 1장 요약입니다.', {
-    x: 5.32,
-    y: 1.08,
-    w: 7.48,
-    h: 0.2,
-    color: COLORS.muted,
-    fontFace: 'Malgun Gothic',
-    fontSize: 9,
-    align: 'right',
-    margin: 0,
-    fit: 'shrink',
-  })
 
-  visibleFrames.forEach((frame, index) => addSummaryFrameCard(slide, frame, index, visibleFrames.length))
-
-  slide.addShape('line', { x: 1.18, y: 5.9, w: 10.95, h: 0, line: { color: 'BFD1F6', width: 1.2 } })
-  visibleFrames.slice(0, -1).forEach((_, index) => {
-    const cardW = (12.42 - 0.14 * (visibleFrames.length - 1)) / visibleFrames.length
-    const x = 0.46 + index * (cardW + 0.14) + cardW + 0.03
-    slide.addText('▶', {
+  let x = tableX
+  columns.forEach((column) => {
+    slide.addShape('rect', {
       x,
-      y: 5.75,
-      w: 0.18,
-      h: 0.18,
-      color: COLORS.primary,
-      fontFace: 'Malgun Gothic',
-      fontSize: 8,
-      bold: true,
-      margin: 0,
-      align: 'center',
+      y: tableY,
+      w: column.w,
+      h: headerH,
+      fill: { color: COLORS.ink },
+      line: { color: COLORS.ink, width: 0.6 },
     })
+    slide.addText(column.label, {
+      x: x + 0.04,
+      y: tableY + 0.06,
+      w: column.w - 0.08,
+      h: headerH - 0.08,
+      color: COLORS.white,
+      fontFace: 'Malgun Gothic',
+      fontSize: 6.2,
+      bold: true,
+      align: 'center',
+      valign: 'middle',
+      margin: 0,
+      fit: 'shrink',
+    })
+    x += column.w
   })
 
+  visibleFrames.forEach((frame, rowIndex) => {
+    const y = tableY + headerH + rowIndex * rowH
+    let cellX = tableX
+    columns.forEach((column) => {
+      slide.addShape('rect', {
+        x: cellX,
+        y,
+        w: column.w,
+        h: rowH,
+        fill: { color: rowIndex % 2 === 0 ? COLORS.white : 'F8FBFF' },
+        line: { color: COLORS.line, width: 0.45 },
+      })
+      cellX += column.w
+    })
+
+    const [timeCol, thumbCol, screenCol, copyCol, soundCol, purposeCol] = columns
+    let contentX = tableX
+    addSummaryTextCell(slide, frame.timecode, contentX, y, timeCol.w, rowH, { bold: true, color: COLORS.primary, fontSize: 5.6, align: 'center' })
+    contentX += timeCol.w
+    addSummaryThumbnailCell(slide, frame, contentX, y, thumbCol.w, rowH)
+    contentX += thumbCol.w
+    addSummaryTextCell(slide, frame.screenComposition, contentX, y, screenCol.w, rowH, { fontSize: 5.4 })
+    contentX += screenCol.w
+    addSummaryTextCell(slide, frame.copy, contentX, y, copyCol.w, rowH, { bold: true, fontSize: 5.4 })
+    contentX += copyCol.w
+    addSummaryTextCell(slide, frame.sound, contentX, y, soundCol.w, rowH, { fontSize: 5.2 })
+    contentX += soundCol.w
+    addSummaryTextCell(slide, frame.purpose, contentX, y, purposeCol.w, rowH, { fontSize: 5.4 })
+  })
+
+  const conceptY = tableY + headerH + visibleFrames.length * rowH + 0.13
   slide.addShape('roundRect', {
-    x: 0.46,
-    y: 6.18,
-    w: 12.42,
-    h: 0.72,
-    rectRadius: 0.06,
+    x: tableX,
+    y: conceptY,
+    w: 12.03,
+    h: 0.54,
+    rectRadius: 0.04,
     fill: { color: COLORS.soft },
-    line: { color: 'BFD1F6', width: 1 },
+    line: { color: 'BFD1F6', width: 0.8 },
   })
   slide.addText('전체 콘셉트', {
-    x: 0.7,
-    y: 6.39,
-    w: 1.18,
-    h: 0.16,
+    x: tableX + 0.18,
+    y: conceptY + 0.18,
+    w: 1.08,
+    h: 0.14,
     color: COLORS.primary,
     fontFace: 'Malgun Gothic',
-    fontSize: 8,
+    fontSize: 7.2,
     bold: true,
     margin: 0,
     fit: 'shrink',
   })
-  slide.addText('초반 후킹에서 브랜드 · 품질 · 제품 · 솔루션 · 글로벌 역량을 순차적으로 전달하고, 마지막 CTA로 행동을 유도하는 흐름입니다.', {
-    x: 2.02,
-    y: 6.35,
-    w: 10.55,
-    h: 0.2,
+  slide.addText('각 신의 시간·썸네일·화면구성·자막/카피·사운드·목적을 한 장에서 검토할 수 있도록 원본 입력값 기준으로 재배치했습니다.', {
+    x: tableX + 1.42,
+    y: conceptY + 0.17,
+    w: 10.38,
+    h: 0.16,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
-    fontSize: 8.5,
+    fontSize: 7.2,
     margin: 0,
     fit: 'shrink',
   })
