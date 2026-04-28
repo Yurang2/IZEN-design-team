@@ -2080,6 +2080,7 @@ export default {
           },
         })
         if (allowedOrigin) response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+        response.headers.set('Access-Control-Allow-Credentials', 'true')
         response.headers.set('Vary', 'Origin')
         return response
       }
