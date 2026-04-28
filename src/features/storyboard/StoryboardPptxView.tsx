@@ -598,12 +598,25 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
   slide.addText(meta.deckTitle || '스토리보드', {
     x: 0.38,
     y: 0.86,
-    w: 12.58,
+    w: 4.9,
     h: 0.24,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
     fontSize: 14,
     bold: true,
+    margin: 0,
+    fit: 'shrink',
+  })
+  slide.addText(`전체 콘셉트  ${summaryText(meta.memo)}`, {
+    x: 5.45,
+    y: 0.89,
+    w: 7.45,
+    h: 0.18,
+    color: COLORS.muted,
+    fontFace: 'Malgun Gothic',
+    fontSize: 7.2,
+    bold: true,
+    align: 'right',
     margin: 0,
     fit: 'shrink',
   })
@@ -665,39 +678,6 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
     addSummaryTextCell(slide, frame.purpose, contentX, y, purposeCol.w, rowH, { fontSize: 5.4 })
   })
 
-  const conceptY = tableY + headerH + visibleFrames.length * rowH + 0.13
-  slide.addShape('roundRect', {
-    x: tableX,
-    y: conceptY,
-    w: 12.03,
-    h: 0.54,
-    rectRadius: 0.04,
-    fill: { color: COLORS.soft },
-    line: { color: 'BFD1F6', width: 0.8 },
-  })
-  slide.addText('전체 콘셉트', {
-    x: tableX + 0.18,
-    y: conceptY + 0.18,
-    w: 1.08,
-    h: 0.14,
-    color: COLORS.primary,
-    fontFace: 'Malgun Gothic',
-    fontSize: 7.2,
-    bold: true,
-    margin: 0,
-    fit: 'shrink',
-  })
-  slide.addText('각 신의 시간·썸네일·화면구성·자막/카피·사운드·목적을 한 장에서 검토할 수 있도록 원본 입력값 기준으로 재배치했습니다.', {
-    x: tableX + 1.42,
-    y: conceptY + 0.17,
-    w: 10.38,
-    h: 0.16,
-    color: COLORS.ink,
-    fontFace: 'Malgun Gothic',
-    fontSize: 7.2,
-    margin: 0,
-    fit: 'shrink',
-  })
 }
 
 function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: StoryboardMeta, index: number, total: number) {
@@ -761,10 +741,10 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     fit: 'shrink',
     margin: 0,
   })
-  slide.addText(frame.timecode || '-', {
-    x: 1.54,
+  slide.addText(formatSummaryTimecode(frame.timecode), {
+    x: 1.44,
     y: 1.05,
-    w: 1.28,
+    w: 1.42,
     h: 0.22,
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
