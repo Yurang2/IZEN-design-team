@@ -40,6 +40,7 @@ import type {
   UpdateProgramIssueInput,
   UpdateReferenceInput,
   UpdateStoryboardDocumentInput,
+  UpdateStoryboardFrameInput,
   ScheduleCell,
   ScheduleColumn,
   ScheduleRow,
@@ -1445,6 +1446,7 @@ function applyLongRichText(properties: AnyMap, field: FieldSchema, value: string
 
 const STORYBOARD_DATA_BLOCK_MARKER = 'IZEN_STORYBOARD_JSON_V1'
 const STORYBOARD_D1_PROPERTY_MARKER = 'D1_STORYBOARD_DOCUMENT'
+let storyboardD1TablesReady = false
 
 function getBlockPlainText(block: any): string {
   const type = typeof block?.type === 'string' ? block.type : ''
@@ -4462,6 +4464,7 @@ export class NotionWorkService {
   }
 
   private async ensureStoryboardD1Tables(): Promise<void> {
+    if (storyboardD1TablesReady) return
     const db = storyboardDb(this.env)
     if (!db) throw new Error('storyboard_d1_not_configured')
 
@@ -4514,6 +4517,7 @@ export class NotionWorkService {
       )
       .bind()
       .run()
+    storyboardD1TablesReady = true
   }
 
   private async writeStoryboardDataToD1(
@@ -4617,7 +4621,8 @@ export class NotionWorkService {
   }
 
   private async readStoryboardDataFromD1(
-    notionPageId: string,
+    documentKey: string,
+    options: { includeImages?: boolean } = {},
   ): Promise<{ data: StoryboardDocumentData; exportedFileNames: string[] } | null> {
     const db = storyboardDb(this.env)
     if (!db) return null
@@ -4627,10 +4632,10 @@ export class NotionWorkService {
       .prepare(
         `SELECT id, meta_json, exported_file_names_json
        FROM storyboard_documents
-       WHERE notion_page_id = ?
+       WHERE id = ? OR notion_page_id = ?
        LIMIT 1`,
       )
-      .bind(notionPageId)
+      .bind(documentKey, documentKey)
       .first<{ id?: unknown; meta_json?: unknown; exported_file_names_json?: unknown }>()
     const documentId = normalizeText(document?.id)
     if (!documentId) return null
@@ -4651,7 +4656,7 @@ export class NotionWorkService {
       const frame = normalizeStoredJson<AnyMap>(typeof row.frame_json === 'string' ? row.frame_json : '', {})
       const imageKey = normalizeText(row.image_key)
       const imageContentType = normalizeText(row.image_content_type) || 'image/jpeg'
-      if (imageKey && bucket) {
+      if (options.includeImages !== false && imageKey && bucket) {
         const object = await bucket.get(imageKey)
         const buffer = object?.arrayBuffer
           ? await object.arrayBuffer()
@@ -4676,6 +4681,241 @@ export class NotionWorkService {
         [],
       ),
     }
+  }
+
+  private mapStoryboardD1Document(
+    row: {
+      id?: unknown
+      title?: unknown
+      project_id?: unknown
+      project_name?: unknown
+      version_name?: unknown
+      memo?: unknown
+      meta_json?: unknown
+      exported_file_names_json?: unknown
+      updated_at?: unknown
+    },
+    dataOverride?: StoryboardDocumentData,
+    exportedOverride?: string[],
+  ): StoryboardDocumentRecord {
+    const id = normalizeText(String(row.id ?? ''))
+    const meta = normalizeStoredJson<Record<string, unknown>>(
+      typeof row.meta_json === 'string' ? row.meta_json : '',
+      {},
+    )
+    return {
+      id,
+      url: '',
+      title: normalizeText(String(row.title ?? '')) || '새 스토리보드',
+      projectId: normalizeText(String(row.project_id ?? '')) || undefined,
+      projectName: normalizeText(String(row.project_name ?? '')) || undefined,
+      versionName: normalizeText(String(row.version_name ?? '')) || undefined,
+      memo: normalizeText(String(row.memo ?? '')) || undefined,
+      data: dataOverride ?? { meta, frames: [] },
+      exportedFileNames:
+        exportedOverride ??
+        normalizeStoredJson<string[]>(
+          typeof row.exported_file_names_json === 'string' ? row.exported_file_names_json : '',
+          [],
+        ),
+      updatedAt: normalizeText(String(row.updated_at ?? '')) || undefined,
+    }
+  }
+
+  private async getStoryboardD1DocumentRow(documentKey: string): Promise<{
+    id?: unknown
+    title?: unknown
+    project_id?: unknown
+    project_name?: unknown
+    version_name?: unknown
+    memo?: unknown
+    meta_json?: unknown
+    exported_file_names_json?: unknown
+    updated_at?: unknown
+  } | null> {
+    const db = storyboardDb(this.env)
+    if (!db) return null
+    await this.ensureStoryboardD1Tables()
+    return db
+      .prepare(
+        `SELECT id, title, project_id, project_name, version_name, memo, meta_json, exported_file_names_json, updated_at
+         FROM storyboard_documents
+         WHERE id = ? OR notion_page_id = ?
+         LIMIT 1`,
+      )
+      .bind(documentKey, documentKey)
+      .first()
+  }
+
+  private async listStoryboardsFromD1(): Promise<StoryboardDocumentRecord[]> {
+    const db = storyboardDb(this.env)
+    if (!db) return []
+    await this.ensureStoryboardD1Tables()
+    const result = await db
+      .prepare(
+        `SELECT id, title, project_id, project_name, version_name, memo, meta_json, exported_file_names_json, updated_at
+         FROM storyboard_documents
+         ORDER BY modified_at DESC`,
+      )
+      .bind()
+      .all<{
+        id?: unknown
+        title?: unknown
+        project_id?: unknown
+        project_name?: unknown
+        version_name?: unknown
+        memo?: unknown
+        meta_json?: unknown
+        exported_file_names_json?: unknown
+        updated_at?: unknown
+      }>()
+    return (result.results ?? []).map((row) => this.mapStoryboardD1Document(row))
+  }
+
+  private async getStoryboardFromD1(
+    documentKey: string,
+    options: { includeImages?: boolean } = {},
+  ): Promise<StoryboardDocumentRecord | null> {
+    const row = await this.getStoryboardD1DocumentRow(documentKey)
+    if (!row) return null
+    const data = await this.readStoryboardDataFromD1(documentKey, options)
+    return this.mapStoryboardD1Document(row, data?.data, data?.exportedFileNames)
+  }
+
+  private async updateStoryboardD1Metadata(
+    documentKey: string,
+    patch: UpdateStoryboardDocumentInput,
+    existing: StoryboardDocumentRecord,
+  ): Promise<void> {
+    const db = storyboardDb(this.env)
+    if (!db) throw new Error('storyboard_d1_not_configured')
+    await this.ensureStoryboardD1Tables()
+    const now = Date.now()
+    const title = hasOwn(patch as Record<string, unknown>, 'title')
+      ? normalizeText(patch.title) || existing.title
+      : existing.title
+    const projectId = hasOwn(patch as Record<string, unknown>, 'projectId')
+      ? normalizeText(patch.projectId)
+      : existing.projectId || ''
+    const projectName = hasOwn(patch as Record<string, unknown>, 'projectName')
+      ? normalizeText(patch.projectName)
+      : existing.projectName || ''
+    const versionName = hasOwn(patch as Record<string, unknown>, 'versionName')
+      ? normalizeText(patch.versionName)
+      : existing.versionName || ''
+    const memo = hasOwn(patch as Record<string, unknown>, 'memo') ? normalizeText(patch.memo) : existing.memo || ''
+    const exportedFileNames = hasOwn(patch as Record<string, unknown>, 'exportedFileNames')
+      ? (patch.exportedFileNames ?? [])
+      : existing.exportedFileNames
+    const meta = patch.data?.meta ?? existing.data.meta ?? {}
+    await db
+      .prepare(
+        `UPDATE storyboard_documents
+         SET title = ?, project_id = ?, project_name = ?, version_name = ?, memo = ?,
+             meta_json = ?, exported_file_names_json = ?, updated_at = ?, modified_at = ?
+         WHERE id = ? OR notion_page_id = ?`,
+      )
+      .bind(
+        title,
+        projectId,
+        projectName,
+        versionName,
+        memo,
+        JSON.stringify(meta),
+        JSON.stringify(exportedFileNames),
+        normalizeText(patch.updatedAt) || new Date().toISOString().slice(0, 10),
+        now,
+        documentKey,
+        documentKey,
+      )
+      .run()
+  }
+
+  async updateStoryboardFrame(
+    documentKey: string,
+    frameId: string,
+    patch: UpdateStoryboardFrameInput,
+  ): Promise<StoryboardDocumentRecord> {
+    const db = storyboardDb(this.env)
+    if (!db) throw new Error('storyboard_d1_not_configured')
+    await this.ensureStoryboardD1Tables()
+    const document = await this.getStoryboardD1DocumentRow(documentKey)
+    const documentId = normalizeText(String(document?.id ?? ''))
+    if (!documentId) throw new Error('storyboard_not_found')
+
+    const row = await db
+      .prepare(
+        `SELECT frame_json, image_key, image_content_type, image_name, image_width, image_height
+         FROM storyboard_frames
+         WHERE document_id = ? AND frame_id = ?
+         LIMIT 1`,
+      )
+      .bind(documentId, frameId)
+      .first<{
+        frame_json?: unknown
+        image_key?: unknown
+        image_content_type?: unknown
+        image_name?: unknown
+        image_width?: unknown
+        image_height?: unknown
+      }>()
+    if (!row) throw new Error('storyboard_frame_not_found')
+
+    const frame = {
+      ...normalizeStoredJson<AnyMap>(typeof row.frame_json === 'string' ? row.frame_json : '', {}),
+      ...patch,
+      id: frameId,
+    }
+    let imageKey = normalizeText(String(row.image_key ?? '')) || normalizeText(frame.thumbnailImageKey)
+    let imageContentType =
+      normalizeText(String(row.image_content_type ?? '')) || normalizeText(frame.thumbnailContentType)
+    const imagePayload = parseDataUrl(frame.thumbnailDataUrl)
+    if (imagePayload) {
+      const bucket = storyboardAssetBucket(this.env)
+      if (!bucket) throw new Error('storyboard_assets_bucket_not_configured')
+      imageContentType = imagePayload.contentType
+      imageKey =
+        imageKey || `storyboards/${documentId}/${frameId}/${crypto.randomUUID()}.${imageExtension(imageContentType)}`
+      await bucket.put(imageKey, imagePayload.bytes, {
+        httpMetadata: { contentType: imageContentType },
+      })
+    }
+
+    const imageName = normalizeText(frame.thumbnailName) || normalizeText(String(row.image_name ?? ''))
+    const imageWidth = Number(frame.thumbnailWidth ?? row.image_width ?? 0)
+    const imageHeight = Number(frame.thumbnailHeight ?? row.image_height ?? 0)
+    frame.thumbnailDataUrl = ''
+    frame.thumbnailImageKey = imageKey
+    frame.thumbnailContentType = imageContentType
+
+    const now = Date.now()
+    await db
+      .prepare(
+        `UPDATE storyboard_frames
+         SET frame_json = ?, image_key = ?, image_name = ?, image_content_type = ?,
+             image_width = ?, image_height = ?, updated_at = ?
+         WHERE document_id = ? AND frame_id = ?`,
+      )
+      .bind(
+        JSON.stringify(frame),
+        imageKey,
+        imageName,
+        imageContentType,
+        Number.isFinite(imageWidth) ? imageWidth : 0,
+        Number.isFinite(imageHeight) ? imageHeight : 0,
+        now,
+        documentId,
+        frameId,
+      )
+      .run()
+    await db
+      .prepare(`UPDATE storyboard_documents SET modified_at = ?, updated_at = ? WHERE id = ?`)
+      .bind(now, new Date().toISOString().slice(0, 10), documentId)
+      .run()
+
+    const updated = await this.getStoryboardFromD1(documentId, { includeImages: false })
+    if (!updated) throw new Error('storyboard_not_found')
+    return updated
   }
 
   private async listAllBlockChildren(blockId: string): Promise<any[]> {
@@ -4765,6 +5005,8 @@ export class NotionWorkService {
   }
 
   async listStoryboards(): Promise<StoryboardDocumentRecord[]> {
+    if (storyboardDb(this.env)) return this.listStoryboardsFromD1()
+
     const dbId = this.env.NOTION_STORYBOARD_DB_ID
     if (!dbId) return []
     const [schema, projects, pages] = await Promise.all([
@@ -4781,6 +5023,10 @@ export class NotionWorkService {
   }
 
   async getStoryboard(id: string): Promise<StoryboardDocumentRecord> {
+    const d1OnlyRecord = await this.getStoryboardFromD1(id, { includeImages: true })
+    if (d1OnlyRecord) return d1OnlyRecord
+    if (!this.env.NOTION_STORYBOARD_DB_ID) throw new Error('storyboard_not_found')
+
     const [schema, projects, page] = await Promise.all([
       this.getStoryboardSchema(),
       this.listProjects(),
@@ -4830,6 +5076,17 @@ export class NotionWorkService {
   }
 
   async createStoryboard(input: CreateStoryboardDocumentInput): Promise<StoryboardDocumentRecord> {
+    if (storyboardDb(this.env)) {
+      const title = normalizeText(input.title)
+      if (!title) throw new Error('title_required')
+      const id = crypto.randomUUID()
+      const projectName = normalizeText(input.projectName)
+      await this.writeStoryboardDataToD1(id, { ...input, title, projectName }, id)
+      const created = await this.getStoryboardFromD1(id, { includeImages: false })
+      if (!created) throw new Error('storyboard_create_failed')
+      return created
+    }
+
     const schema = await this.getStoryboardSchema()
     if (!isKnownField(schema.fields.title)) throw new Error('storyboard_title_property_missing')
     const title = normalizeText(input.title)
@@ -4859,6 +5116,36 @@ export class NotionWorkService {
   }
 
   async updateStoryboard(id: string, patch: UpdateStoryboardDocumentInput): Promise<StoryboardDocumentRecord> {
+    if (storyboardDb(this.env)) {
+      const existingRecord = await this.getStoryboardFromD1(id, { includeImages: false })
+      if (!existingRecord) throw new Error('storyboard_not_found')
+      if (hasOwn(patch as Record<string, unknown>, 'data') && patch.data) {
+        await this.writeStoryboardDataToD1(id, {
+          title: normalizeText(patch.title) || existingRecord.title,
+          projectId: hasOwn(patch as Record<string, unknown>, 'projectId')
+            ? normalizeText(patch.projectId)
+            : existingRecord.projectId,
+          projectName: hasOwn(patch as Record<string, unknown>, 'projectName')
+            ? normalizeText(patch.projectName)
+            : existingRecord.projectName,
+          versionName: hasOwn(patch as Record<string, unknown>, 'versionName')
+            ? normalizeText(patch.versionName)
+            : existingRecord.versionName,
+          memo: hasOwn(patch as Record<string, unknown>, 'memo') ? normalizeText(patch.memo) : existingRecord.memo,
+          data: patch.data,
+          exportedFileNames: hasOwn(patch as Record<string, unknown>, 'exportedFileNames')
+            ? (patch.exportedFileNames ?? [])
+            : existingRecord.exportedFileNames,
+          updatedAt: normalizeText(patch.updatedAt) || new Date().toISOString().slice(0, 10),
+        })
+      } else {
+        await this.updateStoryboardD1Metadata(id, patch, existingRecord)
+      }
+      const updated = await this.getStoryboardFromD1(id, { includeImages: false })
+      if (!updated) throw new Error('storyboard_not_found')
+      return updated
+    }
+
     const schema = await this.getStoryboardSchema()
     const properties: AnyMap = {}
     const shouldUpdateD1 =
@@ -4917,6 +5204,17 @@ export class NotionWorkService {
   }
 
   async archiveStoryboard(id: string): Promise<void> {
+    if (storyboardDb(this.env)) {
+      await this.ensureStoryboardD1Tables()
+      const row = await this.getStoryboardD1DocumentRow(id)
+      const documentId = normalizeText(String(row?.id ?? ''))
+      if (!documentId) return
+      const db = storyboardDb(this.env)!
+      await db.prepare(`DELETE FROM storyboard_frames WHERE document_id = ?`).bind(documentId).run()
+      await db.prepare(`DELETE FROM storyboard_documents WHERE id = ?`).bind(documentId).run()
+      return
+    }
+
     await this.api.updatePage(id, { archived: true })
     const db = storyboardDb(this.env)
     if (db) {

@@ -89,21 +89,10 @@ async function main() {
     등록일: { date: {} },
   })
 
-  const storyboardDbId = await createDatabase('스토리보드 문서', {
-    제목: { title: {} },
-    '관련 업무': taskRelationProperty(),
-    프로젝트명: { rich_text: {} },
-    버전명: { rich_text: {} },
-    메모: { rich_text: {} },
-    '스토리보드 JSON': { rich_text: {} },
-    '내보내기 파일명 기록': { rich_text: {} },
-    수정일: { date: {} },
-  })
-
   console.log('\nAdd these to worker/wrangler.toml or Cloudflare Worker variables:')
   console.log(`NOTION_REFERENCE_DB_ID = "${referenceDbId.replace(/-/g, '')}"`)
-  console.log(`NOTION_STORYBOARD_DB_ID = "${storyboardDbId.replace(/-/g, '')}"`)
   console.log(`\nRelated task DB: ${TASK_DB_ID}`)
+  console.log('Storyboard documents use STORYBOARD_DB + STORYBOARD_ASSETS_BUCKET, not Notion.')
 }
 
 main().catch((error) => {

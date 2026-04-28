@@ -2650,7 +2650,7 @@ function App() {
       ) : null}
 
       {activeView === 'storyboardPptx' ? (
-        <StoryboardPptxView projects={projects} tasks={tasks} configured={Boolean(dbLinks.storyboard)} />
+        <StoryboardPptxView projects={projects} tasks={tasks} configured />
       ) : null}
 
       {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}

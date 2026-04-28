@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import PptxGenJS from 'pptxgenjs'
 import { api } from '../../shared/api/client'
 import type { ProjectRecord, StoryboardDocumentRecord, StoryboardListResponse, StoryboardResponse, TaskRecord } from '../../shared/types'
@@ -12,6 +12,8 @@ type StoryboardFrame = {
   thumbnailName: string
   thumbnailWidth?: number
   thumbnailHeight?: number
+  thumbnailImageKey?: string
+  thumbnailContentType?: string
   screenComposition: string
   copy: string
   sound: string
@@ -319,6 +321,30 @@ function createBlankFrame(index: number): StoryboardFrame {
   }
 }
 
+function stripStoredImagePayload(frame: StoryboardFrame): StoryboardFrame {
+  if (!frame.thumbnailImageKey) return frame
+  return {
+    ...frame,
+    thumbnailDataUrl: '',
+  }
+}
+
+function mergeServerFrameKeys(frames: StoryboardFrame[], serverFrames: Array<Record<string, unknown>>): StoryboardFrame[] {
+  if (serverFrames.length === 0) return frames
+  const serverById = new Map(serverFrames.map((frame) => [String(frame.id ?? ''), frame]))
+  return frames.map((frame) => {
+    const serverFrame = serverById.get(frame.id)
+    if (!serverFrame) return frame
+    return {
+      ...frame,
+      thumbnailImageKey:
+        typeof serverFrame.thumbnailImageKey === 'string' ? serverFrame.thumbnailImageKey : frame.thumbnailImageKey,
+      thumbnailContentType:
+        typeof serverFrame.thumbnailContentType === 'string' ? serverFrame.thumbnailContentType : frame.thumbnailContentType,
+    }
+  })
+}
+
 function readImageFile(file: File): Promise<ImagePayload> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -456,6 +482,244 @@ function addInlineTextBox(slide: PptxSlide, label: string, value: string, x: num
     fit: 'shrink',
     margin: 0,
     valign: 'middle',
+  })
+}
+
+function summarizeCopy(value: string): string {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  return lines[0] || '핵심 카피'
+}
+
+function summarizePurpose(value: string): string {
+  const normalized = value.trim().replace(/\s*\/\s*/g, ' / ')
+  return normalized || '목적 입력'
+}
+
+function compactTimecode(value: string): string {
+  const parts = parseTimeRange(value)
+  return `${parts.startMinute}:${String(parts.startSecond).padStart(2, '0')}-${parts.endMinute}:${String(parts.endSecond).padStart(2, '0')}`
+}
+
+function addSummaryFrameCard(slide: PptxSlide, frame: StoryboardFrame, index: number, total: number) {
+  const gap = 0.14
+  const startX = 0.46
+  const y = 1.68
+  const cardW = (12.42 - gap * (total - 1)) / total
+  const cardH = 3.9
+  const x = startX + index * (cardW + gap)
+  const imageBox = { x: x + 0.08, y: y + 0.53, w: cardW - 0.16, h: 1.35 }
+
+  slide.addShape('roundRect', {
+    x,
+    y,
+    w: cardW,
+    h: cardH,
+    rectRadius: 0.08,
+    fill: { color: index % 2 === 0 ? COLORS.white : 'F8FBFF' },
+    line: { color: 'C9D7EA', width: 1 },
+  })
+  slide.addShape('rect', {
+    x,
+    y,
+    w: cardW,
+    h: 0.38,
+    fill: { color: COLORS.ink },
+    line: { color: COLORS.ink, transparency: 100 },
+  })
+  slide.addText(`SCENE ${String(index + 1).padStart(2, '0')}`, {
+    x: x + 0.09,
+    y: y + 0.11,
+    w: cardW - 0.18,
+    h: 0.13,
+    color: COLORS.white,
+    fontFace: 'Malgun Gothic',
+    fontSize: 6,
+    bold: true,
+    margin: 0,
+    align: 'center',
+    fit: 'shrink',
+  })
+  slide.addText(compactTimecode(frame.timecode), {
+    x: x + 0.12,
+    y: y + 0.43,
+    w: cardW - 0.24,
+    h: 0.14,
+    color: COLORS.primary,
+    fontFace: 'Malgun Gothic',
+    fontSize: 6.5,
+    bold: true,
+    margin: 0,
+    align: 'center',
+    fit: 'shrink',
+  })
+
+  slide.addShape('rect', {
+    ...imageBox,
+    fill: { color: COLORS.panel },
+    line: { color: COLORS.line, width: 0.7 },
+  })
+  if (frame.thumbnailDataUrl) {
+    const fitted = fitRect(frame.thumbnailWidth ?? 0, frame.thumbnailHeight ?? 0, imageBox)
+    slide.addImage({
+      data: frame.thumbnailDataUrl,
+      x: fitted.x,
+      y: fitted.y,
+      w: fitted.w,
+      h: fitted.h,
+      altText: frame.thumbnailName || `summary thumbnail ${index + 1}`,
+    })
+  } else {
+    slide.addText('IMAGE', {
+      ...imageBox,
+      color: COLORS.muted,
+      fontFace: 'Malgun Gothic',
+      fontSize: 8,
+      bold: true,
+      align: 'center',
+      valign: 'middle',
+      margin: 0,
+    })
+  }
+
+  slide.addText(summarizeCopy(frame.copy), {
+    x: x + 0.11,
+    y: y + 2.04,
+    w: cardW - 0.22,
+    h: 0.48,
+    color: COLORS.ink,
+    fontFace: 'Malgun Gothic',
+    fontSize: 8.5,
+    bold: true,
+    align: 'center',
+    valign: 'middle',
+    margin: 0.01,
+    fit: 'shrink',
+  })
+  slide.addShape('line', { x: x + 0.22, y: y + 2.64, w: cardW - 0.44, h: 0, line: { color: COLORS.line, width: 1 } })
+  slide.addText(summarizePurpose(frame.purpose), {
+    x: x + 0.12,
+    y: y + 2.82,
+    w: cardW - 0.24,
+    h: 0.78,
+    color: COLORS.muted,
+    fontFace: 'Malgun Gothic',
+    fontSize: 7.2,
+    align: 'center',
+    valign: 'middle',
+    margin: 0.01,
+    fit: 'shrink',
+  })
+}
+
+function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], meta: StoryboardMeta) {
+  const slide = pptx.addSlide()
+  slide.background = { color: COLORS.white }
+  const visibleFrames = frames.slice(0, 7)
+
+  slide.addShape('rect', { x: 0, y: 0, w: 13.333, h: 0.72, fill: { color: COLORS.ink }, line: { color: COLORS.ink } })
+  slide.addText('전체 영상 구조', {
+    x: 0.46,
+    y: 0.2,
+    w: 3.0,
+    h: 0.24,
+    color: COLORS.white,
+    fontFace: 'Malgun Gothic',
+    fontSize: 12,
+    bold: true,
+    margin: 0,
+  })
+  slide.addText([meta.projectName, meta.versionName].filter(Boolean).join(' / '), {
+    x: 6.8,
+    y: 0.25,
+    w: 6.08,
+    h: 0.18,
+    color: 'DDE7F5',
+    fontFace: 'Malgun Gothic',
+    fontSize: 7.5,
+    align: 'right',
+    margin: 0,
+    fit: 'shrink',
+  })
+
+  slide.addText(meta.deckTitle || '스토리보드', {
+    x: 0.52,
+    y: 0.98,
+    w: 4.6,
+    h: 0.34,
+    color: COLORS.ink,
+    fontFace: 'Malgun Gothic',
+    fontSize: 17,
+    bold: true,
+    margin: 0,
+    fit: 'shrink',
+  })
+  slide.addText('각 신별 입력값과 썸네일을 자동 재조립한 1장 요약입니다.', {
+    x: 5.32,
+    y: 1.08,
+    w: 7.48,
+    h: 0.2,
+    color: COLORS.muted,
+    fontFace: 'Malgun Gothic',
+    fontSize: 9,
+    align: 'right',
+    margin: 0,
+    fit: 'shrink',
+  })
+
+  visibleFrames.forEach((frame, index) => addSummaryFrameCard(slide, frame, index, visibleFrames.length))
+
+  slide.addShape('line', { x: 1.18, y: 5.9, w: 10.95, h: 0, line: { color: 'BFD1F6', width: 1.2 } })
+  visibleFrames.slice(0, -1).forEach((_, index) => {
+    const cardW = (12.42 - 0.14 * (visibleFrames.length - 1)) / visibleFrames.length
+    const x = 0.46 + index * (cardW + 0.14) + cardW + 0.03
+    slide.addText('▶', {
+      x,
+      y: 5.75,
+      w: 0.18,
+      h: 0.18,
+      color: COLORS.primary,
+      fontFace: 'Malgun Gothic',
+      fontSize: 8,
+      bold: true,
+      margin: 0,
+      align: 'center',
+    })
+  })
+
+  slide.addShape('roundRect', {
+    x: 0.46,
+    y: 6.18,
+    w: 12.42,
+    h: 0.72,
+    rectRadius: 0.06,
+    fill: { color: COLORS.soft },
+    line: { color: 'BFD1F6', width: 1 },
+  })
+  slide.addText('전체 콘셉트', {
+    x: 0.7,
+    y: 6.39,
+    w: 1.18,
+    h: 0.16,
+    color: COLORS.primary,
+    fontFace: 'Malgun Gothic',
+    fontSize: 8,
+    bold: true,
+    margin: 0,
+    fit: 'shrink',
+  })
+  slide.addText('초반 후킹에서 브랜드 · 품질 · 제품 · 솔루션 · 글로벌 역량을 순차적으로 전달하고, 마지막 CTA로 행동을 유도하는 흐름입니다.', {
+    x: 2.02,
+    y: 6.35,
+    w: 10.55,
+    h: 0.2,
+    color: COLORS.ink,
+    fontFace: 'Malgun Gothic',
+    fontSize: 8.5,
+    margin: 0,
+    fit: 'shrink',
   })
 }
 
@@ -620,6 +884,9 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   const [notionSaving, setNotionSaving] = useState(false)
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
   const [draggingFrameId, setDraggingFrameId] = useState<string | null>(null)
+  const dirtyFrameIdsRef = useRef<Set<string>>(new Set())
+  const metaDirtyRef = useRef(false)
+  const structureDirtyRef = useRef(false)
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -701,14 +968,17 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   }, [activeStoryboardId, exportedFileNames, savedStoryboards])
 
   const updateMeta = (key: keyof StoryboardMeta, value: string) => {
+    metaDirtyRef.current = true
     setMeta((current) => ({ ...current, [key]: value }))
   }
 
   const updateProjectName = (value: string) => {
+    metaDirtyRef.current = true
     setMeta((current) => ({ ...current, projectName: value, relatedTaskId: '' }))
   }
 
   const updateRelatedTask = (taskId: string) => {
+    metaDirtyRef.current = true
     const task = tasks.find((item) => item.id === taskId)
     setMeta((current) => ({
       ...current,
@@ -718,6 +988,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   }
 
   const updateFrame = (id: string, patch: Partial<StoryboardFrame>) => {
+    dirtyFrameIdsRef.current.add(id)
     setFrames((current) => current.map((frame) => (frame.id === id ? { ...frame, ...patch } : frame)))
   }
 
@@ -738,6 +1009,9 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
     setActiveNotionId(null)
+    dirtyFrameIdsRef.current.clear()
+    metaDirtyRef.current = false
+    structureDirtyRef.current = false
     setMessage(null)
   }
 
@@ -766,6 +1040,9 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setFrames(normalized.frames)
     setSelectedFrameId(normalized.selectedFrameId || normalized.frames[0]?.id || '')
     setExportedFileNames(item.exportedFileNames)
+    dirtyFrameIdsRef.current.clear()
+    metaDirtyRef.current = false
+    structureDirtyRef.current = false
     setSavedStoryboards((current) => {
       const next = current.filter((saved) => saved.id !== normalized.id)
       return [normalized, ...next]
@@ -792,33 +1069,67 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
 
   const saveNotionStoryboard = async () => {
     if (!configured) {
-      setStorageError('NOTION_STORYBOARD_DB_ID가 연결되면 DB 저장을 사용할 수 있습니다.')
+      setStorageError('스토리보드 DB가 연결되면 DB 저장을 사용할 수 있습니다.')
       return
     }
     setNotionSaving(true)
     setStorageError(null)
     try {
-      const payload = {
+      const basePayload = {
         title: createStoryboardDbTitle(meta),
         projectId: selectedRelatedTask?.id || undefined,
         projectName: selectedRelatedTask?.projectName ?? meta.projectName,
         versionName: meta.versionName,
         memo: meta.memo,
-        data: { meta, frames },
         exportedFileNames,
         updatedAt: new Date().toISOString().slice(0, 10),
       }
-      const response = activeNotionId
-        ? await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(activeNotionId)}`, {
-            method: 'PATCH',
-            body: JSON.stringify(payload),
-          })
-        : await api<StoryboardResponse>('/storyboards', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
+      const fullPayload = {
+        ...basePayload,
+        data: { meta, frames: frames.map(stripStoredImagePayload) },
+      }
+
+      let response: StoryboardResponse
+      if (!activeNotionId || structureDirtyRef.current) {
+        response = activeNotionId
+          ? await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(activeNotionId)}`, {
+              method: 'PATCH',
+              body: JSON.stringify(fullPayload),
+            })
+          : await api<StoryboardResponse>('/storyboards', {
+              method: 'POST',
+              body: JSON.stringify(fullPayload),
+            })
+      } else {
+        response = await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(activeNotionId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(basePayload),
+        })
+        const dirtyFrameIds = Array.from(dirtyFrameIdsRef.current)
+        for (const frameId of dirtyFrameIds) {
+          const frame = frames.find((item) => item.id === frameId)
+          if (!frame) continue
+          response = await api<StoryboardResponse>(
+            `/storyboards/${encodeURIComponent(activeNotionId)}/frames/${encodeURIComponent(frameId)}`,
+            {
+              method: 'PATCH',
+              body: JSON.stringify(stripStoredImagePayload(frame)),
+            },
+          )
+        }
+      }
+
       setActiveNotionId(response.item.id)
-      await fetchNotionStoryboards()
+      if (response.item.data.frames.length > 0) {
+        setFrames((current) => mergeServerFrameKeys(current, response.item.data.frames))
+      }
+      setNotionStoryboards((current) => {
+        const next = current.filter((item) => item.id !== response.item.id)
+        return [response.item, ...next]
+      })
+      dirtyFrameIdsRef.current.clear()
+      metaDirtyRef.current = false
+      structureDirtyRef.current = false
       setMessage('DB에 저장했습니다.')
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'DB 저장에 실패했습니다.')
@@ -844,6 +1155,9 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId)
+    dirtyFrameIdsRef.current.clear()
+    metaDirtyRef.current = false
+    structureDirtyRef.current = false
     setMessage('새 스토리보드를 만들었습니다. 이후 입력 내용은 자동저장됩니다.')
   }
 
@@ -858,16 +1172,21 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
+    dirtyFrameIdsRef.current.clear()
+    metaDirtyRef.current = false
+    structureDirtyRef.current = false
     setMessage('선택한 저장본을 삭제했습니다.')
   }
 
   const addFrame = () => {
+    structureDirtyRef.current = true
     const nextFrame = createBlankFrame(frames.length)
     setFrames((current) => [...current, nextFrame])
     setSelectedFrameId(nextFrame.id)
   }
 
   const duplicateFrame = (frame: StoryboardFrame) => {
+    structureDirtyRef.current = true
     const nextFrame = { ...frame, id: crypto.randomUUID(), timecode: frame.timecode ? `${frame.timecode} copy` : '' }
     setFrames((current) => {
       const index = current.findIndex((item) => item.id === frame.id)
@@ -879,6 +1198,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   }
 
   const removeFrame = (frameId: string) => {
+    structureDirtyRef.current = true
     setFrames((current) => {
       if (current.length === 1) return current
       const next = current.filter((frame) => frame.id !== frameId)
@@ -895,6 +1215,8 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
       thumbnailName: '',
       thumbnailWidth: undefined,
       thumbnailHeight: undefined,
+      thumbnailImageKey: undefined,
+      thumbnailContentType: undefined,
       screenComposition: '',
       copy: '',
       sound: '',
@@ -912,6 +1234,8 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
         thumbnailName: image.name,
         thumbnailWidth: image.width,
         thumbnailHeight: image.height,
+        thumbnailImageKey: undefined,
+        thumbnailContentType: 'image/jpeg',
       })
       setMessage(null)
     } catch (error) {
@@ -962,11 +1286,12 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
         bodyFontFace: 'Malgun Gothic',
       }
 
+      addStoryboardSummarySlide(pptx, frames, meta)
       frames.forEach((frame, index) => addStoryboardSlide(pptx, frame, meta, index, frames.length))
 
       await pptx.writeFile({ fileName, compression: true })
       setExportedFileNames((current) => (current.includes(fileName) ? current : [...current, fileName]))
-      setMessage(`${frames.length}페이지 PPTX를 생성했습니다.`)
+      setMessage(`요약 1페이지와 ${frames.length}개 신별 페이지를 포함한 PPTX를 생성했습니다.`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'PPTX 생성에 실패했습니다.')
     } finally {
@@ -1029,7 +1354,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
               ? activeNotionId
                 ? '현재 문서가 DB 저장본과 연결되어 있습니다.'
                 : 'DB에 저장하면 다른 브라우저에서도 이어서 수정할 수 있습니다.'
-              : 'NOTION_STORYBOARD_DB_ID 연결 전까지는 브라우저 자동저장만 사용합니다.'}
+              : '스토리보드 DB 연결 전까지는 브라우저 자동저장만 사용합니다.'}
           </span>
         </div>
         <select value={activeNotionId ?? ''} onChange={(event) => void loadNotionStoryboard(event.target.value)} disabled={!configured || notionLoading}>

@@ -312,6 +312,8 @@ export type CreateStoryboardDocumentInput = {
 
 export type UpdateStoryboardDocumentInput = Partial<CreateStoryboardDocumentInput>
 
+export type UpdateStoryboardFrameInput = Record<string, unknown>
+
 export type ScheduleColumn = {
   id: string
   name: string

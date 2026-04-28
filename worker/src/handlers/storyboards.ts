@@ -1,4 +1,9 @@
-import type { CreateStoryboardDocumentInput, StoryboardDocumentRecord, UpdateStoryboardDocumentInput } from '../types'
+import type {
+  CreateStoryboardDocumentInput,
+  StoryboardDocumentRecord,
+  UpdateStoryboardDocumentInput,
+  UpdateStoryboardFrameInput,
+} from '../types'
 import { asString, containsText, hasOwn, parsePatchBody, parseStringArray } from '../utils'
 
 function parseStoryboardData(value: unknown): CreateStoryboardDocumentInput['data'] {
@@ -47,6 +52,12 @@ export function parseStoryboardUpdateBody(body: unknown): UpdateStoryboardDocume
   if (hasOwn(payload, 'updatedAt')) parsed.updatedAt = payload.updatedAt === null ? null : asString(payload.updatedAt)
 
   return parsed as UpdateStoryboardDocumentInput
+}
+
+export function parseStoryboardFrameUpdateBody(body: unknown): UpdateStoryboardFrameInput {
+  const payload = parsePatchBody(body)
+  if (Object.keys(payload).length === 0) throw new Error('empty_patch')
+  return payload
 }
 
 export function filterStoryboards(items: StoryboardDocumentRecord[], projectId?: string, q?: string): StoryboardDocumentRecord[] {

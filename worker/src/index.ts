@@ -104,6 +104,7 @@ import {
   parseReferenceCreateBody,
   parseReferenceUpdateBody,
   parseStoryboardCreateBody,
+  parseStoryboardFrameUpdateBody,
   parseStoryboardUpdateBody,
   parseShotSlotCreateBody,
   parseSubtitleRevisionCreateBody,
@@ -2064,6 +2065,7 @@ export default {
 
       // ---- Storyboard documents CRUD ----
 
+      const storyboardFrameMatch = path.match(/^\/storyboards\/([^/]+)\/frames\/([^/]+)$/)
       const storyboardMatch = path.match(/^\/storyboards\/([^/]+)$/)
 
       if (request.method === 'GET' && path === '/storyboards') {
@@ -2107,6 +2109,20 @@ export default {
         }
 
         const updated = await service.updateStoryboard(id, patch)
+        return ok({ ok: true, item: updated }, origin)
+      }
+
+      if (request.method === 'PATCH' && storyboardFrameMatch) {
+        const id = decodeURIComponent(storyboardFrameMatch[1])
+        const frameId = decodeURIComponent(storyboardFrameMatch[2])
+        let patch: Record<string, unknown>
+        try {
+          patch = parseStoryboardFrameUpdateBody(await readJsonBody(request))
+        } catch (error: any) {
+          return json({ ok: false, error: error?.message ?? 'invalid_patch' }, 400, origin)
+        }
+
+        const updated = await service.updateStoryboardFrame(id, frameId, patch)
         return ok({ ok: true, item: updated }, origin)
       }
 
@@ -2322,6 +2338,7 @@ export default {
               'GET /api/storyboards/:id',
               'POST /api/storyboards',
               'PATCH /api/storyboards/:id',
+              'PATCH /api/storyboards/:id/frames/:frameId',
               'DELETE /api/storyboards/:id',
               'GET /api/program-issues?status=...&issueType=...&priority=...&q=...',
               'GET /api/program-issues/:id',
