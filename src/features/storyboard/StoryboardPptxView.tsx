@@ -867,6 +867,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   const [notionSaving, setNotionSaving] = useState(false)
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
   const [draggingFrameId, setDraggingFrameId] = useState<string | null>(null)
+  const [draggingListFrameId, setDraggingListFrameId] = useState<string | null>(null)
   const dirtyFrameIdsRef = useRef<Set<string>>(new Set())
   const metaDirtyRef = useRef(false)
   const structureDirtyRef = useRef(false)
@@ -1192,6 +1193,46 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     })
   }
 
+  const swapFramePositions = (sourceFrameId: string, targetFrameId: string) => {
+    if (sourceFrameId === targetFrameId) return
+    structureDirtyRef.current = true
+    dirtyFrameIdsRef.current.add(sourceFrameId)
+    dirtyFrameIdsRef.current.add(targetFrameId)
+    setFrames((current) => {
+      const sourceIndex = current.findIndex((frame) => frame.id === sourceFrameId)
+      const targetIndex = current.findIndex((frame) => frame.id === targetFrameId)
+      if (sourceIndex < 0 || targetIndex < 0) return current
+      const sourceFrame = current[sourceIndex]
+      const targetFrame = current[targetIndex]
+      const next = [...current]
+      next[sourceIndex] = { ...targetFrame, timecode: sourceFrame.timecode }
+      next[targetIndex] = { ...sourceFrame, timecode: targetFrame.timecode }
+      return next
+    })
+    setSelectedFrameId(sourceFrameId)
+    setMessage('페이지 위치를 바꿨습니다. 시간 초수는 해당 위치 기준으로 서로 스위칭했습니다.')
+  }
+
+  const onFrameListDragStart = (frameId: string, event: DragEvent<HTMLButtonElement>) => {
+    setDraggingListFrameId(frameId)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', frameId)
+  }
+
+  const onFrameListDragOver = (frameId: string, event: DragEvent<HTMLButtonElement>) => {
+    if (!draggingListFrameId || draggingListFrameId === frameId) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  const onFrameListDrop = (frameId: string, event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    const sourceFrameId = event.dataTransfer.getData('text/plain') || draggingListFrameId
+    setDraggingListFrameId(null)
+    if (!sourceFrameId) return
+    swapFramePositions(sourceFrameId, frameId)
+  }
+
   const clearFrame = (frame: StoryboardFrame) => {
     updateFrame(frame.id, {
       thumbnailDataUrl: '',
@@ -1415,11 +1456,23 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
             <button
               key={frame.id}
               type="button"
-              className={frame.id === selectedFrame?.id ? 'storyboardPptxFrameButton is-active' : 'storyboardPptxFrameButton'}
+              className={[
+                'storyboardPptxFrameButton',
+                frame.id === selectedFrame?.id ? 'is-active' : '',
+                frame.id === draggingListFrameId ? 'is-dragging' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              draggable
+              title="드래그해서 다른 페이지 위에 놓으면 위치가 바뀌고 시간 초수는 서로 스위칭됩니다."
               onClick={() => setSelectedFrameId(frame.id)}
+              onDragStart={(event) => onFrameListDragStart(frame.id, event)}
+              onDragOver={(event) => onFrameListDragOver(frame.id, event)}
+              onDrop={(event) => onFrameListDrop(frame.id, event)}
+              onDragEnd={() => setDraggingListFrameId(null)}
             >
               <span>PAGE {index + 1}</span>
-              <strong>{frame.timecode || '시간 미입력'}</strong>
+              <strong>{formatSummaryTimecode(frame.timecode)}</strong>
             </button>
           ))}
         </aside>
