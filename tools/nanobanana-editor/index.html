@@ -19,6 +19,26 @@
           이미지 열기
         </label>
 
+        <details class="credentialBox" open>
+          <summary>Vertex 서비스 계정</summary>
+          <label class="fileButton secondaryFile">
+            <input id="credentialFileInput" type="file" accept=".json,application/json" />
+            JSON 파일 선택
+          </label>
+          <label>
+            서비스 계정 JSON
+            <textarea id="credentialInput" rows="5" spellcheck="false" placeholder='{"type":"service_account", ...}'></textarea>
+          </label>
+          <label>
+            프로젝트 ID
+            <input id="projectInput" type="text" placeholder="JSON의 project_id를 쓰려면 비워둬도 됩니다." />
+          </label>
+          <label>
+            Location
+            <input id="locationInput" type="text" value="us-central1" />
+          </label>
+        </details>
+
         <label>
           모델
           <select id="modelInput">

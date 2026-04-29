@@ -1,0 +1,32 @@
+{
+  "name": "izen-nanobanana-editor",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.izen.nanobanana-editor",
+    "productName": "IZEN Nano Banana Editor",
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "IZEN-NanoBanana-Editor.exe"
+    },
+    "files": [
+      "app.js",
+      "index.html",
+      "main.cjs",
+      "preload.cjs",
+      "styles.css"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0"
+  }
+}

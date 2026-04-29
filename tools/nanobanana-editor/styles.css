@@ -92,7 +92,8 @@ label {
 }
 
 select,
-textarea {
+textarea,
+input[type="text"] {
   width: 100%;
   border: 1px solid #cdd4dd;
   border-radius: 8px;
@@ -101,6 +102,11 @@ textarea {
 }
 
 select {
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+input[type="text"] {
   min-height: 40px;
   padding: 0 10px;
 }
@@ -119,6 +125,31 @@ textarea {
   border: 1px solid #cdd4dd;
   border-radius: 8px;
   background: #f4f6f8;
+}
+
+.credentialBox {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d8dee7;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.credentialBox[open] {
+  display: grid;
+}
+
+.credentialBox summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.secondaryFile {
+  border-color: #cdd4dd;
+  background: #ffffff;
+  color: #1d252d;
 }
 
 .segmented button {

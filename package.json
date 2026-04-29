@@ -28,7 +28,8 @@
     "watch:event-graphics-masterfiles": "node scripts/watch-event-graphics-masterfile-assets.mjs",
     "import:event-graphics-draft": "node scripts/import-event-graphics-timetable-draft.mjs",
     "import:event-graphics-direct": "node scripts/import-event-graphics-timetable-direct.mjs",
-    "nanobanana:local": "node tools/nanobanana-editor/server.mjs"
+    "nanobanana:local": "node tools/nanobanana-editor/server.mjs",
+    "nanobanana:app": "node tools/nanobanana-editor/launch-electron.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.19",

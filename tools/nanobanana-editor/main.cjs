@@ -1,58 +1,13 @@
-import { createReadStream, existsSync, readFileSync } from 'node:fs'
-import { createServer } from 'node:http'
-import { dirname, extname, join, normalize } from 'node:path'
-import { createSign } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
+const { app, BrowserWindow, ipcMain } = require('electron')
+const { createSign } = require('node:crypto')
+const { existsSync, readFileSync } = require('node:fs')
+const path = require('node:path')
 
-const PORT = Number(process.env.PORT || 8789)
-const ROOT = dirname(fileURLToPath(import.meta.url))
 const DEFAULT_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview'
 const DEFAULT_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
-const MAX_BODY_BYTES = 25 * 1024 * 1024
 
-const MIME_TYPES = new Map([
-  ['.html', 'text/html; charset=utf-8'],
-  ['.js', 'text/javascript; charset=utf-8'],
-  ['.css', 'text/css; charset=utf-8'],
-  ['.svg', 'image/svg+xml'],
-  ['.png', 'image/png'],
-  ['.jpg', 'image/jpeg'],
-  ['.jpeg', 'image/jpeg'],
-])
-
+let win
 let cachedToken = null
-
-function json(response, status, body) {
-  response.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-  })
-  response.end(JSON.stringify(body))
-}
-
-function readRequestJson(request) {
-  return new Promise((resolve, reject) => {
-    let size = 0
-    const chunks = []
-    request.on('data', (chunk) => {
-      size += chunk.byteLength
-      if (size > MAX_BODY_BYTES) {
-        reject(new Error('request_too_large'))
-        request.destroy()
-        return
-      }
-      chunks.push(chunk)
-    })
-    request.on('end', () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')))
-      } catch {
-        reject(new Error('invalid_json'))
-      }
-    })
-    request.on('error', reject)
-  })
-}
 
 function base64url(value) {
   return Buffer.from(value).toString('base64url')
@@ -89,13 +44,12 @@ async function getAccessToken(serviceAccount) {
     return cachedToken.value
   }
 
-  const jwt = signJwt(serviceAccount)
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
+      assertion: signJwt(serviceAccount),
     }),
   })
   const payload = await response.json()
@@ -152,7 +106,7 @@ function extractImage(payload) {
 async function renderEdit(input) {
   const serviceAccount = loadServiceAccount(input.serviceAccountJson)
   const projectId = String(input.projectId || process.env.GOOGLE_CLOUD_PROJECT_ID || serviceAccount.project_id || '').trim()
-  if (!projectId) throw new Error('GOOGLE_CLOUD_PROJECT_ID가 필요합니다.')
+  if (!projectId) throw new Error('프로젝트 ID를 입력해 주세요.')
 
   const model = String(input.model || DEFAULT_MODEL).trim()
   const location = String(input.location || DEFAULT_LOCATION).trim()
@@ -161,93 +115,65 @@ async function renderEdit(input) {
   const accessToken = await getAccessToken(serviceAccount)
   const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${encodeURIComponent(model)}:generateContent`
 
-  const requestBody = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: 'Source image:' },
-          { inline_data: { mime_type: source.mimeType, data: source.data } },
-          { text: 'Selection mask. Edit only selected pixels:' },
-          { inline_data: { mime_type: mask.mimeType, data: mask.data } },
-          { text: buildEditPrompt(input.prompt) },
-        ],
-      },
-    ],
-    generationConfig: {
-      responseModalities: ['TEXT', 'IMAGE'],
-      imageConfig: {
-        aspectRatio: input.aspectRatio || '1:1',
-        imageOutputOptions: { mimeType: 'image/png' },
-      },
-    },
-  }
-
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: 'Source image:' },
+            { inline_data: { mime_type: source.mimeType, data: source.data } },
+            { text: 'Selection mask. Edit only selected pixels:' },
+            { inline_data: { mime_type: mask.mimeType, data: mask.data } },
+            { text: buildEditPrompt(input.prompt) },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: {
+          aspectRatio: input.aspectRatio || '1:1',
+          imageOutputOptions: { mimeType: 'image/png' },
+        },
+      },
+    }),
   })
   const payload = await response.json()
-  if (!response.ok) {
-    throw new Error(payload.error?.message || `vertex_${response.status}`)
-  }
+  if (!response.ok) throw new Error(payload.error?.message || `vertex_${response.status}`)
   return { ok: true, model, location, ...extractImage(payload) }
 }
 
-function serveStatic(request, response) {
-  const url = new URL(request.url, `http://${request.headers.host}`)
-  const pathname = url.pathname === '/' ? '/index.html' : url.pathname
-  const safePath = normalize(pathname).replace(/^(\.\.[/\\])+/, '')
-  const filePath = join(ROOT, safePath)
-  if (!filePath.startsWith(ROOT) || !existsSync(filePath)) {
-    response.writeHead(404)
-    response.end('Not found')
-    return
-  }
-  response.writeHead(200, {
-    'Content-Type': MIME_TYPES.get(extname(filePath)) || 'application/octet-stream',
-    'Cache-Control': 'no-store',
+function createWindow() {
+  win = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 980,
+    minHeight: 680,
+    title: 'Nano Banana Local Editor',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
   })
-  createReadStream(filePath).pipe(response)
+
+  win.loadFile(path.join(__dirname, 'index.html'))
 }
 
-const server = createServer(async (request, response) => {
-  try {
-    if (request.method === 'GET' && request.url === '/api/config') {
-      json(response, 200, {
-        ok: true,
-        defaultModel: DEFAULT_MODEL,
-        defaultLocation: DEFAULT_LOCATION,
-        hasCredentials: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS),
-        projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
-      })
-      return
-    }
+app.whenReady().then(createWindow)
+app.on('window-all-closed', () => app.quit())
 
-    if (request.method === 'POST' && request.url === '/api/edit') {
-      const body = await readRequestJson(request)
-      json(response, 200, await renderEdit(body))
-      return
-    }
+ipcMain.handle('nanobanana:config', () => ({
+  ok: true,
+  defaultModel: DEFAULT_MODEL,
+  defaultLocation: DEFAULT_LOCATION,
+  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
+}))
 
-    if (request.method === 'GET') {
-      serveStatic(request, response)
-      return
-    }
-
-    json(response, 405, { ok: false, error: 'method_not_allowed' })
-  } catch (error) {
-    json(response, 500, {
-      ok: false,
-      error: error instanceof Error ? error.message : 'unknown_error',
-    })
-  }
-})
-
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Nano Banana local editor: http://127.0.0.1:${PORT}`)
-})
+ipcMain.handle('nanobanana:edit', async (_event, input) => renderEdit(input || {}))

@@ -2,6 +2,10 @@ const MAX_IMAGE_EDGE = 1600
 const MASK_COLOR = 'rgba(45, 111, 214, 0.52)'
 
 const fileInput = document.querySelector('#fileInput')
+const credentialFileInput = document.querySelector('#credentialFileInput')
+const credentialInput = document.querySelector('#credentialInput')
+const projectInput = document.querySelector('#projectInput')
+const locationInput = document.querySelector('#locationInput')
 const modelInput = document.querySelector('#modelInput')
 const brushInput = document.querySelector('#brushInput')
 const brushValue = document.querySelector('#brushValue')
@@ -55,6 +59,15 @@ function fileToDataUrl(file) {
     reader.onload = () => resolve(String(reader.result))
     reader.onerror = () => reject(new Error('파일을 읽지 못했습니다.'))
     reader.readAsDataURL(file)
+  })
+}
+
+function fileToText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('파일을 읽지 못했습니다.'))
+    reader.readAsText(file)
   })
 }
 
@@ -227,19 +240,27 @@ async function runEdit() {
   setStatus('Vertex AI로 선택 영역을 변형하는 중입니다.')
   try {
     const maskDataUrl = buildMaskDataUrl()
-    const response = await fetch('/api/edit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: promptInput.value,
-        model: modelInput.value,
-        aspectRatio: closestAspectRatio(sourceImage.width, sourceImage.height),
-        sourceImage,
-        maskImage: { name: 'selection-mask.png', mimeType: 'image/png', dataUrl: maskDataUrl },
-      }),
-    })
-    const payload = await response.json()
-    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`)
+    const request = {
+      prompt: promptInput.value,
+      model: modelInput.value,
+      serviceAccountJson: credentialInput.value.trim(),
+      projectId: projectInput.value.trim(),
+      location: locationInput.value.trim(),
+      aspectRatio: closestAspectRatio(sourceImage.width, sourceImage.height),
+      sourceImage,
+      maskImage: { name: 'selection-mask.png', mimeType: 'image/png', dataUrl: maskDataUrl },
+    }
+    const payload = window.nanobanana
+      ? await window.nanobanana.edit(request)
+      : await fetch('/api/edit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+        }).then(async (response) => {
+          const body = await response.json()
+          if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`)
+          return body
+        })
 
     const finalDataUrl = await compositeResult(payload.imageDataUrl, maskDataUrl)
     resultImage.src = finalDataUrl
@@ -263,6 +284,21 @@ fileInput.addEventListener('change', async (event) => {
     await openFile(file)
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '이미지를 열지 못했습니다.', true)
+  } finally {
+    event.target.value = ''
+  }
+})
+
+credentialFileInput.addEventListener('change', async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  try {
+    const text = await fileToText(file)
+    JSON.parse(text)
+    credentialInput.value = text
+    setStatus('서비스 계정 JSON을 불러왔습니다.')
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : 'JSON 파일을 읽지 못했습니다.', true)
   } finally {
     event.target.value = ''
   }
@@ -319,12 +355,12 @@ clearButton.addEventListener('click', () => {
 
 runButton.addEventListener('click', runEdit)
 
-fetch('/api/config')
-  .then((response) => response.json())
+const configPromise = window.nanobanana ? window.nanobanana.config() : fetch('/api/config').then((response) => response.json())
+
+configPromise
   .then((config) => {
     if (config.defaultModel) modelInput.value = config.defaultModel
-    if (!config.hasCredentials) {
-      setStatus('서버에 Google 서비스 계정 환경변수가 없습니다. README 설정 후 다시 실행하세요.', true)
-    }
+    if (config.defaultLocation) locationInput.value = config.defaultLocation
+    if (config.projectId) projectInput.value = config.projectId
   })
   .catch(() => {})
