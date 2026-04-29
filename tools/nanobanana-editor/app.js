@@ -13,24 +13,29 @@ const featherInput = document.querySelector('#featherInput')
 const featherValue = document.querySelector('#featherValue')
 const promptInput = document.querySelector('#promptInput')
 const runButton = document.querySelector('#runButton')
+const runAllButton = document.querySelector('#runAllButton')
 const clearButton = document.querySelector('#clearButton')
 const statusText = document.querySelector('#statusText')
 const canvasStage = document.querySelector('#canvasStage')
 const sourceImageElement = document.querySelector('#sourceImage')
 const maskCanvas = document.querySelector('#maskCanvas')
-const resultImage = document.querySelector('#resultImage')
 const resultMeta = document.querySelector('#resultMeta')
-const downloadLink = document.querySelector('#downloadLink')
+const itemGrid = document.querySelector('#itemGrid')
 const toolButtons = {
   brush: document.querySelector('#brushTool'),
   erase: document.querySelector('#eraseTool'),
   rect: document.querySelector('#rectTool'),
 }
 
-let sourceImage = null
+let items = []
+let selectedId = null
 let tool = 'brush'
 let lastPoint = null
 let rectStart = null
+
+function selectedItem() {
+  return items.find((item) => item.id === selectedId) || null
+}
 
 function setStatus(message, isError = false) {
   statusText.textContent = message
@@ -96,9 +101,53 @@ async function normalizeImage(file) {
   return { name: file.name, dataUrl: canvas.toDataURL('image/png'), mimeType: 'image/png', width, height }
 }
 
+function createEmptyMask(width, height) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  return canvas.toDataURL('image/png')
+}
+
+function saveSelectedMask() {
+  const item = selectedItem()
+  if (!item || !maskCanvas.width || !maskCanvas.height) return
+  item.maskDataUrl = maskCanvas.toDataURL('image/png')
+  item.hasMask = canvasHasMask(maskCanvas)
+}
+
+async function drawMaskDataUrl(maskDataUrl) {
+  const context = maskCanvas.getContext('2d')
+  context.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
+  if (!maskDataUrl) return
+  const image = await loadImage(maskDataUrl)
+  context.drawImage(image, 0, 0, maskCanvas.width, maskCanvas.height)
+}
+
+async function selectItem(id) {
+  saveSelectedMask()
+  const item = items.find((next) => next.id === id)
+  if (!item) return
+
+  selectedId = id
+  sourceImageElement.src = item.dataUrl
+  canvasStage.classList.remove('empty')
+  canvasStage.style.aspectRatio = `${item.width} / ${item.height}`
+  maskCanvas.width = item.width
+  maskCanvas.height = item.height
+  await drawMaskDataUrl(item.maskDataUrl)
+  setStatus(`${item.name} 선택됨. 변형할 영역을 칠하세요.`)
+  renderItems()
+}
+
 function resetMask() {
   const context = maskCanvas.getContext('2d')
   context.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
+  const item = selectedItem()
+  if (item) {
+    item.maskDataUrl = createEmptyMask(item.width, item.height)
+    item.hasMask = false
+  }
+  renderItems()
 }
 
 function getCanvasPoint(event) {
@@ -135,21 +184,32 @@ function drawRect(from, to) {
   context.fillRect(x, y, width, height)
 }
 
-function hasMask() {
-  const data = maskCanvas.getContext('2d').getImageData(0, 0, maskCanvas.width, maskCanvas.height).data
+function canvasHasMask(canvas) {
+  const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
   for (let index = 3; index < data.length; index += 4) {
     if (data[index] > 0) return true
   }
   return false
 }
 
-function buildMaskDataUrl() {
+async function maskDataUrlHasMask(maskDataUrl, width, height) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  const image = await loadImage(maskDataUrl)
+  context.drawImage(image, 0, 0, width, height)
+  return canvasHasMask(canvas)
+}
+
+async function buildMaskDataUrl(item) {
   const output = document.createElement('canvas')
-  output.width = maskCanvas.width
-  output.height = maskCanvas.height
-  const sourceContext = maskCanvas.getContext('2d')
+  output.width = item.width
+  output.height = item.height
   const outputContext = output.getContext('2d')
-  const imageData = sourceContext.getImageData(0, 0, maskCanvas.width, maskCanvas.height)
+  const image = await loadImage(item.maskDataUrl)
+  outputContext.drawImage(image, 0, 0, item.width, item.height)
+  const imageData = outputContext.getImageData(0, 0, item.width, item.height)
   const pixels = imageData.data
   for (let index = 0; index < pixels.length; index += 4) {
     pixels[index] = 255
@@ -174,15 +234,15 @@ function closestAspectRatio(width, height) {
   return candidates.reduce((best, next) => (Math.abs(next[1] - ratio) < Math.abs(best[1] - ratio) ? next : best))[0]
 }
 
-async function compositeResult(generatedDataUrl, maskDataUrl) {
+async function compositeResult(item, generatedDataUrl, maskDataUrl) {
   const [original, generated, mask] = await Promise.all([
-    loadImage(sourceImage.dataUrl),
+    loadImage(item.dataUrl),
     loadImage(generatedDataUrl),
     loadImage(maskDataUrl),
   ])
   const canvas = document.createElement('canvas')
-  canvas.width = sourceImage.width
-  canvas.height = sourceImage.height
+  canvas.width = item.width
+  canvas.height = item.height
   const context = canvas.getContext('2d')
   context.drawImage(original, 0, 0, canvas.width, canvas.height)
 
@@ -208,22 +268,155 @@ async function compositeResult(generatedDataUrl, maskDataUrl) {
   return canvas.toDataURL('image/png')
 }
 
-async function openFile(file) {
-  sourceImage = await normalizeImage(file)
-  sourceImageElement.src = sourceImage.dataUrl
-  canvasStage.classList.remove('empty')
-  canvasStage.style.aspectRatio = `${sourceImage.width} / ${sourceImage.height}`
-  maskCanvas.width = sourceImage.width
-  maskCanvas.height = sourceImage.height
-  resetMask()
-  resultImage.classList.remove('hasResult')
-  downloadLink.classList.add('disabled')
-  resultMeta.textContent = `${sourceImage.name} / ${sourceImage.width}x${sourceImage.height}`
-  setStatus('변형할 부분을 칠하거나 박스로 선택하세요.')
+function updateQueueSummary() {
+  const pending = items.filter((item) => item.status === 'pending').length
+  const running = items.filter((item) => item.status === 'running').length
+  const done = items.filter((item) => item.status === 'done').length
+  resultMeta.textContent = items.length ? `${items.length}개 / 대기 ${pending} / 진행 ${running} / 완료 ${done}` : '아직 이미지 없음'
+}
+
+function statusLabel(item) {
+  if (item.status === 'pending') return '대기중'
+  if (item.status === 'running') return '변형중'
+  if (item.status === 'done') return '완료'
+  if (item.status === 'error') return '실패'
+  return item.hasMask ? '준비됨' : '영역 필요'
+}
+
+function renderItems() {
+  updateQueueSummary()
+  itemGrid.innerHTML = ''
+  for (const item of items) {
+    const card = document.createElement('article')
+    card.className = `itemCard ${item.id === selectedId ? 'selected' : ''} status-${item.status}`
+
+    const preview = document.createElement('button')
+    preview.type = 'button'
+    preview.className = 'itemPreview'
+    preview.addEventListener('click', () => void selectItem(item.id))
+    const previewImage = document.createElement('img')
+    previewImage.src = item.resultDataUrl || item.dataUrl
+    previewImage.alt = item.name
+    preview.append(previewImage)
+
+    const body = document.createElement('div')
+    body.className = 'itemBody'
+    const title = document.createElement('strong')
+    title.textContent = item.name
+    const meta = document.createElement('span')
+    meta.textContent = `${statusLabel(item)} / ${item.width}x${item.height}`
+    body.append(title, meta)
+    if (item.error) {
+      const error = document.createElement('span')
+      error.className = 'itemError'
+      error.textContent = item.error
+      body.append(error)
+    }
+
+    const actions = document.createElement('div')
+    actions.className = 'itemActions'
+    const editButton = document.createElement('button')
+    editButton.type = 'button'
+    editButton.className = 'secondary mini'
+    editButton.textContent = '선택'
+    editButton.addEventListener('click', () => void selectItem(item.id))
+    actions.append(editButton)
+    if (item.resultDataUrl) {
+      const download = document.createElement('a')
+      download.className = 'download mini'
+      download.href = item.resultDataUrl
+      download.download = `${item.name.replace(/\.[^.]+$/, '') || 'nanobanana'}-selected-edit.png`
+      download.textContent = '저장'
+      actions.append(download)
+    }
+
+    if (item.status === 'running' || item.status === 'pending') {
+      const badge = document.createElement('div')
+      badge.className = 'waitingOverlay'
+      badge.textContent = item.status === 'running' ? '변형중' : '대기중'
+      preview.append(badge)
+    }
+
+    card.append(preview, body, actions)
+    itemGrid.append(card)
+  }
+}
+
+async function openFiles(files) {
+  const loaded = []
+  for (const file of files) {
+    const image = await normalizeImage(file)
+    loaded.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      ...image,
+      maskDataUrl: createEmptyMask(image.width, image.height),
+      hasMask: false,
+      status: 'idle',
+      resultDataUrl: null,
+      error: null,
+    })
+  }
+  items = [...items, ...loaded]
+  renderItems()
+  if (!selectedId && loaded[0]) {
+    await selectItem(loaded[0].id)
+  } else {
+    setStatus(`${loaded.length}개 이미지를 추가했습니다.`)
+  }
+}
+
+async function requestEdit(item) {
+  const maskDataUrl = await buildMaskDataUrl(item)
+  const request = {
+    prompt: promptInput.value,
+    model: modelInput.value,
+    serviceAccountJson: credentialInput.value.trim(),
+    projectId: projectInput.value.trim(),
+    location: locationInput.value.trim(),
+    aspectRatio: closestAspectRatio(item.width, item.height),
+    sourceImage: {
+      name: item.name,
+      dataUrl: item.dataUrl,
+      mimeType: item.mimeType,
+      width: item.width,
+      height: item.height,
+    },
+    maskImage: { name: 'selection-mask.png', mimeType: 'image/png', dataUrl: maskDataUrl },
+  }
+  const payload = window.nanobanana
+    ? await window.nanobanana.edit(request)
+    : await fetch('/api/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      }).then(async (response) => {
+        const body = await response.json()
+        if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`)
+        return body
+      })
+
+  return compositeResult(item, payload.imageDataUrl, maskDataUrl)
+}
+
+async function runItem(item) {
+  item.status = 'running'
+  item.error = null
+  renderItems()
+  try {
+    item.resultDataUrl = await requestEdit(item)
+    item.status = 'done'
+  } catch (error) {
+    item.status = 'error'
+    item.error = error instanceof Error ? error.message : '변형 실패'
+  } finally {
+    renderItems()
+  }
 }
 
 async function runEdit() {
-  if (!sourceImage) {
+  saveSelectedMask()
+  const item = selectedItem()
+  if (!item) {
     setStatus('먼저 이미지를 열어 주세요.', true)
     return
   }
@@ -231,57 +424,58 @@ async function runEdit() {
     setStatus('변형 프롬프트를 입력해 주세요.', true)
     return
   }
-  if (!hasMask()) {
-    setStatus('변형할 부분을 먼저 선택해 주세요.', true)
+  item.hasMask = await maskDataUrlHasMask(item.maskDataUrl, item.width, item.height)
+  if (!item.hasMask) {
+    setStatus('선택한 이미지의 변형할 부분을 먼저 선택해 주세요.', true)
+    renderItems()
     return
   }
 
-  runButton.disabled = true
-  setStatus('Vertex AI로 선택 영역을 변형하는 중입니다.')
-  try {
-    const maskDataUrl = buildMaskDataUrl()
-    const request = {
-      prompt: promptInput.value,
-      model: modelInput.value,
-      serviceAccountJson: credentialInput.value.trim(),
-      projectId: projectInput.value.trim(),
-      location: locationInput.value.trim(),
-      aspectRatio: closestAspectRatio(sourceImage.width, sourceImage.height),
-      sourceImage,
-      maskImage: { name: 'selection-mask.png', mimeType: 'image/png', dataUrl: maskDataUrl },
-    }
-    const payload = window.nanobanana
-      ? await window.nanobanana.edit(request)
-      : await fetch('/api/edit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(request),
-        }).then(async (response) => {
-          const body = await response.json()
-          if (!response.ok || !body.ok) throw new Error(body.error || `HTTP ${response.status}`)
-          return body
-        })
+  setStatus(`${item.name} 변형 요청을 보냈습니다.`)
+  item.status = 'pending'
+  renderItems()
+  await runItem(item)
+  setStatus(item.status === 'done' ? `${item.name} 완료.` : `${item.name} 실패.`, item.status === 'error')
+}
 
-    const finalDataUrl = await compositeResult(payload.imageDataUrl, maskDataUrl)
-    resultImage.src = finalDataUrl
-    resultImage.classList.add('hasResult')
-    downloadLink.href = finalDataUrl
-    downloadLink.download = `${sourceImage.name.replace(/\.[^.]+$/, '') || 'nanobanana'}-selected-edit.png`
-    downloadLink.classList.remove('disabled')
-    resultMeta.textContent = `${payload.model} / ${sourceImage.width}x${sourceImage.height}`
-    setStatus('완료했습니다. 선택 밖 영역은 원본으로 다시 합성했습니다.')
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '변형에 실패했습니다.', true)
-  } finally {
-    runButton.disabled = false
+async function runAllEdits() {
+  saveSelectedMask()
+  if (!items.length) {
+    setStatus('먼저 이미지를 열어 주세요.', true)
+    return
   }
+  if (!promptInput.value.trim()) {
+    setStatus('변형 프롬프트를 입력해 주세요.', true)
+    return
+  }
+
+  const readyItems = []
+  for (const item of items) {
+    item.hasMask = await maskDataUrlHasMask(item.maskDataUrl, item.width, item.height)
+    if (item.hasMask && item.status !== 'running') readyItems.push(item)
+  }
+  if (!readyItems.length) {
+    setStatus('변형할 영역이 선택된 이미지가 없습니다.', true)
+    renderItems()
+    return
+  }
+
+  for (const item of readyItems) {
+    item.status = 'pending'
+    item.error = null
+  }
+  renderItems()
+  setStatus(`${readyItems.length}개 이미지 변형 요청을 동시에 보냈습니다.`)
+  await Promise.all(readyItems.map((item) => runItem(item)))
+  const failed = readyItems.filter((item) => item.status === 'error').length
+  setStatus(failed ? `${readyItems.length - failed}개 완료, ${failed}개 실패.` : `${readyItems.length}개 모두 완료.`, failed > 0)
 }
 
 fileInput.addEventListener('change', async (event) => {
-  const file = event.target.files?.[0]
-  if (!file) return
+  const files = Array.from(event.target.files || [])
+  if (!files.length) return
   try {
-    await openFile(file)
+    await openFiles(files)
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '이미지를 열지 못했습니다.', true)
   } finally {
@@ -305,7 +499,7 @@ credentialFileInput.addEventListener('change', async (event) => {
 })
 
 maskCanvas.addEventListener('pointerdown', (event) => {
-  if (!sourceImage) return
+  if (!selectedItem()) return
   maskCanvas.setPointerCapture(event.pointerId)
   const point = getCanvasPoint(event)
   if (tool === 'rect') {
@@ -317,7 +511,7 @@ maskCanvas.addEventListener('pointerdown', (event) => {
 })
 
 maskCanvas.addEventListener('pointermove', (event) => {
-  if (!sourceImage || tool === 'rect' || !lastPoint || event.buttons !== 1) return
+  if (!selectedItem() || tool === 'rect' || !lastPoint || event.buttons !== 1) return
   const point = getCanvasPoint(event)
   drawStroke(lastPoint, point)
   lastPoint = point
@@ -329,11 +523,15 @@ maskCanvas.addEventListener('pointerup', (event) => {
   rectStart = null
   lastPoint = null
   if (maskCanvas.hasPointerCapture(event.pointerId)) maskCanvas.releasePointerCapture(event.pointerId)
+  saveSelectedMask()
+  renderItems()
 })
 
 maskCanvas.addEventListener('pointercancel', () => {
   rectStart = null
   lastPoint = null
+  saveSelectedMask()
+  renderItems()
 })
 
 for (const [key, button] of Object.entries(toolButtons)) {
@@ -354,6 +552,7 @@ clearButton.addEventListener('click', () => {
 })
 
 runButton.addEventListener('click', runEdit)
+runAllButton.addEventListener('click', runAllEdits)
 
 const configPromise = window.nanobanana ? window.nanobanana.config() : fetch('/api/config').then((response) => response.json())
 
