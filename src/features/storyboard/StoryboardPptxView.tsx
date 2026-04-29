@@ -430,9 +430,18 @@ function fitRect(sourceWidth: number, sourceHeight: number, box: { x: number; y:
   return { x: box.x + (box.w - w) / 2, y: box.y, w, h: box.h }
 }
 
-function addTextBox(slide: PptxSlide, label: string, value: string, x: number, y: number, w: number, h: number) {
+function addTextBox(
+  slide: PptxSlide,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  options?: { valueBold?: boolean },
+) {
   if (h <= 0.72) {
-    addInlineTextBox(slide, label, value, x, y, w, 0.42, 0.42)
+    addInlineTextBox(slide, label, value, x, y, w, 0.42, 0.42, options)
     return
   }
 
@@ -463,6 +472,7 @@ function addTextBox(slide: PptxSlide, label: string, value: string, x: number, y
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
     fontSize: SLIDE_BODY_FONT_SIZE,
+    bold: options?.valueBold,
     breakLine: false,
     fit: 'shrink',
     margin: 0.02,
@@ -470,7 +480,17 @@ function addTextBox(slide: PptxSlide, label: string, value: string, x: number, y
   })
 }
 
-function addInlineTextBox(slide: PptxSlide, label: string, value: string, x: number, y: number, w: number, h: number, labelWidth: number) {
+function addInlineTextBox(
+  slide: PptxSlide,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  labelWidth: number,
+  options?: { valueBold?: boolean },
+) {
   const paddingX = 0.15
   const gap = 0.12
   const bodyX = x + paddingX + labelWidth + gap
@@ -504,6 +524,7 @@ function addInlineTextBox(slide: PptxSlide, label: string, value: string, x: num
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
     fontSize: SLIDE_BODY_FONT_SIZE,
+    bold: options?.valueBold,
     breakLine: false,
     fit: 'shrink',
     margin: 0,
@@ -527,8 +548,18 @@ function addSummaryTextCell(
   y: number,
   w: number,
   h: number,
-  options?: { bold?: boolean; color?: string; fontSize?: number; align?: 'left' | 'center' | 'right' },
+  options?: { bold?: boolean; color?: string; fontSize?: number; align?: 'left' | 'center' | 'right'; highlight?: boolean },
 ) {
+  if (options?.highlight) {
+    slide.addShape('rect', {
+      x: x + 0.03,
+      y: y + 0.03,
+      w: w - 0.06,
+      h: h - 0.06,
+      fill: { color: COLORS.soft },
+      line: { color: 'BFD1F6', width: 0.55 },
+    })
+  }
   slide.addText(summaryText(value), {
     x: x + 0.06,
     y: y + 0.06,
@@ -691,7 +722,7 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
 
     const [timeCol, thumbCol, screenCol, copyCol, soundCol, purposeCol] = columns
     let contentX = tableX
-    addSummaryTextCell(slide, formatSummaryTimecode(frame.timecode), contentX, y, timeCol.w, rowH, { bold: true, color: COLORS.primary, fontSize: 5.8, align: 'center' })
+    addSummaryTextCell(slide, formatSummaryTimecode(frame.timecode), contentX, y, timeCol.w, rowH, { fontSize: 5.8, align: 'center' })
     contentX += timeCol.w
     addSummaryThumbnailCell(slide, frame, contentX, y, thumbCol.w, rowH)
     contentX += thumbCol.w
@@ -701,7 +732,7 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
     contentX += copyCol.w
     addSummaryTextCell(slide, frame.sound, contentX, y, soundCol.w, rowH, { fontSize: 5.2 })
     contentX += soundCol.w
-    addSummaryTextCell(slide, frame.purpose, contentX, y, purposeCol.w, rowH, { fontSize: 5.4 })
+    addSummaryTextCell(slide, frame.purpose, contentX, y, purposeCol.w, rowH, { bold: true, color: COLORS.primary, fontSize: 5.4, highlight: true })
   })
 
 }
@@ -751,18 +782,17 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     y: 0.98,
     w: 2.65,
     h: 0.42,
-    fill: { color: COLORS.soft },
-    line: { color: 'BFD1F6', width: 1 },
+    fill: { color: COLORS.white },
+    line: { color: COLORS.line, width: 1 },
   })
   slide.addText('시간 초수', {
     x: 0.62,
     y: 1.09,
     w: 0.92,
     h: 0.14,
-    color: COLORS.primary,
+    color: COLORS.muted,
     fontFace: 'Malgun Gothic',
     fontSize: SLIDE_TITLE_FONT_SIZE,
-    bold: true,
     breakLine: false,
     fit: 'shrink',
     margin: 0,
@@ -775,14 +805,13 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     color: COLORS.ink,
     fontFace: 'Malgun Gothic',
     fontSize: SLIDE_BODY_FONT_SIZE,
-    bold: true,
     align: 'right',
     breakLine: false,
     fit: 'shrink',
     margin: 0,
   })
 
-  addTextBox(slide, '목적', frame.purpose, 3.35, 0.98, 9.5, 0.72)
+  addTextBox(slide, '목적', frame.purpose, 3.35, 0.98, 9.5, 0.72, { valueBold: true })
 
   const imageBox = { x: 0.46, y: 1.62, w: 6.65, h: 5.06 }
   slide.addShape('rect', {
