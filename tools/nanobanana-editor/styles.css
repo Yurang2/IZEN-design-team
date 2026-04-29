@@ -1,0 +1,252 @@
+:root {
+  color-scheme: light;
+  font-family:
+    Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1d252d;
+  background: #eef1f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+select,
+textarea,
+input {
+  font: inherit;
+}
+
+button,
+.fileButton,
+.download {
+  min-height: 40px;
+  border: 1px solid #1d252d;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #1d252d;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button.secondary,
+.download.disabled {
+  background: #ffffff;
+  color: #66717d;
+  border-color: #cdd4dd;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.toolbar {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 24px;
+  background: #ffffff;
+  border-right: 1px solid #d8dee7;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #66717d;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.fileButton input {
+  display: none;
+}
+
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #cdd4dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d252d;
+}
+
+select {
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 118px;
+  padding: 10px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #cdd4dd;
+  border-radius: 8px;
+  background: #f4f6f8;
+}
+
+.segmented button {
+  min-height: 32px;
+  border-color: transparent;
+  background: transparent;
+  color: #66717d;
+}
+
+.segmented button.active {
+  border-color: #cdd4dd;
+  background: #ffffff;
+  color: #1d252d;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status {
+  min-height: 40px;
+  margin: 0;
+  color: #66717d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  padding: 20px;
+}
+
+.canvasStage,
+.resultPanel {
+  border: 1px solid #d8dee7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.canvasStage {
+  position: relative;
+  overflow: hidden;
+  align-self: start;
+  min-height: 420px;
+  touch-action: none;
+}
+
+.canvasStage.empty {
+  display: grid;
+  place-items: center;
+}
+
+.emptyText {
+  color: #66717d;
+  font-weight: 700;
+}
+
+.canvasStage:not(.empty) .emptyText {
+  display: none;
+}
+
+.canvasStage img,
+.canvasStage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+
+.canvasStage:not(.empty) img,
+.canvasStage:not(.empty) canvas {
+  display: block;
+}
+
+.canvasStage img {
+  object-fit: contain;
+  user-select: none;
+}
+
+.canvasStage canvas {
+  cursor: crosshair;
+}
+
+.resultPanel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+  position: sticky;
+  top: 20px;
+}
+
+.resultHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+#resultImage {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #d8dee7;
+  background: #eef1f5;
+  display: none;
+}
+
+#resultImage.hasResult {
+  display: block;
+}
+
+@media (max-width: 1120px) {
+  .app,
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    border-right: 0;
+    border-bottom: 1px solid #d8dee7;
+  }
+
+  .resultPanel {
+    position: static;
+  }
+}
