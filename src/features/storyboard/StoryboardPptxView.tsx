@@ -76,6 +76,8 @@ const DEFAULT_TIME_RANGE: TimeRangeParts = {
 const STORYBOARD_STORAGE_KEY = 'izen_storyboard_pptx_store_v1'
 const STORYBOARD_AUTOSAVE_DELAY_MS = 350
 const UNSAVED_DB_CHANGES_MESSAGE = 'DB에 저장하지 않은 변경사항이 있습니다. 저장하지 않고 이동할까요?'
+const LOCAL_EDIT_WARNING_MESSAGE =
+  '현재 DB 저장본이 아닌 웹페이지 자동저장본에서 작업 중입니다.\n기존 DB 수정이 불가능합니다. DB 저장본을 선택하거나 새 DB로 저장 후 작업하세요.\n그래도 계속 편집할까요?'
 const STORYBOARD_IMAGE_SCALE = 0.5
 const STORYBOARD_IMAGE_QUALITY = 0.72
 const SLIDE_TITLE_FONT_SIZE = 8
@@ -904,6 +906,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
   const dirtyFrameIdsRef = useRef<Set<string>>(new Set())
   const metaDirtyRef = useRef(false)
   const structureDirtyRef = useRef(false)
+  const localEditWarningShownRef = useRef(false)
 
   const selectedFrame = useMemo(
     () => frames.find((frame) => frame.id === selectedFrameId) ?? frames[0],
@@ -943,6 +946,13 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
 
   const markDbDirty = () => {
     if (activeNotionId) setHasUnsavedDbChanges(true)
+  }
+
+  const confirmLocalEditIfNeeded = () => {
+    if (activeNotionId || localEditWarningShownRef.current) return true
+    const confirmed = window.confirm(LOCAL_EDIT_WARNING_MESSAGE)
+    if (confirmed) localEditWarningShownRef.current = true
+    return confirmed
   }
 
   const clearDbDirty = () => {
@@ -1016,18 +1026,21 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
   }, [activeStoryboardId, exportedFileNames, savedStoryboards])
 
   const updateMeta = (key: keyof StoryboardMeta, value: string) => {
+    if (!confirmLocalEditIfNeeded()) return
     metaDirtyRef.current = true
     markDbDirty()
     setMeta((current) => ({ ...current, [key]: value }))
   }
 
   const updateProjectName = (value: string) => {
+    if (!confirmLocalEditIfNeeded()) return
     metaDirtyRef.current = true
     markDbDirty()
     setMeta((current) => ({ ...current, projectName: value, relatedTaskId: '' }))
   }
 
   const updateRelatedTask = (taskId: string) => {
+    if (!confirmLocalEditIfNeeded()) return
     metaDirtyRef.current = true
     markDbDirty()
     const task = tasks.find((item) => item.id === taskId)
@@ -1039,6 +1052,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
   }
 
   const updateFrame = (id: string, patch: Partial<StoryboardFrame>) => {
+    if (!confirmLocalEditIfNeeded()) return
     dirtyFrameIdsRef.current.add(id)
     markDbDirty()
     setFrames((current) => current.map((frame) => (frame.id === id ? { ...frame, ...patch } : frame)))
@@ -1062,6 +1076,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
     setActiveNotionId(null)
+    localEditWarningShownRef.current = false
     clearDbDirty()
     setMessage(null)
   }
@@ -1086,6 +1101,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
     if (!normalized) return
 
     setActiveNotionId(item.id)
+    localEditWarningShownRef.current = false
     setActiveStoryboardId(normalized.id)
     setMeta(normalized.meta)
     setFrames(normalized.frames)
@@ -1179,6 +1195,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
       }
 
       setActiveNotionId(response.item.id)
+      localEditWarningShownRef.current = false
       if (response.item.data.frames.length > 0) {
         setFrames((current) => mergeServerFrameKeys(current, response.item.data.frames))
       }
@@ -1202,6 +1219,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
     if (!window.confirm('현재 DB 저장본을 삭제할까요?')) return
     await api(`/storyboards/${encodeURIComponent(activeNotionId)}`, { method: 'DELETE' })
     setActiveNotionId(null)
+    localEditWarningShownRef.current = false
     await fetchNotionStoryboards()
     setMessage('DB 저장본을 삭제했습니다.')
   }
@@ -1212,6 +1230,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
     setSavedStoryboards((current) => [nextStoryboard, ...current])
     setActiveStoryboardId(nextStoryboard.id)
     setActiveNotionId(null)
+    localEditWarningShownRef.current = false
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId)
@@ -1228,6 +1247,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
     setSavedStoryboards(remaining.length > 0 ? remaining : [nextStoryboard])
     setActiveStoryboardId(nextStoryboard.id)
     setActiveNotionId(null)
+    localEditWarningShownRef.current = false
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
@@ -1236,6 +1256,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
   }
 
   const addFrame = () => {
+    if (!confirmLocalEditIfNeeded()) return
     structureDirtyRef.current = true
     markDbDirty()
     const nextFrame = createBlankFrame(frames.length)
@@ -1244,6 +1265,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
   }
 
   const duplicateFrame = (frame: StoryboardFrame) => {
+    if (!confirmLocalEditIfNeeded()) return
     structureDirtyRef.current = true
     markDbDirty()
     const nextFrame = { ...frame, id: crypto.randomUUID(), timecode: frame.timecode ? `${frame.timecode} copy` : '' }
@@ -1257,6 +1279,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
   }
 
   const removeFrame = (frameId: string) => {
+    if (!confirmLocalEditIfNeeded()) return
     structureDirtyRef.current = true
     markDbDirty()
     setFrames((current) => {
@@ -1271,6 +1294,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
 
   const swapFramePositions = (sourceFrameId: string, targetFrameId: string) => {
     if (sourceFrameId === targetFrameId) return
+    if (!confirmLocalEditIfNeeded()) return
     structureDirtyRef.current = true
     markDbDirty()
     dirtyFrameIdsRef.current.add(sourceFrameId)
@@ -1425,13 +1449,15 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
         <p className="storyboardPptxMessage is-error">DB에 저장하지 않은 변경사항이 있습니다. 나가기 전에 기존 DB 수정 또는 새 DB로 저장하세요.</p>
       ) : null}
 
-      <section className="storyboardPptxSavePanel" aria-label="스토리보드 저장본">
+      <section className="storyboardPptxSavePanel is-local" aria-label="스토리보드 저장본">
         <div className="storyboardPptxSaveInfo">
-          <strong>웹페이지 자동저장</strong>
+          <strong>웹페이지 자동저장 · 임시</strong>
           <span>
-            {activeSavedStoryboard?.updatedAt
-              ? `저장됨 ${formatSavedAt(activeSavedStoryboard.updatedAt)}`
-              : '현재 브라우저에 자동저장됩니다.'}
+            {activeNotionId
+              ? 'DB 저장본을 작업 중입니다.'
+              : activeSavedStoryboard?.updatedAt
+                ? `DB 저장본이 아닙니다 · 임시 저장됨 ${formatSavedAt(activeSavedStoryboard.updatedAt)}`
+                : 'DB 저장본이 아닙니다. 새 DB로 저장 후 작업하세요.'}
           </span>
         </div>
         <select value={activeStoryboardId} onChange={(event) => loadSavedStoryboard(event.target.value)}>
@@ -1471,9 +1497,12 @@ export function StoryboardPptxView({ projects, tasks, configured = false, onUnsa
           ))}
         </select>
         <div className="storyboardPptxSaveActions">
-          <Button type="button" size="mini" onClick={() => void saveNotionStoryboard('update')} disabled={!configured || notionSaving || !activeNotionId}>
-            {notionSaveMode === 'update' ? '수정 중' : '기존 DB 수정'}
-          </Button>
+          <div className="storyboardPptxActionWithHint">
+            <Button type="button" size="mini" onClick={() => void saveNotionStoryboard('update')} disabled={!configured || notionSaving || !activeNotionId}>
+              {notionSaveMode === 'update' ? '수정 중' : '기존 DB 수정'}
+            </Button>
+            {!activeNotionId ? <span>DB 저장본을 선택해야 기존 DB 수정이 가능합니다.</span> : null}
+          </div>
           <Button type="button" variant="secondary" size="mini" onClick={() => void saveNotionStoryboard('saveAs')} disabled={!configured || notionSaving}>
             {notionSaveMode === 'saveAs' ? '저장 중' : '새 DB로 저장'}
           </Button>

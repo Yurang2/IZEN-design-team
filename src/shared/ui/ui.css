@@ -3506,6 +3506,19 @@ button.dashboardNavButton {
   padding: 12px;
 }
 
+.storyboardPptxSavePanel.is-local {
+  background: #fff7e6;
+  border-color: #f4b84a;
+}
+
+.storyboardPptxSavePanel.is-local .storyboardPptxSaveInfo strong {
+  color: #8a5200;
+}
+
+.storyboardPptxSavePanel.is-local .storyboardPptxSaveInfo span {
+  color: #9a5b00;
+}
+
 .storyboardPptxSaveInfo {
   display: grid;
   gap: 4px;
@@ -3527,6 +3540,21 @@ button.dashboardNavButton {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.storyboardPptxActionWithHint {
+  align-items: flex-end;
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+
+.storyboardPptxActionWithHint span {
+  color: #b42318;
+  font-size: 11px;
+  font-weight: 800;
+  max-width: 180px;
+  text-align: right;
 }
 
 .storyboardPptxMeta {
