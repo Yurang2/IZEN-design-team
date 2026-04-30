@@ -1,24 +1,29 @@
 # Current Task
 
 ## Task ID
-ai-review-board-bootstrap
+storyboard-title-nanobanana-multi-results
 
 ## Goal
-Introduce a reusable review-board protocol so main agents can develop features while ephemeral role reviewers gate progress by unanimous approval.
+Fix storyboard title updates so existing DB documents are patched instead of recreated, and support multiple Nano Banana edit results in the local editor.
 
 ## Scope
-- Create `.ai-review/` memory files.
-- Use MD summaries for humans and JSONL logs for structured review records.
-- Share the `role-review-board` skill with other Hermes profiles where possible.
+- Storyboard PPT DB save path for metadata-only edits.
+- Nano Banana multiple image result extraction, history restore, result switching, download, and promote-to-source behavior.
+- Self-review records for this change set.
 
 ## Files/areas touched
+- `src/features/storyboard/StoryboardPptxView.tsx`
+- `tools/nanobanana-editor/app.js`
+- `tools/nanobanana-editor/main.cjs`
+- `tools/nanobanana-editor/server.mjs`
+- `tools/nanobanana-editor/styles.css`
 - `.ai-review/*`
-- Hermes skill: `role-review-board`
 
 ## Success criteria
-- Future agents can read `.ai-review` context and run role-based subagent reviews.
-- Reviewer decisions and rejections can be accumulated across sessions.
-- User receives only short progress reports by default.
+- Existing storyboard DB selection remains on PATCH for title/meta-only saves.
+- Nano Banana displays all returned edit images and allows selecting one.
+- Selected edit result can be downloaded or promoted as the next source image.
+- Existing unrelated dirty files are not included in commits.
 
 ## Required reviewers
 - ux
@@ -29,5 +34,5 @@ Introduce a reusable review-board protocol so main agents can develop features w
 - design-brand
 
 ## Conditional reviewers
-- security-privacy: when auth, personal data, files, notifications, integrations, or permissions are touched
-- ops-deployment: when cron, bots, Workers, deploys, migrations, or background jobs are touched
+- security-privacy: included for local files, credentials, and Vertex integration surface
+- ops-deployment: included for Cloudflare/runtime save-path risk
