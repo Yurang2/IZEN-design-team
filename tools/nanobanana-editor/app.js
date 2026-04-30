@@ -75,7 +75,8 @@ function setTool(nextTool) {
 }
 
 function selectedDownloadName(item) {
-  return `${item.name.replace(/\.[^.]+$/, '') || 'nanobanana'}-selected-edit.png`
+  const suffix = resultDataUrls(item).length > 1 ? `-${selectedResultIndex(item) + 1}` : ''
+  return `${item.name.replace(/\.[^.]+$/, '') || 'nanobanana'}-selected-edit${suffix}.png`
 }
 
 function itemSortTime(item) {
@@ -86,6 +87,43 @@ function itemSortTime(item) {
 
 function sortedItems() {
   return [...items].sort((a, b) => itemSortTime(b) - itemSortTime(a))
+}
+
+function resultDataUrls(item) {
+  if (Array.isArray(item?.resultDataUrls) && item.resultDataUrls.length) return item.resultDataUrls
+  return item?.resultDataUrl ? [item.resultDataUrl] : []
+}
+
+function selectedResultIndex(item) {
+  const urls = resultDataUrls(item)
+  const index = Number.isInteger(item?.selectedResultIndex) ? item.selectedResultIndex : 0
+  return Math.max(0, Math.min(index, Math.max(0, urls.length - 1)))
+}
+
+function currentResultDataUrl(item) {
+  return resultDataUrls(item)[selectedResultIndex(item)] || null
+}
+
+function setResultDataUrls(item, urls) {
+  item.resultDataUrls = urls
+  item.selectedResultIndex = 0
+  item.resultDataUrl = urls[0] || null
+}
+
+function selectResultVariant(item, index) {
+  const urls = resultDataUrls(item)
+  if (!urls[index]) return
+  item.selectedResultIndex = index
+  item.resultDataUrl = urls[index]
+  if (item.id === selectedId) {
+    previewImageElement.src = item.resultDataUrl
+    if (previewMode) {
+      previewImageElement.style.display = 'block'
+    }
+    updateSelectedPreviewControls()
+  }
+  renderItems()
+  setStatus(`${item.name} 편집본 ${index + 1}/${urls.length} 선택됨.`)
 }
 
 function fitCanvasStageToWindow() {
@@ -139,12 +177,13 @@ function buildReferenceInstruction() {
 
 function updateSelectedPreviewControls() {
   const item = selectedItem()
-  const hasResult = Boolean(item?.resultDataUrl)
+  const resultDataUrl = currentResultDataUrl(item)
+  const hasResult = Boolean(resultDataUrl)
   previewToggleButton.disabled = !hasResult
   previewToggleButton.textContent = previewMode ? '기존본 보기' : '편집본 보기'
   selectedDownloadLink.classList.toggle('disabled', !hasResult)
   if (item && hasResult) {
-    selectedDownloadLink.href = item.resultDataUrl
+    selectedDownloadLink.href = resultDataUrl
     selectedDownloadLink.download = selectedDownloadName(item)
   } else {
     selectedDownloadLink.removeAttribute('href')
@@ -325,9 +364,10 @@ async function selectItem(id) {
   if (!item) return
 
   selectedId = id
-  previewMode = Boolean(item.resultDataUrl)
+  const resultDataUrl = currentResultDataUrl(item)
+  previewMode = Boolean(resultDataUrl)
   sourceImageElement.src = item.dataUrl
-  previewImageElement.src = item.resultDataUrl || ''
+  previewImageElement.src = resultDataUrl || ''
   canvasStage.classList.remove('empty')
   canvasStage.style.aspectRatio = `${item.width} / ${item.height}`
   fitCanvasStageToWindow()
@@ -338,8 +378,8 @@ async function selectItem(id) {
   await drawMaskDataUrl(item.maskDataUrl)
   clearDraft()
   updateSelectedPreviewControls()
-  previewBadge.textContent = previewMode && item.resultDataUrl ? '편집본 표시중' : '기존본 표시중'
-  setStatus(item.resultDataUrl ? `${item.name} 편집본 표시중입니다.` : `${item.name} 선택됨. 변형할 영역을 칠하세요.`)
+  previewBadge.textContent = previewMode && resultDataUrl ? '편집본 표시중' : '기존본 표시중'
+  setStatus(resultDataUrl ? `${item.name} 편집본 표시중입니다.` : `${item.name} 선택됨. 변형할 영역을 칠하세요.`)
   renderItems()
 }
 
@@ -375,10 +415,13 @@ function selectWholeImage() {
 async function promoteResultToSource(id) {
   saveSelectedMask()
   const item = items.find((next) => next.id === id)
-  if (!item?.resultDataUrl) return
-  item.dataUrl = item.resultDataUrl
-  item.mimeType = dataUrlMimeType(item.resultDataUrl)
+  const resultDataUrl = currentResultDataUrl(item)
+  if (!resultDataUrl) return
+  item.dataUrl = resultDataUrl
+  item.mimeType = dataUrlMimeType(resultDataUrl)
   item.resultDataUrl = null
+  item.resultDataUrls = []
+  item.selectedResultIndex = 0
   item.status = 'idle'
   item.error = null
   item.historySavedPath = null
@@ -605,6 +648,9 @@ function renderItems() {
   updateSelectedPreviewControls()
   itemGrid.innerHTML = ''
   for (const item of sortedItems()) {
+    const urls = resultDataUrls(item)
+    const resultIndex = selectedResultIndex(item)
+    const resultDataUrl = currentResultDataUrl(item)
     const card = document.createElement('article')
     card.className = `itemCard ${item.id === selectedId ? 'selected' : ''} status-${item.status}`
 
@@ -612,12 +658,12 @@ function renderItems() {
     preview.type = 'button'
     preview.className = 'itemPreview'
     preview.addEventListener('click', () => void selectItem(item.id))
-    if (item.resultDataUrl) {
+    if (resultDataUrl) {
       const compare = document.createElement('div')
       compare.className = 'itemCompare'
       for (const [labelText, dataUrl, altText] of [
         ['기존본', item.dataUrl, `${item.name} 기존본`],
-        ['편집본', item.resultDataUrl, `${item.name} 편집본`],
+        ['편집본', resultDataUrl, `${item.name} 편집본`],
       ]) {
         const thumb = document.createElement('div')
         thumb.className = 'compareThumb'
@@ -669,7 +715,7 @@ function renderItems() {
     deleteButton.textContent = '삭제'
     deleteButton.addEventListener('click', () => void deleteItem(item.id))
     actions.append(deleteButton)
-    if (item.resultDataUrl) {
+    if (resultDataUrl) {
       const promoteButton = document.createElement('button')
       promoteButton.type = 'button'
       promoteButton.className = 'secondary mini'
@@ -679,10 +725,25 @@ function renderItems() {
 
       const download = document.createElement('a')
       download.className = 'download mini'
-      download.href = item.resultDataUrl
+      download.href = resultDataUrl
       download.download = selectedDownloadName(item)
       download.textContent = '저장'
       actions.append(download)
+    }
+
+    if (urls.length > 1) {
+      const variants = document.createElement('div')
+      variants.className = 'resultVariants'
+      urls.forEach((_, index) => {
+        const variantButton = document.createElement('button')
+        variantButton.type = 'button'
+        variantButton.className = `secondary mini ${index === resultIndex ? 'active' : ''}`
+        variantButton.textContent = `${index + 1}`
+        variantButton.title = `편집본 ${index + 1}/${urls.length}`
+        variantButton.addEventListener('click', () => selectResultVariant(item, index))
+        variants.append(variantButton)
+      })
+      actions.append(variants)
     }
 
     if (item.status === 'running' || item.status === 'pending') {
@@ -691,7 +752,7 @@ function renderItems() {
       badge.textContent = item.status === 'running' ? '변형중' : '대기중'
       preview.append(badge)
     }
-    if (item.resultDataUrl && item.id === selectedId && previewMode) {
+    if (resultDataUrl && item.id === selectedId && previewMode) {
       const activeBadge = document.createElement('div')
       activeBadge.className = 'activePreviewBadge'
       activeBadge.textContent = '편집본 표시중'
@@ -741,6 +802,8 @@ async function openFiles(files) {
       hasMask: false,
       status: 'idle',
       resultDataUrl: null,
+      resultDataUrls: [],
+      selectedResultIndex: 0,
       error: null,
     })
   }
@@ -794,7 +857,11 @@ async function requestEdit(item) {
 
   if (payload.historyId) item.historyId = payload.historyId
   if (payload.historyDir) item.historyDir = payload.historyDir
-  return compositeResult(item, payload.imageDataUrl, maskDataUrl)
+  const imageDataUrls = Array.isArray(payload.imageDataUrls) && payload.imageDataUrls.length
+    ? payload.imageDataUrls
+    : [payload.imageDataUrl].filter(Boolean)
+  if (!imageDataUrls.length) throw new Error('edited_image_missing')
+  return Promise.all(imageDataUrls.map((dataUrl) => compositeResult(item, dataUrl, maskDataUrl)))
 }
 
 async function runItem(item) {
@@ -802,12 +869,13 @@ async function runItem(item) {
   item.error = null
   renderItems()
   try {
-    item.resultDataUrl = await requestEdit(item)
+    const resultUrls = await requestEdit(item)
+    setResultDataUrls(item, resultUrls)
     item.status = 'done'
     item.historySavedPath = historyResultName(item)
     if (item.id === selectedId) {
       previewMode = true
-      previewImageElement.src = item.resultDataUrl
+      previewImageElement.src = currentResultDataUrl(item)
       updateSelectedPreviewControls()
     }
   } catch (error) {
@@ -845,11 +913,14 @@ async function runEdit() {
 
 function itemFromHistory(job) {
   if (!job?.sourceDataUrl) return null
+  const restoredResults = Array.isArray(job.resultDataUrls) && job.resultDataUrls.length
+    ? job.resultDataUrls
+    : [job.resultDataUrl].filter(Boolean)
   return {
     id: `history-${job.id}`,
     historyId: job.id,
     historyDir: job.dir,
-    historySavedPath: job.resultDataUrl ? `${job.dir}\\result.png` : null,
+    historySavedPath: restoredResults.length ? `${job.dir}\\result.png` : null,
     name: job.sourceName || 'history-image.png',
     dataUrl: job.sourceDataUrl,
     mimeType: 'image/png',
@@ -860,8 +931,10 @@ function itemFromHistory(job) {
     height: job.height || 1,
     maskDataUrl: job.maskDataUrl || createEmptyMask(job.width || 1, job.height || 1),
     hasMask: Boolean(job.maskDataUrl),
-    status: job.status === 'done' && job.resultDataUrl ? 'done' : job.status === 'error' ? 'error' : 'pending',
-    resultDataUrl: job.resultDataUrl || null,
+    status: job.status === 'done' && restoredResults.length ? 'done' : job.status === 'error' ? 'error' : 'pending',
+    resultDataUrl: restoredResults[0] || null,
+    resultDataUrls: restoredResults,
+    selectedResultIndex: 0,
     error: job.error || null,
   }
 }
@@ -1100,9 +1173,10 @@ runButton.addEventListener('click', runEdit)
 runAllButton.addEventListener('click', runAllEdits)
 previewToggleButton.addEventListener('click', () => {
   const item = selectedItem()
-  if (!item?.resultDataUrl) return
+  const resultDataUrl = currentResultDataUrl(item)
+  if (!resultDataUrl) return
   previewMode = !previewMode
-  previewImageElement.src = item.resultDataUrl
+  previewImageElement.src = resultDataUrl
   updateSelectedPreviewControls()
   setStatus(previewMode ? `${item.name} 편집본 표시중입니다.` : `${item.name} 기존본 표시중입니다.`)
 })

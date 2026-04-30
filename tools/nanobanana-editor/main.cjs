@@ -121,6 +121,18 @@ function readDataUrlIfExists(filePath, mimeType = 'image/png') {
   return `data:${mimeType};base64,${readFileSync(filePath).toString('base64')}`
 }
 
+function readResultDataUrls(dir) {
+  const results = []
+  const first = readDataUrlIfExists(path.join(dir, 'result.png'))
+  if (first) results.push(first)
+  for (let index = 2; ; index += 1) {
+    const next = readDataUrlIfExists(path.join(dir, `result-${index}.png`))
+    if (!next) break
+    results.push(next)
+  }
+  return results
+}
+
 function createHistoryJob(input) {
   const now = new Date()
   const id = `${now.toISOString().replace(/[:.]/g, '-')}-${safeName(input.sourceImage?.name)}`
@@ -178,6 +190,7 @@ function listHistoryJobs() {
           sourceDataUrl: readDataUrlIfExists(path.join(dir, 'source.png')),
           maskDataUrl: readDataUrlIfExists(path.join(dir, 'mask.png')),
           resultDataUrl: readDataUrlIfExists(path.join(dir, 'result.png')),
+          resultDataUrls: readResultDataUrls(dir),
         }
       } catch {
         return null
@@ -204,20 +217,27 @@ function buildEditPrompt(userPrompt, referenceInstructionRaw = '') {
   ].filter(Boolean).join('\n')
 }
 
-function extractImage(payload) {
+function extractImages(payload) {
   const text = []
+  const imageDataUrls = []
+  let imageMimeType = null
   for (const candidate of payload.candidates || []) {
     for (const part of candidate.content?.parts || []) {
       if (part.text) text.push(part.text)
       const inline = part.inlineData || part.inline_data
       const mimeType = inline?.mimeType || inline?.mime_type
       if (mimeType && inline?.data) {
-        return {
-          imageDataUrl: `data:${mimeType};base64,${inline.data}`,
-          imageMimeType: mimeType,
-          textResponse: text.join('\n').trim() || null,
-        }
+        imageMimeType ||= mimeType
+        imageDataUrls.push(`data:${mimeType};base64,${inline.data}`)
       }
+    }
+  }
+  if (imageDataUrls.length) {
+    return {
+      imageDataUrl: imageDataUrls[0],
+      imageDataUrls,
+      imageMimeType,
+      textResponse: text.join('\n').trim() || null,
     }
   }
   throw new Error('edited_image_missing')
@@ -280,9 +300,12 @@ async function renderEdit(input) {
     })
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error?.message || `vertex_${response.status}`)
-    const extracted = extractImage(payload)
-    writeDataUrl(path.join(historyJob.dir, 'result.png'), extracted.imageDataUrl, 'result_image')
-    updateHistoryJob(historyJob, { status: 'done', model, location })
+    const extracted = extractImages(payload)
+    extracted.imageDataUrls.forEach((dataUrl, index) => {
+      const fileName = index === 0 ? 'result.png' : `result-${index + 1}.png`
+      writeDataUrl(path.join(historyJob.dir, fileName), dataUrl, `result_image_${index + 1}`)
+    })
+    updateHistoryJob(historyJob, { status: 'done', model, location, resultCount: extracted.imageDataUrls.length })
     return { ok: true, historyId: historyJob.id, historyDir: historyJob.dir, model, location, ...extracted }
   } catch (error) {
     updateHistoryJob(historyJob, { status: 'error', error: error instanceof Error ? error.message : 'unknown_error' })

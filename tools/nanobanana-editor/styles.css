@@ -552,6 +552,17 @@ textarea {
   flex-wrap: wrap;
 }
 
+.resultVariants {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.resultVariants button {
+  min-width: 26px;
+  padding-inline: 8px;
+}
+
 @media (max-width: 760px) {
   .app {
     grid-template-columns: 1fr;
