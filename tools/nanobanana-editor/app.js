@@ -878,7 +878,7 @@ itemGrid.addEventListener('wheel', (event) => {
   if (!items.length) return
   if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
   event.preventDefault()
-  itemGrid.scrollLeft += event.deltaY
+  itemGrid.scrollLeft += event.deltaY * 5
 }, { passive: false })
 
 let itemGridDrag = null
