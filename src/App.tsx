@@ -132,6 +132,7 @@ import './shared/ui/ui.css'
 
 const CHECKLIST_ASSIGNMENT_PENDING_MESSAGE =
   '체크리스트를 준비 중입니다. 잠시 후 다시 시도해주세요. 1분 후에도 계속되면 관리자에게 문의해주세요.'
+const STORYBOARD_UNSAVED_DB_CHANGES_MESSAGE = 'DB에 저장하지 않은 변경사항이 있습니다. 저장하지 않고 이동할까요?'
 
 function isChecklistAssignmentPendingError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
@@ -147,7 +148,7 @@ function App() {
   const {
     route,
     activeView,
-    setActiveView,
+    setActiveView: setActiveViewRaw,
     taskLayout,
     setTaskLayout,
     taskQuickGroupBy,
@@ -160,6 +161,18 @@ function App() {
     setTaskViewFilters,
     navigate,
   } = useAppRouter({ initialListUiState, setTheme })
+  const [storyboardHasUnsavedDbChanges, setStoryboardHasUnsavedDbChanges] = useState(false)
+  const setActiveView = useCallback((nextView: TopView) => {
+    if (
+      activeView === 'storyboardPptx' &&
+      nextView !== activeView &&
+      storyboardHasUnsavedDbChanges &&
+      !window.confirm(STORYBOARD_UNSAVED_DB_CHANGES_MESSAGE)
+    ) {
+      return
+    }
+    setActiveViewRaw(nextView)
+  }, [activeView, setActiveViewRaw, storyboardHasUnsavedDbChanges])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuCollapsed, setMenuCollapsed] = useState(false)
   const [viewMenuOpenState, setViewMenuOpenState] = useState<Record<ViewMenuGroupKey, boolean>>(createDefaultViewMenuOpenState)
@@ -2650,7 +2663,12 @@ function App() {
       ) : null}
 
       {activeView === 'storyboardPptx' ? (
-        <StoryboardPptxView projects={projects} tasks={tasks} configured />
+        <StoryboardPptxView
+          projects={projects}
+          tasks={tasks}
+          configured
+          onUnsavedDbChangesChange={setStoryboardHasUnsavedDbChanges}
+        />
       ) : null}
 
       {activeView === 'geminiImageTest' ? <GeminiImageTestView /> : null}

@@ -47,6 +47,7 @@ type StoryboardPptxViewProps = {
   projects: ProjectRecord[]
   tasks: TaskRecord[]
   configured?: boolean
+  onUnsavedDbChangesChange?: (hasChanges: boolean) => void
 }
 
 type ImagePayload = {
@@ -74,6 +75,7 @@ const DEFAULT_TIME_RANGE: TimeRangeParts = {
 
 const STORYBOARD_STORAGE_KEY = 'izen_storyboard_pptx_store_v1'
 const STORYBOARD_AUTOSAVE_DELAY_MS = 350
+const UNSAVED_DB_CHANGES_MESSAGE = 'DB에 저장하지 않은 변경사항이 있습니다. 저장하지 않고 이동할까요?'
 const STORYBOARD_IMAGE_SCALE = 0.5
 const STORYBOARD_IMAGE_QUALITY = 0.72
 const SLIDE_TITLE_FONT_SIZE = 8
@@ -877,7 +879,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
   })
 }
 
-export function StoryboardPptxView({ projects, tasks, configured = false }: StoryboardPptxViewProps) {
+export function StoryboardPptxView({ projects, tasks, configured = false, onUnsavedDbChangesChange }: StoryboardPptxViewProps) {
   const [initialStore] = useState<StoryboardStore>(() => readStoryboardStore())
   const initialStoryboard = initialStore.items.find((item) => item.id === initialStore.activeId) ?? initialStore.items[0]
   const [savedStoryboards, setSavedStoryboards] = useState<SavedStoryboard[]>(initialStore.items)
@@ -895,6 +897,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionSaving, setNotionSaving] = useState(false)
   const [notionSaveMode, setNotionSaveMode] = useState<'update' | 'saveAs' | null>(null)
+  const [hasUnsavedDbChanges, setHasUnsavedDbChanges] = useState(false)
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
   const [draggingFrameId, setDraggingFrameId] = useState<string | null>(null)
   const [draggingListFrameId, setDraggingListFrameId] = useState<string | null>(null)
@@ -938,9 +941,36 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     }
   }, [configured])
 
+  const markDbDirty = () => {
+    if (activeNotionId) setHasUnsavedDbChanges(true)
+  }
+
+  const clearDbDirty = () => {
+    dirtyFrameIdsRef.current.clear()
+    metaDirtyRef.current = false
+    structureDirtyRef.current = false
+    setHasUnsavedDbChanges(false)
+  }
+
+  const confirmDiscardDbChanges = () => !hasUnsavedDbChanges || window.confirm(UNSAVED_DB_CHANGES_MESSAGE)
+
   useEffect(() => {
     void fetchNotionStoryboards()
   }, [fetchNotionStoryboards])
+
+  useEffect(() => {
+    onUnsavedDbChangesChange?.(hasUnsavedDbChanges)
+  }, [hasUnsavedDbChanges, onUnsavedDbChangesChange])
+
+  useEffect(() => {
+    if (!hasUnsavedDbChanges || typeof window === 'undefined') return undefined
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedDbChanges])
 
   useEffect(() => {
     const updatedAt = new Date().toISOString()
@@ -987,16 +1017,19 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
 
   const updateMeta = (key: keyof StoryboardMeta, value: string) => {
     metaDirtyRef.current = true
+    markDbDirty()
     setMeta((current) => ({ ...current, [key]: value }))
   }
 
   const updateProjectName = (value: string) => {
     metaDirtyRef.current = true
+    markDbDirty()
     setMeta((current) => ({ ...current, projectName: value, relatedTaskId: '' }))
   }
 
   const updateRelatedTask = (taskId: string) => {
     metaDirtyRef.current = true
+    markDbDirty()
     const task = tasks.find((item) => item.id === taskId)
     setMeta((current) => ({
       ...current,
@@ -1007,6 +1040,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
 
   const updateFrame = (id: string, patch: Partial<StoryboardFrame>) => {
     dirtyFrameIdsRef.current.add(id)
+    markDbDirty()
     setFrames((current) => current.map((frame) => (frame.id === id ? { ...frame, ...patch } : frame)))
   }
 
@@ -1019,6 +1053,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   }
 
   const loadSavedStoryboard = (storyboardId: string) => {
+    if (!confirmDiscardDbChanges()) return
     const nextStoryboard = savedStoryboards.find((item) => item.id === storyboardId)
     if (!nextStoryboard) return
 
@@ -1027,9 +1062,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
     setActiveNotionId(null)
-    dirtyFrameIdsRef.current.clear()
-    metaDirtyRef.current = false
-    structureDirtyRef.current = false
+    clearDbDirty()
     setMessage(null)
   }
 
@@ -1058,9 +1091,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setFrames(normalized.frames)
     setSelectedFrameId(normalized.selectedFrameId || normalized.frames[0]?.id || '')
     setExportedFileNames(item.exportedFileNames)
-    dirtyFrameIdsRef.current.clear()
-    metaDirtyRef.current = false
-    structureDirtyRef.current = false
+    clearDbDirty()
     setSavedStoryboards((current) => {
       const next = current.filter((saved) => saved.id !== normalized.id)
       return [normalized, ...next]
@@ -1069,6 +1100,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   }
 
   const loadNotionStoryboard = async (storyboardId: string) => {
+    if (!confirmDiscardDbChanges()) return
     const listItem = notionStoryboards.find((storyboard) => storyboard.id === storyboardId)
     if (!listItem) return
 
@@ -1154,9 +1186,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
         const next = current.filter((item) => item.id !== response.item.id)
         return [response.item, ...next]
       })
-      dirtyFrameIdsRef.current.clear()
-      metaDirtyRef.current = false
-      structureDirtyRef.current = false
+      clearDbDirty()
       setMessage(mode === 'saveAs' ? '새 DB 저장본을 만들었습니다.' : '기존 DB 저장본을 수정했습니다.')
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'DB 저장에 실패했습니다.')
@@ -1168,6 +1198,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
 
   const deleteNotionStoryboard = async () => {
     if (!activeNotionId) return
+    if (!confirmDiscardDbChanges()) return
     if (!window.confirm('현재 DB 저장본을 삭제할까요?')) return
     await api(`/storyboards/${encodeURIComponent(activeNotionId)}`, { method: 'DELETE' })
     setActiveNotionId(null)
@@ -1176,6 +1207,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   }
 
   const createNewSavedStoryboard = () => {
+    if (!confirmDiscardDbChanges()) return
     const nextStoryboard = createSavedStoryboard()
     setSavedStoryboards((current) => [nextStoryboard, ...current])
     setActiveStoryboardId(nextStoryboard.id)
@@ -1183,13 +1215,12 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId)
-    dirtyFrameIdsRef.current.clear()
-    metaDirtyRef.current = false
-    structureDirtyRef.current = false
+    clearDbDirty()
     setMessage('새 스토리보드를 만들었습니다. 이후 입력 내용은 자동저장됩니다.')
   }
 
   const deleteSavedStoryboard = () => {
+    if (!confirmDiscardDbChanges()) return
     if (!activeSavedStoryboard) return
     const remaining = savedStoryboards.filter((item) => item.id !== activeSavedStoryboard.id)
     const nextStoryboard = remaining[0] ?? createSavedStoryboard()
@@ -1200,14 +1231,13 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     setMeta(nextStoryboard.meta)
     setFrames(nextStoryboard.frames)
     setSelectedFrameId(nextStoryboard.selectedFrameId || nextStoryboard.frames[0]?.id || '')
-    dirtyFrameIdsRef.current.clear()
-    metaDirtyRef.current = false
-    structureDirtyRef.current = false
+    clearDbDirty()
     setMessage('선택한 저장본을 삭제했습니다.')
   }
 
   const addFrame = () => {
     structureDirtyRef.current = true
+    markDbDirty()
     const nextFrame = createBlankFrame(frames.length)
     setFrames((current) => [...current, nextFrame])
     setSelectedFrameId(nextFrame.id)
@@ -1215,6 +1245,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
 
   const duplicateFrame = (frame: StoryboardFrame) => {
     structureDirtyRef.current = true
+    markDbDirty()
     const nextFrame = { ...frame, id: crypto.randomUUID(), timecode: frame.timecode ? `${frame.timecode} copy` : '' }
     setFrames((current) => {
       const index = current.findIndex((item) => item.id === frame.id)
@@ -1227,6 +1258,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
 
   const removeFrame = (frameId: string) => {
     structureDirtyRef.current = true
+    markDbDirty()
     setFrames((current) => {
       if (current.length === 1) return current
       const next = current.filter((frame) => frame.id !== frameId)
@@ -1240,6 +1272,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   const swapFramePositions = (sourceFrameId: string, targetFrameId: string) => {
     if (sourceFrameId === targetFrameId) return
     structureDirtyRef.current = true
+    markDbDirty()
     dirtyFrameIdsRef.current.add(sourceFrameId)
     dirtyFrameIdsRef.current.add(targetFrameId)
     setFrames((current) => {
@@ -1388,6 +1421,9 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
       {message ? <p className="storyboardPptxMessage">{message}</p> : null}
       {storageError ? <p className="storyboardPptxMessage is-error">{storageError}</p> : null}
       <p className="storyboardPptxMessage is-neutral">현재 작업 기준: {activeWorkingSourceLabel}</p>
+      {hasUnsavedDbChanges ? (
+        <p className="storyboardPptxMessage is-error">DB에 저장하지 않은 변경사항이 있습니다. 나가기 전에 기존 DB 수정 또는 새 DB로 저장하세요.</p>
+      ) : null}
 
       <section className="storyboardPptxSavePanel" aria-label="스토리보드 저장본">
         <div className="storyboardPptxSaveInfo">
