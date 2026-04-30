@@ -131,7 +131,7 @@ function updateSelectedPreviewControls() {
   const item = selectedItem()
   const hasResult = Boolean(item?.resultDataUrl)
   previewToggleButton.disabled = !hasResult
-  previewToggleButton.textContent = previewMode ? '기존본 편집' : '편집본 미리보기'
+  previewToggleButton.textContent = previewMode ? '기존본 보기' : '편집본 보기'
   selectedDownloadLink.classList.toggle('disabled', !hasResult)
   if (item && hasResult) {
     selectedDownloadLink.href = item.resultDataUrl
@@ -140,7 +140,7 @@ function updateSelectedPreviewControls() {
     selectedDownloadLink.removeAttribute('href')
   }
   canvasStage.classList.toggle('previewing', previewMode && hasResult)
-  previewBadge.textContent = previewMode && hasResult ? '편집본 미리보기' : '기존본 편집'
+  previewBadge.textContent = previewMode && hasResult ? '편집본 표시중' : '기존본 표시중'
   maskCanvas.style.pointerEvents = previewMode && hasResult ? 'none' : ''
   draftCanvas.style.pointerEvents = 'none'
 }
@@ -328,8 +328,8 @@ async function selectItem(id) {
   await drawMaskDataUrl(item.maskDataUrl)
   clearDraft()
   updateSelectedPreviewControls()
-  previewBadge.textContent = previewMode && item.resultDataUrl ? '편집본 미리보기' : '기존본 편집'
-  setStatus(item.resultDataUrl ? `${item.name} 편집본을 미리보는 중입니다.` : `${item.name} 선택됨. 변형할 영역을 칠하세요.`)
+  previewBadge.textContent = previewMode && item.resultDataUrl ? '편집본 표시중' : '기존본 표시중'
+  setStatus(item.resultDataUrl ? `${item.name} 편집본 표시중입니다.` : `${item.name} 선택됨. 변형할 영역을 칠하세요.`)
   renderItems()
 }
 
@@ -360,6 +360,34 @@ function selectWholeImage() {
   updateSelectedPreviewControls()
   renderItems()
   setStatus(`${item.name} 전체 영역을 선택했습니다.`)
+}
+
+async function promoteResultToSource(id) {
+  saveSelectedMask()
+  const item = items.find((next) => next.id === id)
+  if (!item?.resultDataUrl) return
+  item.dataUrl = item.resultDataUrl
+  item.mimeType = dataUrlMimeType(item.resultDataUrl)
+  item.resultDataUrl = null
+  item.status = 'idle'
+  item.error = null
+  item.historySavedPath = null
+  item.maskDataUrl = createEmptyMask(item.width, item.height)
+  item.hasMask = false
+  previewMode = false
+  if (item.id === selectedId) {
+    sourceImageElement.src = item.dataUrl
+    previewImageElement.src = ''
+    maskCanvas.width = item.width
+    maskCanvas.height = item.height
+    draftCanvas.width = item.width
+    draftCanvas.height = item.height
+    await drawMaskDataUrl(item.maskDataUrl)
+    clearDraft()
+    updateSelectedPreviewControls()
+  }
+  renderItems()
+  setStatus(`${item.name} 편집본을 수정할 이미지로 지정했습니다.`)
 }
 
 function getCanvasPoint(event) {
@@ -632,6 +660,13 @@ function renderItems() {
     deleteButton.addEventListener('click', () => void deleteItem(item.id))
     actions.append(deleteButton)
     if (item.resultDataUrl) {
+      const promoteButton = document.createElement('button')
+      promoteButton.type = 'button'
+      promoteButton.className = 'secondary mini'
+      promoteButton.textContent = '수정본으로 사용'
+      promoteButton.addEventListener('click', () => void promoteResultToSource(item.id))
+      actions.append(promoteButton)
+
       const download = document.createElement('a')
       download.className = 'download mini'
       download.href = item.resultDataUrl
@@ -1050,7 +1085,7 @@ previewToggleButton.addEventListener('click', () => {
   previewMode = !previewMode
   previewImageElement.src = item.resultDataUrl
   updateSelectedPreviewControls()
-  setStatus(previewMode ? `${item.name} 편집본을 미리보는 중입니다.` : `${item.name} 기존본 편집 화면입니다.`)
+  setStatus(previewMode ? `${item.name} 편집본 표시중입니다.` : `${item.name} 기존본 표시중입니다.`)
 })
 
 const configPromise = window.nanobanana ? window.nanobanana.config() : fetch('/api/config').then((response) => response.json())

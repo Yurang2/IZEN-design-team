@@ -118,6 +118,10 @@ label {
   display: none;
 }
 
+.hiddenField {
+  display: none;
+}
+
 select,
 textarea,
 input[type="text"] {
@@ -155,22 +159,7 @@ textarea {
 }
 
 .credentialBox {
-  display: grid;
-  gap: 12px;
-  border: 1px solid #d8dee7;
-  border-radius: 8px;
-  padding: 12px;
-  background: #f8fafc;
-}
-
-.credentialBox[open] {
-  display: grid;
-}
-
-.credentialBox summary {
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 900;
+  display: block;
 }
 
 .secondaryFile {
