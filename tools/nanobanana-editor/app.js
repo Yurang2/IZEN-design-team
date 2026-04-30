@@ -2,6 +2,10 @@ const MAX_IMAGE_EDGE = 1600
 const MASK_COLOR = 'rgba(45, 111, 214, 0.52)'
 
 const fileInput = document.querySelector('#fileInput')
+const sourceDropTarget = document.querySelector('#sourceDropTarget')
+const referenceInput = document.querySelector('#referenceInput')
+const referenceDropTarget = document.querySelector('#referenceDropTarget')
+const referenceStrip = document.querySelector('#referenceStrip')
 const credentialFileInput = document.querySelector('#credentialFileInput')
 const credentialInput = document.querySelector('#credentialInput')
 const projectInput = document.querySelector('#projectInput')
@@ -14,12 +18,20 @@ const featherValue = document.querySelector('#featherValue')
 const promptInput = document.querySelector('#promptInput')
 const runButton = document.querySelector('#runButton')
 const runAllButton = document.querySelector('#runAllButton')
+const previewToggleButton = document.querySelector('#previewToggleButton')
+const selectedDownloadLink = document.querySelector('#selectedDownloadLink')
+const selectAllButton = document.querySelector('#selectAllButton')
 const clearButton = document.querySelector('#clearButton')
 const statusText = document.querySelector('#statusText')
+const workspace = document.querySelector('.workspace')
 const canvasStage = document.querySelector('#canvasStage')
 const sourceImageElement = document.querySelector('#sourceImage')
+const previewImageElement = document.querySelector('#previewImage')
 const maskCanvas = document.querySelector('#maskCanvas')
+const draftCanvas = document.querySelector('#draftCanvas')
+const previewBadge = document.querySelector('#previewBadge')
 const resultMeta = document.querySelector('#resultMeta')
+const resultPanel = document.querySelector('.resultPanel')
 const itemGrid = document.querySelector('#itemGrid')
 const toolButtons = {
   brush: document.querySelector('#brushTool'),
@@ -28,10 +40,12 @@ const toolButtons = {
 }
 
 let items = []
+let referenceImages = []
 let selectedId = null
 let tool = 'brush'
 let lastPoint = null
 let rectStart = null
+let previewMode = false
 
 function selectedItem() {
   return items.find((item) => item.id === selectedId) || null
@@ -47,6 +61,93 @@ function setTool(nextTool) {
   for (const [key, button] of Object.entries(toolButtons)) {
     button.classList.toggle('active', key === tool)
   }
+}
+
+function selectedDownloadName(item) {
+  return `${item.name.replace(/\.[^.]+$/, '') || 'nanobanana'}-selected-edit.png`
+}
+
+function sourceFilePath(file) {
+  try {
+    return window.nanobanana?.filePath?.(file) || file.path || ''
+  } catch {
+    return file.path || ''
+  }
+}
+
+function fitCanvasStageToWindow() {
+  const item = selectedItem()
+  if (!item) return
+  const workspaceRect = workspace.getBoundingClientRect()
+  const columns = getComputedStyle(workspace).gridTemplateColumns.split(' ').map((value) => Number.parseFloat(value))
+  const panelWidth = resultPanel && getComputedStyle(resultPanel).position !== 'static' ? resultPanel.getBoundingClientRect().width : 0
+  const maxColumnWidth = columns.length > 1 && Number.isFinite(columns[0])
+    ? columns[0]
+    : workspace.clientWidth - panelWidth
+  const maxWidth = Math.max(280, Math.min(workspace.clientWidth, maxColumnWidth))
+  const maxHeight = Math.max(260, window.innerHeight - workspaceRect.top - 40)
+  const ratio = item.width / item.height
+  let width = maxWidth
+  let height = width / ratio
+  if (height > maxHeight) {
+    height = maxHeight
+    width = height * ratio
+  }
+  canvasStage.style.width = `${Math.round(width)}px`
+  canvasStage.style.height = `${Math.round(height)}px`
+}
+
+function resetCanvasStage() {
+  selectedId = null
+  previewMode = false
+  sourceImageElement.removeAttribute('src')
+  previewImageElement.removeAttribute('src')
+  canvasStage.classList.add('empty')
+  canvasStage.classList.remove('previewing')
+  canvasStage.style.removeProperty('aspect-ratio')
+  canvasStage.style.removeProperty('width')
+  canvasStage.style.removeProperty('height')
+  maskCanvas.width = 0
+  maskCanvas.height = 0
+  draftCanvas.width = 0
+  draftCanvas.height = 0
+  updateSelectedPreviewControls()
+}
+
+function resolveRequestLocation() {
+  if (modelInput.value === 'gemini-3.1-flash-image-preview') return 'global'
+  return locationInput.value.trim() || 'us-central1'
+}
+
+function buildReferenceInstruction() {
+  if (!referenceImages.length) return ''
+  return [
+    'Use the provided reference image(s) as visual guidance for the requested edit in the selected area.',
+    'Refer to the relevant shapes, structure, materials, colors, lighting, proportions, and details from the reference image(s) only as needed for the user request.',
+    'Blend the referenced visual information into the source image perspective and lighting. Do not paste a reference image as a flat rectangle.',
+  ].join(' ')
+}
+
+function updateSelectedPreviewControls() {
+  const item = selectedItem()
+  const hasResult = Boolean(item?.resultDataUrl)
+  previewToggleButton.disabled = !hasResult
+  previewToggleButton.textContent = previewMode ? '기존본 편집' : '편집본 미리보기'
+  selectedDownloadLink.classList.toggle('disabled', !hasResult)
+  if (item && hasResult) {
+    selectedDownloadLink.href = item.resultDataUrl
+    selectedDownloadLink.download = selectedDownloadName(item)
+  } else {
+    selectedDownloadLink.removeAttribute('href')
+  }
+  canvasStage.classList.toggle('previewing', previewMode && hasResult)
+  previewBadge.textContent = previewMode && hasResult ? '편집본 미리보기' : '기존본 편집'
+  maskCanvas.style.pointerEvents = previewMode && hasResult ? 'none' : ''
+  draftCanvas.style.pointerEvents = 'none'
+}
+
+function historyResultName(item) {
+  return item.historyDir ? `${item.historyDir}\\result.png` : selectedDownloadName(item)
 }
 
 function loadImage(dataUrl) {
@@ -81,7 +182,7 @@ function dataUrlMimeType(dataUrl) {
 }
 
 async function normalizeImage(file) {
-  if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 열 수 있습니다.')
+  if (!isImageFile(file)) throw new Error('이미지 파일만 열 수 있습니다.')
   const rawDataUrl = await fileToDataUrl(file)
   const image = await loadImage(rawDataUrl)
   const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(image.width, image.height))
@@ -99,6 +200,92 @@ async function normalizeImage(file) {
   context.imageSmoothingQuality = 'high'
   context.drawImage(image, 0, 0, width, height)
   return { name: file.name, dataUrl: canvas.toDataURL('image/png'), mimeType: 'image/png', width, height }
+}
+
+function isImageFile(file) {
+  return file.type.startsWith('image/') || /\.(png|jpe?g|webp|heic|heif)$/i.test(file.name)
+}
+
+function imageFilesFrom(fileList) {
+  return Array.from(fileList || []).filter(isImageFile)
+}
+
+async function openReferenceFiles(files) {
+  const loaded = []
+  for (const file of files) {
+    const image = await normalizeImage(file)
+    loaded.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      ...image,
+    })
+  }
+  referenceImages = [...referenceImages, ...loaded]
+  renderReferences()
+  setStatus(`참조 이미지 ${loaded.length}개를 추가했습니다.`)
+}
+
+function setupImageDrop(target, onDrop) {
+  if (!target) return
+  const hasFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files')
+  const hasImageDrag = (event) => Array.from(event.dataTransfer?.items || []).some((item) => item.type.startsWith('image/'))
+  const setActive = (active) => target.classList.toggle('dragOver', active)
+  const prevent = (event) => {
+    if (!hasFileDrag(event) && !hasImageDrag(event) && !imageFilesFrom(event.dataTransfer?.files).length) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+  }
+
+  target.addEventListener('dragenter', (event) => {
+    prevent(event)
+    setActive(true)
+  })
+  target.addEventListener('dragover', prevent)
+  target.addEventListener('dragleave', (event) => {
+    if (!event.relatedTarget || !target.contains(event.relatedTarget)) setActive(false)
+  })
+  target.addEventListener('drop', async (event) => {
+    prevent(event)
+    setActive(false)
+    const files = imageFilesFrom(event.dataTransfer?.files)
+    if (!files.length) return
+    try {
+      await onDrop(files)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '이미지를 불러오지 못했습니다.', true)
+    }
+  })
+}
+
+function renderReferences() {
+  referenceStrip.innerHTML = ''
+  if (!referenceImages.length) {
+    const empty = document.createElement('span')
+    empty.className = 'referenceEmpty'
+    empty.textContent = '참조 이미지 없음'
+    referenceStrip.append(empty)
+    return
+  }
+
+  for (const image of referenceImages) {
+    const chip = document.createElement('div')
+    chip.className = 'referenceChip'
+    const thumb = document.createElement('img')
+    thumb.src = image.dataUrl
+    thumb.alt = image.name
+    const label = document.createElement('span')
+    label.textContent = image.name
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.className = 'mini secondary'
+    remove.textContent = '삭제'
+    remove.addEventListener('click', () => {
+      referenceImages = referenceImages.filter((item) => item.id !== image.id)
+      renderReferences()
+    })
+    chip.append(thumb, label, remove)
+    referenceStrip.append(chip)
+  }
 }
 
 function createEmptyMask(width, height) {
@@ -129,13 +316,21 @@ async function selectItem(id) {
   if (!item) return
 
   selectedId = id
+  previewMode = Boolean(item.resultDataUrl)
   sourceImageElement.src = item.dataUrl
+  previewImageElement.src = item.resultDataUrl || ''
   canvasStage.classList.remove('empty')
   canvasStage.style.aspectRatio = `${item.width} / ${item.height}`
+  fitCanvasStageToWindow()
   maskCanvas.width = item.width
   maskCanvas.height = item.height
+  draftCanvas.width = item.width
+  draftCanvas.height = item.height
   await drawMaskDataUrl(item.maskDataUrl)
-  setStatus(`${item.name} 선택됨. 변형할 영역을 칠하세요.`)
+  clearDraft()
+  updateSelectedPreviewControls()
+  previewBadge.textContent = previewMode && item.resultDataUrl ? '편집본 미리보기' : '기존본 편집'
+  setStatus(item.resultDataUrl ? `${item.name} 편집본을 미리보는 중입니다.` : `${item.name} 선택됨. 변형할 영역을 칠하세요.`)
   renderItems()
 }
 
@@ -150,12 +345,68 @@ function resetMask() {
   renderItems()
 }
 
+function selectWholeImage() {
+  const item = selectedItem()
+  if (!item) {
+    setStatus('먼저 이미지를 열어 주세요.', true)
+    return
+  }
+  const context = maskCanvas.getContext('2d')
+  context.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
+  context.fillStyle = MASK_COLOR
+  context.fillRect(0, 0, maskCanvas.width, maskCanvas.height)
+  item.maskDataUrl = maskCanvas.toDataURL('image/png')
+  item.hasMask = true
+  previewMode = false
+  updateSelectedPreviewControls()
+  renderItems()
+  setStatus(`${item.name} 전체 영역을 선택했습니다.`)
+}
+
 function getCanvasPoint(event) {
   const rect = maskCanvas.getBoundingClientRect()
   return {
     x: ((event.clientX - rect.left) / rect.width) * maskCanvas.width,
     y: ((event.clientY - rect.top) / rect.height) * maskCanvas.height,
   }
+}
+
+function clearDraft() {
+  const context = draftCanvas.getContext('2d')
+  context.clearRect(0, 0, draftCanvas.width, draftCanvas.height)
+}
+
+function drawBrushDraft(point) {
+  if (!point || !draftCanvas.width || !draftCanvas.height) return
+  const context = draftCanvas.getContext('2d')
+  clearDraft()
+  context.save()
+  context.lineWidth = 2
+  context.strokeStyle = tool === 'erase' ? 'rgba(180, 35, 24, 0.95)' : 'rgba(45, 111, 214, 0.95)'
+  context.fillStyle = tool === 'erase' ? 'rgba(180, 35, 24, 0.14)' : 'rgba(45, 111, 214, 0.14)'
+  context.beginPath()
+  context.arc(point.x, point.y, Number(brushInput.value) / 2, 0, Math.PI * 2)
+  context.fill()
+  context.stroke()
+  context.restore()
+}
+
+function drawRectDraft(from, to) {
+  if (!from || !to) return
+  const context = draftCanvas.getContext('2d')
+  const x = Math.min(from.x, to.x)
+  const y = Math.min(from.y, to.y)
+  const width = Math.abs(to.x - from.x)
+  const height = Math.abs(to.y - from.y)
+  clearDraft()
+  context.save()
+  context.fillStyle = 'rgba(45, 111, 214, 0.18)'
+  context.strokeStyle = 'rgba(45, 111, 214, 0.98)'
+  context.lineWidth = 2
+  context.setLineDash([10, 6])
+  context.fillRect(x, y, width, height)
+  context.strokeRect(x, y, width, height)
+  context.restore()
 }
 
 function drawStroke(from, to) {
@@ -212,12 +463,41 @@ async function buildMaskDataUrl(item) {
   const imageData = outputContext.getImageData(0, 0, item.width, item.height)
   const pixels = imageData.data
   for (let index = 0; index < pixels.length; index += 4) {
+    const alpha = pixels[index + 3]
     pixels[index] = 255
     pixels[index + 1] = 255
     pixels[index + 2] = 255
+    pixels[index + 3] = alpha > 0 ? 255 : 0
   }
   outputContext.putImageData(imageData, 0, 0)
   return output.toDataURL('image/png')
+}
+
+async function buildSelectionGuideDataUrl(item) {
+  const [source, mask] = await Promise.all([loadImage(item.dataUrl), loadImage(item.maskDataUrl)])
+  const canvas = document.createElement('canvas')
+  canvas.width = item.width
+  canvas.height = item.height
+  const context = canvas.getContext('2d')
+  context.drawImage(source, 0, 0, item.width, item.height)
+
+  const maskCanvas = document.createElement('canvas')
+  maskCanvas.width = item.width
+  maskCanvas.height = item.height
+  const maskContext = maskCanvas.getContext('2d')
+  maskContext.drawImage(mask, 0, 0, item.width, item.height)
+  const maskData = maskContext.getImageData(0, 0, item.width, item.height)
+  const pixels = maskData.data
+  for (let index = 0; index < pixels.length; index += 4) {
+    const alpha = pixels[index + 3] > 0 ? 130 : 0
+    pixels[index] = 45
+    pixels[index + 1] = 111
+    pixels[index + 2] = 214
+    pixels[index + 3] = alpha
+  }
+  maskContext.putImageData(maskData, 0, 0)
+  context.drawImage(maskCanvas, 0, 0)
+  return canvas.toDataURL('image/png')
 }
 
 function closestAspectRatio(width, height) {
@@ -285,6 +565,7 @@ function statusLabel(item) {
 
 function renderItems() {
   updateQueueSummary()
+  updateSelectedPreviewControls()
   itemGrid.innerHTML = ''
   for (const item of items) {
     const card = document.createElement('article')
@@ -294,10 +575,34 @@ function renderItems() {
     preview.type = 'button'
     preview.className = 'itemPreview'
     preview.addEventListener('click', () => void selectItem(item.id))
-    const previewImage = document.createElement('img')
-    previewImage.src = item.resultDataUrl || item.dataUrl
-    previewImage.alt = item.name
-    preview.append(previewImage)
+    if (item.resultDataUrl) {
+      const compare = document.createElement('div')
+      compare.className = 'itemCompare'
+      for (const [labelText, dataUrl, altText] of [
+        ['기존본', item.dataUrl, `${item.name} 기존본`],
+        ['편집본', item.resultDataUrl, `${item.name} 편집본`],
+      ]) {
+        const thumb = document.createElement('div')
+        thumb.className = 'compareThumb'
+        const image = document.createElement('img')
+        image.src = dataUrl
+        image.alt = altText
+        const label = document.createElement('span')
+        label.textContent = labelText
+        thumb.append(image, label)
+        compare.append(thumb)
+      }
+      preview.append(compare)
+    } else {
+      const previewImage = document.createElement('img')
+      previewImage.src = item.dataUrl
+      previewImage.alt = `${item.name} 기존본`
+      preview.append(previewImage)
+      const sourceBadge = document.createElement('span')
+      sourceBadge.className = 'thumbTypeBadge'
+      sourceBadge.textContent = '기존본'
+      preview.append(sourceBadge)
+    }
 
     const body = document.createElement('div')
     body.className = 'itemBody'
@@ -321,11 +626,17 @@ function renderItems() {
     editButton.textContent = '선택'
     editButton.addEventListener('click', () => void selectItem(item.id))
     actions.append(editButton)
+    const deleteButton = document.createElement('button')
+    deleteButton.type = 'button'
+    deleteButton.className = 'secondary danger mini'
+    deleteButton.textContent = '삭제'
+    deleteButton.addEventListener('click', () => void deleteItem(item.id))
+    actions.append(deleteButton)
     if (item.resultDataUrl) {
       const download = document.createElement('a')
       download.className = 'download mini'
       download.href = item.resultDataUrl
-      download.download = `${item.name.replace(/\.[^.]+$/, '') || 'nanobanana'}-selected-edit.png`
+      download.download = selectedDownloadName(item)
       download.textContent = '저장'
       actions.append(download)
     }
@@ -336,9 +647,57 @@ function renderItems() {
       badge.textContent = item.status === 'running' ? '변형중' : '대기중'
       preview.append(badge)
     }
+    if (item.resultDataUrl && item.id === selectedId && previewMode) {
+      const activeBadge = document.createElement('div')
+      activeBadge.className = 'activePreviewBadge'
+      activeBadge.textContent = '편집본 표시중'
+      preview.append(activeBadge)
+    }
 
     card.append(preview, body, actions)
     itemGrid.append(card)
+  }
+}
+
+async function deleteItem(id) {
+  const itemIndex = items.findIndex((item) => item.id === id)
+  const item = items[itemIndex]
+  if (!item) return
+  if (item.status === 'running' || item.status === 'pending') {
+    setStatus('진행 중인 이미지는 삭제할 수 없습니다.', true)
+    return
+  }
+  const confirmed = window.confirm(`"${item.name}"을 목록에서 삭제하고 원본 파일도 삭제할까요?`)
+  if (!confirmed) return
+  if (!window.nanobanana?.deleteItem) {
+    setStatus('원본 파일 삭제는 Electron 앱에서만 지원됩니다.', true)
+    return
+  }
+  if (!item.sourceFilePath && !item.historyDir) {
+    setStatus('원본 파일 경로를 확인할 수 없어 삭제할 수 없습니다.', true)
+    return
+  }
+
+  try {
+    await window.nanobanana.deleteItem({
+      filePath: item.sourceFilePath || null,
+      historyDir: item.historyDir || null,
+    })
+    const wasSelected = item.id === selectedId
+    items = items.filter((next) => next.id !== id)
+    if (wasSelected) {
+      const nextItem = items[Math.min(itemIndex, items.length - 1)]
+      if (nextItem) {
+        selectedId = null
+        await selectItem(nextItem.id)
+      } else {
+        resetCanvasStage()
+      }
+    }
+    renderItems()
+    setStatus(`${item.name}을 삭제했습니다.`)
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '이미지를 삭제하지 못했습니다.', true)
   }
 }
 
@@ -349,6 +708,7 @@ async function openFiles(files) {
     loaded.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       ...image,
+      sourceFilePath: sourceFilePath(file),
       maskDataUrl: createEmptyMask(image.width, image.height),
       hasMask: false,
       status: 'idle',
@@ -358,21 +718,21 @@ async function openFiles(files) {
   }
   items = [...items, ...loaded]
   renderItems()
-  if (!selectedId && loaded[0]) {
-    await selectItem(loaded[0].id)
-  } else {
-    setStatus(`${loaded.length}개 이미지를 추가했습니다.`)
+  if (loaded.length) {
+    const latest = loaded[loaded.length - 1]
+    await selectItem(latest.id)
+    setStatus(`${loaded.length}개 이미지를 추가했습니다. ${latest.name} 선택됨.`)
   }
 }
 
 async function requestEdit(item) {
-  const maskDataUrl = await buildMaskDataUrl(item)
+  const [maskDataUrl, selectionGuideDataUrl] = await Promise.all([buildMaskDataUrl(item), buildSelectionGuideDataUrl(item)])
   const request = {
     prompt: promptInput.value,
     model: modelInput.value,
     serviceAccountJson: credentialInput.value.trim(),
     projectId: projectInput.value.trim(),
-    location: locationInput.value.trim(),
+    location: resolveRequestLocation(),
     aspectRatio: closestAspectRatio(item.width, item.height),
     sourceImage: {
       name: item.name,
@@ -380,8 +740,18 @@ async function requestEdit(item) {
       mimeType: item.mimeType,
       width: item.width,
       height: item.height,
+      filePath: item.sourceFilePath || null,
     },
     maskImage: { name: 'selection-mask.png', mimeType: 'image/png', dataUrl: maskDataUrl },
+    selectionGuideImage: { name: 'selection-guide.png', mimeType: 'image/png', dataUrl: selectionGuideDataUrl },
+    referenceImages: referenceImages.map((image) => ({
+      name: image.name,
+      mimeType: image.mimeType,
+      dataUrl: image.dataUrl,
+      width: image.width,
+      height: image.height,
+    })),
+    referenceInstruction: buildReferenceInstruction(),
   }
   const payload = window.nanobanana
     ? await window.nanobanana.edit(request)
@@ -395,6 +765,8 @@ async function requestEdit(item) {
         return body
       })
 
+  if (payload.historyId) item.historyId = payload.historyId
+  if (payload.historyDir) item.historyDir = payload.historyDir
   return compositeResult(item, payload.imageDataUrl, maskDataUrl)
 }
 
@@ -405,6 +777,12 @@ async function runItem(item) {
   try {
     item.resultDataUrl = await requestEdit(item)
     item.status = 'done'
+    item.historySavedPath = historyResultName(item)
+    if (item.id === selectedId) {
+      previewMode = true
+      previewImageElement.src = item.resultDataUrl
+      updateSelectedPreviewControls()
+    }
   } catch (error) {
     item.status = 'error'
     item.error = error instanceof Error ? error.message : '변형 실패'
@@ -436,6 +814,41 @@ async function runEdit() {
   renderItems()
   await runItem(item)
   setStatus(item.status === 'done' ? `${item.name} 완료.` : `${item.name} 실패.`, item.status === 'error')
+}
+
+function itemFromHistory(job) {
+  if (!job?.sourceDataUrl) return null
+  return {
+    id: `history-${job.id}`,
+    historyId: job.id,
+    historyDir: job.dir,
+    historySavedPath: job.resultDataUrl ? `${job.dir}\\result.png` : null,
+    name: job.sourceName || 'history-image.png',
+    dataUrl: job.sourceDataUrl,
+    mimeType: 'image/png',
+    sourceFilePath: job.sourceFilePath || '',
+    width: job.width || 1,
+    height: job.height || 1,
+    maskDataUrl: job.maskDataUrl || createEmptyMask(job.width || 1, job.height || 1),
+    hasMask: Boolean(job.maskDataUrl),
+    status: job.status === 'done' && job.resultDataUrl ? 'done' : job.status === 'error' ? 'error' : 'pending',
+    resultDataUrl: job.resultDataUrl || null,
+    error: job.error || null,
+  }
+}
+
+async function restoreHistory() {
+  if (!window.nanobanana?.history) return
+  const history = await window.nanobanana.history()
+  const restored = history.map(itemFromHistory).filter(Boolean).slice(0, 50)
+  if (!restored.length) return
+  const existingIds = new Set(items.map((item) => item.historyId || item.id))
+  items = [...items, ...restored.filter((item) => !existingIds.has(item.historyId || item.id))]
+  renderItems()
+  if (!selectedId && items[0]) {
+    await selectItem(items[0].id)
+  }
+  setStatus(`최근 작업 ${restored.length}개를 불러왔습니다.`)
 }
 
 async function runAllEdits() {
@@ -471,6 +884,20 @@ async function runAllEdits() {
   setStatus(failed ? `${readyItems.length - failed}개 완료, ${failed}개 실패.` : `${readyItems.length}개 모두 완료.`, failed > 0)
 }
 
+setupImageDrop(sourceDropTarget, openFiles)
+setupImageDrop(canvasStage, openFiles)
+setupImageDrop(itemGrid, openFiles)
+setupImageDrop(referenceDropTarget, openReferenceFiles)
+setupImageDrop(referenceStrip, openReferenceFiles)
+
+for (const eventName of ['dragover', 'drop']) {
+  document.addEventListener(eventName, (event) => {
+    if (Array.from(event.dataTransfer?.types || []).includes('Files')) {
+      event.preventDefault()
+    }
+  })
+}
+
 fileInput.addEventListener('change', async (event) => {
   const files = Array.from(event.target.files || [])
   if (!files.length) return
@@ -478,6 +905,18 @@ fileInput.addEventListener('change', async (event) => {
     await openFiles(files)
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '이미지를 열지 못했습니다.', true)
+  } finally {
+    event.target.value = ''
+  }
+})
+
+referenceInput.addEventListener('change', async (event) => {
+  const files = Array.from(event.target.files || [])
+  if (!files.length) return
+  try {
+    await openReferenceFiles(files)
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '참조 이미지를 열지 못했습니다.', true)
   } finally {
     event.target.value = ''
   }
@@ -504,22 +943,34 @@ maskCanvas.addEventListener('pointerdown', (event) => {
   const point = getCanvasPoint(event)
   if (tool === 'rect') {
     rectStart = point
+    drawRectDraft(rectStart, point)
   } else {
     lastPoint = point
     drawStroke(point, point)
+    drawBrushDraft(point)
   }
 })
 
 maskCanvas.addEventListener('pointermove', (event) => {
-  if (!selectedItem() || tool === 'rect' || !lastPoint || event.buttons !== 1) return
+  if (!selectedItem()) return
   const point = getCanvasPoint(event)
+  if (tool === 'rect') {
+    if (rectStart && event.buttons === 1) drawRectDraft(rectStart, point)
+    return
+  }
+  if (!lastPoint || event.buttons !== 1) {
+    drawBrushDraft(point)
+    return
+  }
   drawStroke(lastPoint, point)
+  drawBrushDraft(point)
   lastPoint = point
 })
 
 maskCanvas.addEventListener('pointerup', (event) => {
   const point = getCanvasPoint(event)
   if (tool === 'rect' && rectStart) drawRect(rectStart, point)
+  clearDraft()
   rectStart = null
   lastPoint = null
   if (maskCanvas.hasPointerCapture(event.pointerId)) maskCanvas.releasePointerCapture(event.pointerId)
@@ -530,8 +981,13 @@ maskCanvas.addEventListener('pointerup', (event) => {
 maskCanvas.addEventListener('pointercancel', () => {
   rectStart = null
   lastPoint = null
+  clearDraft()
   saveSelectedMask()
   renderItems()
+})
+
+maskCanvas.addEventListener('pointerleave', () => {
+  if (!rectStart && !lastPoint) clearDraft()
 })
 
 for (const [key, button] of Object.entries(toolButtons)) {
@@ -547,12 +1003,22 @@ featherInput.addEventListener('input', () => {
 })
 
 clearButton.addEventListener('click', () => {
+  previewMode = false
   resetMask()
   setStatus('선택 영역을 지웠습니다.')
 })
 
+selectAllButton.addEventListener('click', selectWholeImage)
 runButton.addEventListener('click', runEdit)
 runAllButton.addEventListener('click', runAllEdits)
+previewToggleButton.addEventListener('click', () => {
+  const item = selectedItem()
+  if (!item?.resultDataUrl) return
+  previewMode = !previewMode
+  previewImageElement.src = item.resultDataUrl
+  updateSelectedPreviewControls()
+  setStatus(previewMode ? `${item.name} 편집본을 미리보는 중입니다.` : `${item.name} 기존본 편집 화면입니다.`)
+})
 
 const configPromise = window.nanobanana ? window.nanobanana.config() : fetch('/api/config').then((response) => response.json())
 
@@ -561,5 +1027,16 @@ configPromise
     if (config.defaultModel) modelInput.value = config.defaultModel
     if (config.defaultLocation) locationInput.value = config.defaultLocation
     if (config.projectId) projectInput.value = config.projectId
+    if (config.historyDir) setStatus(`작업 기록 폴더: ${config.historyDir}`)
+    return restoreHistory()
   })
   .catch(() => {})
+
+renderReferences()
+
+window.addEventListener('resize', fitCanvasStageToWindow)
+if ('ResizeObserver' in window) {
+  const stageResizeObserver = new ResizeObserver(fitCanvasStageToWindow)
+  stageResizeObserver.observe(workspace)
+  stageResizeObserver.observe(resultPanel)
+}

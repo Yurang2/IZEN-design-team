@@ -14,10 +14,17 @@
           <h1>Nano Banana 로컬 영역 변형</h1>
         </div>
 
-        <label class="fileButton">
+        <label id="sourceDropTarget" class="fileButton dropTarget">
           <input id="fileInput" type="file" accept="image/*" multiple />
-          이미지 여러 개 열기
+          이미지 열기
         </label>
+
+        <label id="referenceDropTarget" class="fileButton secondaryFile dropTarget">
+          <input id="referenceInput" type="file" accept="image/*" multiple />
+          참조 이미지 추가
+        </label>
+
+        <div id="referenceStrip" class="referenceStrip" aria-label="참조 이미지"></div>
 
         <details class="credentialBox" open>
           <summary>Vertex 서비스 계정</summary>
@@ -72,6 +79,9 @@
         <div class="actions">
           <button id="runButton" type="button">선택 이미지 변형</button>
           <button id="runAllButton" type="button">대기 이미지 모두 변형</button>
+          <button id="previewToggleButton" type="button" class="secondary" disabled>결과 미리보기</button>
+          <a id="selectedDownloadLink" class="download disabled" download="nanobanana-selected-edit.png">선택 저장</a>
+          <button id="selectAllButton" type="button" class="secondary">전체 선택</button>
           <button id="clearButton" type="button" class="secondary">선택 지우기</button>
         </div>
 
@@ -82,7 +92,10 @@
         <div id="canvasStage" class="canvasStage empty">
           <div class="emptyText">이미지를 열면 캔버스가 표시됩니다.</div>
           <img id="sourceImage" alt="원본 이미지" draggable="false" />
+          <img id="previewImage" alt="결과 미리보기" draggable="false" />
           <canvas id="maskCanvas" aria-label="변형할 부분 선택"></canvas>
+          <canvas id="draftCanvas" aria-label="선택 미리보기"></canvas>
+          <div id="previewBadge" class="previewBadge">결과 미리보기</div>
         </div>
 
         <aside class="resultPanel" aria-label="이미지 목록과 결과">

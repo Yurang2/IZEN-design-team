@@ -46,11 +46,21 @@ button.secondary,
   border-color: #cdd4dd;
 }
 
+.download.disabled {
+  pointer-events: none;
+}
+
 button.mini,
 .download.mini {
   min-height: 30px;
   padding: 0 10px;
   font-size: 12px;
+}
+
+button.danger {
+  border-color: #f2b8b5;
+  background: #fff7f7;
+  color: #b42318;
 }
 
 button:disabled {
@@ -159,6 +169,58 @@ textarea {
   color: #1d252d;
 }
 
+.dropTarget {
+  position: relative;
+}
+
+.dropTarget.dragOver,
+.canvasStage.dragOver,
+.itemGrid.dragOver,
+.referenceStrip.dragOver {
+  outline: 3px solid rgba(45, 111, 214, 0.35);
+  outline-offset: 3px;
+  background: #edf5ff;
+}
+
+.referenceStrip {
+  display: grid;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.referenceEmpty {
+  color: #66717d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.referenceChip {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #d8dee7;
+  border-radius: 8px;
+  padding: 6px;
+  background: #f8fafc;
+}
+
+.referenceChip img {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.referenceChip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1d252d;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .segmented button {
   min-height: 32px;
   border-color: transparent;
@@ -191,6 +253,7 @@ textarea {
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 20px;
   padding: 20px;
+  align-items: start;
 }
 
 .canvasStage,
@@ -204,12 +267,16 @@ textarea {
   position: relative;
   overflow: hidden;
   align-self: start;
-  min-height: 420px;
+  justify-self: center;
+  width: 100%;
+  min-height: 0;
   touch-action: none;
 }
 
 .canvasStage.empty {
   display: grid;
+  justify-self: stretch;
+  min-height: 420px;
   place-items: center;
 }
 
@@ -241,8 +308,56 @@ textarea {
   user-select: none;
 }
 
+#previewImage,
+.previewBadge {
+  display: none;
+}
+
+.canvasStage.previewing #sourceImage,
+.canvasStage.previewing canvas {
+  display: none;
+}
+
+.canvasStage.previewing #previewImage {
+  display: block;
+}
+
 .canvasStage canvas {
   cursor: crosshair;
+}
+
+#draftCanvas {
+  pointer-events: none;
+}
+
+.previewBadge,
+.activePreviewBadge {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgba(29, 37, 45, 0.72);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.previewBadge {
+  top: 12px;
+  left: 12px;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  display: none;
+}
+
+.canvasStage.previewing .previewBadge {
+  display: grid;
+}
+
+.canvasStage:not(.empty):not(.previewing) .previewBadge {
+  display: grid;
+  background: rgba(45, 111, 214, 0.84);
 }
 
 .resultPanel {
@@ -313,6 +428,44 @@ textarea {
   display: block;
 }
 
+.itemCompare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+.compareThumb {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.compareThumb + .compareThumb {
+  border-left: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+.compareThumb span,
+.thumbTypeBadge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 5px;
+  padding: 3px 5px;
+  background: rgba(29, 37, 45, 0.78);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.compareThumb:last-child span {
+  background: rgba(45, 111, 214, 0.88);
+}
+
 .waitingOverlay {
   position: absolute;
   inset: 0;
@@ -322,6 +475,14 @@ textarea {
   color: #ffffff;
   font-size: 13px;
   font-weight: 900;
+}
+
+.activePreviewBadge {
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  min-height: 24px;
+  border-radius: 6px;
 }
 
 .itemBody {
