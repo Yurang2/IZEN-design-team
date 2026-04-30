@@ -6,8 +6,10 @@ const sourceDropTarget = document.querySelector('#sourceDropTarget')
 const referenceInput = document.querySelector('#referenceInput')
 const referenceDropTarget = document.querySelector('#referenceDropTarget')
 const referenceStrip = document.querySelector('#referenceStrip')
+const credentialBox = document.querySelector('.credentialBox')
 const credentialFileInput = document.querySelector('#credentialFileInput')
 const credentialInput = document.querySelector('#credentialInput')
+const credentialStatus = document.querySelector('#credentialStatus')
 const projectInput = document.querySelector('#projectInput')
 const locationInput = document.querySelector('#locationInput')
 const modelInput = document.querySelector('#modelInput')
@@ -47,6 +49,7 @@ let lastPoint = null
 let rectStart = null
 let previewMode = false
 let suppressNextItemClick = false
+let hasEnvCredential = false
 
 function selectedItem() {
   return items.find((item) => item.id === selectedId) || null
@@ -55,6 +58,13 @@ function selectedItem() {
 function setStatus(message, isError = false) {
   statusText.textContent = message
   statusText.style.color = isError ? '#b42318' : '#66717d'
+}
+
+function updateCredentialState() {
+  const ready = hasEnvCredential || Boolean(credentialInput.value.trim())
+  credentialBox.classList.toggle('missingCredential', !ready)
+  credentialBox.classList.toggle('readyCredential', ready)
+  credentialStatus.textContent = ready ? 'Vertex JSON 선택됨' : 'Vertex JSON 미선택'
 }
 
 function setTool(nextTool) {
@@ -925,14 +935,21 @@ itemGrid.addEventListener('pointerdown', (event) => {
     startX: event.clientX,
     scrollLeft: itemGrid.scrollLeft,
     moved: false,
+    captured: false,
   }
-  itemGrid.setPointerCapture(event.pointerId)
 })
 
 itemGrid.addEventListener('pointermove', (event) => {
   if (!itemGridDrag || itemGridDrag.pointerId !== event.pointerId) return
   const distance = event.clientX - itemGridDrag.startX
-  if (Math.abs(distance) > 3) itemGridDrag.moved = true
+  if (Math.abs(distance) > 3) {
+    itemGridDrag.moved = true
+    if (!itemGridDrag.captured) {
+      itemGrid.setPointerCapture(event.pointerId)
+      itemGridDrag.captured = true
+    }
+  }
+  if (!itemGridDrag.moved) return
   itemGrid.scrollLeft = itemGridDrag.scrollLeft - distance
 })
 
@@ -942,12 +959,12 @@ itemGrid.addEventListener('pointerup', (event) => {
     event.preventDefault()
     suppressNextItemClick = true
   }
-  if (itemGrid.hasPointerCapture(event.pointerId)) itemGrid.releasePointerCapture(event.pointerId)
+  if (itemGridDrag.captured && itemGrid.hasPointerCapture(event.pointerId)) itemGrid.releasePointerCapture(event.pointerId)
   itemGridDrag = null
 })
 
 itemGrid.addEventListener('pointercancel', (event) => {
-  if (itemGrid.hasPointerCapture(event.pointerId)) itemGrid.releasePointerCapture(event.pointerId)
+  if (itemGridDrag?.captured && itemGrid.hasPointerCapture(event.pointerId)) itemGrid.releasePointerCapture(event.pointerId)
   itemGridDrag = null
 })
 
@@ -997,6 +1014,8 @@ credentialFileInput.addEventListener('change', async (event) => {
     const text = await fileToText(file)
     JSON.parse(text)
     credentialInput.value = text
+    hasEnvCredential = false
+    updateCredentialState()
     setStatus('서비스 계정 JSON을 불러왔습니다.')
   } catch (error) {
     setStatus(error instanceof Error ? error.message : 'JSON 파일을 읽지 못했습니다.', true)
@@ -1092,6 +1111,8 @@ const configPromise = window.nanobanana ? window.nanobanana.config() : fetch('/a
 
 configPromise
   .then((config) => {
+    hasEnvCredential = Boolean(config.hasCredentials)
+    updateCredentialState()
     if (config.defaultModel) modelInput.value = config.defaultModel
     if (config.defaultLocation) locationInput.value = config.defaultLocation
     if (config.projectId) projectInput.value = config.projectId
@@ -1101,6 +1122,7 @@ configPromise
   .catch(() => {})
 
 renderReferences()
+updateCredentialState()
 
 window.addEventListener('resize', fitCanvasStageToWindow)
 if ('ResizeObserver' in window) {

@@ -292,8 +292,8 @@ async function renderEdit(input) {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    width: 1920,
+    height: 1080,
     minWidth: 980,
     minHeight: 680,
     title: 'Nano Banana Local Editor',
@@ -326,6 +326,7 @@ ipcMain.handle('nanobanana:config', () => ({
   ok: true,
   defaultModel: DEFAULT_MODEL,
   defaultLocation: DEFAULT_LOCATION,
+  hasCredentials: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS),
   projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
   historyDir: historyRoot(),
 }))
