@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const { createSign } = require('node:crypto')
-const { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } = require('node:fs')
+const { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } = require('node:fs')
 const path = require('node:path')
 
 const DEFAULT_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview'
@@ -122,38 +122,10 @@ function createHistoryJob(input) {
     prompt: input.prompt || '',
     model: input.model || DEFAULT_MODEL,
     location: input.location || DEFAULT_LOCATION,
-    sourceFilePath: input.sourceImage?.filePath || null,
     referenceCount: referenceImages.length,
   }
   writeFileSync(path.join(dir, 'job.json'), JSON.stringify(job, null, 2), 'utf8')
   return job
-}
-
-function isInsidePath(parent, target) {
-  const relative = path.relative(parent, target)
-  return relative && !relative.startsWith('..') && !path.isAbsolute(relative)
-}
-
-function deleteFileIfPresent(filePath) {
-  if (!filePath) return false
-  const resolved = path.resolve(String(filePath))
-  if (!existsSync(resolved)) return false
-  const stat = lstatSync(resolved)
-  if (!stat.isFile()) throw new Error('파일만 삭제할 수 있습니다.')
-  unlinkSync(resolved)
-  return true
-}
-
-function deleteHistoryDirIfPresent(historyDir) {
-  if (!historyDir) return false
-  const root = path.resolve(historyRoot())
-  const resolved = path.resolve(String(historyDir))
-  if (!isInsidePath(root, resolved)) throw new Error('작업 기록 폴더 위치가 올바르지 않습니다.')
-  if (!existsSync(resolved)) return false
-  const stat = lstatSync(resolved)
-  if (!stat.isDirectory()) throw new Error('작업 기록 폴더만 삭제할 수 있습니다.')
-  rmSync(resolved, { recursive: true, force: true })
-  return true
 }
 
 function updateHistoryJob(job, patch) {
@@ -323,9 +295,4 @@ ipcMain.handle('nanobanana:config', () => ({
 }))
 
 ipcMain.handle('nanobanana:edit', async (_event, input) => renderEdit(input || {}))
-ipcMain.handle('nanobanana:delete-item', (_event, input = {}) => ({
-  ok: true,
-  deletedFile: deleteFileIfPresent(input.filePath),
-  deletedHistory: deleteHistoryDirIfPresent(input.historyDir),
-}))
 ipcMain.handle('nanobanana:history', () => listHistoryJobs())

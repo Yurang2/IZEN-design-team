@@ -46,6 +46,7 @@ let tool = 'brush'
 let lastPoint = null
 let rectStart = null
 let previewMode = false
+let suppressNextItemClick = false
 
 function selectedItem() {
   return items.find((item) => item.id === selectedId) || null
@@ -67,25 +68,23 @@ function selectedDownloadName(item) {
   return `${item.name.replace(/\.[^.]+$/, '') || 'nanobanana'}-selected-edit.png`
 }
 
-function sourceFilePath(file) {
-  try {
-    return window.nanobanana?.filePath?.(file) || file.path || ''
-  } catch {
-    return file.path || ''
-  }
+function itemSortTime(item) {
+  if (Number.isFinite(item.sortTime)) return item.sortTime
+  const parsed = Date.parse(item.updatedAt || item.createdAt || '')
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function sortedItems() {
+  return [...items].sort((a, b) => itemSortTime(b) - itemSortTime(a))
 }
 
 function fitCanvasStageToWindow() {
   const item = selectedItem()
   if (!item) return
   const workspaceRect = workspace.getBoundingClientRect()
-  const columns = getComputedStyle(workspace).gridTemplateColumns.split(' ').map((value) => Number.parseFloat(value))
-  const panelWidth = resultPanel && getComputedStyle(resultPanel).position !== 'static' ? resultPanel.getBoundingClientRect().width : 0
-  const maxColumnWidth = columns.length > 1 && Number.isFinite(columns[0])
-    ? columns[0]
-    : workspace.clientWidth - panelWidth
-  const maxWidth = Math.max(280, Math.min(workspace.clientWidth, maxColumnWidth))
-  const maxHeight = Math.max(260, window.innerHeight - workspaceRect.top - 40)
+  const panelHeight = resultPanel?.getBoundingClientRect().height || 0
+  const maxWidth = Math.max(320, workspace.clientWidth)
+  const maxHeight = Math.max(260, window.innerHeight - workspaceRect.top - panelHeight - 60)
   const ratio = item.width / item.height
   let width = maxWidth
   let height = width / ratio
@@ -567,7 +566,7 @@ function renderItems() {
   updateQueueSummary()
   updateSelectedPreviewControls()
   itemGrid.innerHTML = ''
-  for (const item of items) {
+  for (const item of sortedItems()) {
     const card = document.createElement('article')
     card.className = `itemCard ${item.id === selectedId ? 'selected' : ''} status-${item.status}`
 
@@ -660,45 +659,29 @@ function renderItems() {
 }
 
 async function deleteItem(id) {
-  const itemIndex = items.findIndex((item) => item.id === id)
-  const item = items[itemIndex]
+  const orderedItems = sortedItems()
+  const itemIndex = orderedItems.findIndex((item) => item.id === id)
+  const item = orderedItems[itemIndex]
   if (!item) return
   if (item.status === 'running' || item.status === 'pending') {
     setStatus('진행 중인 이미지는 삭제할 수 없습니다.', true)
     return
   }
-  const confirmed = window.confirm(`"${item.name}"을 목록에서 삭제하고 원본 파일도 삭제할까요?`)
-  if (!confirmed) return
-  if (!window.nanobanana?.deleteItem) {
-    setStatus('원본 파일 삭제는 Electron 앱에서만 지원됩니다.', true)
-    return
-  }
-  if (!item.sourceFilePath && !item.historyDir) {
-    setStatus('원본 파일 경로를 확인할 수 없어 삭제할 수 없습니다.', true)
-    return
-  }
 
-  try {
-    await window.nanobanana.deleteItem({
-      filePath: item.sourceFilePath || null,
-      historyDir: item.historyDir || null,
-    })
-    const wasSelected = item.id === selectedId
-    items = items.filter((next) => next.id !== id)
-    if (wasSelected) {
-      const nextItem = items[Math.min(itemIndex, items.length - 1)]
-      if (nextItem) {
-        selectedId = null
-        await selectItem(nextItem.id)
-      } else {
-        resetCanvasStage()
-      }
+  const wasSelected = item.id === selectedId
+  items = items.filter((next) => next.id !== id)
+  if (wasSelected) {
+    const remainingOrderedItems = sortedItems()
+    const nextItem = remainingOrderedItems[Math.min(itemIndex, remainingOrderedItems.length - 1)]
+    if (nextItem) {
+      selectedId = null
+      await selectItem(nextItem.id)
+    } else {
+      resetCanvasStage()
     }
-    renderItems()
-    setStatus(`${item.name}을 삭제했습니다.`)
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '이미지를 삭제하지 못했습니다.', true)
   }
+  renderItems()
+  setStatus(`${item.name}을 목록에서 제거했습니다. 원본 파일은 유지됩니다.`)
 }
 
 async function openFiles(files) {
@@ -708,7 +691,7 @@ async function openFiles(files) {
     loaded.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       ...image,
-      sourceFilePath: sourceFilePath(file),
+      sortTime: Date.now() + loaded.length,
       maskDataUrl: createEmptyMask(image.width, image.height),
       hasMask: false,
       status: 'idle',
@@ -740,7 +723,6 @@ async function requestEdit(item) {
       mimeType: item.mimeType,
       width: item.width,
       height: item.height,
-      filePath: item.sourceFilePath || null,
     },
     maskImage: { name: 'selection-mask.png', mimeType: 'image/png', dataUrl: maskDataUrl },
     selectionGuideImage: { name: 'selection-guide.png', mimeType: 'image/png', dataUrl: selectionGuideDataUrl },
@@ -826,7 +808,9 @@ function itemFromHistory(job) {
     name: job.sourceName || 'history-image.png',
     dataUrl: job.sourceDataUrl,
     mimeType: 'image/png',
-    sourceFilePath: job.sourceFilePath || '',
+    createdAt: job.createdAt || '',
+    updatedAt: job.updatedAt || '',
+    sortTime: Date.parse(job.updatedAt || job.createdAt || '') || 0,
     width: job.width || 1,
     height: job.height || 1,
     maskDataUrl: job.maskDataUrl || createEmptyMask(job.width || 1, job.height || 1),
@@ -889,6 +873,55 @@ setupImageDrop(canvasStage, openFiles)
 setupImageDrop(itemGrid, openFiles)
 setupImageDrop(referenceDropTarget, openReferenceFiles)
 setupImageDrop(referenceStrip, openReferenceFiles)
+
+itemGrid.addEventListener('wheel', (event) => {
+  if (!items.length) return
+  if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+  event.preventDefault()
+  itemGrid.scrollLeft += event.deltaY
+}, { passive: false })
+
+let itemGridDrag = null
+
+itemGrid.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return
+  itemGridDrag = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    scrollLeft: itemGrid.scrollLeft,
+    moved: false,
+  }
+  itemGrid.setPointerCapture(event.pointerId)
+})
+
+itemGrid.addEventListener('pointermove', (event) => {
+  if (!itemGridDrag || itemGridDrag.pointerId !== event.pointerId) return
+  const distance = event.clientX - itemGridDrag.startX
+  if (Math.abs(distance) > 3) itemGridDrag.moved = true
+  itemGrid.scrollLeft = itemGridDrag.scrollLeft - distance
+})
+
+itemGrid.addEventListener('pointerup', (event) => {
+  if (!itemGridDrag || itemGridDrag.pointerId !== event.pointerId) return
+  if (itemGridDrag.moved) {
+    event.preventDefault()
+    suppressNextItemClick = true
+  }
+  if (itemGrid.hasPointerCapture(event.pointerId)) itemGrid.releasePointerCapture(event.pointerId)
+  itemGridDrag = null
+})
+
+itemGrid.addEventListener('pointercancel', (event) => {
+  if (itemGrid.hasPointerCapture(event.pointerId)) itemGrid.releasePointerCapture(event.pointerId)
+  itemGridDrag = null
+})
+
+itemGrid.addEventListener('click', (event) => {
+  if (!suppressNextItemClick) return
+  event.preventDefault()
+  event.stopPropagation()
+  suppressNextItemClick = false
+}, true)
 
 for (const eventName of ['dragover', 'drop']) {
   document.addEventListener(eventName, (event) => {

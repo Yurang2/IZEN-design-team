@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const PORT = Number(process.env.PORT || 8789)
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const DEFAULT_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview'
-const DEFAULT_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+const DEFAULT_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || (DEFAULT_MODEL === 'gemini-3.1-flash-image-preview' ? 'global' : 'us-central1')
 const MAX_BODY_BYTES = 25 * 1024 * 1024
 
 const MIME_TYPES = new Map([
@@ -118,16 +118,21 @@ function parseDataUrl(dataUrl, label) {
   return { mimeType: match[1], data: match[2] }
 }
 
-function buildEditPrompt(userPrompt) {
+function buildEditPrompt(userPrompt, referenceInstructionRaw = '') {
   const prompt = String(userPrompt || '').trim()
+  const referenceInstruction = String(referenceInstructionRaw || '').trim()
   if (!prompt) throw new Error('prompt_required')
   return [
-    'Edit the source image using the selection mask.',
-    'Only the white or colored mask area may change. Transparent or black mask areas must remain visually identical.',
+    'Edit the source image using the selection guide image.',
+    'The blue overlay in the guide image marks the only area to edit. The blue overlay is an instruction marker, not visual content.',
+    'Do not render any blue overlay, white patch, blank patch, transparent patch, or solid rectangle where the marker appears.',
+    'If the requested edit removes objects, reconstruct the natural background behind them instead of leaving an empty patch.',
+    'Continue the original floor, shadows, reflections, perspective, lighting, texture, and color through the edited area.',
     'Preserve crop, camera angle, perspective, lighting continuity, and all unselected content.',
     'Return one complete final image only. Do not add borders, labels, captions, watermarks, or UI.',
+    referenceInstruction,
     `Requested edit: ${prompt}`,
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 }
 
 function extractImage(payload) {
@@ -149,6 +154,11 @@ function extractImage(payload) {
   throw new Error('edited_image_missing')
 }
 
+function buildVertexEndpoint(projectId, location, model) {
+  const host = location === 'global' ? 'aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`
+  return `https://${host}/v1/projects/${projectId}/locations/${location}/publishers/google/models/${encodeURIComponent(model)}:generateContent`
+}
+
 async function renderEdit(input) {
   const serviceAccount = loadServiceAccount(input.serviceAccountJson)
   const projectId = String(input.projectId || process.env.GOOGLE_CLOUD_PROJECT_ID || serviceAccount.project_id || '').trim()
@@ -157,9 +167,10 @@ async function renderEdit(input) {
   const model = String(input.model || DEFAULT_MODEL).trim()
   const location = String(input.location || DEFAULT_LOCATION).trim()
   const source = parseDataUrl(input.sourceImage?.dataUrl, 'source_image')
-  const mask = parseDataUrl(input.maskImage?.dataUrl, 'mask_image')
+  const selectionGuide = parseDataUrl(input.selectionGuideImage?.dataUrl || input.maskImage?.dataUrl, 'selection_guide_image')
+  const referenceImages = Array.isArray(input.referenceImages) ? input.referenceImages.slice(0, 3) : []
   const accessToken = await getAccessToken(serviceAccount)
-  const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${encodeURIComponent(model)}:generateContent`
+  const endpoint = buildVertexEndpoint(projectId, location, model)
 
   const requestBody = {
     contents: [
@@ -168,9 +179,16 @@ async function renderEdit(input) {
         parts: [
           { text: 'Source image:' },
           { inline_data: { mime_type: source.mimeType, data: source.data } },
-          { text: 'Selection mask. Edit only selected pixels:' },
-          { inline_data: { mime_type: mask.mimeType, data: mask.data } },
-          { text: buildEditPrompt(input.prompt) },
+          { text: 'Selection guide image. The blue overlay marks the target area; do not render the overlay itself:' },
+          { inline_data: { mime_type: selectionGuide.mimeType, data: selectionGuide.data } },
+          ...referenceImages.flatMap((image, index) => {
+            const reference = parseDataUrl(image?.dataUrl, `reference_image_${index + 1}`)
+            return [
+              { text: `Reference image ${index + 1}. Use this as visual guidance for the selected area only:` },
+              { inline_data: { mime_type: reference.mimeType, data: reference.data } },
+            ]
+          }),
+          { text: buildEditPrompt(input.prompt, input.referenceInstruction) },
         ],
       },
     ],
