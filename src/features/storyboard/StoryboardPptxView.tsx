@@ -644,7 +644,7 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
     bold: true,
     margin: 0,
   })
-  slide.addText([meta.projectName, meta.versionName].filter(Boolean).join(' / '), {
+  slide.addText([meta.projectName, meta.deckTitle, meta.versionName].filter(Boolean).join(' / '), {
     x: 6.8,
     y: 0.25,
     w: 6.12,
@@ -757,7 +757,7 @@ function addStoryboardSlide(pptx: PptxGenJS, frame: StoryboardFrame, meta: Story
     bold: true,
     margin: 0,
   })
-  slide.addText([meta.projectName, meta.versionName].filter(Boolean).join(' / '), {
+  slide.addText([meta.projectName, meta.deckTitle, meta.versionName].filter(Boolean).join(' / '), {
     x: 7.0,
     y: 0.25,
     w: 3.45,
