@@ -9,6 +9,21 @@ const DEFAULT_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || (DEFAULT_MODEL ===
 let win
 let cachedToken = null
 
+function configureAppStorage() {
+  const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || process.cwd(), 'AppData', 'Local')
+  const storageRoot = path.join(localAppData, 'IZEN', 'NanoBananaEditor')
+  const sessionRoot = path.join(storageRoot, 'Session')
+  const cacheRoot = path.join(storageRoot, 'Cache')
+  mkdirSync(sessionRoot, { recursive: true })
+  mkdirSync(cacheRoot, { recursive: true })
+  app.setName('IZEN Nano Banana Editor')
+  app.setPath('userData', storageRoot)
+  app.setPath('sessionData', sessionRoot)
+  app.commandLine.appendSwitch('disk-cache-dir', cacheRoot)
+}
+
+configureAppStorage()
+
 function base64url(value) {
   return Buffer.from(value).toString('base64url')
 }
@@ -283,7 +298,18 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'index.html'))
 }
 
-app.whenReady().then(createWindow)
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  })
+
+  app.whenReady().then(createWindow)
+}
 app.on('window-all-closed', () => app.quit())
 
 ipcMain.handle('nanobanana:config', () => ({
