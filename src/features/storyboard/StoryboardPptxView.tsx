@@ -894,6 +894,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   const [activeNotionId, setActiveNotionId] = useState<string | null>(null)
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionSaving, setNotionSaving] = useState(false)
+  const [notionSaveMode, setNotionSaveMode] = useState<'update' | 'saveAs' | null>(null)
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
   const [draggingFrameId, setDraggingFrameId] = useState<string | null>(null)
   const [draggingListFrameId, setDraggingListFrameId] = useState<string | null>(null)
@@ -912,6 +913,10 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
   const activeSavedStoryboard = useMemo(
     () => savedStoryboards.find((item) => item.id === activeStoryboardId) ?? savedStoryboards[0],
     [activeStoryboardId, savedStoryboards],
+  )
+  const activeNotionStoryboard = useMemo(
+    () => notionStoryboards.find((item) => item.id === activeNotionId),
+    [activeNotionId, notionStoryboards],
   )
   const activeWorkingSourceLabel = activeNotionId ? 'DB 저장본' : '웹페이지 자동저장'
   const projectOptions = useMemo(() => {
@@ -1080,12 +1085,17 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
     }
   }
 
-  const saveNotionStoryboard = async () => {
+  const saveNotionStoryboard = async (mode: 'update' | 'saveAs' = activeNotionId ? 'update' : 'saveAs') => {
     if (!configured) {
       setStorageError('스토리보드 DB가 연결되면 DB 저장을 사용할 수 있습니다.')
       return
     }
+    if (mode === 'update' && !activeNotionId) {
+      setStorageError('수정할 DB 저장본을 먼저 선택해 주세요. 새 문서로 만들려면 새 DB로 저장을 사용하세요.')
+      return
+    }
     setNotionSaving(true)
+    setNotionSaveMode(mode)
     setStorageError(null)
     try {
       const basePayload = {
@@ -1103,32 +1113,36 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
       }
 
       let response: StoryboardResponse
-      if (!activeNotionId || structureDirtyRef.current) {
-        response = activeNotionId
-          ? await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(activeNotionId)}`, {
-              method: 'PATCH',
-              body: JSON.stringify(fullPayload),
-            })
-          : await api<StoryboardResponse>('/storyboards', {
-              method: 'POST',
-              body: JSON.stringify(fullPayload),
-            })
-      } else {
-        response = await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(activeNotionId)}`, {
-          method: 'PATCH',
-          body: JSON.stringify(basePayload),
+      if (mode === 'saveAs') {
+        response = await api<StoryboardResponse>('/storyboards', {
+          method: 'POST',
+          body: JSON.stringify(fullPayload),
         })
-        const dirtyFrameIds = Array.from(dirtyFrameIdsRef.current)
-        for (const frameId of dirtyFrameIds) {
-          const frame = frames.find((item) => item.id === frameId)
-          if (!frame) continue
-          response = await api<StoryboardResponse>(
-            `/storyboards/${encodeURIComponent(activeNotionId)}/frames/${encodeURIComponent(frameId)}`,
-            {
-              method: 'PATCH',
-              body: JSON.stringify(stripStoredImagePayload(frame)),
-            },
-          )
+      } else {
+        const updateTargetId = activeNotionId
+        if (!updateTargetId) throw new Error('수정할 DB 저장본을 먼저 선택해 주세요.')
+        if (structureDirtyRef.current) {
+          response = await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(updateTargetId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify(fullPayload),
+          })
+        } else {
+          response = await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(updateTargetId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify(basePayload),
+          })
+          const dirtyFrameIds = Array.from(dirtyFrameIdsRef.current)
+          for (const frameId of dirtyFrameIds) {
+            const frame = frames.find((item) => item.id === frameId)
+            if (!frame) continue
+            response = await api<StoryboardResponse>(
+              `/storyboards/${encodeURIComponent(updateTargetId)}/frames/${encodeURIComponent(frameId)}`,
+              {
+                method: 'PATCH',
+                body: JSON.stringify(stripStoredImagePayload(frame)),
+              },
+            )
+          }
         }
       }
 
@@ -1143,11 +1157,12 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
       dirtyFrameIdsRef.current.clear()
       metaDirtyRef.current = false
       structureDirtyRef.current = false
-      setMessage('DB에 저장했습니다.')
+      setMessage(mode === 'saveAs' ? '새 DB 저장본을 만들었습니다.' : '기존 DB 저장본을 수정했습니다.')
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'DB 저장에 실패했습니다.')
     } finally {
       setNotionSaving(false)
+      setNotionSaveMode(null)
     }
   }
 
@@ -1406,8 +1421,8 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
           <span>
             {configured
               ? activeNotionId
-                ? '현재 문서가 DB 저장본과 연결되어 있습니다.'
-                : 'DB에 저장하면 다른 브라우저에서도 이어서 수정할 수 있습니다.'
+                ? `수정 대상: ${activeNotionStoryboard?.title ?? '선택된 DB 저장본'}`
+                : 'DB 저장본을 선택하면 기존 문서를 수정할 수 있고, 새 DB로 저장하면 사본을 만듭니다.'
               : '스토리보드 DB 연결 전까지는 브라우저 자동저장만 사용합니다.'}
           </span>
         </div>
@@ -1420,8 +1435,11 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
           ))}
         </select>
         <div className="storyboardPptxSaveActions">
-          <Button type="button" variant="secondary" size="mini" onClick={() => void saveNotionStoryboard()} disabled={!configured || notionSaving}>
-            {notionSaving ? '저장 중' : 'DB 저장'}
+          <Button type="button" size="mini" onClick={() => void saveNotionStoryboard('update')} disabled={!configured || notionSaving || !activeNotionId}>
+            {notionSaveMode === 'update' ? '수정 중' : '기존 DB 수정'}
+          </Button>
+          <Button type="button" variant="secondary" size="mini" onClick={() => void saveNotionStoryboard('saveAs')} disabled={!configured || notionSaving}>
+            {notionSaveMode === 'saveAs' ? '저장 중' : '새 DB로 저장'}
           </Button>
           <Button type="button" variant="secondary" size="mini" onClick={() => void deleteNotionStoryboard()} disabled={!activeNotionId}>
             DB 삭제
