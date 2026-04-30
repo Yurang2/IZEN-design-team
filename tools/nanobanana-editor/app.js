@@ -83,8 +83,8 @@ function fitCanvasStageToWindow() {
   if (!item) return
   const workspaceRect = workspace.getBoundingClientRect()
   const panelHeight = resultPanel?.getBoundingClientRect().height || 0
-  const maxWidth = Math.max(320, workspace.clientWidth)
-  const maxHeight = Math.max(260, window.innerHeight - workspaceRect.top - panelHeight - 60)
+  const maxWidth = Math.max(320, workspaceRect.width)
+  const maxHeight = Math.max(260, workspaceRect.height - panelHeight - 40)
   const ratio = item.width / item.height
   let width = maxWidth
   let height = width / ratio

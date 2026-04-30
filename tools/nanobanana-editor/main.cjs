@@ -10,13 +10,16 @@ let win
 let cachedToken = null
 
 function configureAppStorage() {
+  const roamingAppData = process.env.APPDATA || path.join(process.env.USERPROFILE || process.cwd(), 'AppData', 'Roaming')
   const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || process.cwd(), 'AppData', 'Local')
-  const storageRoot = path.join(localAppData, 'IZEN', 'NanoBananaEditor')
-  const sessionRoot = path.join(storageRoot, 'Session')
-  const cacheRoot = path.join(storageRoot, 'Cache')
+  const storageRoot = path.join(roamingAppData, 'izen-nanobanana-editor')
+  const localRoot = path.join(localAppData, 'IZEN', 'NanoBananaEditor')
+  const sessionRoot = path.join(localRoot, 'Session')
+  const cacheRoot = path.join(localRoot, 'Cache')
+  mkdirSync(storageRoot, { recursive: true })
   mkdirSync(sessionRoot, { recursive: true })
   mkdirSync(cacheRoot, { recursive: true })
-  app.setName('IZEN Nano Banana Editor')
+  app.setName('izen-nanobanana-editor')
   app.setPath('userData', storageRoot)
   app.setPath('sessionData', sessionRoot)
   app.commandLine.appendSwitch('disk-cache-dir', cacheRoot)
@@ -101,6 +104,13 @@ function historyRoot() {
   return root
 }
 
+function historyRoots() {
+  const roots = [historyRoot()]
+  const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || process.cwd(), 'AppData', 'Local')
+  roots.push(path.join(localAppData, 'IZEN', 'NanoBananaEditor', 'history'))
+  return [...new Set(roots)].filter((root) => existsSync(root))
+}
+
 function writeDataUrl(filePath, dataUrl, label) {
   const parsed = parseDataUrl(dataUrl, label)
   writeFileSync(filePath, Buffer.from(parsed.data, 'base64'))
@@ -154,10 +164,10 @@ function updateHistoryJob(job, patch) {
 }
 
 function listHistoryJobs() {
-  const root = historyRoot()
-  return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
+  return historyRoots()
+    .flatMap((root) => readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
       const dir = path.join(root, entry.name)
       const jobPath = path.join(dir, 'job.json')
       if (!existsSync(jobPath)) return null
@@ -172,7 +182,7 @@ function listHistoryJobs() {
       } catch {
         return null
       }
-    })
+    }))
     .filter(Boolean)
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 }
