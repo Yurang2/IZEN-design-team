@@ -668,7 +668,7 @@ function addStoryboardSummarySlide(pptx: PptxGenJS, frames: StoryboardFrame[], m
     margin: 0,
     fit: 'shrink',
   })
-  slide.addText(`전체 콘셉트  ${summaryText(meta.memo)}`, {
+  slide.addText(`제작 배경: ${summaryText(meta.memo)}`, {
     x: 5.45,
     y: 0.89,
     w: 7.45,
