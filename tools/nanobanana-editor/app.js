@@ -117,9 +117,6 @@ function selectResultVariant(item, index) {
   item.resultDataUrl = urls[index]
   if (item.id === selectedId) {
     previewImageElement.src = item.resultDataUrl
-    if (previewMode) {
-      previewImageElement.style.display = 'block'
-    }
     updateSelectedPreviewControls()
   }
   renderItems()
@@ -189,6 +186,7 @@ function updateSelectedPreviewControls() {
     selectedDownloadLink.removeAttribute('href')
   }
   canvasStage.classList.toggle('previewing', previewMode && hasResult)
+  previewImageElement.style.removeProperty('display')
   previewBadge.textContent = previewMode && hasResult ? '편집본 표시중' : '기존본 표시중'
   maskCanvas.style.pointerEvents = previewMode && hasResult ? 'none' : ''
   draftCanvas.style.pointerEvents = 'none'
@@ -417,30 +415,26 @@ async function promoteResultToSource(id) {
   const item = items.find((next) => next.id === id)
   const resultDataUrl = currentResultDataUrl(item)
   if (!resultDataUrl) return
-  item.dataUrl = resultDataUrl
-  item.mimeType = dataUrlMimeType(resultDataUrl)
-  item.resultDataUrl = null
-  item.resultDataUrls = []
-  item.selectedResultIndex = 0
-  item.status = 'idle'
-  item.error = null
-  item.historySavedPath = null
-  item.maskDataUrl = createEmptyMask(item.width, item.height)
-  item.hasMask = false
-  previewMode = false
-  if (item.id === selectedId) {
-    sourceImageElement.src = item.dataUrl
-    previewImageElement.src = ''
-    maskCanvas.width = item.width
-    maskCanvas.height = item.height
-    draftCanvas.width = item.width
-    draftCanvas.height = item.height
-    await drawMaskDataUrl(item.maskDataUrl)
-    clearDraft()
-    updateSelectedPreviewControls()
+  const sourceItem = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: selectedDownloadName(item),
+    dataUrl: resultDataUrl,
+    mimeType: dataUrlMimeType(resultDataUrl),
+    width: item.width,
+    height: item.height,
+    sortTime: Date.now(),
+    maskDataUrl: createEmptyMask(item.width, item.height),
+    hasMask: false,
+    status: 'idle',
+    resultDataUrl: null,
+    resultDataUrls: [],
+    selectedResultIndex: 0,
+    error: null,
+    sourceFrom: item.name,
   }
-  renderItems()
-  setStatus(`${item.name} 편집본을 수정할 이미지로 지정했습니다.`)
+  items = [...items, sourceItem]
+  await selectItem(sourceItem.id)
+  setStatus(`${item.name} 편집본을 새 수정 이미지로 추가했습니다.`)
 }
 
 function getCanvasPoint(event) {
