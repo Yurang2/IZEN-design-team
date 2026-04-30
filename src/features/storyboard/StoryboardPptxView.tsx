@@ -1103,7 +1103,7 @@ export function StoryboardPptxView({ projects, tasks, configured = false }: Stor
       }
 
       let response: StoryboardResponse
-      if (!activeNotionId || structureDirtyRef.current || metaDirtyRef.current) {
+      if (!activeNotionId || structureDirtyRef.current) {
         response = activeNotionId
           ? await api<StoryboardResponse>(`/storyboards/${encodeURIComponent(activeNotionId)}`, {
               method: 'PATCH',
