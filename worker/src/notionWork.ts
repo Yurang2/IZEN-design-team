@@ -4834,7 +4834,10 @@ export class NotionWorkService {
     const exportedFileNames = hasOwn(patch as Record<string, unknown>, 'exportedFileNames')
       ? (patch.exportedFileNames ?? [])
       : existing.exportedFileNames
-    const meta = patch.data?.meta ?? existing.data.meta ?? {}
+    const meta = { ...(existing.data.meta ?? {}), ...(patch.data?.meta ?? {}) }
+    if (hasOwn(patch as Record<string, unknown>, 'title') && title) {
+      meta.deckTitle = title
+    }
     await db
       .prepare(
         `UPDATE storyboard_documents
