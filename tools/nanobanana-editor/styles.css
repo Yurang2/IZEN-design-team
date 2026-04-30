@@ -114,6 +114,15 @@ label {
   font-weight: 800;
 }
 
+.rangeField {
+  grid-template-columns: auto minmax(120px, 1fr);
+  align-items: center;
+}
+
+.rangeField span {
+  white-space: nowrap;
+}
+
 .fileButton input {
   display: none;
 }
@@ -386,7 +395,6 @@ textarea {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 2px 2px 10px;
-  scroll-behavior: smooth;
   cursor: grab;
   user-select: none;
   touch-action: pan-x;
