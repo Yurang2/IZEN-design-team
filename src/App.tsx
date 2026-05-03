@@ -1458,7 +1458,7 @@ function App() {
         { view: 'nasUpload', title: 'NAS 파일 업로드', label: 'NAS 업로드', icon: 'plus' },
         { view: 'nasExplorer', title: 'NAS 탐색기', label: 'NAS 탐색기', icon: 'search' },
         { view: 'gdrive', title: '구글 드라이브', label: '구글 드라이브', icon: 'external' },
-        { view: 'snsPost', title: 'SNS 본문 생성', label: 'SNS 본문 생성', icon: 'list' },
+        { view: 'snsPost', title: '후기영상', label: '후기영상', icon: 'list' },
         { view: 'references', title: '레퍼런스 자료함', label: '레퍼런스', icon: 'grid', test: true },
         { view: 'storyboardPptx', title: '스토리보드 PPTX 생성', label: '스토리보드 PPTX', icon: 'download' },
         { view: 'geminiImageTest', title: 'Gemini 이미지 테스트', label: 'Gemini 이미지', icon: 'list', test: true },
@@ -2210,7 +2210,6 @@ function App() {
         )}
         <header className="sidebarBrand">
           <h1>디자인팀 업무 도우미</h1>
-          <p>Plane-inspired Layout + Asana Workflow</p>
         </header>
         <section className="viewMenu">
           <div className="viewMenuHeader">

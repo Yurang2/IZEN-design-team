@@ -294,10 +294,10 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
   }
 
   return (
-    <section className="snsPostView" aria-label="SNS 본문 생성기">
+    <section className="snsPostView" aria-label="후기영상">
       <article className="snsPostHero">
-        <h2>SNS 본문 자동 생성</h2>
-        <p>하트 색상을 직접 고르고, 국가명과 도시명만 반영해서 본문과 해시태그를 생성합니다.</p>
+        <h2>후기영상</h2>
+        <p>후기영상 마감 단계에서 SNS 본문, 단체방 공유 문구, NAS 링크를 한 번에 정리합니다.</p>
       </article>
 
       <div className="snsPostGrid">
