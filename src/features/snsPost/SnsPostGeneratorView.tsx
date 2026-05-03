@@ -16,6 +16,7 @@ type FormState = {
   cityName: string
   startDate: string
   endDate: string
+  nasLink: string
 }
 
 type PreviewValues = {
@@ -37,6 +38,7 @@ const EMPTY_FORM: FormState = {
   cityName: '',
   startDate: '',
   endDate: '',
+  nasLink: '',
 }
 
 const HEART_OPTIONS: HeartOption[] = [
@@ -207,6 +209,20 @@ function buildPostText(values: PreviewValues, heart: string, hashtags: string[])
   ].join('\n')
 }
 
+function buildReviewShareText(nasLink: string, values: PreviewValues, postText: string): string {
+  return [
+    nasLink || 'NAS 링크',
+    '',
+    `${values.eventName} 후기영상 제작 및 검토 완료되었으며, 해당 파일들이 업로드된 나스 경로를 전달드리오니 시간 되실 때 SNS 게시 부탁드립니다.`,
+    '',
+    '-본문-',
+    '',
+    postText,
+    '',
+    '--',
+  ].join('\n')
+}
+
 export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [selectedHeartKey, setSelectedHeartKey] = useState<string>(HEART_OPTIONS[0]?.key ?? 'red')
@@ -218,6 +234,7 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
       cityName: normalizeValue(form.cityName),
       startDate: normalizeValue(form.startDate),
       endDate: normalizeValue(form.endDate),
+      nasLink: normalizeValue(form.nasLink),
     }),
     [form],
   )
@@ -259,6 +276,11 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
     () => buildPostText(previewValues, selectedHeart.emoji, hashtags),
     [hashtags, previewValues, selectedHeart.emoji],
   )
+  const reviewShareText = useMemo(
+    () => buildReviewShareText(normalizedForm.nasLink, previewValues, postText),
+    [normalizedForm.nasLink, postText, previewValues],
+  )
+  const canCopyReviewShareText = isReady && Boolean(normalizedForm.nasLink)
 
   const onChangeField = (key: keyof FormState, value: string) => {
     setForm((current) => ({
@@ -410,6 +432,39 @@ export function SnsPostGeneratorView({ onCopy }: SnsPostGeneratorViewProps) {
             </div>
             <textarea className="snsPostTextarea" value={postText} readOnly rows={10} />
             <p className="muted snsPostTemplateHint">선택한 하트 색상이 첫 줄 제목에 바로 반영됩니다.</p>
+          </article>
+
+          <article className="snsPostCard snsPostTemplateCard snsPostReviewShareCard">
+            <div className="snsPostCardHeader">
+              <div>
+                <h3>후기영상 단체방 공유</h3>
+                <p className="muted">NAS 링크를 넣으면 라인 단체방 공유용 문구가 생성됩니다.</p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="mini"
+                disabled={!canCopyReviewShareText}
+                onClick={() =>
+                  void onCopy(reviewShareText, {
+                    successMessage: '후기영상 공유 문구를 복사했습니다.',
+                    emptyMessage: 'SNS 본문 정보와 NAS 링크를 입력해 주세요.',
+                  })
+                }
+              >
+                복사
+              </Button>
+            </div>
+            <label className="snsPostNasLinkField">
+              NAS 링크
+              <input
+                type="text"
+                value={form.nasLink}
+                onChange={(event) => onChangeField('nasLink', event.target.value)}
+                placeholder="NAS 링크를 붙여넣어 주세요"
+              />
+            </label>
+            <textarea className="snsPostTextarea snsPostReviewShareTextarea" value={reviewShareText} readOnly rows={14} />
           </article>
         </div>
       </div>

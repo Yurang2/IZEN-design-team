@@ -3412,6 +3412,15 @@ button.dashboardNavButton {
   white-space: pre-wrap;
 }
 
+.snsPostNasLinkField {
+  display: grid;
+  gap: 6px;
+}
+
+.snsPostReviewShareTextarea {
+  min-height: 360px;
+}
+
 .snsPostTemplateHint {
   margin-top: -2px;
 }
