@@ -27,6 +27,7 @@ const TasksView = lazy(() => import('./features/tasks/TasksView').then((m) => ({
 const WorkflowProcessView = lazy(() => import('./features/process/WorkflowProcessView').then((m) => ({ default: m.WorkflowProcessView })))
 const SubtitleView = lazy(() => import('./features/subtitle/SubtitleView').then((m) => ({ default: m.SubtitleView })))
 const VideoManagementView = lazy(() => import('./features/videoManagement/VideoManagementView').then((m) => ({ default: m.VideoManagementView })))
+const VideoMakerView = lazy(() => import('./features/videoMaker/VideoMakerView').then((m) => ({ default: m.VideoMakerView })))
 const NasGuideView = lazy(() => import('./features/nasGuide/NasGuideView').then((m) => ({ default: m.NasGuideView })))
 const NasUploadView = lazy(() => import('./features/nasUpload/NasUploadView').then((m) => ({ default: m.NasUploadView })))
 const NasExplorerView = lazy(() => import('./features/nasExplorer/NasExplorerView').then((m) => ({ default: m.NasExplorerView })))
@@ -1448,6 +1449,7 @@ function App() {
       label: '도구',
       items: [
         { view: 'programIssues', title: '프로그램 이슈 트래커', label: '프로그램 이슈', icon: 'list', test: true },
+        { view: 'videoMaker', title: 'IZEN Video Maker', label: 'Video Maker', icon: 'plus', test: true },
         { view: 'videoManagement', title: '영상 관리', label: '영상 관리', icon: 'list', test: true },
         { view: 'videoManual', title: '영상 작업 매뉴얼', label: '영상 작업 매뉴얼', icon: 'list', test: true },
         { view: 'subtitle', title: '자막 스크립트', label: '자막 스크립트', icon: 'list', test: true },
@@ -2657,6 +2659,8 @@ function App() {
 
       {activeView === 'snsPost' ? <SnsPostGeneratorView onCopy={copyText} /> : null}
 
+      {activeView === 'videoMaker' ? <VideoMakerView onCopy={copyText} /> : null}
+
       {activeView === 'references' ? (
         <ReferencesView tasks={tasks} configured={Boolean(dbLinks.reference)} databaseUrl={dbLinks.reference} />
       ) : null}
@@ -2751,6 +2755,13 @@ function App() {
                 <p>행사명, 국가명, 도시명, 날짜만 넣어 재사용 가능한 SNS 본문과 해시태그를 만드는 탭입니다.</p>
                 <button type="button" className="secondary mini" onClick={() => setActiveView('snsPost')}>
                   SNS 탭 열기
+                </button>
+              </section>
+              <section className="guideTabItem">
+                <h4>IZEN Video Maker</h4>
+                <p>주제만 넣어 대본, 장면표, 프롬프트, SRT, 업로드 문구, Premiere 편집 지시서를 만드는 탭입니다.</p>
+                <button type="button" className="secondary mini" onClick={() => setActiveView('videoMaker')}>
+                  Video Maker 열기
                 </button>
               </section>
               <section className="guideTabItem">

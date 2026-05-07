@@ -542,6 +542,7 @@ export type TopView =
   | 'mailTemplate'
   | 'feedback'
   | 'programIssues'
+  | 'videoMaker'
   | 'subtitle'
   | 'videoManagement'
   | 'videoManual'

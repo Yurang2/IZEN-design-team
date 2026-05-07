@@ -33,6 +33,7 @@ export function parseTopView(value: string | null): TopView {
     value === 'mailTemplate' ||
     value === 'feedback' ||
     value === 'programIssues' ||
+    value === 'videoMaker' ||
     value === 'nasGuide' ||
     value === 'nasUpload' ||
     value === 'nasExplorer' ||
@@ -118,6 +119,7 @@ export function toTopViewPath(view: TopView): string {
   if (view === 'equipment') return 'Equipment'
   if (view === 'feedback') return 'Work Feedback'
   if (view === 'programIssues') return 'Program Issues'
+  if (view === 'videoMaker') return 'IZEN Video Maker'
   if (view === 'nasGuide') return 'NAS Folder Guide'
   if (view === 'nasUpload') return 'NAS Upload'
   if (view === 'nasExplorer') return 'NAS Explorer'
@@ -148,6 +150,7 @@ export function toTopViewTitle(view: TopView): string {
   if (view === 'equipment') return '촬영장비'
   if (view === 'feedback') return '업무 피드백'
   if (view === 'programIssues') return '프로그램 이슈 트래커'
+  if (view === 'videoMaker') return 'IZEN Video Maker'
   if (view === 'nasGuide') return 'NAS 폴더 구조 가이드'
   if (view === 'nasUpload') return 'NAS 파일 업로드'
   if (view === 'nasExplorer') return 'NAS 탐색기'

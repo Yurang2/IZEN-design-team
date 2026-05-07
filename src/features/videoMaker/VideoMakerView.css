@@ -1,0 +1,357 @@
+.videoMaker {
+  display: grid;
+  gap: 18px;
+}
+
+.videoMakerHero {
+  align-items: stretch;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(59, 130, 246, 0.2), transparent 34%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 54%, #111827 100%);
+  border-radius: 24px;
+  box-shadow: var(--shadow-md);
+  color: white;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  padding: 28px;
+}
+
+.videoMakerHero h2 {
+  font-size: clamp(30px, 4vw, 52px);
+  letter-spacing: -0.05em;
+  margin: 2px 0 10px;
+}
+
+.videoMakerHero p {
+  color: rgba(255, 255, 255, 0.76);
+  line-height: 1.75;
+  margin: 0;
+  max-width: 760px;
+}
+
+.videoMakerHeroStats {
+  align-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 18px;
+}
+
+.videoMakerHeroStats strong {
+  font-size: 34px;
+}
+
+.videoMakerHeroStats span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.videoMakerModeBar {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+}
+
+.videoMakerModeBar button.active,
+.segmentedControl button.active,
+.outputTabs button.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.videoMakerModeBar .ghost {
+  margin-left: auto;
+}
+
+.videoMakerGrid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 300px minmax(0, 1fr) 280px;
+}
+
+.videoMakerPanel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
+}
+
+.panelHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.panelHeader h3 {
+  margin: 2px 0 0;
+}
+
+.eyebrow {
+  color: var(--primary-strong);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.proPill,
+.statusPill {
+  background: #111827;
+  border-radius: 999px;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.statusPill {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.videoMakerSettings,
+.projectsPanel {
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 18px;
+}
+
+.settingGroup {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.settingGroup strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.segmentedControl,
+.outputTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmentedControl button,
+.outputTabs button,
+.quickTopic {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-sub);
+  font-size: 12px;
+  padding: 7px 10px;
+}
+
+.inlineField {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr 84px;
+}
+
+.toggleRow {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.videoMaker label {
+  color: var(--text-main);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+.videoMaker input,
+.videoMaker select,
+.videoMaker textarea {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-main);
+  font: inherit;
+  font-weight: 500;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.videoMaker textarea {
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.videoMakerWorkspace {
+  display: grid;
+  gap: 14px;
+}
+
+.videoMakerFormGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.formatInfoCard {
+  background: linear-gradient(135deg, var(--primary-soft), #f8fafc);
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+}
+
+.formatInfoCard p,
+.formatInfoCard small {
+  color: var(--text-sub);
+  margin: 0;
+}
+
+.quickTopicGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quickTopic:hover {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+
+.pipelineCards {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pipelineCard {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.pipelineCard span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.videoProjectList {
+  display: grid;
+  gap: 10px;
+  max-height: 680px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.videoProjectCard {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.videoProjectCard.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.videoProjectCard > button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  text-align: left;
+}
+
+.videoProjectCard > button span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.projectActions {
+  display: flex;
+  gap: 6px;
+}
+
+.videoMakerOutput {
+  display: grid;
+  gap: 12px;
+}
+
+.outputBox {
+  background: #0f172a;
+  border-radius: 16px;
+  color: #dbeafe;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0;
+  max-height: 620px;
+  overflow: auto;
+  padding: 18px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1320px) {
+  .videoMakerGrid {
+    grid-template-columns: 290px minmax(0, 1fr);
+  }
+
+  .projectsPanel {
+    grid-column: 1 / -1;
+    position: static;
+  }
+
+  .videoProjectList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+  }
+}
+
+@media (max-width: 880px) {
+  .videoMakerHero,
+  .videoMakerGrid,
+  .videoMakerFormGrid,
+  .pipelineCards {
+    grid-template-columns: 1fr;
+  }
+
+  .videoMakerSettings {
+    position: static;
+  }
+
+  .videoMakerModeBar .ghost {
+    margin-left: 0;
+  }
+
+  .videoProjectList {
+    grid-template-columns: 1fr;
+  }
+}
