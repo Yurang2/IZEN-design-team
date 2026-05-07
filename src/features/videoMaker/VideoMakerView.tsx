@@ -490,7 +490,6 @@ export function VideoMakerView({ onCopy }: VideoMakerViewProps) {
   const workingSettings = activeProject?.settings ?? settings
   const selectedFormat = getFormat(workingForm.formatKey)
   const selectedTone = getTone(workingForm.toneKey)
-  const scenes = useMemo(() => buildScenes(workingForm, workingSettings), [workingForm, workingSettings])
   const outputText = useMemo(() => {
     if (outputTab === 'script') return buildScript(workingForm, workingSettings)
     if (outputTab === 'scenes') return buildSceneTable(workingForm, workingSettings)
@@ -561,69 +560,86 @@ export function VideoMakerView({ onCopy }: VideoMakerViewProps) {
     setForm(EMPTY_FORM)
   }
 
+  const hasDraft = Boolean(activeProject || form.topic.trim() || form.title.trim() || form.source.trim())
+
   return (
     <section className="videoMaker" aria-label="IZEN Video Maker">
-      <div className="videoMakerHero">
-        <div>
-          <p className="eyebrow">AI Automation / YouTube</p>
-          <h2>My Projects</h2>
-          <p>Manage your video automation projects. AI creates the package from script to final edit guide.</p>
-        </div>
-        <div className="videoMakerHeroStats">
-          <strong>{projects.length}</strong>
-          <span>저장 프로젝트</span>
-          <strong>{scenes.length}</strong>
-          <span>자동 컷</span>
-        </div>
-      </div>
+      <div className="videoMakerChrome">
+        <aside className="automationRail" aria-label="Automation navigation">
+          <button type="button" className="railButton railButtonActive" title="YouTube">
+            <span className="railIcon">▶</span>
+            <span>YouTube</span>
+          </button>
+          <button type="button" className="railIconOnly" title="Settings">⚙</button>
+          <button type="button" className="railIconOnly" title="Info">i</button>
+        </aside>
 
-      <div className="videoMakerModeBar" role="tablist" aria-label="제작 모드">
-        <button type="button" className={mode === 'manual' ? 'active' : ''} onClick={() => setMode('manual')}>Video Manual</button>
-        <button type="button" onClick={() => document.querySelector('.videoMakerSettings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Settings</button>
-        <button type="button" className={mode === 'autopilot' ? 'active' : ''} onClick={() => setMode('autopilot')}>AutoPilot</button>
-        <button type="button" className="ghost" onClick={resetDraft}>New Project</button>
-        <Button type="button" onClick={saveProject}>Save</Button>
-      </div>
-
-      <div className="videoMakerGrid">
-        <aside className="videoMakerPanel videoMakerSettings">
-          <div className="panelHeader">
+        <aside className="videoMakerSettings">
+          <div className="settingsHeader">
             <div>
-              <p className="eyebrow">Global Configurator</p>
               <h3>YouTube Settings</h3>
+              <p>Global Configurator</p>
             </div>
-            <span className="proPill">PRO</span>
+            <span className="proPill">◆ PRO</span>
           </div>
 
           <SettingGroup title="Aspect Ratio">
-            <Segmented
-              value={settings.aspectRatio}
-              options={['9:16', '16:9', '1:1', '4:5']}
-              onChange={(value) => updateSettings({ aspectRatio: value as AspectRatio })}
-            />
+            <div className="aspectCards" role="group" aria-label="Aspect Ratio">
+              {(['16:9', '9:16', '1:1', '4:5'] as AspectRatio[]).map((ratio) => (
+                <button
+                  key={ratio}
+                  type="button"
+                  className={settings.aspectRatio === ratio ? 'aspectCard active' : 'aspectCard'}
+                  onClick={() => updateSettings({ aspectRatio: ratio })}
+                >
+                  <span className={`ratioGlyph ratioGlyph-${ratio.replace(':', '')}`} />
+                  <span>{ratio === '4:5' ? '3:4' : ratio}</span>
+                </button>
+              ))}
+            </div>
           </SettingGroup>
 
           <SettingGroup title="Cut Speed">
             <Segmented
-              value={settings.cutSpeed}
+              value={settings.cutSpeed === 'slow' ? 'slow' : 'fast'}
               options={[
                 { value: 'fast', label: 'Fast' },
-                { value: 'balanced', label: 'Balanced' },
                 { value: 'slow', label: 'Slow' },
               ]}
               onChange={(value) => updateSettings({ cutSpeed: value as CutSpeed })}
             />
-            <p className="muted small">Fast 기준 약 5초마다 컷 전환</p>
+            <p className="muted small">~cut every 5 seconds</p>
           </SettingGroup>
 
-          <SettingGroup title="Video Length">
+          <SettingGroup title="Recommended Styles">
+            <div className="recommendedCard">
+              <div>
+                <strong>Recommended Styles</strong>
+                <p>IZEN clean product visual</p>
+              </div>
+              <button type="button">View all</button>
+            </div>
+          </SettingGroup>
+
+          <SettingGroup title="My Characters">
+            <div className="emptySettingCard">
+              <div className="settingCardTop">
+                <strong>My Characters</strong>
+                <button type="button">Add</button>
+              </div>
+              <p>No characters registered</p>
+              <small>Register a character to auto-apply it consistently across all scenes</small>
+            </div>
+          </SettingGroup>
+
+          <SettingGroup title="Video Length (Auto-gen Target)">
             <Segmented
               value={settings.length}
               options={['30s', '60s', '90s', { value: 'custom', label: 'Custom' }]}
               onChange={(value) => updateSettings({ length: value as VideoLength })}
             />
             <label className="inlineField">
-              <span>Custom sec</span>
+              <span>Custom</span>
               <input
                 type="number"
                 min={10}
@@ -631,15 +647,25 @@ export function VideoMakerView({ onCopy }: VideoMakerViewProps) {
                 value={settings.customSeconds}
                 onChange={(event) => updateSettings({ customSeconds: Number(event.target.value) })}
               />
+              <span>sec</span>
             </label>
           </SettingGroup>
 
-          <SettingGroup title="Default Voice">
-            <input value={settings.voice} onChange={(event) => updateSettings({ voice: event.target.value })} />
+          <SettingGroup title="Default Voice (My Voice)">
+            <select value={settings.voice} onChange={(event) => updateSettings({ voice: event.target.value })}>
+              <option>No voice selected</option>
+              <option>IZEN Korean Narrator</option>
+            </select>
+            <div className="settingCardTop">
+              <span>My Voice List (0/10)</span>
+              <button type="button">Add</button>
+            </div>
+          </SettingGroup>
+
+          <SettingGroup title="Voice Speed">
             <Segmented
-              value={settings.voiceSpeed}
+              value={settings.voiceSpeed === 'fast' ? 'fast' : 'normal'}
               options={[
-                { value: 'calm', label: 'Calm' },
                 { value: 'normal', label: 'Normal' },
                 { value: 'fast', label: 'Fast' },
               ]}
@@ -647,160 +673,214 @@ export function VideoMakerView({ onCopy }: VideoMakerViewProps) {
             />
           </SettingGroup>
 
-          <SettingGroup title="Characters / Style Lock">
-            <input value={settings.imageCharacter} onChange={(event) => updateSettings({ imageCharacter: event.target.value })} placeholder="Image character/style" />
-            <input value={settings.videoCharacter} onChange={(event) => updateSettings({ videoCharacter: event.target.value })} placeholder="Video character" />
+          <SettingGroup title="Image Character">
+            <select value={settings.imageCharacter} onChange={(event) => updateSettings({ imageCharacter: event.target.value })}>
+              <option>Select character</option>
+              <option>IZEN clean product visual</option>
+            </select>
+          </SettingGroup>
+
+          <SettingGroup title="Video Character">
+            <select value={settings.videoCharacter} onChange={(event) => updateSettings({ videoCharacter: event.target.value })}>
+              <option>Select character</option>
+              <option>No fixed character</option>
+            </select>
           </SettingGroup>
 
           <SettingGroup title="Subtitle Settings">
             <label className="toggleRow">
+              <span>
+                <strong>Include Subtitles</strong>
+                <small>Auto-composite subtitles into video</small>
+              </span>
               <input type="checkbox" checked={settings.subtitleEnabled} onChange={(event) => updateSettings({ subtitleEnabled: event.target.checked })} />
-              <span>Auto-composite subtitles into video</span>
             </label>
-            <input value={settings.subtitleStyle} onChange={(event) => updateSettings({ subtitleStyle: event.target.value })} />
           </SettingGroup>
 
-          <SettingGroup title="BGM / Ending">
-            <input value={settings.bgmStyle} onChange={(event) => updateSettings({ bgmStyle: event.target.value })} />
-            <label className="toggleRow">
-              <input type="checkbox" checked={settings.useLogoEnding} onChange={(event) => updateSettings({ useLogoEnding: event.target.checked })} />
-              <span>IZEN 로고 엔딩 사용</span>
-            </label>
+          <SettingGroup title="Subtitle Style">
+            <select value={settings.subtitleStyle} onChange={(event) => updateSettings({ subtitleStyle: event.target.value })}>
+              <option>유튜브 Subtitle Preview</option>
+              <option>YouTube bold white / black stroke</option>
+            </select>
           </SettingGroup>
+
+          <button type="button" className="saveSettingsButton">Save Settings</button>
         </aside>
 
-        <main className="videoMakerPanel videoMakerWorkspace">
-          <div className="panelHeader">
+        <main className="automationMain">
+          <header className="automationHeader">
             <div>
-              <p className="eyebrow">{mode === 'autopilot' ? 'Topic to Video Package' : 'Step by Step Builder'}</p>
-              <h3>{mode === 'autopilot' ? 'AutoPilot' : 'Create Manually'}</h3>
+              <h2>My Projects</h2>
+              <p>Manage your video automation projects.</p>
             </div>
-            {activeProject ? <span className="statusPill">{STATUS_LABELS[activeProject.status]}</span> : <span className="statusPill">Draft</span>}
-          </div>
-
-          <div className="videoMakerFormGrid">
-            <label>
-              영상 유형
-              <select name="formatKey" value={form.formatKey} onChange={updateForm}>
-                {VIDEO_FORMATS.map((format) => <option key={format.key} value={format.key}>{format.label}</option>)}
-              </select>
-            </label>
-            <label>
-              말투 프리셋
-              <select name="toneKey" value={form.toneKey} onChange={updateForm}>
-                {TONE_PRESETS.map((tone) => <option key={tone.key} value={tone.key}>{tone.label}</option>)}
-              </select>
-            </label>
-          </div>
-
-          <div className="formatInfoCard">
-            <strong>{selectedFormat.category} / {selectedFormat.label}</strong>
-            <p>{selectedFormat.description}</p>
-            <small>{selectedTone.description}</small>
-          </div>
-
-          <label>
-            프로젝트/영상 제목
-            <input name="title" value={form.title} onChange={updateForm} placeholder="비워두면 주제로 자동 제목 생성" />
-          </label>
-
-          <label>
-            주제
-            <textarea name="topic" value={form.topic} onChange={updateForm} rows={mode === 'autopilot' ? 3 : 2} placeholder="예: SIDEX 2026 IZEN 부스 현장 리캡" />
-          </label>
-
-          <div className="quickTopicGrid">
-            {QUICK_TOPICS.map((topic) => (
-              <button key={topic} type="button" className="quickTopic" onClick={() => setForm((current) => ({ ...current, topic }))}>
-                {topic}
+            <div className="automationActions">
+              <button type="button" className="actionButton actionManual" onClick={() => setMode('manual')}>
+                <span className="actionIcon">▶</span>
+                <span>Video<br />Manual</span>
               </button>
-            ))}
-          </div>
-
-          <div className="videoMakerFormGrid">
-            <label>
-              타깃 시청자
-              <input name="audience" value={form.audience} onChange={updateForm} />
-            </label>
-            <label>
-              목표
-              <input name="goal" value={form.goal} onChange={updateForm} placeholder={selectedFormat.defaultGoal} />
-            </label>
-          </div>
-
-          {mode === 'manual' ? (
-            <>
-              <label>
-                참고자료 / 원문 / 링크
-                <textarea name="source" value={form.source} onChange={updateForm} rows={4} placeholder="행사 정보, 제품 특징, 인터뷰 원문, NAS 링크 등" />
-              </label>
-              <label>
-                CTA
-                <textarea name="cta" value={form.cta} onChange={updateForm} rows={2} />
-              </label>
-            </>
-          ) : null}
-
-          <div className="pipelineCards">
-            <PipelineCard title="AutoPilot Recommended" text="Just enter a topic and AI creates the video package" />
-            <PipelineCard title="Create Manually" text="Customize title, source, CTA and output step by step" />
-            <PipelineCard title="Check Settings" text="Set voice, style, subtitles, duration and cut rhythm first" />
-          </div>
-        </main>
-
-        <aside className="videoMakerPanel projectsPanel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">My Projects</p>
-              <h3>Projects</h3>
+              <button type="button" className="actionButton actionSettings" onClick={() => document.querySelector('.videoMakerSettings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                <span className="actionIcon">⚙</span>
+                <span>Settings</span>
+              </button>
+              <button type="button" className="actionButton actionPilot" onClick={() => setMode('autopilot')}>
+                <span className="actionIcon">🤖</span>
+                <span>AutoPilot</span>
+              </button>
+              <button type="button" className="actionButton actionNew" onClick={resetDraft}>
+                <span className="actionIcon">＋</span>
+                <span>New<br />Project</span>
+              </button>
             </div>
-          </div>
-          {projects.length === 0 ? <p className="muted">저장된 영상 프로젝트가 없습니다.</p> : null}
-          <div className="videoProjectList">
-            {projects.map((project) => (
-              <article key={project.id} className={activeProjectId === project.id ? 'videoProjectCard active' : 'videoProjectCard'}>
-                <button type="button" onClick={() => loadProjectToForm(project)}>
-                  <strong>{project.title}</strong>
-                  <span>{getFormat(project.formatKey).label} · {formatDateTime(project.updatedAt)}</span>
-                </button>
-                <select value={project.status} onChange={(event) => updateProjectStatus(project.id, event.target.value as ProjectStatus)}>
-                  {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-                <div className="projectActions">
-                  <button type="button" className="secondary mini" onClick={() => duplicateProject(project)}>복사</button>
-                  <button type="button" className="secondary mini" onClick={() => deleteProject(project.id)}>삭제</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </aside>
-      </div>
+          </header>
 
-      <section className="videoMakerOutput videoMakerPanel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Generated Package</p>
-            <h3>제작 산출물</h3>
-          </div>
-          <Button type="button" onClick={() => void onCopy(outputText, { successMessage: '현재 산출물을 복사했습니다.', emptyMessage: '복사할 산출물이 없습니다.' })}>
-            현재 탭 복사
-          </Button>
-        </div>
-        <div className="outputTabs">
-          {[
-            ['script', '대본'],
-            ['scenes', '장면표'],
-            ['prompts', '프롬프트'],
-            ['srt', 'SRT'],
-            ['upload', '업로드'],
-            ['premiere', 'Premiere'],
-            ['all', '전체'],
-          ].map(([value, label]) => (
-            <button key={value} type="button" className={outputTab === value ? 'active' : ''} onClick={() => setOutputTab(value as typeof outputTab)}>{label}</button>
-          ))}
-        </div>
-        <pre className="outputBox">{outputText}</pre>
-      </section>
+          {!hasDraft && projects.length === 0 ? (
+            <section className="emptyProjectState">
+              <div className="emptyIconWrap">
+                <div className="emptyIcon">▣</div>
+                <span>✦</span>
+              </div>
+              <h3>Create your first video!</h3>
+              <p>AI will automatically create everything from script to final video. Choose how to get started below.</p>
+              <div className="starterCards">
+                <button type="button" className="starterCard starterPilot" onClick={() => setMode('autopilot')}>
+                  <span className="starterIcon">🤖</span>
+                  <strong>AutoPilot <em>Recommended</em></strong>
+                  <p>Just enter a topic and AI creates the video automatically</p>
+                  <small>Start now</small>
+                </button>
+                <button type="button" className="starterCard starterManual" onClick={() => setMode('manual')}>
+                  <span className="starterIcon">✨</span>
+                  <strong>Create Manually</strong>
+                  <p>Customize your video step by step</p>
+                  <small>New project</small>
+                </button>
+                <button type="button" className="starterCard starterSettings" onClick={() => document.querySelector('.videoMakerSettings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                  <span className="starterIcon">⚙</span>
+                  <strong>Check Settings</strong>
+                  <p>Set your voice, style, and video duration first</p>
+                  <small>Open settings</small>
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section className="creatorConsole">
+              <div className="consoleHeader">
+                <div>
+                  <p>{mode === 'autopilot' ? 'Topic to Video Package' : 'Step by Step Builder'}</p>
+                  <h3>{mode === 'autopilot' ? 'AutoPilot' : 'Create Manually'}</h3>
+                </div>
+                <Button type="button" onClick={saveProject}>Save Project</Button>
+              </div>
+
+              <div className="videoMakerFormGrid">
+                <label>
+                  Video Type
+                  <select name="formatKey" value={form.formatKey} onChange={updateForm}>
+                    {VIDEO_FORMATS.map((format) => <option key={format.key} value={format.key}>{format.label}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Tone Preset
+                  <select name="toneKey" value={form.toneKey} onChange={updateForm}>
+                    {TONE_PRESETS.map((tone) => <option key={tone.key} value={tone.key}>{tone.label}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <div className="formatInfoCard">
+                <strong>{selectedFormat.category} / {selectedFormat.label}</strong>
+                <p>{selectedFormat.description}</p>
+                <small>{selectedTone.description}</small>
+              </div>
+
+              <label>
+                Project Title
+                <input name="title" value={form.title} onChange={updateForm} placeholder="Auto-generate from topic when empty" />
+              </label>
+
+              <label>
+                Topic
+                <textarea name="topic" value={form.topic} onChange={updateForm} rows={mode === 'autopilot' ? 3 : 2} placeholder="예: SIDEX 2026 IZEN 부스 현장 리캡" />
+              </label>
+
+              <div className="quickTopicGrid">
+                {QUICK_TOPICS.map((topic) => (
+                  <button key={topic} type="button" className="quickTopic" onClick={() => setForm((current) => ({ ...current, topic }))}>
+                    {topic}
+                  </button>
+                ))}
+              </div>
+
+              <div className="videoMakerFormGrid">
+                <label>
+                  Target Audience
+                  <input name="audience" value={form.audience} onChange={updateForm} />
+                </label>
+                <label>
+                  Goal
+                  <input name="goal" value={form.goal} onChange={updateForm} placeholder={selectedFormat.defaultGoal} />
+                </label>
+              </div>
+
+              {mode === 'manual' ? (
+                <>
+                  <label>
+                    Source / Reference / Link
+                    <textarea name="source" value={form.source} onChange={updateForm} rows={4} placeholder="행사 정보, 제품 특징, 인터뷰 원문, NAS 링크 등" />
+                  </label>
+                  <label>
+                    CTA
+                    <textarea name="cta" value={form.cta} onChange={updateForm} rows={2} />
+                  </label>
+                </>
+              ) : null}
+
+              <div className="generatedSplit">
+                <div className="outputTabs">
+                  {[
+                    ['script', '대본'],
+                    ['scenes', '장면표'],
+                    ['prompts', '프롬프트'],
+                    ['srt', 'SRT'],
+                    ['upload', '업로드'],
+                    ['premiere', 'Premiere'],
+                    ['all', '전체'],
+                  ].map(([value, label]) => (
+                    <button key={value} type="button" className={outputTab === value ? 'active' : ''} onClick={() => setOutputTab(value as typeof outputTab)}>{label}</button>
+                  ))}
+                </div>
+                <Button type="button" onClick={() => void onCopy(outputText, { successMessage: '현재 산출물을 복사했습니다.', emptyMessage: '복사할 산출물이 없습니다.' })}>
+                  Copy
+                </Button>
+              </div>
+              <pre className="outputBox">{outputText}</pre>
+            </section>
+          )}
+
+          {projects.length > 0 ? (
+            <section className="projectShelf">
+              <h3>Projects</h3>
+              <div className="videoProjectList">
+                {projects.map((project) => (
+                  <article key={project.id} className={activeProjectId === project.id ? 'videoProjectCard active' : 'videoProjectCard'}>
+                    <button type="button" onClick={() => loadProjectToForm(project)}>
+                      <strong>{project.title}</strong>
+                      <span>{getFormat(project.formatKey).label} · {formatDateTime(project.updatedAt)}</span>
+                    </button>
+                    <select value={project.status} onChange={(event) => updateProjectStatus(project.id, event.target.value as ProjectStatus)}>
+                      {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                    <div className="projectActions">
+                      <button type="button" className="secondary mini" onClick={() => duplicateProject(project)}>복사</button>
+                      <button type="button" className="secondary mini" onClick={() => deleteProject(project.id)}>삭제</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </main>
+      </div>
     </section>
   )
 }
@@ -826,14 +906,5 @@ function Segmented({ value, options, onChange }: { value: string; options: Array
         )
       })}
     </div>
-  )
-}
-
-function PipelineCard({ title, text }: { title: string; text: string }) {
-  return (
-    <article className="pipelineCard">
-      <strong>{title}</strong>
-      <span>{text}</span>
-    </article>
   )
 }

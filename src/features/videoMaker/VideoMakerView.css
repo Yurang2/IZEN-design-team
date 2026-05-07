@@ -1,247 +1,283 @@
 .videoMaker {
-  --vm-bg: #07080d;
-  --vm-panel: rgba(14, 16, 26, 0.92);
-  --vm-panel-2: rgba(20, 23, 36, 0.94);
-  --vm-border: rgba(255, 255, 255, 0.1);
-  --vm-border-strong: rgba(255, 255, 255, 0.18);
-  --vm-text: #f7f7fb;
-  --vm-muted: #9ca3b7;
-  --vm-faint: #697084;
-  --vm-cyan: #78f7ff;
-  --vm-blue: #4f8cff;
-  --vm-purple: #a855f7;
-  --vm-pink: #ff3df2;
-  --vm-green: #65ffb4;
-  background:
-    radial-gradient(circle at 18% 2%, rgba(120, 247, 255, 0.16), transparent 28%),
-    radial-gradient(circle at 94% 8%, rgba(168, 85, 247, 0.2), transparent 30%),
-    linear-gradient(180deg, #090a11 0%, #05060a 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 26px;
-  color: var(--vm-text);
-  display: grid;
-  gap: 18px;
-  margin: -6px;
-  min-height: calc(100vh - 90px);
-  padding: 18px;
-}
-
-.videoMakerHero {
-  align-items: center;
-  background: linear-gradient(135deg, rgba(18, 22, 38, 0.98) 0%, rgba(10, 12, 20, 0.95) 64%, rgba(33, 10, 48, 0.9) 100%);
-  border: 1px solid var(--vm-border);
-  border-radius: 24px;
-  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  display: grid;
-  gap: 22px;
-  grid-template-columns: minmax(0, 1fr) 180px;
-  overflow: hidden;
-  padding: 28px;
-  position: relative;
-}
-
-.videoMakerHero::before {
-  background: linear-gradient(90deg, transparent, rgba(120, 247, 255, 0.28), transparent);
-  content: '';
-  height: 1px;
-  left: 4%;
-  position: absolute;
-  right: 4%;
-  top: 0;
-}
-
-.videoMakerHero h2 {
-  color: var(--vm-text);
-  font-size: clamp(34px, 4vw, 56px);
-  letter-spacing: -0.055em;
-  line-height: 0.95;
-  margin: 4px 0 10px;
-}
-
-.videoMakerHero p {
-  color: var(--vm-muted);
-  font-size: 15px;
-  line-height: 1.65;
-  margin: 0;
-  max-width: 620px;
-}
-
-.videoMakerHeroStats {
-  align-content: center;
-  backdrop-filter: blur(16px);
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid var(--vm-border-strong);
-  border-radius: 20px;
-  display: grid;
-  gap: 3px;
-  justify-items: center;
-  padding: 18px;
-}
-
-.videoMakerHeroStats strong {
-  color: white;
-  font-size: 36px;
-  line-height: 1;
-}
-
-.videoMakerHeroStats span {
-  color: var(--vm-muted);
-  font-size: 11px;
-  letter-spacing: 0.03em;
-}
-
-.videoMakerModeBar {
-  align-items: center;
-  background: rgba(10, 12, 20, 0.72);
-  border: 1px solid var(--vm-border);
+  --bb-bg: #050608;
+  --bb-top: #08090d;
+  --bb-panel: #17181d;
+  --bb-panel-soft: #1d1e25;
+  --bb-card: #14151b;
+  --bb-line: #2a2b33;
+  --bb-line-soft: #22232a;
+  --bb-text: #ffffff;
+  --bb-muted: #9db0cf;
+  --bb-faint: #6f7688;
+  --bb-purple: #5946ff;
+  --bb-purple-2: #6d5cff;
+  --bb-yellow: #f5b51b;
+  --bb-red: #f12835;
+  --bb-green: #00aa86;
+  --bb-green-2: #12c899;
+  --bb-blue: #7da2ff;
+  background: var(--bb-bg);
   border-radius: 18px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 9px;
+  color: var(--bb-text);
+  font-family: Inter, Manrope, 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: -6px;
+  min-height: calc(100vh - 92px);
+  overflow: hidden;
 }
 
-.videoMaker button {
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-
-.videoMakerModeBar button,
-.videoMaker .segmentedControl button,
-.videoMaker .outputTabs button,
-.videoMaker .quickTopic {
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 999px;
-  color: var(--vm-muted);
-  font-size: 12px;
-  font-weight: 750;
-  padding: 8px 12px;
-}
-
-.videoMakerModeBar button:hover,
-.videoMaker .segmentedControl button:hover,
-.videoMaker .outputTabs button:hover,
-.videoMaker .quickTopic:hover {
-  border-color: rgba(120, 247, 255, 0.45);
-  color: var(--vm-text);
-  transform: translateY(-1px);
-}
-
-.videoMakerModeBar button.active,
-.videoMaker .segmentedControl button.active,
-.videoMaker .outputTabs button.active {
-  background: linear-gradient(135deg, rgba(79, 140, 255, 0.98), rgba(168, 85, 247, 0.92));
-  border-color: rgba(120, 247, 255, 0.6);
-  box-shadow: 0 10px 28px rgba(79, 140, 255, 0.28);
-  color: #fff;
-}
-
-.videoMakerModeBar .ghost {
-  margin-left: auto;
-}
-
-.videoMakerGrid {
-  align-items: start;
+.videoMakerChrome {
+  background: var(--bb-bg);
   display: grid;
-  gap: 16px;
-  grid-template-columns: 310px minmax(0, 1fr) 290px;
+  grid-template-columns: 76px 304px minmax(0, 1fr);
+  min-height: calc(100vh - 92px);
 }
 
-.videoMakerPanel {
-  backdrop-filter: blur(18px);
-  background: var(--vm-panel);
-  border: 1px solid var(--vm-border);
-  border-radius: 22px;
-  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.045);
-  padding: 18px;
+.automationRail {
+  align-items: center;
+  background: #050608;
+  border-right: 1px solid #14151a;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 10px;
 }
 
-.videoMaker .panelHeader {
+.railButton,
+.railIconOnly {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--bb-faint);
+  display: grid;
+  justify-items: center;
+}
+
+.railButton {
+  border-radius: 14px;
+  gap: 7px;
+  height: 76px;
+  width: 56px;
+}
+
+.railButton span:last-child {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.railIcon {
+  align-items: center;
+  background: rgba(89, 70, 255, 0.16);
+  border-radius: 11px;
+  color: var(--bb-purple-2);
+  display: flex;
+  font-size: 16px;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.railButtonActive {
+  background: #17181d;
+  border-color: #252632;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: #b9c5ff;
+}
+
+.railIconOnly {
+  border-radius: 12px;
+  font-size: 16px;
+  height: 42px;
+  margin-top: auto;
+  width: 42px;
+}
+
+.railIconOnly + .railIconOnly {
+  margin-top: 0;
+}
+
+.videoMakerSettings {
+  background: var(--bb-panel);
+  border-right: 1px solid var(--bb-line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: calc(100vh - 92px);
+  overflow: auto;
+  padding: 24px;
+}
+
+.settingsHeader {
   align-items: flex-start;
   display: flex;
-  gap: 12px;
   justify-content: space-between;
-  margin-bottom: 15px;
 }
 
-.videoMaker .panelHeader h3 {
+.settingsHeader h3 {
   color: #fff;
-  font-size: 20px;
-  letter-spacing: -0.03em;
-  margin: 2px 0 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 6px;
 }
 
-.videoMaker .eyebrow {
-  color: var(--vm-cyan);
+.settingsHeader p,
+.videoMaker .eyebrow,
+.settingGroup > strong {
+  color: #747989;
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   margin: 0;
   text-transform: uppercase;
 }
 
-.videoMaker .proPill,
-.videoMaker .statusPill {
-  background: linear-gradient(135deg, rgba(255, 61, 242, 0.95), rgba(79, 140, 255, 0.95));
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.videoMaker .proPill {
+  background: #23203c;
+  border: 1px solid #332d63;
   border-radius: 999px;
-  color: white;
+  color: #c8c1ff;
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.08em;
   padding: 5px 8px;
-  white-space: nowrap;
 }
 
-.videoMaker .statusPill {
-  background: rgba(120, 247, 255, 0.12);
-  border-color: rgba(120, 247, 255, 0.3);
-  color: var(--vm-cyan);
-}
-
-.videoMakerSettings,
-.projectsPanel {
+.settingGroup {
   display: grid;
-  gap: 14px;
-  position: sticky;
-  top: 18px;
+  gap: 10px;
 }
 
-.videoMaker .settingGroup {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.aspectCards {
   display: grid;
-  gap: 9px;
-  padding-top: 13px;
-}
-
-.videoMaker .settingGroup strong {
-  color: var(--vm-text);
-  font-size: 13px;
-}
-
-.videoMaker .segmentedControl,
-.videoMaker .outputTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.videoMaker .inlineField {
-  align-items: center;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr 84px;
-}
-
-.videoMaker .toggleRow {
-  align-items: center;
-  color: var(--vm-muted);
-  display: flex;
   gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.aspectCard {
+  align-items: center;
+  background: #1d1e24;
+  border: 1px solid #2b2c34;
+  border-radius: 12px;
+  color: #8b91a4;
+  display: grid;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 6px;
+  height: 64px;
+  justify-items: center;
+  padding: 8px 4px;
+}
+
+.aspectCard.active {
+  background: rgba(89, 70, 255, 0.13);
+  border-color: var(--bb-purple);
+  color: #b8b0ff;
+}
+
+.ratioGlyph {
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  display: block;
+  opacity: 0.9;
+}
+
+.ratioGlyph-169 { height: 14px; width: 26px; }
+.ratioGlyph-916 { height: 26px; width: 15px; }
+.ratioGlyph-11 { height: 21px; width: 21px; }
+.ratioGlyph-45 { height: 25px; width: 18px; }
+
+.segmentedControl {
+  background: #101116;
+  border: 1px solid #2a2b33;
+  border-radius: 13px;
+  display: grid;
+  gap: 4px;
+  grid-auto-flow: column;
+  padding: 4px;
+}
+
+.segmentedControl button {
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: #7f8798;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.segmentedControl button.active {
+  background: var(--bb-purple);
+  box-shadow: 0 10px 22px rgba(89, 70, 255, 0.32);
+  color: white;
+}
+
+.videoMaker .muted,
+.videoMaker .small,
+.emptySettingCard p,
+.emptySettingCard small,
+.recommendedCard p,
+.settingCardTop span {
+  color: var(--bb-muted);
+}
+
+.videoMaker .small {
+  font-size: 12px;
+  margin: -2px 0 0;
+}
+
+.recommendedCard,
+.emptySettingCard {
+  background: #111216;
+  border: 1px solid #25262d;
+  border-radius: 14px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.recommendedCard {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  min-height: 62px;
+}
+
+.recommendedCard strong,
+.emptySettingCard strong {
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.recommendedCard button,
+.settingCardTop button {
+  background: transparent;
+  border: 0;
+  color: var(--bb-purple-2);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0;
+}
+
+.settingCardTop {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.inlineField {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: auto 74px auto;
 }
 
 .videoMaker label {
-  color: var(--vm-muted);
+  color: #8b91a4;
   display: grid;
   font-size: 12px;
   font-weight: 800;
@@ -251,40 +287,341 @@
 .videoMaker input,
 .videoMaker select,
 .videoMaker textarea {
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 13px;
-  color: var(--vm-text);
+  background: #101116;
+  border: 1px solid #2a2b33;
+  border-radius: 12px;
+  color: #fff;
   font: inherit;
-  font-weight: 560;
+  font-size: 13px;
   outline: none;
   padding: 11px 12px;
   width: 100%;
 }
 
 .videoMaker select option {
-  background: #10131f;
+  background: #101116;
   color: #fff;
 }
 
 .videoMaker input:focus,
 .videoMaker select:focus,
 .videoMaker textarea:focus {
-  border-color: rgba(120, 247, 255, 0.5);
-  box-shadow: 0 0 0 3px rgba(120, 247, 255, 0.1);
+  border-color: var(--bb-purple);
+  box-shadow: 0 0 0 3px rgba(89, 70, 255, 0.16);
 }
 
-.videoMaker textarea {
-  line-height: 1.55;
-  resize: vertical;
+.toggleRow {
+  align-items: center;
+  background: #101116;
+  border: 1px solid #25262d;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  padding: 13px;
 }
 
-.videoMakerWorkspace {
-  background:
-    radial-gradient(circle at 50% 0%, rgba(79, 140, 255, 0.14), transparent 34%),
-    var(--vm-panel);
+.toggleRow span {
+  display: grid;
+  gap: 3px;
+}
+
+.toggleRow strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.toggleRow small {
+  color: var(--bb-muted);
+  font-size: 11px;
+}
+
+.saveSettingsButton {
+  background: var(--bb-purple);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 18px 34px rgba(89, 70, 255, 0.34);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  margin-top: auto;
+  min-height: 52px;
+}
+
+.automationMain {
+  background: var(--bb-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 38px 34px 42px;
+}
+
+.automationHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.automationHeader h2 {
+  color: #fff;
+  font-size: 31px;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  margin: 0 0 9px;
+}
+
+.automationHeader p {
+  color: var(--bb-muted);
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.automationActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.actionButton {
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  font-weight: 900;
+  gap: 10px;
+  justify-content: center;
+  min-height: 52px;
+  padding: 12px 18px;
+  text-align: left;
+}
+
+.actionButton br {
+  display: none;
+}
+
+.actionManual,
+.actionNew {
+  min-height: 70px;
+  min-width: 116px;
+}
+
+.actionManual br,
+.actionNew br {
+  display: block;
+}
+
+.actionManual {
+  background: var(--bb-red);
+  box-shadow: 0 18px 34px rgba(241, 40, 53, 0.25);
+}
+
+.actionSettings {
+  background: #17181d;
+  border: 1px solid #2a2b33;
+  color: #b4bfd5;
+  min-width: 126px;
+}
+
+.actionPilot {
+  background: var(--bb-green);
+  box-shadow: 0 18px 34px rgba(0, 170, 134, 0.25);
+  min-width: 154px;
+}
+
+.actionNew {
+  background: var(--bb-purple);
+  box-shadow: 0 18px 34px rgba(89, 70, 255, 0.3);
+}
+
+.actionIcon {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  display: flex;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.emptyProjectState {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 560px;
+  min-width: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.emptyIconWrap {
+  margin-bottom: 28px;
+  position: relative;
+}
+
+.emptyIcon {
+  align-items: center;
+  background: radial-gradient(circle at 35% 25%, #3941a3, #181a36 72%);
+  border: 1px solid #303469;
+  border-radius: 50%;
+  box-shadow: 0 22px 50px rgba(89, 70, 255, 0.22);
+  color: #aebdff;
+  display: flex;
+  font-size: 42px;
+  height: 100px;
+  justify-content: center;
+  width: 100px;
+}
+
+.emptyIconWrap > span {
+  align-items: center;
+  background: var(--bb-green);
+  border-radius: 50%;
+  box-shadow: 0 8px 20px rgba(0, 170, 134, 0.32);
+  color: #fff;
+  display: flex;
+  font-size: 18px;
+  height: 34px;
+  justify-content: center;
+  position: absolute;
+  right: -4px;
+  top: 4px;
+  width: 34px;
+}
+
+.emptyProjectState h3 {
+  color: #fff;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+
+.emptyProjectState > p {
+  color: var(--bb-muted);
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0 0 30px;
+  max-width: 610px;
+}
+
+.starterCards {
   display: grid;
   gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: center;
+  max-width: 800px;
+  min-width: 0;
+  width: 100%;
+}
+
+.starterCard {
+  background: #111216;
+  border: 1px solid #2a2b33;
+  border-radius: 17px;
+  color: #fff;
+  display: grid;
+  gap: 12px;
+  min-height: 184px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 16px;
+  text-align: left;
+  width: 100%;
+}
+
+.starterCard > * {
+  min-width: 0;
+}
+
+.starterIcon {
+  align-items: center;
+  border-radius: 13px;
+  display: flex;
+  font-size: 22px;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.starterCard strong {
+  color: #fff;
+  display: block;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.starterCard em {
+  background: rgba(0, 170, 134, 0.16);
+  border: 1px solid rgba(0, 170, 134, 0.28);
+  border-radius: 999px;
+  color: #62f0c3;
+  font-size: 9px;
+  font-style: normal;
+  margin-left: 5px;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+
+.starterCard p {
+  color: var(--bb-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.starterCard small {
+  color: #fff;
+  font-weight: 900;
+  margin-top: auto;
+}
+
+.starterPilot { border-color: rgba(0, 170, 134, 0.4); background: linear-gradient(180deg, rgba(0, 170, 134, 0.1), #111216); }
+.starterPilot .starterIcon { background: rgba(0, 170, 134, 0.18); }
+.starterManual { border-color: rgba(89, 70, 255, 0.44); background: linear-gradient(180deg, rgba(89, 70, 255, 0.12), #111216); }
+.starterManual .starterIcon { background: rgba(89, 70, 255, 0.18); }
+.starterSettings { border-color: rgba(245, 181, 27, 0.42); background: linear-gradient(180deg, rgba(245, 181, 27, 0.11), #111216); }
+.starterSettings .starterIcon { background: rgba(245, 181, 27, 0.18); }
+
+.creatorConsole,
+.projectShelf {
+  background: var(--bb-panel);
+  border: 1px solid var(--bb-line);
+  border-radius: 18px;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.consoleHeader,
+.generatedSplit {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.consoleHeader p {
+  color: var(--bb-faint);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.consoleHeader h3,
+.projectShelf h3 {
+  color: #fff;
+  margin: 0;
 }
 
 .videoMakerFormGrid {
@@ -293,81 +630,79 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.videoMaker .formatInfoCard {
-  background: linear-gradient(135deg, rgba(79, 140, 255, 0.14), rgba(168, 85, 247, 0.12));
-  border: 1px solid rgba(120, 247, 255, 0.18);
-  border-radius: 17px;
+.formatInfoCard {
+  background: #111216;
+  border: 1px solid #25262d;
+  border-radius: 14px;
   display: grid;
   gap: 5px;
   padding: 14px;
 }
 
-.videoMaker .formatInfoCard strong {
-  color: #fff;
-}
+.formatInfoCard strong { color: #fff; }
+.formatInfoCard p,
+.formatInfoCard small { color: var(--bb-muted); margin: 0; }
 
-.videoMaker .formatInfoCard p,
-.videoMaker .formatInfoCard small {
-  color: var(--vm-muted);
-  margin: 0;
-}
-
-.videoMaker .quickTopicGrid {
+.quickTopicGrid,
+.outputTabs,
+.projectActions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.videoMaker .pipelineCards {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.videoMaker .pipelineCard {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035));
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  display: grid;
-  gap: 6px;
-  min-height: 112px;
-  padding: 16px;
-}
-
-.videoMaker .pipelineCard strong {
-  color: #fff;
-  font-size: 15px;
-}
-
-.videoMaker .pipelineCard span {
-  color: var(--vm-muted);
+.quickTopic,
+.outputTabs button {
+  background: #111216;
+  border: 1px solid #2a2b33;
+  border-radius: 999px;
+  color: var(--bb-muted);
   font-size: 12px;
-  line-height: 1.55;
+  font-weight: 800;
+  padding: 8px 11px;
 }
 
-.videoMaker .videoProjectList {
+.outputTabs button.active {
+  background: var(--bb-purple);
+  border-color: var(--bb-purple);
+  color: #fff;
+}
+
+.outputBox {
+  background: #08090d;
+  border: 1px solid #22232a;
+  border-radius: 14px;
+  color: #dce7ff;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0;
+  max-height: 460px;
+  overflow: auto;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+.videoProjectList {
   display: grid;
   gap: 10px;
-  max-height: 680px;
-  overflow: auto;
-  padding-right: 2px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
-.videoMaker .videoProjectCard {
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 17px;
+.videoProjectCard {
+  background: #111216;
+  border: 1px solid #25262d;
+  border-radius: 14px;
   display: grid;
   gap: 8px;
-  padding: 11px;
+  padding: 12px;
 }
 
-.videoMaker .videoProjectCard.active {
-  border-color: rgba(120, 247, 255, 0.55);
-  box-shadow: 0 0 0 3px rgba(120, 247, 255, 0.11);
+.videoProjectCard.active {
+  border-color: var(--bb-purple);
 }
 
-.videoMaker .videoProjectCard > button {
+.videoProjectCard > button {
   background: transparent;
   border: 0;
   color: inherit;
@@ -377,78 +712,20 @@
   text-align: left;
 }
 
-.videoMaker .videoProjectCard > button strong {
-  color: #fff;
-}
-
-.videoMaker .videoProjectCard > button span,
-.videoMaker .muted {
-  color: var(--vm-muted);
-}
-
-.videoMaker .small {
-  font-size: 12px;
-}
-
-.videoMaker .projectActions {
-  display: flex;
-  gap: 6px;
-}
-
-.videoMakerOutput {
-  background: linear-gradient(180deg, rgba(13, 16, 29, 0.96), rgba(7, 8, 13, 0.98));
-  display: grid;
-  gap: 12px;
-}
-
-.videoMaker .outputBox {
-  background: #05060a;
-  border: 1px solid rgba(120, 247, 255, 0.12);
-  border-radius: 18px;
-  color: #d8e9ff;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-  font-size: 12px;
-  line-height: 1.68;
-  margin: 0;
-  max-height: 620px;
-  overflow: auto;
-  padding: 18px;
-  white-space: pre-wrap;
-}
+.videoProjectCard > button strong { color: #fff; }
+.videoProjectCard > button span { color: var(--bb-muted); font-size: 12px; }
 
 @media (max-width: 1320px) {
-  .videoMakerGrid {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
-
-  .projectsPanel {
-    grid-column: 1 / -1;
-    position: static;
-  }
-
-  .videoMaker .videoProjectList {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-height: none;
-  }
+  .videoMakerChrome { grid-template-columns: 70px 310px minmax(0, 1fr); }
+  .automationHeader { align-items: stretch; flex-direction: column; }
+  .automationActions { justify-content: flex-start; }
+  .starterCards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-@media (max-width: 880px) {
-  .videoMakerHero,
-  .videoMakerGrid,
-  .videoMakerFormGrid,
-  .videoMaker .pipelineCards {
-    grid-template-columns: 1fr;
-  }
-
-  .videoMakerSettings {
-    position: static;
-  }
-
-  .videoMakerModeBar .ghost {
-    margin-left: 0;
-  }
-
-  .videoMaker .videoProjectList {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 960px) {
+  .videoMakerChrome { grid-template-columns: 1fr; }
+  .automationRail { display: none; }
+  .videoMakerSettings { max-height: none; }
+  .starterCards,
+  .videoMakerFormGrid { grid-template-columns: 1fr; }
 }
