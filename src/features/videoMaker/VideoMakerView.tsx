@@ -565,12 +565,9 @@ export function VideoMakerView({ onCopy }: VideoMakerViewProps) {
     <section className="videoMaker" aria-label="IZEN Video Maker">
       <div className="videoMakerHero">
         <div>
-          <p className="eyebrow">AI Automation / YouTube Workflow</p>
-          <h2>IZEN Video Maker</h2>
-          <p>
-            빠나나 AI식 AutoPilot·Manual·Settings·Projects 구조를 IZEN 영상 제작 업무에 맞춘 초안 제작 도구입니다.
-            지금 단계에서는 대본, 장면표, 프롬프트, SRT, 업로드 메타, Premiere 지시서를 바로 복사합니다.
-          </p>
+          <p className="eyebrow">AI Automation / YouTube</p>
+          <h2>My Projects</h2>
+          <p>Manage your video automation projects. AI creates the package from script to final edit guide.</p>
         </div>
         <div className="videoMakerHeroStats">
           <strong>{projects.length}</strong>
@@ -581,10 +578,11 @@ export function VideoMakerView({ onCopy }: VideoMakerViewProps) {
       </div>
 
       <div className="videoMakerModeBar" role="tablist" aria-label="제작 모드">
+        <button type="button" className={mode === 'manual' ? 'active' : ''} onClick={() => setMode('manual')}>Video Manual</button>
+        <button type="button" onClick={() => document.querySelector('.videoMakerSettings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Settings</button>
         <button type="button" className={mode === 'autopilot' ? 'active' : ''} onClick={() => setMode('autopilot')}>AutoPilot</button>
-        <button type="button" className={mode === 'manual' ? 'active' : ''} onClick={() => setMode('manual')}>Manual</button>
-        <button type="button" className="ghost" onClick={resetDraft}>새 초안</button>
-        <Button type="button" onClick={saveProject}>프로젝트 저장</Button>
+        <button type="button" className="ghost" onClick={resetDraft}>New Project</button>
+        <Button type="button" onClick={saveProject}>Save</Button>
       </div>
 
       <div className="videoMakerGrid">
@@ -744,12 +742,9 @@ export function VideoMakerView({ onCopy }: VideoMakerViewProps) {
           ) : null}
 
           <div className="pipelineCards">
-            <PipelineCard title="1. Title" text="후킹형 제목 3안" />
-            <PipelineCard title="2. Script" text="시간대별 내레이션" />
-            <PipelineCard title="3. Scenes" text="컷 리스트 자동 분할" />
-            <PipelineCard title="4. Prompts" text="이미지/영상 생성 프롬프트" />
-            <PipelineCard title="5. Subtitles" text="SRT 자막" />
-            <PipelineCard title="6. Upload" text="제목·설명·태그" />
+            <PipelineCard title="AutoPilot Recommended" text="Just enter a topic and AI creates the video package" />
+            <PipelineCard title="Create Manually" text="Customize title, source, CTA and output step by step" />
+            <PipelineCard title="Check Settings" text="Set voice, style, subtitles, duration and cut rhythm first" />
           </div>
         </main>
 

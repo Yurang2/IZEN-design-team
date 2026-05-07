@@ -102,6 +102,32 @@
   flex-shrink: 0;
 }
 
+.sidebarBuildRow {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.videoMakerSecretButton {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  cursor: default;
+  height: 22px;
+  opacity: 0;
+  padding: 0;
+  width: 30px;
+}
+
+.videoMakerSecretButton:hover,
+.videoMakerSecretButton:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  outline: none;
+}
+
 @media (max-width: 1160px) {
   .page {
     padding: 10px;
